@@ -95,9 +95,11 @@ return result;
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"port":"COM3","baudRate":115200,"dataBits":8,"stopBits":1,"parity":0,"dtr":false,"rts":false}' \
+  -d '{"Port":"COM3","BaudRate":115200,"DataBits":8,"StopBits":1,"Parity":0,"Dtr":false,"Rts":false}' \
   http://127.0.0.1:8899/api/port/open
 ```
+
+> 注意：JSON 属性名采用 PascalCase（首字母大写），与 C# 模型属性名一致。
 
 **获取状态：**
 
@@ -119,7 +121,7 @@ curl http://127.0.0.1:8899/api/status
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"data":"AT+GMR","isHex":false}' \
+  -d '{"Data":"AT+GMR","IsHex":false}' \
   http://127.0.0.1:8899/api/send
 ```
 
@@ -127,7 +129,7 @@ curl -X POST -H "Content-Type: application/json" \
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"data":"41 54 2B 47 4D 52 0D 0A","isHex":true}' \
+  -d '{"Data":"41 54 2B 47 4D 52 0D 0A","IsHex":true}' \
   http://127.0.0.1:8899/api/send
 ```
 
@@ -156,12 +158,12 @@ curl "http://127.0.0.1:8899/api/data?since=0&direction=RX"
 ```bash
 # 等待包含 "OK" 的响应，超时 5 秒
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"pattern":"OK","timeoutMs":5000,"matchMode":"contains","direction":"RX"}' \
+  -d '{"Pattern":"OK","TimeoutMs":5000,"MatchMode":"contains","Direction":"RX"}' \
   http://127.0.0.1:8899/api/wait-for
 
 # 正则匹配
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"pattern":"AT\\+\\w+","timeoutMs":3000,"matchMode":"regex"}' \
+  -d '{"Pattern":"AT\\+\\w+","TimeoutMs":3000,"MatchMode":"regex"}' \
   http://127.0.0.1:8899/api/wait-for
 ```
 
@@ -176,8 +178,8 @@ curl -X POST -H "Content-Type: application/json" \
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"target":"rx"}' http://127.0.0.1:8899/api/clear
-# target: "rx" | "tx" | "all"（默认 all）
+  -d '{"Target":"rx"}' http://127.0.0.1:8899/api/clear
+# Target: "rx" | "tx" | "all"（默认 all）
 ```
 
 #### 协议解析器
@@ -193,11 +195,11 @@ curl http://127.0.0.1:8899/api/parsers
 
 # 激活解析器
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"name":"my-protocol"}' http://127.0.0.1:8899/api/parser/activate
+  -d '{"Name":"my-protocol"}' http://127.0.0.1:8899/api/parser/activate
 
 # 停用
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"name":null}' http://127.0.0.1:8899/api/parser/activate
+  -d '{"Name":null}' http://127.0.0.1:8899/api/parser/activate
 ```
 
 ### 快捷键
@@ -223,6 +225,7 @@ curl -X POST -H "Content-Type: application/json" \
 ```
 ACCcom/
 ├── ACCcom.sln
+├── launch_acccom.ps1         # 一键启动脚本（WPF + MCP Server 代理模式）
 ├── src/
 │   ├── ACCcom.Core/              # 共享核心库（net8.0，无 WPF 依赖）
 │   │   ├── Models/
@@ -257,10 +260,27 @@ ACCcom/
 
 ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 12 个工具，无需 HTTP 配置。
 
-```bash
-# AI 启动方式
+**两种运行模式：**
+
+| 模式 | 命令 | 说明 |
+|------|------|------|
+| 直连 | `dotnet run --project src/ACCcom.McpServer/ACCcom.McpServer.csproj` | 独立管理串口，无需桌面端 |
+| 代理（推荐） | `.\launch_acccom.ps1` | 自动启动 WPF 桌面端 + MCP Server，通过 HTTP API 操作串口，数据实时同步到 GUI |
+
+**推荐使用代理模式**：所有串口操作转发给 ACCCOM WPF 的 HTTP API（端口 8899），AI 操作和桌面端实时同步。
+
+```powershell
+# 代理模式（自动启动 WPF 桌面端 + MCP Server）
+.\launch_acccom.ps1
+
+# 直连模式（无桌面端）
 dotnet run --project src/ACCcom.McpServer/ACCcom.McpServer.csproj
+
+# 代理模式（手动指定 API 地址）
+.\launch_acccom.ps1 --proxy-url http://127.0.0.1:8899
 ```
+
+> 在 OpenCode 中，MCP Server 配置已自动使用 `launch_acccom.ps1` 启动脚本，确保 WPF 桌面端先于 MCP Server 运行，代理模式开箱即用。
 
 **AI 自动化串口调试完整工作流：**
 

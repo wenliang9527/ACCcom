@@ -1,371 +1,440 @@
 <Window x:Class="ACCcom.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ACCCOM 串口调试工具" Height="760" Width="1100"
+        Title="ACCCOM 串口调试工具" Height="780" Width="1120"
+        MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown"
         WindowStyle="SingleBorderWindow"
-        BorderThickness="0">
+        Background="{StaticResource BgBaseBrush}">
+
     <Window.Resources>
         <Style x:Key="ConfigLabel" TargetType="TextBlock" BasedOn="{StaticResource Label}">
             <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="FontWeight" Value="Medium" />
         </Style>
-        <Style x:Key="ConfigSeparator" TargetType="Rectangle">
-            <Setter Property="Width" Value="1" />
-            <Setter Property="Height" Value="24" />
-            <Setter Property="Fill" Value="{StaticResource BorderBrush}" />
-            <Setter Property="Margin" Value="8,0" />
+        <Style x:Key="ToolGroup" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BgElevatedBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- Open/Close button: blue when closed, red when open -->
+        <Style x:Key="OpenCloseButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="16,9" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="MinWidth" Value="100" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                Effect="{StaticResource SubtleShadow}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Open state: red button -->
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter TargetName="Bd" Property="Background">
+                                    <Setter.Value>
+                                        <SolidColorBrush Color="{StaticResource RedError}" />
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                            <!-- Hover: depends on open state -->
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True" />
+                                    <Condition Binding="{Binding IsOpen}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                            </MultiDataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True" />
+                                    <Condition Binding="{Binding IsOpen}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="#FF5630" />
+                            </MultiDataTrigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentPressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <Border Background="{StaticResource BgBaseBrush}">
-        <Grid Margin="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="1" />
-                <RowDefinition Height="2*" />
-                <RowDefinition Height="1" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="1" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-            <!-- ============================================================ -->
-            <!-- Row 0: 串口配置工具栏 — Impeccable: clean functional groups -->
-            <!-- ============================================================ -->
-            <Border Grid.Row="0" Background="{StaticResource BgSurfaceBrush}"
-                    BorderThickness="0,0,0,0" Padding="16,10">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+        <!-- ============================================================ -->
+        <!-- Row 0: Toolbar — Grouped controls on elevated cards           -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="0" Background="{StaticResource BgSurfaceBrush}"
+                Padding="12,8" Effect="{StaticResource SubtleShadow}">
+            <DockPanel>
+                <!-- Action buttons (right) -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="刷新" Command="{Binding RefreshPortsCommand}"
+                            Style="{StaticResource OutlineButton}" Margin="0,0,8,0" />
+                    <Button Content="{Binding IsOpen, Converter={StaticResource BoolToOpenText}}"
+                            Command="{Binding OpenCloseCommand}"
+                            Style="{StaticResource OpenCloseButton}"
+                            Margin="0" />
+                </StackPanel>
 
-                    <!-- Port + Baud group -->
-                    <WrapPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="端口" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding AvailablePorts}" Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
-                                  Width="100" IsEditable="True" Margin="0,0,12,0" />
-                        <TextBlock Text="波特率" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="90" Margin="0,0,12,0" />
-                    </WrapPanel>
+                <!-- Config groups (left, wrapping) -->
+                <WrapPanel VerticalAlignment="Center">
+                    <!-- Port + Baud -->
+                    <Border Style="{StaticResource ToolGroup}" Margin="0,0,6,0">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="端口" Style="{StaticResource ConfigLabel}" />
+                            <ComboBox ItemsSource="{Binding AvailablePorts}" Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
+                                      Width="95" IsEditable="True" Margin="0,0,8,0" />
+                            <TextBlock Text="波特率" Style="{StaticResource ConfigLabel}" />
+                            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="85" />
+                        </WrapPanel>
+                    </Border>
 
-                    <Rectangle Style="{StaticResource ConfigSeparator}" Grid.Column="0" Margin="0"
-                               Visibility="{Binding ElementName=DataGroup, Path=ActualWidth, Converter={x:Null}}" />
+                    <!-- Data + Parity + Stop -->
+                    <Border Style="{StaticResource ToolGroup}" Margin="0,0,6,0">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="数据位" Style="{StaticResource ConfigLabel}" />
+                            <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="48" Margin="0,0,8,0" />
+                            <TextBlock Text="校验" Style="{StaticResource ConfigLabel}" />
+                            <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="65" Margin="0,0,8,0" />
+                            <TextBlock Text="停止位" Style="{StaticResource ConfigLabel}" />
+                            <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="65" />
+                        </WrapPanel>
+                    </Border>
 
-                    <!-- Data bits + Parity + Stop bits group -->
-                    <WrapPanel Grid.Column="1" VerticalAlignment="Center" Margin="0">
-                        <TextBlock Text="数据位" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="50" Margin="0,0,12,0" />
-                        <TextBlock Text="校验位" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="70" Margin="0,0,12,0" />
-                        <TextBlock Text="停止位" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="70" />
-                    </WrapPanel>
+                    <!-- DTR/RTS -->
+                    <Border Style="{StaticResource ToolGroup}" Margin="0,0,6,0">
+                        <WrapPanel VerticalAlignment="Center">
+                            <CheckBox Content="DTR" IsChecked="{Binding DtrEnable}" Margin="0,0,10,0" />
+                            <CheckBox Content="RTS" IsChecked="{Binding RtsEnable}" />
+                        </WrapPanel>
+                    </Border>
 
-                    <!-- DTR/RTS control -->
-                    <WrapPanel Grid.Column="2" VerticalAlignment="Center" Margin="16,0,0,0">
-                        <CheckBox Content="DTR" IsChecked="{Binding DtrEnable}" Margin="0,0,12,0" />
-                        <CheckBox Content="RTS" IsChecked="{Binding RtsEnable}" />
-                        <Rectangle Style="{StaticResource ConfigSeparator}" Margin="8,0,8,0" />
-                        <TextBlock Text="解析器" Style="{StaticResource ConfigLabel}" />
-                        <ComboBox ItemsSource="{Binding AvailableParsers}"
-                                  Text="{Binding SelectedParser, UpdateSourceTrigger=PropertyChanged}"
-                                  Width="110" IsEditable="False" Margin="0,0,4,0" />
-                        <Button Content="📂" Command="{Binding OpenParserDirCommand}"
-                                Style="{StaticResource OutlineButton}" FontSize="14" Padding="6,2"
-                                ToolTip="打开脚本目录" />
-                    </WrapPanel>
+                    <!-- Parser -->
+                    <Border Style="{StaticResource ToolGroup}" Margin="0,0,6,0">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="解析器" Style="{StaticResource ConfigLabel}" Margin="0,0,4,0" />
+                            <ComboBox ItemsSource="{Binding AvailableParsers}"
+                                      Text="{Binding SelectedParser, UpdateSourceTrigger=PropertyChanged}"
+                                      Width="100" IsEditable="False" Margin="0,0,4,0" />
+                            <Button Content="📂" Command="{Binding OpenParserDirCommand}"
+                                    Style="{StaticResource HeaderButton}" FontSize="14" Padding="4,2"
+                                    ToolTip="打开脚本目录" />
+                        </WrapPanel>
+                    </Border>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
 
-                    <!-- Action buttons -->
-                    <WrapPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button Content="刷新" Command="{Binding RefreshPortsCommand}"
-                                Style="{StaticResource OutlineButton}" Margin="0,0,8,0" />
-                        <Button Content="{Binding IsOpen, Converter={StaticResource BoolToOpenText}}"
-                                Command="{Binding OpenCloseCommand}"
-                                Style="{StaticResource PrimaryButton}" Width="100" />
-                    </WrapPanel>
-                </Grid>
-            </Border>
+        <!-- ============================================================ -->
+        <!-- Row 1: RX / TX Panels — Card-based with accent headers       -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="1" Margin="8,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <!-- Divider -->
-            <Rectangle Grid.Row="0" Height="1" Fill="{StaticResource BorderBrush}"
-                       VerticalAlignment="Bottom" />
-
-            <!-- ============================================================ -->
-            <!-- Row 2: 接收/发送区 (双窗) — Impeccable: no nested cards -->
-            <!-- ============================================================ -->
-            <Grid Grid.Row="2" Margin="0,0,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="6" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- RX Panel -->
-                <Border Grid.Column="0" Background="{StaticResource BgSurfaceBrush}"
-                        BorderBrush="{StaticResource GreenRxBorderBrush}"
-                        BorderThickness="1" CornerRadius="6" Margin="8,6,3,6">
-                    <DockPanel>
-                        <!-- Header -->
-                        <Border DockPanel.Dock="Top"
-                                Background="{StaticResource GreenRxBgBrush}" Padding="10,8"
-                                CornerRadius="5,5,0,0"
-                                BorderBrush="{StaticResource GreenRxBorderBrush}"
-                                BorderThickness="0,0,0,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="接收区 (RX)"
+            <!-- RX Panel -->
+            <Border Grid.Column="0" Background="{StaticResource BgSurfaceBrush}"
+                    CornerRadius="8" Effect="{StaticResource CardShadow}"
+                    Margin="0,0,3,0" ClipToBounds="True">
+                <DockPanel>
+                    <!-- Accent strip -->
+                    <Border DockPanel.Dock="Top" Height="3" Background="{StaticResource GreenRxHeaderBrush}" />
+                    <!-- Header -->
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource GreenRxBgBrush}" Padding="12,7">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource GreenRxHeaderBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="接收区 (RX)"
                                            Foreground="{StaticResource GreenRxBrush}"
                                            FontSize="13" FontWeight="SemiBold"
-                                           FontFamily="Segoe UI"
                                            VerticalAlignment="Center" />
-                                <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                                    <CheckBox Content="时间戳" IsChecked="{Binding EnableRxTimestamp}"
-                                              Margin="0,0,8,0" />
-                                    <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}"
-                                              Margin="0,0,10,0" />
-                                    <Button Content="清空" Command="{Binding ClearRxCommand}"
-                                            Style="{StaticResource OutlineButton}" Margin="0,0,4,0" />
-                                    <Button Content="保存" Command="{Binding SaveRxCommand}"
-                                            Style="{StaticResource OutlineButton}" />
-                                </WrapPanel>
-                            </Grid>
-                        </Border>
-                        <!-- Data list -->
-                        <ListBox ItemsSource="{Binding RxEntries}"
-                                 SelectedItem="{Binding SelectedEntry}"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 VirtualizingPanel.ScrollUnit="Pixel"
-                                 Background="Transparent" BorderThickness="0" Margin="4">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Padding="6,3" Margin="2,1" CornerRadius="4"
-                                            Background="{StaticResource GreenRxBgBrush}">
-                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
-                                                   FontFamily="Consolas" FontSize="13"
-                                                   Foreground="{StaticResource GreenRxBrush}" />
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                            </StackPanel>
+                            <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <CheckBox Content="时间戳" IsChecked="{Binding EnableRxTimestamp}" Margin="0,0,6,0" />
+                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="0,0,8,0" />
+                                <Button Content="清空" Command="{Binding ClearRxCommand}"
+                                        Style="{StaticResource HeaderButton}" Margin="0,0,2,0" />
+                                <Button Content="保存" Command="{Binding SaveRxCommand}"
+                                        Style="{StaticResource HeaderButton}" />
+                            </WrapPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- Data list -->
+                    <ListBox x:Name="RxListBox" ItemsSource="{Binding RxEntries}"
+                             SelectedItem="{Binding SelectedEntry}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             Background="Transparent" BorderThickness="0"
+                             Padding="6,4">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="6,4" Margin="0,1" CornerRadius="4"
+                                        Background="{StaticResource GreenRxBgBrush}">
+                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                               FontFamily="Consolas" FontSize="12.5"
+                                               Foreground="{StaticResource GreenRxBrush}" />
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-                        <!-- 字段解析面板 -->
-                        <Border DockPanel.Dock="Bottom"
-                                Background="{StaticResource BgBaseBrush}"
-                                BorderThickness="0,1,0,0"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                Padding="8,6"
-                                Height="160"
-                                Visibility="{Binding SelectedEntry.Fields, Converter={StaticResource NullToVisibility}}">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding SelectedEntry.Fields}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,2">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <Rectangle Grid.Column="0" Width="4" Margin="0,0,6,0"
-                                                           Fill="{Binding Severity, Converter={StaticResource SeverityToColor}}"
-                                                           RadiusX="2" RadiusY="2" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                           FontWeight="SemiBold" FontSize="12"
-                                                           Foreground="{StaticResource InkPrimaryBrush}"
-                                                           MinWidth="80" />
-                                                <WrapPanel Grid.Column="2">
-                                                    <TextBlock Text="{Binding RawHex}" FontFamily="Consolas" FontSize="12"
-                                                               Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" />
-                                                    <TextBlock Text="→" FontSize="12"
-                                                               Foreground="{StaticResource InkTertiaryBrush}" Margin="0,0,8,0" />
-                                                    <TextBlock Text="{Binding DisplayValue}" FontSize="12"
-                                                               Foreground="{StaticResource InkPrimaryBrush}" />
-                                                </WrapPanel>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                    </DockPanel>
-                </Border>
+                    <!-- Field parse panel -->
+                    <Border DockPanel.Dock="Bottom"
+                            Background="{StaticResource BgElevatedBrush}"
+                            BorderThickness="0,1,0,0"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            Padding="8,6" Height="150"
+                            Visibility="{Binding SelectedEntry.Fields, Converter={StaticResource NullToVisibility}}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding SelectedEntry.Fields}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0" Width="4" Margin="0,0,8,0"
+                                                       Fill="{Binding Severity, Converter={StaticResource SeverityToColor}}"
+                                                       RadiusX="2" RadiusY="2" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       FontWeight="SemiBold" FontSize="12"
+                                                       Foreground="{StaticResource InkPrimaryBrush}"
+                                                       MinWidth="80" />
+                                            <WrapPanel Grid.Column="2">
+                                                <TextBlock Text="{Binding RawHex}" FontFamily="Consolas" FontSize="12"
+                                                           Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" />
+                                                <TextBlock Text="→" FontSize="12"
+                                                           Foreground="{StaticResource InkTertiaryBrush}" Margin="0,0,8,0" />
+                                                <TextBlock Text="{Binding DisplayValue}" FontSize="12"
+                                                           Foreground="{StaticResource InkPrimaryBrush}" />
+                                            </WrapPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
+            </Border>
 
-                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
-                              VerticalAlignment="Stretch" Background="Transparent" />
+            <!-- GridSplitter with visible grip -->
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Background="Transparent"
+                          ResizeBehavior="PreviousAndNext" Margin="0,8">
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Grid Background="Transparent">
+                            <Border Background="{StaticResource BorderBrush}" CornerRadius="3"
+                                    Width="4" HorizontalAlignment="Center" Opacity="0.5">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="2" ShadowDepth="0" Opacity="0.2" />
+                                </Border.Effect>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+            </GridSplitter>
 
-                <!-- TX Panel -->
-                <Border Grid.Column="2" Background="{StaticResource BgSurfaceBrush}"
-                        BorderBrush="{StaticResource BlueTxBorderBrush}"
-                        BorderThickness="1" CornerRadius="6" Margin="3,6,8,6">
-                    <DockPanel>
-                        <!-- Header -->
-                        <Border DockPanel.Dock="Top"
-                                Background="{StaticResource BlueTxBgBrush}" Padding="10,8"
-                                CornerRadius="5,5,0,0"
-                                BorderBrush="{StaticResource BlueTxBorderBrush}"
-                                BorderThickness="0,0,0,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="发送区 (TX)"
+            <!-- TX Panel -->
+            <Border Grid.Column="2" Background="{StaticResource BgSurfaceBrush}"
+                    CornerRadius="8" Effect="{StaticResource CardShadow}"
+                    Margin="3,0,0,0" ClipToBounds="True">
+                <DockPanel>
+                    <!-- Accent strip -->
+                    <Border DockPanel.Dock="Top" Height="3" Background="{StaticResource BlueTxHeaderBrush}" />
+                    <!-- Header -->
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource BlueTxBgBrush}" Padding="12,7">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource BlueTxHeaderBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="发送区 (TX)"
                                            Foreground="{StaticResource BlueTxBrush}"
                                            FontSize="13" FontWeight="SemiBold"
-                                           FontFamily="Segoe UI"
                                            VerticalAlignment="Center" />
-                                <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                                    <CheckBox Content="时间戳" IsChecked="{Binding EnableTxTimestamp}"
-                                              Margin="0,0,8,0" />
-                                    <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}"
-                                              Margin="0,0,10,0" />
-                                    <Button Content="清空" Command="{Binding ClearTxCommand}"
-                                            Style="{StaticResource OutlineButton}" Margin="0,0,4,0" />
-                                    <Button Content="保存" Command="{Binding SaveTxCommand}"
-                                            Style="{StaticResource OutlineButton}" />
-                                </WrapPanel>
-                            </Grid>
-                        </Border>
-                        <!-- Data list -->
-                        <ListBox ItemsSource="{Binding TxEntries}"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 VirtualizingPanel.ScrollUnit="Pixel"
-                                 Background="Transparent" BorderThickness="0" Margin="4">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Padding="6,3" Margin="2,1" CornerRadius="4"
-                                            Background="{StaticResource BlueTxBgBrush}">
-                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
-                                                   FontFamily="Consolas" FontSize="13"
-                                                   Foreground="{StaticResource BlueTxBrush}" />
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </DockPanel>
-                </Border>
-            </Grid>
-
-            <!-- ============================================================ -->
-            <!-- Row 4: 快捷发送栏 — Impeccable: functional pills -->
-            <!-- ============================================================ -->
-            <Border Grid.Row="4" Background="{StaticResource BgSurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,0" Padding="16,8" Margin="8,4">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="快捷发送"
-                               Style="{StaticResource SectionHeader}"
-                               VerticalAlignment="Center" Margin="0,0,12,0" />
-                    <ItemsControl Grid.Column="1" ItemsSource="{Binding ShortcutCommands}"
-                                  VerticalAlignment="Center">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
+                            </StackPanel>
+                            <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <CheckBox Content="时间戳" IsChecked="{Binding EnableTxTimestamp}" Margin="0,0,6,0" />
+                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="0,0,8,0" />
+                                <Button Content="清空" Command="{Binding ClearTxCommand}"
+                                        Style="{StaticResource HeaderButton}" Margin="0,0,2,0" />
+                                <Button Content="保存" Command="{Binding SaveTxCommand}"
+                                        Style="{StaticResource HeaderButton}" />
+                            </WrapPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- Data list -->
+                    <ListBox x:Name="TxListBox" ItemsSource="{Binding TxEntries}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             Background="Transparent" BorderThickness="0"
+                             Padding="6,4">
+                        <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Button Content="{Binding}"
-                                        Command="{Binding DataContext.SendShortcutCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"
-                                        Style="{StaticResource TagButton}" Margin="3,1" />
+                                <Border Padding="6,4" Margin="0,1" CornerRadius="4"
+                                        Background="{StaticResource BlueTxBgBrush}">
+                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                               FontFamily="Consolas" FontSize="12.5"
+                                               Foreground="{StaticResource BlueTxBrush}" />
+                                </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <Button Grid.Column="2" Content="+ 添加"
-                            Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
-                            FontSize="12" Padding="8,4"
-                            Command="{Binding AddShortcutCommand}" />
-                </Grid>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
+        </Grid>
 
-            <!-- ============================================================ -->
-            <!-- Row 6: 发送区 — Impeccable: clean, purposeful -->
-            <!-- ============================================================ -->
-            <Border Grid.Row="6" Background="{StaticResource BgSurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,0" Padding="16,8" Margin="8,4,8,4">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="6" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="发送数据"
-                                   Style="{StaticResource SectionHeader}" />
-                        <WrapPanel Grid.Column="2" VerticalAlignment="Center">
-                            <CheckBox Content="HEX" IsChecked="{Binding IsHexSend}"
-                                      Margin="0,0,12,0" />
-                            <CheckBox Content="循环" IsChecked="{Binding IsLoopSend}"
-                                      Margin="0,0,8,0" />
+        <!-- ============================================================ -->
+        <!-- Row 2: Quick Send Bar                                         -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="2" Background="{StaticResource BgSurfaceBrush}"
+                CornerRadius="8" Effect="{StaticResource SubtleShadow}"
+                Padding="14,8" Margin="8,3">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Text="快捷发送"
+                           Style="{StaticResource SectionHeader}"
+                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                <Button DockPanel.Dock="Right" Content="+ 添加"
+                        Style="{StaticResource OutlineButton}" Margin="8,0,0,0"
+                        FontSize="12" Padding="8,4"
+                        Command="{Binding AddShortcutCommand}" />
+                <ItemsControl ItemsSource="{Binding ShortcutCommands}"
+                              VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}"
+                                    Command="{Binding DataContext.SendShortcutCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource TagButton}" Margin="0,0,6,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- Row 3: Send Data                                              -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="3" Background="{StaticResource BgSurfaceBrush}"
+                CornerRadius="8" Effect="{StaticResource SubtleShadow}"
+                Padding="14,10" Margin="8,3,8,6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="6" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header row -->
+                <DockPanel Grid.Row="0">
+                    <TextBlock DockPanel.Dock="Left" Text="发送数据"
+                               Style="{StaticResource SectionHeader}" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <WrapPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                            <CheckBox Content="HEX" IsChecked="{Binding IsHexSend}" Margin="0,0,10,0" />
+                            <CheckBox Content="循环" IsChecked="{Binding IsLoopSend}" Margin="0,0,6,0" />
                             <TextBox Text="{Binding LoopInterval, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="70" Height="26" FontSize="12"
-                                     VerticalAlignment="Center" Margin="0,0,4,0"
+                                     Width="60" Height="24" FontSize="12"
+                                     VerticalAlignment="Center" Margin="0,0,3,0"
                                      HorizontalContentAlignment="Center"
                                      IsEnabled="{Binding IsLoopSend}" />
-                            <TextBlock Text="ms" Style="{StaticResource Label}"
-                                       VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <TextBlock Text="ms" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,10,0" />
                         </WrapPanel>
-                        <StackPanel Grid.Column="3" Orientation="Horizontal">
-                            <Button Content="停止" Command="{Binding StopLoopCommand}"
-                                    Style="{StaticResource OutlineButton}"
-                                    Width="60" Margin="0,0,6,0"
-                                    IsEnabled="{Binding IsLooping}" />
-                            <Button Content="发送" Command="{Binding SendCommand}"
-                                    Style="{StaticResource PrimaryButton}" Width="80" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBox Grid.Row="2" Text="{Binding SendText, UpdateSourceTrigger=PropertyChanged}"
-                             Height="60" AcceptsReturn="True" TextWrapping="Wrap"
-                             FontFamily="Consolas" FontSize="14"
-                             Padding="10,6"
-                             VerticalScrollBarVisibility="Auto" />
-                </Grid>
-            </Border>
-
-            <!-- ============================================================ -->
-            <!-- Row 7: 状态栏 — Impeccable: information hierarchy -->
-            <!-- ============================================================ -->
-            <StatusBar Grid.Row="7" Margin="8,0,8,4">
-                <StatusBarItem>
-                    <TextBlock Text="{Binding StatusText}"
-                               FontSize="12" Foreground="{StaticResource InkSecondaryBrush}" />
-                </StatusBarItem>
-                <StatusBarItem HorizontalAlignment="Right">
-                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="RX: " FontSize="12" Foreground="{StaticResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding RxCount}" FontSize="12" Foreground="{StaticResource GreenRxBrush}" Margin="0,0,12,0" />
-                        <TextBlock Text="TX: " FontSize="12" Foreground="{StaticResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TxCount}" FontSize="12" Foreground="{StaticResource BlueTxBrush}" />
+                        <Button Content="停止" Command="{Binding StopLoopCommand}"
+                                Style="{StaticResource OutlineButton}"
+                                Width="55" Margin="0,0,6,0"
+                                IsEnabled="{Binding IsLooping}" />
+                        <Button Content="发送" Command="{Binding SendCommand}"
+                                Style="{StaticResource PrimaryButton}" MinWidth="75" />
                     </StackPanel>
-                </StatusBarItem>
-                <StatusBarItem HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding HttpUrl}"
-                               FontSize="11" Foreground="{StaticResource InkTertiaryBrush}" />
-                </StatusBarItem>
-            </StatusBar>
-        </Grid>
-    </Border>
+                </DockPanel>
+
+                <!-- Multi-line input -->
+                <TextBox Grid.Row="2" Text="{Binding SendText, UpdateSourceTrigger=PropertyChanged}"
+                         Height="60" AcceptsReturn="True" TextWrapping="Wrap"
+                         FontFamily="Consolas" FontSize="13.5"
+                         Padding="10,6"
+                         VerticalScrollBarVisibility="Auto" />
+            </Grid>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- Row 4: Status Bar                                             -->
+        <!-- ============================================================ -->
+        <StatusBar Grid.Row="4" Padding="12,5">
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Margin="0,0,6,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{StaticResource InkTertiaryBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                        <Setter Property="Fill" Value="{StaticResource GreenRxHeaderBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                               Foreground="{StaticResource InkSecondaryBrush}" />
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right" Margin="8,0,0,0">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}">
+                    <Border Background="{StaticResource GreenRxBgBrush}" CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="RX " FontSize="11" Foreground="{StaticResource GreenRxBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding RxCount}" FontSize="11" Foreground="{StaticResource GreenRxBrush}" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource BlueTxBgBrush}" CornerRadius="8" Padding="6,1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="TX " FontSize="11" Foreground="{StaticResource BlueTxBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding TxCount}" FontSize="11" Foreground="{StaticResource BlueTxBrush}" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding HttpUrl}" FontSize="11"
+                           Foreground="{StaticResource InkTertiaryBrush}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
 </Window>
