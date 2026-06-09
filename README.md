@@ -1,6 +1,6 @@
 # ACCCOM 串口调试工具
 
-Windows 桌面串口调试工具，对标 SSCOM 5.13.1，内置 HTTP API 供外部工具读写串口数据。
+Windows 桌面串口调试工具，对标 SSCOM 5.13.1。支持自定义协议解析脚本（C# Script）、HTTP API、MCP Server（AI 可直接调用），实现从"看原始 Hex"到"看懂数据含义"的完整闭环。
 
 ## 系统要求
 
@@ -50,6 +50,32 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 ### 文件操作
 - RX/TX 数据一键保存 `.txt`
 - 收发日志自动写入 `logs/` 目录，自动轮转（单文件 5MB）
+
+### 协议解析引擎（脚本驱动）
+
+基于 Roslyn C# Script，用户根据协议文档编写 `.csx` 解析脚本，串口数据到达后自动解析为结构化字段。
+
+**脚本模板（`parsers/` 目录）：**
+```csharp
+// my_device.csx
+// 输入: RawData(byte[]), Timestamp(DateTime)
+// 输出: List<FieldAnnotation>
+
+var result = new List<FieldAnnotation>();
+result.Add(new FieldAnnotation {
+    Name = "温度", Offset = 4, Length = 1,
+    RawHex = RawHex(4, 1),
+    DisplayValue = $"{RawData[4]} °C",
+    Severity = RawData[4] > 80 ? FieldSeverity.Warning : FieldSeverity.Normal
+});
+return result;
+```
+
+内置辅助函数：`RawHex`, `ToUInt16`, `ToInt16`, `ToFloat`, `Crc16`, `Sum8`, `Xor8`
+
+- 脚本热加载：修改 `.csx` 文件后即时生效
+- 离线解析：不连串口也可直接解析 Hex 数据
+- UI 中选中条目即可查看字段树
 
 ### HTTP API（内嵌 EmbedIO，端口 8899）
 
@@ -225,110 +251,72 @@ ACCcom/
 └── README.md
 ```
 
-## opencode 集成方案
+## AI 集成
 
-opencode 等 AI 编码工具可通过以下两种方案与 ACCCOM 串口交互，实现 AI 自动化串口调试。
+### 方案一：MCP Server（推荐）
 
-### 方案一：HTTP API（推荐）
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 12 个工具，无需 HTTP 配置。
 
-ACCCOM 启动时自动监听 `http://127.0.0.1:8899`，opencode 通过 MCP 或直接 `Invoke-RestMethod` 访问。
-
-**配置 opencode MCP 服务器（`opencode.json`）：**
-
-```json
-{
-  "mcpServers": {
-    "acccom-serial": {
-      "type": "url",
-      "url": "http://127.0.0.1:8899",
-      "tools": {
-        "listPorts": { "method": "GET", "path": "/api/ports" },
-        "getStatus": { "method": "GET", "path": "/api/status" },
-        "openPort": { "method": "POST", "path": "/api/port/open" },
-        "closePort": { "method": "POST", "path": "/api/port/close" },
-        "sendData": { "method": "POST", "path": "/api/send" },
-        "readData": { "method": "GET", "path": "/api/data?since=0" },
-        "waitForResponse": { "method": "POST", "path": "/api/wait-for" },
-        "clearBuffer": { "method": "POST", "path": "/api/clear" },
-        "listParsers": { "method": "GET", "path": "/api/parsers" },
-        "activateParser": { "method": "POST", "path": "/api/parser/activate" },
-        "healthCheck": { "method": "GET", "path": "/api/health" }
-      }
-    }
-  }
-}
+```bash
+# AI 启动方式
+dotnet run --project src/ACCcom.McpServer/ACCcom.McpServer.csproj
 ```
 
-**无 MCP 时直接用 PowerShell：**
+**AI 自动化串口调试完整工作流：**
+
+```
+阅读设备协议文档
+  → write_parser("my-device", .csx脚本代码)     # AI 生成解析脚本
+  → activate_parser("my-device")                 # 激活
+  → open_port(port="COM3", baudRate=115200)     # 打开串口
+  → send(data="AT+GMR")                         # 发送指令
+  → read_data(sinceId=0, direction="RX")        # 读取响应
+  → parse_raw(hex="AA 55 03 01 19 2E")          # 离线调试解析结果
+```
+
+**可用 MCP Tools：**
+
+| Tool | 说明 |
+|------|------|
+| `list_ports` | 列出可用串口 |
+| `get_status` | 连接状态、配置、收发计数 |
+| `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
+| `close_port` | 关闭串口 |
+| `send` | 发送数据（ASCII 或 HEX） |
+| `read_data` | 增量读取缓冲数据（支持 sinceId / limit / direction 过滤） |
+| `wait_for_response` | 阻塞等待匹配数据（支持 contains / regex / exact 匹配，可超时） |
+| `clear_buffer` | 清空缓冲区（rx/tx/all） |
+| `list_parsers` | 列出可用协议解析器 |
+| `read_parser` | 读取解析器源码 |
+| `write_parser` | 写入/更新 .csx 解析器脚本（AI 生成脚本的关键入口） |
+| `activate_parser` | 激活/停用解析器 |
+| `parse_raw` | 离线解析 Hex 数据（无需串口，用于验证解析器是否正确） |
+
+### 方案二：HTTP API（备用）
+
+ACCCOM WPF 桌面端启动时自动监听 `http://127.0.0.1:8899`，通过 REST API 控制串口。
 
 ```powershell
-# 打开串口
-Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/port/open" -Method Post -ContentType "application/json" -Body '{"port":"COM3","baudRate":115200}'
-
-# 发送 AT 指令并等待响应
+# 发送指令并等待响应
 Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/send" -Method Post -ContentType "application/json" -Body '{"data":"AT+GMR"}'
 Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/wait-for" -Method Post -ContentType "application/json" -Body '{"pattern":"OK","timeoutMs":3000}'
 
 # 增量读取接收数据
 $data = Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/data?since=0"
 $data.data.entries | ForEach-Object { "[$($_.timestamp)][$($_.direction)] $($_.text)" }
-
-# 查看状态
-Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/status"
-
-# 关闭串口
-Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/port/close" -Method Post
-
-# 列出串口
-Invoke-RestMethod -Uri "http://127.0.0.1:8899/api/ports"
-```
-
-**opencode 工作流示例：**
-
-```
-你：打开 COM3 串口，波特率 115200
-opencode：→ POST /api/port/open → 确认连接成功
-
-你：发送 AT+GMR 并等待设备回复
-opencode：→ POST /api/send {"data":"AT+GMR"}
-         → POST /api/wait-for {"pattern":"OK","timeoutMs":5000}
-         → 分析返回数据，回复固件版本
-
-你：切换到 my-protocol 解析器
-opencode：→ POST /api/parser/activate {"name":"my-protocol"} → 确认激活
-
-你：清空缓冲区，重新读取最新数据
-opencode：→ POST /api/clear {"target":"all"}
-         → GET /api/data?since=0 → 返回新数据
-```
-
-### 方案二：文件监控
-
-ACCCOM 将收发数据自动写入 `logs/ACCCOM_yyyyMMdd_HHmmss.log`，opencode 通过文件读取获取数据。
-
-```powershell
-# 查找最新日志文件
-$log = Get-ChildItem -Path "ACCcom/src/ACCcom/bin/Debug/net8.0-windows/logs/" -Filter "*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-
-# 读取日志内容
-Get-Content $log.FullName -Tail 50
-```
-
-如需从 opencode 发送数据到串口，ACCCOM 可监控 `send.txt` 文件（需自行实现 `FileSystemWatcher`）：
-
-```
-logs/ACCCOM_20260529_143022.log   # 接收日志（自动生成）
-send.txt                        # ACCCOM 监控此文件，有新内容时发送（需手动创建）
 ```
 
 ### 数据格式
 
-**日志/API 输出格式：**
+所有输出统一格式（日志 / API / MCP）：
 
 ```
 [14:30:22.123][RX] 41 54 2B 47 4D 52 0D 0A | AT+GMR
-[14:30:22.456][TX] 41 54 0D 0A | AT
 ```
+
+- `RawHex`：十六进制，空格分隔
+- `Text`：UTF-8 解码文本
+- `Fields`：激活解析器后，RX 条目自动附带结构化字段标注
 
 ## 许可
 
