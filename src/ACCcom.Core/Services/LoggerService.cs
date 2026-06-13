@@ -3,13 +3,10 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public class LoggerService : IDisposable
+public class LoggerService : BufferedFileWriter
 {
     private readonly string _logDir;
-    private StreamWriter? _writer;
-    private readonly long _maxFileSize = 5 * 1024 * 1024; // 5MB
-    private readonly object _lock = new();
-    private string? _currentFilePath;
+    private readonly long _maxFileSize = 5 * 1024 * 1024;
 
     public LoggerService()
     {
@@ -18,37 +15,27 @@ public class LoggerService : IDisposable
         RotateFile();
     }
 
-    public string CurrentLogPath => _currentFilePath ?? "";
+    public string CurrentLogPath => CurrentFilePath ?? "";
 
     public void Write(LogEntry entry)
     {
-        lock (_lock)
+        lock (SyncLock)
         {
-            if (_writer == null) return;
-
-            if (_writer.BaseStream.Length > _maxFileSize)
+            if (Writer?.BaseStream.Length > _maxFileSize)
                 RotateFile();
 
             var timestamp = entry.Timestamp.ToString("HH:mm:ss.fff");
             var direction = entry.Direction;
             var line = $"[{timestamp}][{direction}] {entry.RawHex} | {entry.Text}";
-            _writer.WriteLine(line);
-            _writer.Flush();
+            WriteCore(line);
         }
     }
 
     private void RotateFile()
     {
-        _writer?.Close();
-        _writer?.Dispose();
+        CloseWriter();
         var fileName = $"ACCCOM_{DateTime.Now:yyyyMMdd_HHmmss}.log";
-        _currentFilePath = Path.Combine(_logDir, fileName);
-        _writer = new StreamWriter(_currentFilePath, append: true, System.Text.Encoding.UTF8);
-    }
-
-    public void Dispose()
-    {
-        _writer?.Close();
-        _writer?.Dispose();
+        var filePath = Path.Combine(_logDir, fileName);
+        OpenWriter(filePath);
     }
 }

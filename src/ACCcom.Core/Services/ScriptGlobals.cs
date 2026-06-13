@@ -57,8 +57,39 @@ public class ScriptGlobals
     public float ToFloat(int offset, bool bigEndian = false)
     {
         if (!InBounds(offset, 4)) return 0;
-        var bytes = RawData[offset..(offset + 4)];
+        var bytes = (byte[])RawData[offset..(offset + 4)].Clone();
         if (bigEndian) Array.Reverse(bytes);
         return BitConverter.ToSingle(bytes);
     }
+
+    public uint ToUInt32(int offset, bool bigEndian = false)
+    {
+        if (!InBounds(offset, 4)) return 0;
+        return bigEndian
+            ? (uint)((RawData[offset] << 24) | (RawData[offset + 1] << 16) | (RawData[offset + 2] << 8) | RawData[offset + 3])
+            : (uint)(RawData[offset] | (RawData[offset + 1] << 8) | (RawData[offset + 2] << 16) | (RawData[offset + 3] << 24));
+    }
+
+    public int ToInt32(int offset, bool bigEndian = false) => (int)ToUInt32(offset, bigEndian);
+
+    public double ToDouble(int offset, bool bigEndian = false)
+    {
+        if (!InBounds(offset, 8)) return 0;
+        var bytes = (byte[])RawData[offset..(offset + 8)].Clone();
+        if (bigEndian) Array.Reverse(bytes);
+        return BitConverter.ToDouble(bytes);
+    }
+
+    public int FromBcd(int offset, int length)
+    {
+        if (!InBounds(offset, length)) return 0;
+        int result = 0;
+        for (int i = 0; i < length; i++)
+        {
+            var b = RawData[offset + i];
+            result = result * 100 + (b >> 4) * 10 + (b & 0x0F);
+        }
+        return result;
+    }
+
 }

@@ -35,3 +35,15 @@ public class ActivateParserRequest
 {
     public string? Name { get; set; }
 }
+
+public class WriteParserRequest
+{
+    public string Name { get; set; } = "";
+    public string Code { get; set; } = "";
+}
+
+public class ParseRawRequest
+{
+    public string Hex { get; set; } = "";
+    public string? ParserName { get; set; }
+}

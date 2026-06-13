@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Ports;
 using ACCcom.Core.Models;
 
@@ -6,13 +7,13 @@ namespace ACCcom.Core.Services;
 public class SerialService : IDisposable
 {
     private SerialPort? _port;
-    private int _entryId;
-    private bool _autoReconnect = true;
-    private int _reconnectMaxAttempts = 10;
+    private int _rxEntryId;
+    private int _txEntryId;
+    private ReconnectSettings _reconnectSettings = new();
     private int _reconnectAttempt;
-    private int _reconnectDelayMs = 1000;
     private CancellationTokenSource? _reconnectCts;
     private SerialConfig? _lastConfig;
+    private bool _disposed;
 
     public bool IsOpen => _port?.IsOpen ?? false;
     public string? CurrentPort => _port?.PortName;
@@ -43,12 +44,13 @@ public class SerialService : IDisposable
         {
             _port.Open();
             _lastConfig = config;
+            _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
             _reconnectAttempt = 0;
             return true;
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"打开串口失败: {ex.Message}");
+            OnError?.Invoke($"Failed to open serial port: {ex.Message}");
             _port?.Dispose();
             _port = null;
             return false;
@@ -57,6 +59,7 @@ public class SerialService : IDisposable
 
     public bool Close()
     {
+        if (_disposed) return true;
         _reconnectCts?.Cancel();
         if (_port == null) return true;
         try
@@ -73,7 +76,7 @@ public class SerialService : IDisposable
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"关闭串口失败: {ex.Message}");
+            OnError?.Invoke($"Failed to close serial port: {ex.Message}");
             _port?.Dispose();
             _port = null;
             return false;
@@ -84,7 +87,7 @@ public class SerialService : IDisposable
     {
         if (_port?.IsOpen != true)
         {
-            OnError?.Invoke("串口未打开");
+            OnError?.Invoke("Serial port not open");
             return false;
         }
 
@@ -102,10 +105,10 @@ public class SerialService : IDisposable
 
             var entry = new LogEntry
             {
-                Id = Interlocked.Increment(ref _entryId),
+                Id = Interlocked.Increment(ref _txEntryId),
                 Timestamp = DateTime.Now,
                 Direction = "TX",
-                RawHex = isHex ? data.Replace(" ", "") : BitConverter.ToString(System.Text.Encoding.UTF8.GetBytes(data)).Replace("-", " "),
+                RawHex = isHex ? data.Replace(" ", "") : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, System.Text.Encoding.UTF8.GetByteCount(data)),
                 Text = data
             };
             OnDataReceived?.Invoke(entry);
@@ -113,7 +116,7 @@ public class SerialService : IDisposable
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"发送失败: {ex.Message}");
+            OnError?.Invoke($"Send failed: {ex.Message}");
             return false;
         }
     }
@@ -129,99 +132,145 @@ public class SerialService : IDisposable
 
         try
         {
-            var buffer = new byte[_port.BytesToRead];
-            _port.Read(buffer, 0, buffer.Length);
+            int bytesToRead = _port.BytesToRead;
+            if (bytesToRead <= 0) return;
 
-            var hex = BitConverter.ToString(buffer).Replace("-", " ");
-            var text = System.Text.Encoding.UTF8.GetString(buffer);
-
-            var entry = new LogEntry
+            var buffer = ArrayPool<byte>.Shared.Rent(bytesToRead);
+            try
             {
-                Id = Interlocked.Increment(ref _entryId),
-                Timestamp = DateTime.Now,
-                Direction = "RX",
-                RawHex = hex,
-                Text = text
-            };
-            OnDataReceived?.Invoke(entry);
+                int bytesRead = _port.Read(buffer, 0, bytesToRead);
+                var hex = HexHelper.BytesToHexSpaced(buffer, 0, bytesRead);
+                var text = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                var entry = new LogEntry
+                {
+                    Id = Interlocked.Increment(ref _rxEntryId),
+                    Timestamp = DateTime.Now,
+                    Direction = "RX",
+                    RawHex = hex,
+                    Text = text
+                };
+                OnDataReceived?.Invoke(entry);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"接收数据错误: {ex.Message}");
+            OnError?.Invoke($"Receive data error: {ex.Message}");
         }
     }
 
     private void OnSerialError(object sender, SerialErrorReceivedEventArgs e)
     {
-        OnError?.Invoke($"串口错误: {e.EventType}");
+        OnError?.Invoke($"Serial port error: {e.EventType}");
         if (_port?.IsOpen != true)
         {
             OnDisconnected?.Invoke();
-            StartAutoReconnect();
+            _ = StartAutoReconnectAsync();
         }
     }
 
     public void EnableAutoReconnect(bool enable, int maxAttempts = 10, int delayMs = 1000)
     {
-        _autoReconnect = enable;
-        _reconnectMaxAttempts = maxAttempts;
-        _reconnectDelayMs = delayMs;
+        _reconnectSettings.AutoReconnect = enable;
+        _reconnectSettings.MaxReconnectAttempts = maxAttempts;
+        _reconnectSettings.ReconnectIntervalMs = delayMs;
         if (!enable)
         {
             _reconnectCts?.Cancel();
         }
     }
 
-    private async void StartAutoReconnect()
+    public void UpdateReconnectSettings(ReconnectSettings settings)
     {
-        if (!_autoReconnect || _lastConfig == null) return;
+        _reconnectSettings = settings;
+        if (!settings.AutoReconnect)
+        {
+            _reconnectCts?.Cancel();
+        }
+    }
+
+    private async Task StartAutoReconnectAsync()
+    {
+        if (!_reconnectSettings.AutoReconnect || _lastConfig == null) return;
         _reconnectCts = new CancellationTokenSource();
         var token = _reconnectCts.Token;
 
-        while (_reconnectAttempt < _reconnectMaxAttempts && !token.IsCancellationRequested)
+        try
         {
-            await Task.Delay(_reconnectDelayMs, token);
-            if (token.IsCancellationRequested) break;
-            if (_port?.IsOpen == true) break;
+            // maxAttempts == 0 means unlimited
+            while ((_reconnectSettings.MaxReconnectAttempts == 0 || _reconnectAttempt < _reconnectSettings.MaxReconnectAttempts)
+                   && !token.IsCancellationRequested)
+            {
+                // Apply backoff: delay = interval * (backoff ^ attempt)
+                var delay = (int)(_reconnectSettings.ReconnectIntervalMs
+                    * Math.Pow(_reconnectSettings.BackoffMultiplier, _reconnectAttempt));
+                await Task.Delay(delay, token);
+                if (token.IsCancellationRequested) break;
+                if (_port?.IsOpen == true) break;
 
-            _reconnectAttempt++;
-            try
-            {
-                var tempPort = new SerialPort(_lastConfig.PortName, _lastConfig.BaudRate, (Parity)_lastConfig.Parity, _lastConfig.DataBits, (StopBits)_lastConfig.StopBits)
+                _reconnectAttempt++;
+                try
                 {
-                    DtrEnable = _lastConfig.DtrEnable,
-                    RtsEnable = _lastConfig.RtsEnable,
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000
-                };
-                tempPort.Open();
-                Close();
-                _port = tempPort;
-                _port.DataReceived += OnSerialDataReceived;
-                _port.ErrorReceived += OnSerialError;
-                var msg = $"[自动重连成功] 第{_reconnectAttempt}次尝试";
-                OnDataReceived?.Invoke(new LogEntry
+                    var tempPort = new SerialPort(_lastConfig.PortName, _lastConfig.BaudRate, (Parity)_lastConfig.Parity, _lastConfig.DataBits, (StopBits)_lastConfig.StopBits)
+                    {
+                        DtrEnable = _lastConfig.DtrEnable,
+                        RtsEnable = _lastConfig.RtsEnable,
+                        ReadTimeout = 1000,
+                        WriteTimeout = 1000
+                    };
+                    tempPort.Open();
+                    Close();
+                    _port = tempPort;
+                    _port.DataReceived += OnSerialDataReceived;
+                    _port.ErrorReceived += OnSerialError;
+                    var msg = $"[Auto reconnect] Succeeded on attempt #{_reconnectAttempt}";
+                    OnDataReceived?.Invoke(new LogEntry
+                    {
+                        Id = Interlocked.Increment(ref _rxEntryId),
+                        Timestamp = DateTime.Now,
+                        Direction = "RX",
+                        RawHex = "",
+                        Text = msg
+                    });
+                    return;
+                }
+                catch
                 {
-                    Id = Interlocked.Increment(ref _entryId),
-                    Timestamp = DateTime.Now,
-                    Direction = "RX",
-                    RawHex = "",
-                    Text = msg
-                });
-                return;
-            }
-            catch
-            {
-                if (_reconnectAttempt >= _reconnectMaxAttempts)
-                {
-                    OnError?.Invoke($"自动重连失败，已尝试 {_reconnectMaxAttempts} 次");
+                    if (_reconnectSettings.MaxReconnectAttempts > 0
+                        && _reconnectAttempt >= _reconnectSettings.MaxReconnectAttempts)
+                    {
+                        OnError?.Invoke($"Auto reconnect failed after {_reconnectSettings.MaxReconnectAttempts} attempts");
+                    }
                 }
             }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"Auto reconnect error: {ex.Message}");
         }
     }
 
     public void Dispose()
     {
-        Close();
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+        if (disposing)
+        {
+            _reconnectCts?.Cancel();
+            _reconnectCts?.Dispose();
+            _reconnectCts = null;
+            Close();
+        }
+        _disposed = true;
     }
 }

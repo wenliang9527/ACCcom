@@ -9,4 +9,13 @@ public class SerialConfig
     public int Parity { get; set; } = 0; // 0=None, 1=Odd, 2=Even
     public bool DtrEnable { get; set; }
     public bool RtsEnable { get; set; }
+    public ReconnectSettings Reconnect { get; set; } = new();
+}
+
+public class ReconnectSettings
+{
+    public bool AutoReconnect { get; set; } = true;
+    public int ReconnectIntervalMs { get; set; } = 3000;
+    public int MaxReconnectAttempts { get; set; } = 0; // 0 = unlimited
+    public double BackoffMultiplier { get; set; } = 1.0; // 1.0 = no backoff, 2.0 = double each retry
 }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using ACCcom.Core.Models;
 
@@ -6,15 +7,33 @@ namespace ACCcom.Core.Services;
 
 public class ParserManager : IDisposable
 {
+    public const string NoParserName = "(None)";
+
     private readonly string _parserDir;
     private readonly ParserEngine _engine = new();
     private FileSystemWatcher? _watcher;
     private string? _activeParserPath;
+    private System.Threading.Timer? _debounceTimer;
+    private readonly object _debounceLock = new();
+    private bool _disposed;
 
     public ObservableCollection<string> AvailableParsers { get; } = new();
     public string? ActiveParserName { get; private set; }
     public string? LastError => _engine.LastError;
     public ParserEngine Engine => _engine;
+    public bool HotReloadEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Raised after the active parser is reloaded due to a file change.
+    /// The string parameter is the parser name that was reloaded.
+    /// </summary>
+    public event Action<string>? OnParserReloaded;
+
+    /// <summary>
+    /// Raised when an error occurs during hot-reload or other operations.
+    /// UI can subscribe to display error messages to the user.
+    /// </summary>
+    public event Action<string, Exception>? ErrorOccurred;
 
     public ParserManager(string? parserDir = null, Action<Action>? dispatch = null)
     {
@@ -42,20 +61,59 @@ public class ParserManager : IDisposable
             EnableRaisingEvents = true,
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite
         };
-        _watcher.Created += (_, _) => Dispatch(Refresh);
-        _watcher.Deleted += (_, _) => Dispatch(Refresh);
-        _watcher.Changed += (_, _) =>
+        _watcher.Created += OnWatcherEvent;
+        _watcher.Deleted += OnWatcherEvent;
+        _watcher.Changed += OnWatcherEvent;
+        _watcher.Renamed += OnWatcherRenamed;
+    }
+
+    private void OnWatcherEvent(object sender, FileSystemEventArgs e)
+    {
+        if (!HotReloadEnabled) return;
+        DebounceReload();
+    }
+
+    private void OnWatcherRenamed(object sender, RenamedEventArgs e)
+    {
+        if (!HotReloadEnabled) return;
+        DebounceReload();
+    }
+
+    private void DebounceReload()
+    {
+        lock (_debounceLock)
         {
-            try
+            _debounceTimer?.Dispose();
+            _debounceTimer = new System.Threading.Timer(_ =>
             {
-                if (_activeParserPath != null && File.Exists(_activeParserPath))
+                Dispatch(() =>
                 {
-                    var code = File.ReadAllText(_activeParserPath);
-                    Dispatch(() => _engine.Load(code));
-                }
-            }
-            catch { }
-        };
+                    try
+                    {
+                        Refresh();
+                        if (ActiveParserName != null)
+                        {
+                            var path = Path.Combine(_parserDir, ActiveParserName + ".csx");
+                            if (File.Exists(path))
+                            {
+                                var code = File.ReadAllText(path);
+                                if (_engine.Load(code))
+                                    OnParserReloaded?.Invoke(ActiveParserName);
+                            }
+                            else
+                            {
+                                Activate(null);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ParserManager] Hot-reload failed: {ex.Message}");
+                        ErrorOccurred?.Invoke("Hot-reload failed", ex);
+                    }
+                });
+            }, null, 500, System.Threading.Timeout.Infinite);
+        }
     }
 
     public void Refresh()
@@ -65,7 +123,7 @@ public class ParserManager : IDisposable
             .OrderBy(x => x);
 
         AvailableParsers.Clear();
-        AvailableParsers.Add("(无)");
+        AvailableParsers.Add(NoParserName);
         foreach (var f in files)
             AvailableParsers.Add(f!);
 
@@ -75,7 +133,8 @@ public class ParserManager : IDisposable
 
     public bool Activate(string? parserName)
     {
-        if (string.IsNullOrEmpty(parserName) || parserName == "(无)")
+        parserName = parserName?.Trim();
+        if (string.IsNullOrEmpty(parserName) || parserName == NoParserName)
         {
             ActiveParserName = null;
             _activeParserPath = null;
@@ -98,6 +157,13 @@ public class ParserManager : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        lock (_debounceLock)
+        {
+            _debounceTimer?.Dispose();
+            _debounceTimer = null;
+        }
         _watcher?.Dispose();
     }
 }
