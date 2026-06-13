@@ -139,7 +139,7 @@ public class ToolViewModel : ObservableObject, IDisposable
         DeleteShortcutCommand = new RelayCommand(p => { if (p is ShortcutItem s) DeleteShortcut(s); });
         SavePresetCommand = new RelayCommand(_ => SavePreset());
         DeletePresetCommand = new RelayCommand(p => { if (p is SerialPreset s) DeletePreset(s); });
-        RunMacroCommand = new RelayCommand(_ => RunMacro(), _ => !IsMacroRunning && _getIsOpen());
+        RunMacroCommand = new RelayCommand(_ => _ = RunMacroAsync(), _ => !IsMacroRunning && _getIsOpen());
         StopMacroCommand = new RelayCommand(_ => StopMacro(), _ => IsMacroRunning);
         SaveMacroCommand = new RelayCommand(_ => SaveMacro());
         LoadMacroCommand = new RelayCommand(_ => LoadMacro());
@@ -469,7 +469,7 @@ public class ToolViewModel : ObservableObject, IDisposable
         catch (Exception ex) { _setStatus($"Failed to import macros: {ex.Message}"); }
     }
 
-    private async void RunMacro()
+    private async Task RunMacroAsync()
     {
         if (Macros.Count == 0) { _setStatus("No macros available"); return; }
         var macro = Macros[0];
@@ -508,12 +508,12 @@ public class ToolViewModel : ObservableObject, IDisposable
         _replayWindow?.Close();
 
         var df = _getDataFlow();
-        void OnReplayEntry(LogEntry entry)
+        async void OnReplayEntry(LogEntry entry)
         {
             entry.PortTag = "replay";
             if (entry.Direction == "RX")
             {
-                df.RunParser(entry);
+                await df.RunParserAsync(entry);
                 df.AddRxEntry(entry, DataFlowViewModel.CountHexBytes(entry.RawHex ?? ""));
             }
             else

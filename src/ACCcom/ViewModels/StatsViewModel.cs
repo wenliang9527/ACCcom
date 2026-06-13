@@ -63,16 +63,26 @@ public class StatsViewModel : ObservableObject
         ConnectionDuration = string.IsNullOrEmpty(duration) ? "--" : duration;
         AvgFrameInterval = $"{stats.AvgFrameIntervalMs:F1}";
 
-        // Calculate TX rate
         CleanupOldTxSamples();
         var now = DateTime.Now;
         var cutoff = now - TimeSpan.FromSeconds(5);
-        var recent = _txSamples.Where(s => s.Time >= cutoff).ToList();
-        if (recent.Count >= 2)
+        long totalBytes = 0;
+        int frameCount = 0;
+        DateTime first = default;
+        foreach (var s in _txSamples)
         {
-            var span = (now - recent.First().Time).TotalSeconds;
-            TxBytesPerSec = span > 0 ? $"{recent.Sum(s => s.Bytes) / span:F1}" : "0.0";
-            TxFramesPerSec = span > 0 ? $"{recent.Count / span:F1}" : "0.0";
+            if (s.Time >= cutoff)
+            {
+                if (frameCount == 0) first = s.Time;
+                totalBytes += s.Bytes;
+                frameCount++;
+            }
+        }
+        if (frameCount >= 2)
+        {
+            var span = (now - first).TotalSeconds;
+            TxBytesPerSec = span > 0 ? $"{totalBytes / span:F1}" : "0.0";
+            TxFramesPerSec = span > 0 ? $"{frameCount / span:F1}" : "0.0";
         }
         else
         {

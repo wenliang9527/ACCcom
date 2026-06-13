@@ -7,7 +7,7 @@ public class DataStatistics
     private readonly ConcurrentQueue<TimestampedSample> _rxSamples = new();
     private readonly ConcurrentQueue<TimestampedSample> _errorSamples = new();
     private readonly ConcurrentQueue<double> _intervals = new();
-    private DateTime? _lastFrameTime;
+    private long _lastFrameTimeTicks;
     private long _totalRxBytes;
     private long _totalRxFrames;
     private long _totalErrorFrames;
@@ -27,15 +27,14 @@ public class DataStatistics
         Interlocked.Increment(ref _totalRxFrames);
         _rxSamples.Enqueue(new TimestampedSample(now, byteCount));
 
-        if (_lastFrameTime.HasValue)
+        var prevTicks = Interlocked.Exchange(ref _lastFrameTimeTicks, now.Ticks);
+        if (prevTicks != 0)
         {
-            var interval = (now - _lastFrameTime.Value).TotalMilliseconds;
+            var interval = (now.Ticks - prevTicks) / (double)TimeSpan.TicksPerMillisecond;
             _intervals.Enqueue(interval);
             while (_intervals.Count > 1000) _intervals.TryDequeue(out _);
         }
-        _lastFrameTime = now;
 
-        // Cleanup old samples (keep last 10 seconds)
         CleanupOldSamples(_rxSamples, TimeSpan.FromSeconds(10));
     }
 
@@ -91,17 +90,12 @@ public class DataStatistics
     private double CalculateAvgInterval()
     {
         if (_intervals.IsEmpty) return 0;
-        int count = 0;
+        var snapshot = _intervals.ToArray();
+        var takeCount = Math.Min(100, snapshot.Length);
         double sum = 0;
-        foreach (var interval in _intervals)
-        {
-            if (count >= _intervals.Count - 100)
-            {
-                sum += interval;
-                count++;
-            }
-        }
-        return count > 0 ? sum / count : 0;
+        for (int i = snapshot.Length - takeCount; i < snapshot.Length; i++)
+            sum += snapshot[i];
+        return sum / takeCount;
     }
 
     private void CleanupOldSamples(ConcurrentQueue<TimestampedSample> queue, TimeSpan maxAge)
@@ -119,7 +113,7 @@ public class DataStatistics
         Interlocked.Exchange(ref _totalRxBytes, 0);
         Interlocked.Exchange(ref _totalRxFrames, 0);
         Interlocked.Exchange(ref _totalErrorFrames, 0);
-        _lastFrameTime = null;
+        Interlocked.Exchange(ref _lastFrameTimeTicks, 0);
     }
 
     private record TimestampedSample(DateTime Timestamp, int Value);

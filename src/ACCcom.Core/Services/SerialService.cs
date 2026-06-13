@@ -103,12 +103,15 @@ public class SerialService : IDisposable
                 _port.Write(data);
             }
 
+            var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
+            var hexStr = isHex ? data.Replace(" ", "") :
+                HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
             var entry = new LogEntry
             {
                 Id = Interlocked.Increment(ref _txEntryId),
                 Timestamp = DateTime.Now,
                 Direction = "TX",
-                RawHex = isHex ? data.Replace(" ", "") : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, System.Text.Encoding.UTF8.GetByteCount(data)),
+                RawHex = hexStr,
                 Text = data
             };
             OnDataReceived?.Invoke(entry);
@@ -196,7 +199,9 @@ public class SerialService : IDisposable
     private async Task StartAutoReconnectAsync()
     {
         if (!_reconnectSettings.AutoReconnect || _lastConfig == null) return;
+        var oldCts = _reconnectCts;
         _reconnectCts = new CancellationTokenSource();
+        oldCts?.Dispose();
         var token = _reconnectCts.Token;
 
         try

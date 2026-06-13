@@ -22,7 +22,7 @@ public class DataBufferServiceConcurrencyTests
     }
 
     [Fact]
-    public void TestConcurrentReadWrite()
+    public async Task TestConcurrentReadWrite()
     {
         var sut = new DataBufferService();
         var barrier = new ManualResetEventSlim(false);
@@ -61,7 +61,7 @@ public class DataBufferServiceConcurrencyTests
         });
 
         barrier.Set();
-        Task.WaitAll(readerTasks.Concat(new[] { writerTask }).ToArray());
+        await Task.WhenAll(readerTasks.Concat(new[] { writerTask }).ToArray());
 
         Assert.Equal(0, readErrors);
         Assert.Equal(writeCount, sut.Count());
@@ -153,10 +153,10 @@ public class DataBufferServiceConcurrencyTests
         await Task.Delay(30);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         sut.CancelWaiters();
-        await task;
+        var result = await task;
         sw.Stop();
 
-        Assert.Null(task.Result);
+        Assert.Null(result);
         Assert.True(sw.ElapsedMilliseconds < 1000);
     }
 
@@ -185,7 +185,7 @@ public class DataBufferServiceConcurrencyTests
     }
 
     [Fact]
-    public async Task TestRingBufferCapacity()
+    public void TestRingBufferCapacity()
     {
         var sut = new DataBufferService(capacity: 100);
 

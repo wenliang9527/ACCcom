@@ -151,4 +151,26 @@ public class ScriptGlobalsTests
         var g = CreateGlobals(new byte[] { 0xAA, 0xAA });
         Assert.Equal(0x00, g.Xor8(0, 2));
     }
+
+    // === Sum16 ===
+    [Fact]
+    public void Sum16_SimpleSum()
+    {
+        var g = CreateGlobals(new byte[] { 0x01, 0x02, 0x03 });
+        Assert.Equal((ushort)6, g.Sum16(0, 3));
+    }
+
+    [Fact]
+    public void Sum16_Overflow_Keeps16Bit()
+    {
+        var g = CreateGlobals(new byte[] { 0xFF, 0xFF, 0x02 });
+        Assert.Equal((ushort)0x0200, g.Sum16(0, 3)); // 255+255+2=512=0x0200
+    }
+
+    [Fact]
+    public void Sum16_OutOfBounds_ReturnsZero()
+    {
+        var g = CreateGlobals(new byte[] { 0x01 });
+        Assert.Equal((ushort)0, g.Sum16(5, 2));
+    }
 }

@@ -106,14 +106,27 @@ public class DataBufferService
         _rwLock.EnterWriteLock();
         try
         {
+            if (string.IsNullOrEmpty(direction) ||
+                direction.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                Array.Clear(_ringBuffer);
+                _head = 0;
+                _count = 0;
+                return;
+            }
+
+            var keepRx = direction.Equals("tx", StringComparison.OrdinalIgnoreCase);
+            var keepTx = direction.Equals("rx", StringComparison.OrdinalIgnoreCase);
+
             var snapshot = RingSnapshot();
-            snapshot.RemoveAll(e =>
-                (direction == "rx" || direction == null) && e.Direction == "RX" ||
-                (direction == "tx" || direction == null) && e.Direction == "TX");
+            var keep = snapshot.Where(e =>
+                (keepRx && e.Direction == "RX") ||
+                (keepTx && e.Direction == "TX")).ToList();
+
             Array.Clear(_ringBuffer);
             _head = 0;
             _count = 0;
-            foreach (var e in snapshot) RingAdd(e);
+            foreach (var e in keep) RingAdd(e);
         }
         finally { _rwLock.ExitWriteLock(); }
     }
@@ -196,10 +209,13 @@ public class DataBufferService
 
         lock (_waiterLock) { _waiters.Add(waiter); }
 
-        var delayTask = Task.Delay(timeoutMs, ct);
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var delayTask = Task.Delay(timeoutMs, cts.Token);
         return Task.WhenAny(waiter.Tcs.Task, delayTask).ContinueWith(_ =>
         {
-            if (waiter.Tcs.Task.IsCompleted)
+            cts.Cancel();
+            cts.Dispose();
+            if (waiter.Tcs.Task.IsCompleted && !waiter.Tcs.Task.IsFaulted)
                 return waiter.Tcs.Task.Result;
             waiter.Tcs.TrySetResult(null);
             return (LogEntry?)null;
@@ -225,11 +241,11 @@ public class DataBufferWaiter
         var target = MatchHex ? entry.RawHex : entry.Text;
         if (string.IsNullOrEmpty(target)) return false;
 
-        return (MatchMode?.ToLower() ?? "contains") switch
+        return (MatchMode ?? "contains") switch
         {
             "exact" => string.Equals(target, Pattern, StringComparison.OrdinalIgnoreCase),
             "regex" => TryRegexMatch(target, Pattern),
-            _ => target.Contains(Pattern)
+            _ => target.Contains(Pattern, StringComparison.OrdinalIgnoreCase)
         };
     }
 

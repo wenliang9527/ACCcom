@@ -20,20 +20,20 @@ public class SerialTools
     }
 
     [McpServerTool, Description("List all available serial ports on the system.")]
-    public async Task<string> ListPorts()
+    public Task<string> ListPorts()
     {
-        if (_ctx.UseProxy) return await _proxy!.GetAsync("/api/ports");
+        if (_ctx.UseProxy) return _proxy!.GetAsync("/api/ports");
         var ports = SerialService.GetAvailablePorts();
-        return _ctx.RawJson(new { success = true, data = new { ports, count = ports.Length } });
+        return Task.FromResult(_ctx.RawJson(new { success = true, data = new { ports, count = ports.Length } }));
     }
 
     [McpServerTool, Description("Get current serial port connection status, configuration, and RX/TX counters.")]
-    public async Task<string> GetStatus()
+    public Task<string> GetStatus()
     {
-        if (_ctx.UseProxy) return await _proxy!.GetAsync("/api/status");
+        if (_ctx.UseProxy) return _proxy!.GetAsync("/api/status");
         int rxCount = _ctx.Buffer.CountWhere(e => e.Direction == "RX");
         int txCount = _ctx.Buffer.CountWhere(e => e.Direction == "TX");
-        return _ctx.RawJson(new
+        return Task.FromResult(_ctx.RawJson(new
         {
             success = true,
             data = new
@@ -45,7 +45,7 @@ public class SerialTools
                 bufferCount = rxCount + txCount,
                 activeParser = _parserManager.ActiveParserName
             }
-        });
+        }));
     }
 
     [McpServerTool, Description("Check MCP server health and runtime status. Returns uptime, memory usage, active parser, and connection state.")]
@@ -150,27 +150,27 @@ public class SerialTools
     }
 
     [McpServerTool, Description("Close the currently open serial port.")]
-    public async Task<string> ClosePort()
+    public Task<string> ClosePort()
     {
-        if (_ctx.UseProxy) return await _proxy!.PostAsync("/api/port/close");
+        if (_ctx.UseProxy) return _proxy!.PostAsync("/api/port/close");
         if (_serial!.Close())
-            return _ctx.RawJson(new { success = true, data = new { message = "Port closed" } });
-        return _ctx.RawJson(new { success = false, error = "Failed to close port" });
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port closed" } }));
+        return Task.FromResult(_ctx.RawJson(new { success = false, error = "Failed to close port" }));
     }
 
     // ========== Data Send / Receive ==========
 
     [McpServerTool, Description("Send data to the serial port. Parameters: data (the text or hex string to send), isHex (if true, data is treated as hex bytes, default false). Returns success status.")]
-    public async Task<string> Send(
+    public Task<string> Send(
         [Description("Data to send (ASCII text or hex string)")] string data,
         [Description("Send as hex bytes (default false)")] bool isHex = false)
     {
-        if (_ctx.UseProxy) return await _proxy!.PostAsync("/api/send", new { data, isHex });
+        if (_ctx.UseProxy) return _proxy!.PostAsync("/api/send", new { data, isHex });
         if (string.IsNullOrEmpty(data))
-            return _ctx.RawJson(new { success = false, error = "Data cannot be empty" });
+            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Data cannot be empty" }));
         if (_serial!.Send(data, isHex))
-            return _ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? data.Replace(" ", "").Length / 2 : data.Length } });
-        return _ctx.RawJson(new { success = false, error = "Send failed, port may not be open" });
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? data.Replace(" ", "").Length / 2 : data.Length } }));
+        return Task.FromResult(_ctx.RawJson(new { success = false, error = "Send failed, port may not be open" }));
     }
 
     [McpServerTool, Description("Read serial port data from the buffer. Parameters: sinceId (return entries with ID > sinceId, default 0), limit (max entries to return, default 100), direction (filter by RX/TX, null for all).")]

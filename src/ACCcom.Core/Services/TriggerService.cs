@@ -62,9 +62,11 @@ public class TriggerService
         catch (System.Text.RegularExpressions.RegexParseException) { return false; }
     }
 
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+
     public static void SaveRules(IEnumerable<TriggerRule> rules, string filePath)
     {
-        var json = System.Text.Json.JsonSerializer.Serialize(rules.ToArray(), new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        var json = System.Text.Json.JsonSerializer.Serialize(rules.ToArray(), _jsonOptions);
         File.WriteAllText(filePath, json);
     }
 

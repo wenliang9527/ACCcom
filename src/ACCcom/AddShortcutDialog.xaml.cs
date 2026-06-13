@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 
@@ -34,15 +33,16 @@ public partial class AddShortcutDialog : Window
         var raw = text.Replace(" ", "");
         if (HexPattern.IsMatch(raw) && raw.Length % 2 == 0)
         {
-            // 自动格式化为带空格的 HEX 显示
             _updating = true;
             var caret = CommandBox.CaretIndex;
-            var formatted = string.Join(" ", Enumerable.Range(0, raw.Length / 2).Select(i => raw.Substring(i * 2, 2)).ToArray());
+            var formatted = FormatHexWithSpaces(raw);
             if (formatted != text)
             {
                 CommandBox.Text = formatted;
-                // 调整光标位置
-                var spacesBeforeCaret = formatted.Take(caret).Count(c => c == ' ');
+                int spacesBeforeCaret = 0;
+                int pos = Math.Min(caret, formatted.Length);
+                for (int i = 0; i < pos; i++)
+                    if (formatted[i] == ' ') spacesBeforeCaret++;
                 CommandBox.CaretIndex = Math.Min(caret + spacesBeforeCaret, formatted.Length);
             }
             _updating = false;
@@ -70,7 +70,7 @@ public partial class AddShortcutDialog : Window
                 if (HexPattern.IsMatch(raw) && raw.Length % 2 == 0)
                 {
                     _updating = true;
-                    CommandBox.Text = string.Join(" ", Enumerable.Range(0, raw.Length / 2).Select(i => raw.Substring(i * 2, 2)));
+                    CommandBox.Text = FormatHexWithSpaces(raw);
                     _updating = false;
                 }
             }
@@ -95,5 +95,22 @@ public partial class AddShortcutDialog : Window
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
+    }
+
+    private static string FormatHexWithSpaces(string raw)
+    {
+        if (raw.Length == 0) return "";
+        int len = raw.Length / 2;
+        return string.Create(raw.Length + len - 1, (raw, len), static (span, state) =>
+        {
+            var (r, _) = state;
+            int si = 0;
+            for (int i = 0; i < state.len; i++)
+            {
+                if (i > 0) span[si++] = ' ';
+                span[si++] = r[i * 2];
+                span[si++] = r[i * 2 + 1];
+            }
+        });
     }
 }

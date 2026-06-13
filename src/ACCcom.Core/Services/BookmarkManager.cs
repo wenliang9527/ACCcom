@@ -19,7 +19,7 @@ public class BookmarkManager
             Label = $"#{selectedEntry.Id}",
             Direction = selectedEntry.Direction,
             Timestamp = selectedEntry.Timestamp,
-            Preview = selectedEntry.Text.Length > 50 ? selectedEntry.Text[..50] : selectedEntry.Text
+            Preview = (selectedEntry.Text ?? "").Length > 50 ? (selectedEntry.Text ?? "")[..50] : selectedEntry.Text ?? ""
         };
         bookmarks.Add(bm);
         return true;

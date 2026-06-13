@@ -36,6 +36,14 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly DataFlowViewModel _dataFlow;
     private readonly ToolViewModel _tool;
 
+    private readonly Action<LogEntry> _serialDataHandler;
+    private readonly Action<string> _serialErrorHandler;
+    private readonly Action _serialDisconnectedHandler;
+    private readonly Action<LogEntry> _networkDataHandler;
+    private readonly Action<string> _networkErrorHandler;
+    private readonly Action _networkDisconnectedHandler;
+    private readonly Action<TriggerRule, LogEntry> _triggerFiredHandler;
+
     public ConnectionViewModel Connection => _connection;
     public DataFlowViewModel DataFlow => _dataFlow;
     public ToolViewModel Tool => _tool;
@@ -83,15 +91,23 @@ public class MainViewModel : ObservableObject, IDisposable
             App.ApplyTheme(IsDarkTheme);
         });
 
-        _serial.OnDataReceived += _dataFlow.OnSerialData;
-        _serial.OnError += msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
-        _serial.OnDisconnected += () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Port disconnected"; });
+        _serialDataHandler = _dataFlow.OnSerialData;
+        _serialErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
+        _serialDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Port disconnected"; });
+        _networkDataHandler = _dataFlow.OnSerialData;
+        _networkErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
+        _networkDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Network disconnected"; });
+        _triggerFiredHandler = _tool.OnTriggerFired;
 
-        _networkBridge.OnDataReceived += _dataFlow.OnSerialData;
-        _networkBridge.OnError += msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
-        _networkBridge.OnDisconnected += () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Network disconnected"; });
+        _serial.OnDataReceived += _serialDataHandler;
+        _serial.OnError += _serialErrorHandler;
+        _serial.OnDisconnected += _serialDisconnectedHandler;
 
-        _triggerService.OnTriggerFired += _tool.OnTriggerFired;
+        _networkBridge.OnDataReceived += _networkDataHandler;
+        _networkBridge.OnError += _networkErrorHandler;
+        _networkBridge.OnDisconnected += _networkDisconnectedHandler;
+
+        _triggerService.OnTriggerFired += _triggerFiredHandler;
 
         _multiPort.OnDataReceived += entry =>
         {
@@ -343,6 +359,15 @@ public class MainViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        _serial.OnDataReceived -= _serialDataHandler;
+        _serial.OnError -= _serialErrorHandler;
+        _serial.OnDisconnected -= _serialDisconnectedHandler;
+        _networkBridge.OnDataReceived -= _networkDataHandler;
+        _networkBridge.OnError -= _networkErrorHandler;
+        _networkBridge.OnDisconnected -= _networkDisconnectedHandler;
+        _triggerService.OnTriggerFired -= _triggerFiredHandler;
+
         _tool.Dispose();
         _connection.Dispose();
         _http.Dispose();

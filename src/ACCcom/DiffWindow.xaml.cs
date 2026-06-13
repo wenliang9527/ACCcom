@@ -7,6 +7,11 @@ namespace ACCcom;
 
 public partial class DiffWindow : Window
 {
+    private static readonly SolidColorBrush MatchBrush = new(Color.FromArgb(0x33, 0x22, 0xC5, 0x5E));
+    private static readonly SolidColorBrush DiffBrush = new(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
+    private static readonly SolidColorBrush MatchFg = new(Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly SolidColorBrush DiffFg = new(Color.FromRgb(0xEF, 0x44, 0x44));
+
     public DiffWindow()
     {
         InitializeComponent();
@@ -65,10 +70,6 @@ public partial class DiffWindow : Window
         int maxLen = Math.Max(bytesA.Length, bytesB.Length);
         int diffCount = 0;
 
-        var matchBrush = new SolidColorBrush(Color.FromArgb(0x33, 0x22, 0xC5, 0x5E));
-        var diffBrush = new SolidColorBrush(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
-        var matchFg = new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E));
-        var diffFg = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
         var dimFg = (SolidColorBrush)FindResource("InkTertiaryBrush");
 
         for (int i = 0; i < maxLen; i++)
@@ -94,18 +95,18 @@ public partial class DiffWindow : Window
                 if (!hasB)
                 {
                     // Extra byte in A
-                    run.Background = diffBrush;
-                    run.Foreground = diffFg;
+                    run.Background = DiffBrush;
+                    run.Foreground = DiffFg;
                 }
                 else if (same)
                 {
-                    run.Background = matchBrush;
-                    run.Foreground = matchFg;
+                    run.Background = MatchBrush;
+                    run.Foreground = MatchFg;
                 }
                 else
                 {
-                    run.Background = diffBrush;
-                    run.Foreground = diffFg;
+                    run.Background = DiffBrush;
+                    run.Foreground = DiffFg;
                 }
                 DiffTextA.Inlines.Add(run);
             }
@@ -123,18 +124,18 @@ public partial class DiffWindow : Window
                 if (!hasA)
                 {
                     // Extra byte in B
-                    run.Background = diffBrush;
-                    run.Foreground = diffFg;
+                    run.Background = DiffBrush;
+                    run.Foreground = DiffFg;
                 }
                 else if (same)
                 {
-                    run.Background = matchBrush;
-                    run.Foreground = matchFg;
+                    run.Background = MatchBrush;
+                    run.Foreground = MatchFg;
                 }
                 else
                 {
-                    run.Background = diffBrush;
-                    run.Foreground = diffFg;
+                    run.Background = DiffBrush;
+                    run.Foreground = DiffFg;
                 }
                 DiffTextB.Inlines.Add(run);
             }

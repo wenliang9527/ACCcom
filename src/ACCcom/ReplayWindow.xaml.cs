@@ -73,7 +73,9 @@ public partial class ReplayWindow : Window
 
     private void StartReplay()
     {
+        var oldCts = _cts;
         _cts = new CancellationTokenSource();
+        oldCts?.Dispose();
         _isPlaying = true;
         PlayPauseButton.Content = "Pause";
         _recorder.IsPaused = false;

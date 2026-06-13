@@ -217,6 +217,8 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 
 基于 Roslyn C# Script，用户根据协议文档编写 `.csx` 解析脚本，串口数据到达后自动解析为结构化字段。
 
+> 📖 **[协议→解析器 操作指南](docs/protocol-to-parser.md)** — 从协议文档到解析器的完整流程，含 JSON Schema 自动生成、手写脚本、MCP 调用三种路径。
+
 **脚本模板（`parsers/` 目录）：**
 ```csharp
 // my_device.csx

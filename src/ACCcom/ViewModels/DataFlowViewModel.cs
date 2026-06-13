@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using ACCcom.Core.Models;
@@ -178,7 +179,7 @@ public class DataFlowViewModel : ObservableObject
         FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx);
     }
 
-    public void OnSerialData(LogEntry entry)
+    public async void OnSerialData(LogEntry entry)
     {
         entry.PortTag = "main";
         _http.AddEntry(entry);
@@ -188,12 +189,14 @@ public class DataFlowViewModel : ObservableObject
         if (!string.IsNullOrEmpty(entry.RawHex))
             byteCount = CountHexBytes(entry.RawHex);
 
-        System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+        // Parse off UI thread first
+        if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
+            await RunParserAsync(entry).ConfigureAwait(false);
+
+        // Then dispatch UI updates
+        _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
         {
             _logger.Write(entry);
-
-            if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
-                RunParser(entry);
 
             if (entry.Direction == "RX")
             {
@@ -233,13 +236,13 @@ public class DataFlowViewModel : ObservableObject
         TxByteCount += byteCount;
     }
 
-    public void RunParser(LogEntry entry)
+    public async Task RunParserAsync(LogEntry entry)
     {
         if (string.IsNullOrEmpty(entry.RawHex)) return;
         try
         {
             var data = HexStringToBytes(entry.RawHex);
-            var fields = _parserManager.Engine.Execute(data, entry.Timestamp);
+            var fields = await _parserManager.Engine.ExecuteAsync(data, entry.Timestamp).ConfigureAwait(false);
             if (fields != null && fields.Count > 0)
             {
                 entry.Fields = fields;

@@ -10,8 +10,19 @@ public class ScriptGlobals
     public string RawHex(int offset, int length)
     {
         if (!InBounds(offset, length)) return "";
-        return BitConverter.ToString(RawData, offset, length).Replace("-", " ");
+        return string.Create(length * 3 - 1, (RawData, offset, length), static (span, state) =>
+        {
+            var (data, off, len) = state;
+            for (int i = 0; i < len; i++)
+            {
+                if (i > 0) span[i * 3 - 1] = ' ';
+                span[i * 3] = HexChar(data[off + i] >> 4);
+                span[i * 3 + 1] = HexChar(data[off + i] & 0xF);
+            }
+        });
     }
+
+    private static char HexChar(int val) => (char)(val < 10 ? '0' + val : 'A' + val - 10);
 
     public ushort ToUInt16(int offset, bool bigEndian = false)
     {
@@ -52,13 +63,23 @@ public class ScriptGlobals
         return xor;
     }
 
+    public ushort Sum16(int offset, int length)
+    {
+        if (!InBounds(offset, 0)) return 0;
+        ushort sum = 0;
+        for (int i = offset; i < offset + length && i < RawData.Length; i++)
+            sum += RawData[i];
+        return sum;
+    }
+
     public int ToInt16(int offset, bool bigEndian = false) => (short)ToUInt16(offset, bigEndian);
 
     public float ToFloat(int offset, bool bigEndian = false)
     {
         if (!InBounds(offset, 4)) return 0;
-        var bytes = (byte[])RawData[offset..(offset + 4)].Clone();
-        if (bigEndian) Array.Reverse(bytes);
+        Span<byte> bytes = stackalloc byte[4];
+        RawData.AsSpan(offset, 4).CopyTo(bytes);
+        if (bigEndian) bytes.Reverse();
         return BitConverter.ToSingle(bytes);
     }
 
@@ -75,8 +96,9 @@ public class ScriptGlobals
     public double ToDouble(int offset, bool bigEndian = false)
     {
         if (!InBounds(offset, 8)) return 0;
-        var bytes = (byte[])RawData[offset..(offset + 8)].Clone();
-        if (bigEndian) Array.Reverse(bytes);
+        Span<byte> bytes = stackalloc byte[8];
+        RawData.AsSpan(offset, 8).CopyTo(bytes);
+        if (bigEndian) bytes.Reverse();
         return BitConverter.ToDouble(bytes);
     }
 

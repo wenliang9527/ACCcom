@@ -130,7 +130,7 @@ public class HttpService : IDisposable
         return true;
     }
 
-    public (List<FieldAnnotation>? fields, string? error) ParseRawHex(string hex, string? parserName = null)
+    public async Task<(List<FieldAnnotation>? fields, string? error)> ParseRawHexAsync(string hex, string? parserName = null)
     {
         if (_parserManager == null) return (null, "ParserManager not available");
 
@@ -151,7 +151,7 @@ public class HttpService : IDisposable
         if (_parserManager.ActiveParserName == null && string.IsNullOrEmpty(parserName))
             return (null, "No active parser. Activate one first or specify parserName.");
 
-        var fields = engine.Execute(data, DateTime.Now);
+        var fields = await engine.ExecuteAsync(data, DateTime.Now).ConfigureAwait(false);
         return (fields, null);
     }
 
@@ -421,7 +421,7 @@ public class SerialController : WebApiController
         if (req == null || string.IsNullOrEmpty(req.Hex))
             return ApiResponse.Fail("需要 hex 参数");
 
-        var (fields, error) = _service.ParseRawHex(req.Hex, req.ParserName);
+        var (fields, error) = await _service.ParseRawHexAsync(req.Hex, req.ParserName);
         if (error != null)
             return ApiResponse.Fail(error);
 
@@ -474,6 +474,10 @@ public class SerialController : WebApiController
 public class SerialWebSocketHandler : WebSocketModule
 {
     private readonly HttpService _service;
+    private static readonly JsonSerializerOptions _wsJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     public SerialWebSocketHandler(string urlPath, HttpService service) : base(urlPath, true)
     {
@@ -483,10 +487,7 @@ public class SerialWebSocketHandler : WebSocketModule
 
     private void OnDataEntry(LogEntry entry)
     {
-        _ = BroadcastAsync(JsonSerializer.Serialize(entry, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        }));
+        _ = BroadcastAsync(JsonSerializer.Serialize(entry, _wsJsonOptions));
     }
 
     protected override Task OnMessageReceivedAsync(IWebSocketContext context, byte[] buffer, IWebSocketReceiveResult result)

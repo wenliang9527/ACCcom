@@ -33,16 +33,22 @@ public class PlotViewModel : ObservableObject
         lock (_lock)
         {
             _dataPoints.Add((DateTime.Now, value));
-            while (_dataPoints.Count > _maxPoints)
-                _dataPoints.RemoveAt(0);
+            if (_dataPoints.Count > _maxPoints)
+                _dataPoints.RemoveRange(0, _dataPoints.Count - _maxPoints);
 
             LatestValue = value;
             PointCount = _dataPoints.Count;
 
             if (_dataPoints.Count > 0)
             {
-                MinValue = _dataPoints.Min(p => p.Value);
-                MaxValue = _dataPoints.Max(p => p.Value);
+                double min = double.MaxValue, max = double.MinValue;
+                foreach (var p in _dataPoints)
+                {
+                    if (p.Value < min) min = p.Value;
+                    if (p.Value > max) max = p.Value;
+                }
+                MinValue = min;
+                MaxValue = max;
             }
         }
         DataChanged?.Invoke();

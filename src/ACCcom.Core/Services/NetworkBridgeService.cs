@@ -149,7 +149,9 @@ public class NetworkBridgeService : IDisposable
 
     private void StartReceiveLoop()
     {
+        var oldCts = _receiveCts;
         _receiveCts = new CancellationTokenSource();
+        oldCts?.Dispose();
         var token = _receiveCts.Token;
 
         _ = Task.Run(async () =>

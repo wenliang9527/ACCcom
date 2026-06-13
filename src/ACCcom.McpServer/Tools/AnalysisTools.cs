@@ -18,25 +18,25 @@ public class AnalysisTools
     }
 
     [McpServerTool, Description("Analyze protocol data by parsing multiple hex frames. Returns field statistics, error distribution, and parsed results. Parameters: hexFrames (JSON array of hex strings), parserName (optional).")]
-    public Task<string> AnalyzeProtocol(
+    public async Task<string> AnalyzeProtocol(
         [Description("JSON array of hex strings, e.g. [\"AA5503\", \"AA5504\"]")] string hexFrames,
         [Description("Parser name (null = use active parser)")] string? parserName = null)
     {
         if (_ctx.UseProxy)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Protocol analysis not available in proxy mode" }));
+            return _ctx.RawJson(new { success = false, error = "Protocol analysis not available in proxy mode" });
 
         List<string> frames;
         try { frames = JsonSerializer.Deserialize<List<string>>(hexFrames) ?? new(); }
-        catch (Exception ex) { return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid hexFrames JSON: {ex.Message}" })); }
+        catch (Exception ex) { return _ctx.RawJson(new { success = false, error = $"Invalid hexFrames JSON: {ex.Message}" }); }
 
         if (frames.Count == 0)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "hexFrames array is empty" }));
+            return _ctx.RawJson(new { success = false, error = "hexFrames array is empty" });
 
         var (engine, engineError) = _ctx.GetParserEngine(parserName);
         if (engineError != null)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = engineError }));
+            return _ctx.RawJson(new { success = false, error = engineError });
         if (_parserManager.ActiveParserName == null && string.IsNullOrEmpty(parserName))
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "No active parser. Use activate_parser first or specify parserName." }));
+            return _ctx.RawJson(new { success = false, error = "No active parser. Use activate_parser first or specify parserName." });
 
         var allResults = new List<object>();
         var fieldStats = new Dictionary<string, FieldAccumulator>();
@@ -49,7 +49,7 @@ public class AnalysisTools
             catch { allResults.Add(new { hex, error = "Invalid hex" }); continue; }
 
             totalBytes += data.Length;
-            var fields = engine.Execute(data, DateTime.Now);
+            var fields = await engine.ExecuteAsync(data, DateTime.Now).ConfigureAwait(false);
             var fieldList = fields ?? new();
             bool hasError = fieldList.Any(f => f.Severity == FieldSeverity.Error);
             if (hasError) errorFrames++;
@@ -82,7 +82,7 @@ public class AnalysisTools
             avgValue = kv.Value.Count > 0 && kv.Value.Sum.HasValue ? Math.Round(kv.Value.Sum.Value / kv.Value.Count, 4) : (double?)null
         });
 
-        return Task.FromResult(_ctx.RawJson(new
+        return _ctx.RawJson(new
         {
             success = true,
             data = new
@@ -93,35 +93,35 @@ public class AnalysisTools
                 fieldStats = stats,
                 results = allResults
             }
-        }));
+        });
     }
 
     [McpServerTool, Description("Compare two hex frames field-by-field using the active parser. Shows differences in field values. Parameters: hex1, hex2, parserName (optional).")]
-    public Task<string> CompareFrames(
+    public async Task<string> CompareFrames(
         [Description("First hex frame (e.g. 'AA 55 03 01 19 2E')")] string hex1,
         [Description("Second hex frame (e.g. 'AA 55 03 02 1A 2F')")] string hex2,
         [Description("Parser name (null = use active parser)")] string? parserName = null)
     {
         if (_ctx.UseProxy)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Frame comparison not available in proxy mode" }));
+            return _ctx.RawJson(new { success = false, error = "Frame comparison not available in proxy mode" });
 
         if (string.IsNullOrEmpty(hex1) || string.IsNullOrEmpty(hex2))
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Both hex1 and hex2 are required" }));
+            return _ctx.RawJson(new { success = false, error = "Both hex1 and hex2 are required" });
 
         var (engine, engineError) = _ctx.GetParserEngine(parserName);
         if (engineError != null)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = engineError }));
+            return _ctx.RawJson(new { success = false, error = engineError });
         if (_parserManager.ActiveParserName == null && string.IsNullOrEmpty(parserName))
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "No active parser. Use activate_parser first or specify parserName." }));
+            return _ctx.RawJson(new { success = false, error = "No active parser. Use activate_parser first or specify parserName." });
 
         byte[] data1, data2;
         try { data1 = Convert.FromHexString(hex1.Replace(" ", "")); }
-        catch { return Task.FromResult(_ctx.RawJson(new { success = false, error = "Invalid hex1" })); }
+        catch { return _ctx.RawJson(new { success = false, error = "Invalid hex1" }); }
         try { data2 = Convert.FromHexString(hex2.Replace(" ", "")); }
-        catch { return Task.FromResult(_ctx.RawJson(new { success = false, error = "Invalid hex2" })); }
+        catch { return _ctx.RawJson(new { success = false, error = "Invalid hex2" }); }
 
-        var fields1 = engine.Execute(data1, DateTime.Now) ?? new();
-        var fields2 = engine.Execute(data2, DateTime.Now) ?? new();
+        var fields1 = await engine.ExecuteAsync(data1, DateTime.Now).ConfigureAwait(false) ?? new();
+        var fields2 = await engine.ExecuteAsync(data2, DateTime.Now).ConfigureAwait(false) ?? new();
 
         var map1 = fields1.ToDictionary(f => f.Name);
         var map2 = fields2.ToDictionary(f => f.Name);
@@ -148,7 +148,7 @@ public class AnalysisTools
         int onlyIn1 = comparisons.Count(c => c.status == "onlyInFrame1");
         int onlyIn2 = comparisons.Count(c => c.status == "onlyInFrame2");
 
-        return Task.FromResult(_ctx.RawJson(new
+        return _ctx.RawJson(new
         {
             success = true,
             data = new
@@ -161,7 +161,7 @@ public class AnalysisTools
                 onlyInFrame2 = onlyIn2,
                 comparisons
             }
-        }));
+        });
     }
 }
 

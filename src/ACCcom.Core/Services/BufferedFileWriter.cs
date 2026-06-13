@@ -30,13 +30,17 @@ public abstract class BufferedFileWriter : IDisposable
 
     protected void WriteCore(string line)
     {
-        if (_disposed || _writer == null) return;
-        _writer.WriteLine(line);
-        _pendingWrites++;
-        if (_pendingWrites >= 100)
+        if (_disposed) return;
+        lock (SyncLock)
         {
-            _writer.Flush();
-            _pendingWrites = 0;
+            if (_writer == null) return;
+            _writer.WriteLine(line);
+            _pendingWrites++;
+            if (_pendingWrites >= 100)
+            {
+                _writer.Flush();
+                _pendingWrites = 0;
+            }
         }
     }
 

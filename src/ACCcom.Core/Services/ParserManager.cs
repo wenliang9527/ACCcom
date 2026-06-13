@@ -155,6 +155,43 @@ public class ParserManager : IDisposable
 
     public string GetParserDir() => _parserDir;
 
+    /// <summary>
+    /// 从 ProtocolSchema 生成并保存解析器
+    /// </summary>
+    public (bool success, string? error) GenerateParser(ProtocolSchema schema)
+    {
+        var generator = new ParserGenerator();
+        var (valid, errors) = generator.Validate(schema);
+        if (!valid)
+            return (false, string.Join("\n", errors));
+
+        try
+        {
+            var code = generator.Generate(schema);
+            var path = Path.Combine(_parserDir, schema.Name + ".csx");
+            File.WriteAllText(path, code);
+            Refresh();
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 从 JSON 生成并保存
+    /// </summary>
+    public (bool success, string? error) GenerateParserFromJson(string json)
+    {
+        var generator = new ParserGenerator();
+        var schema = generator.ParseJson(json);
+        if (schema == null)
+            return (false, "Invalid JSON schema");
+
+        return GenerateParser(schema);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

@@ -5,6 +5,8 @@ namespace ACCcom.Core.Services;
 
 public class FileExportService
 {
+    private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
+
     /// <summary>
     /// Exports entries to a plain text file at the given path.
     /// </summary>
@@ -39,7 +41,7 @@ public class FileExportService
                 severity = f.Severity.ToString()
             })
         });
-        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(data, IndentedOptions);
         File.WriteAllText(filePath, json);
     }
 

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using ACCcom.Core.Services;
 using ACCcom.Core.Models;
 using Xunit;
@@ -48,11 +49,11 @@ return result;
     }
 
     [Fact]
-    public void Execute_ValidScript_ReturnsFields()
+    public async Task Execute_ValidScript_ReturnsFields()
     {
         var engine = new ParserEngine();
         engine.Load(MinimalScript);
-        var fields = engine.Execute(new byte[] { 0xAA }, DateTime.Now);
+        var fields = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now);
         Assert.NotNull(fields);
         Assert.Single(fields);
         Assert.Equal("Test", fields![0].Name);
@@ -60,39 +61,39 @@ return result;
     }
 
     [Fact]
-    public void Execute_NoScript_ReturnsNull()
+    public async Task Execute_NoScript_ReturnsNull()
     {
         var engine = new ParserEngine();
-        var fields = engine.Execute(new byte[] { 0xAA }, DateTime.Now);
+        var fields = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now);
         Assert.Null(fields);
     }
 
     [Fact]
-    public void Execute_ScriptWithCrc_ChecksCorrectly()
+    public async Task Execute_ScriptWithCrc_ChecksCorrectly()
     {
         var engine = new ParserEngine();
         engine.Load(CrcScript);
 
         // Data with correct CRC (CRC16 of {0x01, 0x03} = 0x8042 for Modbus poly)
         var data = new byte[] { 0x01, 0x03, 0x42, 0x80 };
-        var fields = engine.Execute(data, DateTime.Now);
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
         Assert.NotNull(fields);
         Assert.Single(fields);
         Assert.Equal("CRC", fields![0].Name);
     }
 
     [Fact]
-    public void Execute_ClearResetsEngine()
+    public async Task Execute_ClearResetsEngine()
     {
         var engine = new ParserEngine();
         engine.Load(MinimalScript);
         engine.Clear();
-        var fields = engine.Execute(new byte[] { 0xAA }, DateTime.Now);
+        var fields = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now);
         Assert.Null(fields);
     }
 
     [Fact]
-    public void Execute_ReloadDifferentScript_Works()
+    public async Task Execute_ReloadDifferentScript_Works()
     {
         var engine = new ParserEngine();
         engine.Load(MinimalScript);
@@ -108,13 +109,13 @@ result.Add(new FieldAnnotation {
 return result;
 ";
         engine.Load(script2);
-        var fields = engine.Execute(new byte[] { 0x01 }, DateTime.Now);
+        var fields = await engine.ExecuteAsync(new byte[] { 0x01 }, DateTime.Now);
         Assert.NotNull(fields);
         Assert.Equal("Field2", fields![0].Name);
     }
 
     [Fact]
-    public void Load_ActualSampleScript_LoadsAndExecutes()
+    public async Task Load_ActualSampleScript_LoadsAndExecutes()
     {
         var parserDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parsers");
         var path = Path.Combine(parserDir, "sample.csx");
@@ -127,14 +128,14 @@ return result;
 
         // AA 55 03 xx 32 - valid frame for sample.csx
         var data = new byte[] { 0xAA, 0x55, 0x03, 0x01, 0x32 };
-        var fields = engine.Execute(data, DateTime.Now);
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
         Assert.NotNull(fields);
         Assert.True(fields!.Count > 0, $"Expected fields but got 0. LastError: {engine.LastError}");
         Assert.Equal("帧头", fields[0].Name);
     }
 
     [Fact]
-    public void Execute_ModbusTemplate_LoadsAndRuns()
+    public async Task Execute_ModbusTemplate_LoadsAndRuns()
     {
         var parserDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parsers");
         var path = Path.Combine(parserDir, "modbus_rtu_template.csx");
@@ -147,13 +148,13 @@ return result;
 
         // Modbus RTU: addr=01, func=03, data=0001, CRC=xxxx
         var data = new byte[] { 0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00 };
-        var fields = engine.Execute(data, DateTime.Now);
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
         Assert.NotNull(fields);
         Assert.True(fields!.Count > 0, $"Expected fields but got 0. LastError: {engine.LastError}");
     }
 
     [Fact]
-    public void Execute_EsoacV3_ControlPower_ParsesSemantically()
+    public async Task Execute_EsoacV3_ControlPower_ParsesSemantically()
     {
         var parserDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parsers");
         var path = Path.Combine(parserDir, "esoac_v3.csx");
@@ -172,7 +173,7 @@ return result;
         data[10] = (byte)(crc & 0xFF);
         data[11] = (byte)(crc >> 8);
 
-        var fields = engine.Execute(data, DateTime.Now);
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
         Assert.NotNull(fields);
         Assert.True(fields!.Count > 0, $"Expected fields but got 0. LastError: {engine.LastError}");
 

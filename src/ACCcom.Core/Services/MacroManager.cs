@@ -16,7 +16,9 @@ public class MacroManager : JsonFilePersistenceManager<MacroTemplate>, IDisposab
         Func<string, string> expandVariables,
         Action<string> updateStatus)
     {
+        var oldCts = _cts;
         _cts = new CancellationTokenSource();
+        oldCts?.Dispose();
         var token = _cts.Token;
 
         try

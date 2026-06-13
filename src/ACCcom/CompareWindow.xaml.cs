@@ -7,6 +7,8 @@ namespace ACCcom;
 
 public partial class CompareWindow : Window
 {
+    private static readonly SolidColorBrush DiffHighlightBrush = new(Color.FromArgb(40, 255, 200, 0));
+
     public CompareWindow()
     {
         InitializeComponent();
@@ -50,8 +52,6 @@ public partial class CompareWindow : Window
         int maxCount = Math.Max(linesA.Length, linesB.Length);
         int matching = 0, different = 0;
 
-        var diffBrush = new SolidColorBrush(Color.FromArgb(40, 255, 200, 0));
-
         for (int i = 0; i < maxCount; i++)
         {
             var a = i < linesA.Length ? linesA[i] : "";
@@ -65,8 +65,8 @@ public partial class CompareWindow : Window
 
             if (!same)
             {
-                itemA.Background = diffBrush;
-                itemB.Background = diffBrush;
+                itemA.Background = DiffHighlightBrush;
+                itemB.Background = DiffHighlightBrush;
             }
 
             ListBoxA.Items.Add(itemA);
