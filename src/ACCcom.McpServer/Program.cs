@@ -64,7 +64,7 @@ if (useProxy)
 }
 else
 {
-    builder.Services.AddSingleton<SerialService>();
+    builder.Services.AddSingleton<ISerialService, SerialService>();
     builder.Services.AddSingleton<ParserManager>(sp =>
     {
         var parserDir = args.SkipWhile(a => a != "--parsers-dir").Skip(1).FirstOrDefault();

@@ -10,7 +10,7 @@ namespace ACCcom.McpServer.Tools;
 public class SerialTools
 {
     private readonly ToolContext _ctx;
-    private SerialService? _serial => _ctx.Serial;
+    private ISerialService? _serial => _ctx.Serial;
     private ProxyClient? _proxy => _ctx.Proxy;
     private ParserManager _parserManager => _ctx.ParserManager;
 

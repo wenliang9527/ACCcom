@@ -7,7 +7,7 @@ namespace ACCcom.ViewModels;
 
 public class ConnectionViewModel : ObservableObject, IDisposable
 {
-    private readonly SerialService _serial;
+    private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge;
     private readonly SerialConnectionManager _connectionManager;
     private readonly Action<string> _setStatus;
@@ -83,7 +83,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     public ICommand ConnectNetworkCommand { get; }
     public ICommand RefreshPortsCommand { get; }
 
-    public ConnectionViewModel(SerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus)
+    public ConnectionViewModel(ISerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus)
     {
         _serial = serial;
         _networkBridge = networkBridge;

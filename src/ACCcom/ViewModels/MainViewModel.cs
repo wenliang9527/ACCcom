@@ -11,7 +11,7 @@ public class MainViewModel : ObservableObject, IDisposable
 {
     private static readonly Regex KeyValueRegex = new(@"[=:]?\s*(-?\d+\.?\d*)", RegexOptions.Compiled);
     private static readonly Regex StandaloneNumberRegex = new(@"-?\d+\.\d+", RegexOptions.Compiled);
-    private readonly SerialService _serial = new();
+    private readonly ISerialService _serial = new SerialService();
     private readonly NetworkBridgeService _networkBridge = new();
     private readonly LoggerService _logger = new();
     private readonly HttpService _http;
@@ -26,6 +26,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly SerialConnectionManager _connectionManager = new();
     private readonly SessionRecorder _sessionRecorder = new();
     private readonly TriggerService _triggerService = new();
+    private readonly FrameAssemblerConfig _frameAssemblerConfig = new();
     private readonly PlotViewModel _plotViewModel = new();
     private readonly SettingsService _settingsService = new();
     private AppSettings _settings;
@@ -64,13 +65,13 @@ public class MainViewModel : ObservableObject, IDisposable
     public MainViewModel()
     {
         _settings = _settingsService.Load();
-        _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action));
+        _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action), parserCacheSize: _settings.ParserCacheSize);
 
-        _http = new HttpService(_serial, _parserManager);
+        _http = new HttpService(_serial, _parserManager, bufferCapacity: _settings.BufferCapacity);
         _http.Start();
 
         _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg);
-        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _stats, _fileExportService, msg => StatusText = msg);
+        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg);
         _tool = new ToolViewModel(
             _serial, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
             _multiPort, _triggerService, _sessionRecorder,
@@ -91,6 +92,8 @@ public class MainViewModel : ObservableObject, IDisposable
             App.ApplyTheme(IsDarkTheme);
         });
 
+        OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
+
         _serialDataHandler = _dataFlow.OnSerialData;
         _serialErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
         _serialDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Port disconnected"; });
@@ -108,6 +111,8 @@ public class MainViewModel : ObservableObject, IDisposable
         _networkBridge.OnDisconnected += _networkDisconnectedHandler;
 
         _triggerService.OnTriggerFired += _triggerFiredHandler;
+
+        OpenSchemaEditorCommand = new RelayCommand(_ => OpenSchemaEditor());
 
         _multiPort.OnDataReceived += entry =>
         {
@@ -257,6 +262,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand SaveTxCsvCommand => _dataFlow.SaveTxCsvCommand;
     public ICommand OpenParserDirCommand => _dataFlow.OpenParserDirCommand;
     public ICommand CompareFramesCommand => _dataFlow.CompareFramesCommand;
+    public ICommand OpenFrameAssemblerConfigCommand { get; }
     public ICommand SendShortcutCommand => _tool.SendShortcutCommand;
     public ICommand AddShortcutCommand => _tool.AddShortcutCommand;
     public ICommand DeleteShortcutCommand => _tool.DeleteShortcutCommand;
@@ -281,6 +287,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand StopLoopCommand => _tool.StopLoopCommand;
     public ICommand OpenPlotCommand => _tool.OpenPlotCommand;
     public ICommand OpenStatsCommand => _tool.OpenStatsCommand;
+    public ICommand OpenSchemaEditorCommand { get; }
 
     private void OpenPlotWindow()
     {
@@ -309,6 +316,28 @@ public class MainViewModel : ObservableObject, IDisposable
         _statsWindow.Owner = System.Windows.Application.Current.MainWindow;
         _statsWindow.Closed += (_, _) => _statsWindow = null;
         _statsWindow.Show();
+    }
+
+    private void OpenSchemaEditor()
+    {
+        var editorVm = new SchemaEditorViewModel(_parserManager);
+        var window = new SchemaEditorWindow(editorVm);
+        window.Owner = System.Windows.Application.Current.MainWindow;
+        window.ShowDialog();
+    }
+
+    private void OpenFrameAssemblerConfig()
+    {
+        var window = new FrameAssemblerConfigWindow(_frameAssemblerConfig)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (window.ShowDialog() == true)
+        {
+            StatusText = _frameAssemblerConfig.Enabled
+                ? $"Frame assembly enabled: header={_frameAssemblerConfig.Header}"
+                : "Frame assembly disabled";
+        }
     }
 
     private static List<double> ExtractNumericValues(string text)

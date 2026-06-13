@@ -8,7 +8,7 @@ namespace ACCcom.ViewModels;
 
 public class ToolViewModel : ObservableObject, IDisposable
 {
-    private readonly SerialService _serial;
+    private readonly ISerialService _serial;
     private readonly ShortcutManager _shortcutManager;
     private readonly PresetManager _presetManager;
     private readonly MacroManager _macroManager;
@@ -104,7 +104,7 @@ public class ToolViewModel : ObservableObject, IDisposable
     public ICommand OpenStatsCommand { get; }
 
     public ToolViewModel(
-        SerialService serial,
+        ISerialService serial,
         ShortcutManager shortcutManager,
         PresetManager presetManager,
         MacroManager macroManager,

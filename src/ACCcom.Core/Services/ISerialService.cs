@@ -2,7 +2,7 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public interface ISerialService
+public interface ISerialService : IDisposable
 {
     bool IsOpen { get; }
     string? CurrentPort { get; }

@@ -11,7 +11,7 @@ namespace ACCcom.McpServer.Tools;
 /// </summary>
 public class ToolContext
 {
-    public SerialService? Serial { get; }
+    public ISerialService? Serial { get; }
     public ProxyClient? Proxy { get; }
     public ParserManager ParserManager { get; }
     public LoggerService? Logger { get; }
@@ -37,7 +37,7 @@ public class ToolContext
 
         if (!UseProxy)
         {
-            Serial = sp.GetRequiredService<SerialService>();
+            Serial = sp.GetRequiredService<ISerialService>();
             Logger = sp.GetRequiredService<LoggerService>();
             Stats = new DataStatistics();
             MultiPort = sp.GetService<MultiPortService>();

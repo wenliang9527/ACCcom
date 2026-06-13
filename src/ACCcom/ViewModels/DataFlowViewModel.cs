@@ -11,12 +11,13 @@ namespace ACCcom.ViewModels;
 public class DataFlowViewModel : ObservableObject
 {
     private const int MaxEntries = 5000;
-    private readonly SerialService _serial;
+    private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge;
     private readonly LoggerService _logger;
     private readonly HttpService _http;
     private readonly TriggerService _triggerService;
     private readonly ParserManager _parserManager;
+    private readonly FrameAssembler _frameAssembler;
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
     private readonly Action<string> _setStatus;
@@ -141,12 +142,13 @@ public class DataFlowViewModel : ObservableObject
     public ICommand CompareFramesCommand { get; }
 
     public DataFlowViewModel(
-        SerialService serial,
+        ISerialService serial,
         NetworkBridgeService networkBridge,
         LoggerService logger,
         HttpService http,
         TriggerService triggerService,
         ParserManager parserManager,
+        FrameAssemblerConfig frameAssemblerConfig,
         DataStatistics stats,
         FileExportService fileExportService,
         Action<string> setStatus)
@@ -157,6 +159,8 @@ public class DataFlowViewModel : ObservableObject
         _http = http;
         _triggerService = triggerService;
         _parserManager = parserManager;
+        _frameAssembler = new FrameAssembler(frameAssemblerConfig, parserManager);
+        _frameAssembler.OnFrameAssembled += OnAssembledFrame;
         _stats = stats;
         _fileExportService = fileExportService;
         _setStatus = setStatus;
@@ -182,6 +186,13 @@ public class DataFlowViewModel : ObservableObject
     public async void OnSerialData(LogEntry entry)
     {
         entry.PortTag = "main";
+
+        if (_frameAssembler.IsEnabled)
+        {
+            _frameAssembler.Feed(entry);
+            return;
+        }
+
         _http.AddEntry(entry);
         _triggerService.Evaluate(entry);
 
@@ -189,11 +200,9 @@ public class DataFlowViewModel : ObservableObject
         if (!string.IsNullOrEmpty(entry.RawHex))
             byteCount = CountHexBytes(entry.RawHex);
 
-        // Parse off UI thread first
         if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
             await RunParserAsync(entry).ConfigureAwait(false);
 
-        // Then dispatch UI updates
         _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
         {
             _logger.Write(entry);
@@ -211,6 +220,31 @@ public class DataFlowViewModel : ObservableObject
                 AddTxEntry(entry, byteCount);
             }
 
+            OnEntryProcessed?.Invoke(entry, byteCount);
+        });
+    }
+
+    private async void OnAssembledFrame(LogEntry entry)
+    {
+        entry.PortTag = "main";
+        _http.AddEntry(entry);
+        _triggerService.Evaluate(entry);
+
+        int byteCount = 0;
+        if (!string.IsNullOrEmpty(entry.RawHex))
+            byteCount = CountHexBytes(entry.RawHex);
+
+        if (_parserManager.ActiveParserName != null)
+            await RunParserAsync(entry).ConfigureAwait(false);
+
+        _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+        {
+            _logger.Write(entry);
+            _stats.RecordRx(byteCount);
+            if (HasErrorSeverity(entry.Fields))
+                _stats.RecordError();
+            AddRxEntry(entry, byteCount);
+            OnRxProcessed?.Invoke(entry);
             OnEntryProcessed?.Invoke(entry, byteCount);
         });
     }
