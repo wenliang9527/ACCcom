@@ -12,13 +12,14 @@ public class HttpService : IDisposable
     public const string DefaultUrl = "http://127.0.0.1:8899";
 
     private readonly WebServer _server;
-    private readonly SerialService? _serialService;
+    private readonly ISerialService? _serialService;
     private readonly ParserManager? _parserManager;
-    public DataBufferService Buffer { get; } = new();
+    public DataBufferService Buffer { get; }
     public event Action<LogEntry>? OnDataEntry;
 
-    public HttpService(SerialService? serialService = null, ParserManager? parserManager = null, string url = DefaultUrl)
+    public HttpService(ISerialService? serialService = null, ParserManager? parserManager = null, string url = DefaultUrl, int bufferCapacity = 10000)
     {
+        Buffer = new DataBufferService(bufferCapacity);
         _serialService = serialService;
         _parserManager = parserManager;
         _server = new WebServer(o => o.WithUrlPrefix(url).WithMode(HttpListenerMode.EmbedIO))
