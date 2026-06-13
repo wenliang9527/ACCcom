@@ -27,4 +27,10 @@ public class AppSettings
     // Timestamp toggles
     public bool EnableRxTimestamp { get; set; } = true;
     public bool EnableTxTimestamp { get; set; } = true;
+
+    // Parser engine
+    public int ParserCacheSize { get; set; } = 10;
+
+    // Buffer
+    public int BufferCapacity { get; set; } = 10000;
 }

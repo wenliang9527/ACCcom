@@ -9,11 +9,6 @@ public class ShortcutManager : JsonFilePersistenceManager<ShortcutItem>
 
     public static List<ShortcutItem> GetDefaults()
     {
-        return new List<ShortcutItem>
-        {
-            new() { Name = "查询版本", Command = "AT+GMR" },
-            new() { Name = "重启", Command = "AT+RST" },
-            new() { Name = "查询网络", Command = "AT+CGATT?" }
-        };
+        return new List<ShortcutItem>();
     }
 }

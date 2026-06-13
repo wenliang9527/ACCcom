@@ -14,13 +14,10 @@ public class ShortcutManagerTests : IDisposable
     }
 
     [Fact]
-    public void GetDefaults_ReturnsNonEmptyList()
+    public void GetDefaults_ReturnsEmptyList()
     {
-        // Arrange & Act
         var defaults = ShortcutManager.GetDefaults();
-
-        // Assert
-        Assert.NotEmpty(defaults);
+        Assert.Empty(defaults);
     }
 
     [Fact]

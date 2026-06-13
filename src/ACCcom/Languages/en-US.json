@@ -48,5 +48,7 @@
   "Tip.AdvancedParams": "Advanced serial parameters",
   "Tip.SearchRx": "Search receive data (regex supported)",
   "Tip.SearchTx": "Search transmit data (regex supported)",
-  "Tip.RegexMode": "Regex mode"
+  "Tip.RegexMode": "Regex mode",
+  "Button.SchemaEditor": "Editor",
+  "Tip.SchemaEditor": "Protocol Schema Editor"
 }

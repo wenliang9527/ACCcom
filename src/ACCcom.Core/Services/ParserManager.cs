@@ -10,7 +10,7 @@ public class ParserManager : IDisposable
     public const string NoParserName = "(None)";
 
     private readonly string _parserDir;
-    private readonly ParserEngine _engine = new();
+    private readonly ParserEngine _engine;
     private FileSystemWatcher? _watcher;
     private string? _activeParserPath;
     private System.Threading.Timer? _debounceTimer;
@@ -35,8 +35,9 @@ public class ParserManager : IDisposable
     /// </summary>
     public event Action<string, Exception>? ErrorOccurred;
 
-    public ParserManager(string? parserDir = null, Action<Action>? dispatch = null)
+    public ParserManager(string? parserDir = null, Action<Action>? dispatch = null, int parserCacheSize = 10)
     {
+        _engine = new ParserEngine(parserCacheSize);
         _dispatch = dispatch;
         _parserDir = parserDir ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parsers");
         Directory.CreateDirectory(_parserDir);

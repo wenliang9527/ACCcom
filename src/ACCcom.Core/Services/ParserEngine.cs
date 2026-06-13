@@ -14,9 +14,16 @@ public class ParserEngine
     private readonly Dictionary<string, Script<List<FieldAnnotation>>> _cache = new();
     private readonly LinkedList<string> _order = new();
     private readonly ReaderWriterLockSlim _rwLock = new();
-    private const int MaxCacheSize = 10;
+    private readonly int _maxCacheSize;
     private string? _lastError;
     private string? _activeCode;
+
+    public ParserEngine(int maxCacheSize = 10)
+    {
+        _maxCacheSize = maxCacheSize;
+    }
+
+    public int MaxCacheSize => _maxCacheSize;
 
     public string? LastError => _lastError;
 
@@ -40,7 +47,7 @@ public class ParserEngine
                 return false;
             }
 
-            if (_cache.Count >= MaxCacheSize)
+            if (_cache.Count >= _maxCacheSize)
             {
                 var oldest = _order.First!.Value;
                 _order.RemoveFirst();

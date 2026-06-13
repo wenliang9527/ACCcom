@@ -48,5 +48,7 @@
   "Tip.AdvancedParams": "高级串口参数",
   "Tip.SearchRx": "搜索接收数据 (支持正则)",
   "Tip.SearchTx": "搜索发送数据 (支持正则)",
-  "Tip.RegexMode": "正则表达式模式"
+  "Tip.RegexMode": "正则表达式模式",
+  "Button.SchemaEditor": "编辑器",
+  "Tip.SchemaEditor": "协议可视化编辑器"
 }

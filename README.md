@@ -219,6 +219,26 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 
 > 📖 **[协议→解析器 操作指南](docs/protocol-to-parser.md)** — 从协议文档到解析器的完整流程，含 JSON Schema 自动生成、手写脚本、MCP 调用三种路径。
 
+### 协议可视化编辑器
+
+`SchemaEditorWindow` 提供图形化字段编辑界面，无需手写 JSON 或代码：
+
+- 填写协议参数（帧头、帧尾、校验类型）
+- DataGrid 逐行编辑字段（名称、偏移、长度、类型、单位、大端、枚举值）
+- 自动生成 JSON Schema 和 `.csx` 脚本
+- 内置 Test Parse 面板，输入 Hex 即可测试
+- 支持加载内置模板，快速开始
+
+### 多帧拼接重组
+
+`FrameAssembler` 将分片数据重组为完整帧后再解析：
+
+- 帧头匹配 + 长度字段判断完整帧
+- 超时检测自动丢弃不完整帧
+- 组装后自动执行解析器
+- 分片数据不污染 RX 列表
+- 桌面 UI 配置窗口（工具栏 🔗 按钮）
+
 **脚本模板（`parsers/` 目录）：**
 ```csharp
 // my_device.csx
@@ -453,7 +473,7 @@ MainViewModel 从 1274 行上帝类拆分为 4 个职责清晰的 ViewModel：
 - **热路径**：Span 零分配 Hex 转换（`HexHelper`），预编译正则，`foreach` 替代 LINQ `.Any()`
 - **内存池**：`ArrayPool<byte>` 复用收发缓冲区，`Pool<byte>` 替代 `new byte[]`
 - **I/O 缓冲**：LoggerService/SessionRecorder 2s 定时器 + 100 写计数器批量刷盘
-- **脚本引擎**：LRU 编译缓存（最多 10 个），同步快速路径避免 `Task.Run` 线程池开销
+- **脚本引擎**：LRU 编译缓存（可配，默认 10 个），启动预热，同步快速路径避免 `Task.Run` 线程池开销
 
 ## 技术栈
 
@@ -467,7 +487,7 @@ MainViewModel 从 1274 行上帝类拆分为 4 个职责清晰的 ViewModel：
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | System.Threading.Channels + RingBuffer |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3 (168 个测试) |
+| 测试 | xUnit 2.5.3 (195 个测试) |
 
 ## 项目结构
 
@@ -492,6 +512,8 @@ ACCcom/
 │   │   │   ├── TestScript.cs        # 测试脚本模型
 │   │   │   └── TriggerRule.cs       # 触发器规则模型
 │   │   ├── Services/
+│   │   │   ├── FrameAssembler.cs    # 多帧拼接重组
+│   │   │   ├── FrameAssemblerConfig.cs
 │   │   │   ├── SerialService.cs     # 串口管理
 │   │   │   ├── SerialConnectionManager.cs  # 连接生命周期管理
 │   │   │   ├── HttpService.cs       # HTTP REST API + WebSocket (EmbedIO)
@@ -534,11 +556,16 @@ ACCcom/
 │   │   ├── Languages/              # 语言包
 │   │   │   ├── zh-CN.json
 │   │   │   └── en-US.json
+│   │   ├── SchemaEditorWindow.xaml     # 协议可视化编辑器
+│   │   ├── FrameAssemblerConfigWindow.xaml # 多帧拼接配置
 │   │   ├── Themes/                 # 主题资源
 │   │   │   ├── DarkTheme.xaml
 │   │   │   └── LightTheme.xaml
 │   │   ├── Converters/             # WPF 值转换器
+│   │   │   ├── FieldValuesTemplateSelector.cs
 │   │   ├── ViewModels/
+│   │   │   ├── SchemaEditorViewModel.cs   # 协议可视化编辑器
+│   │   │   ├── FieldItemViewModel.cs      # 编辑器字段条目
 │   │   │   ├── ObservableObject.cs       # MVVM 基类 (INotifyPropertyChanged + SetField)
 │   │   │   ├── MainViewModel.cs          # 协调者 (328行，持有子VM引用)
 │   │   │   ├── ConnectionViewModel.cs    # 串口/网络连接管理
