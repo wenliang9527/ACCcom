@@ -22,6 +22,8 @@ public class HttpService : IDisposable
         Buffer = new DataBufferService(bufferCapacity);
         _serialService = serialService;
         _parserManager = parserManager;
+        if (_serialService != null)
+            _serialService.OnDataReceived += OnSerialDataReceived;
         _server = new WebServer(o => o.WithUrlPrefix(url).WithMode(HttpListenerMode.EmbedIO))
             .WithWebApi("/api", m => m.WithController(() => new SerialController(this)))
             .WithModule(new SerialWebSocketHandler("/ws", this));
@@ -158,8 +160,22 @@ public class HttpService : IDisposable
 
     public void Dispose()
     {
+        if (_serialService != null)
+            _serialService.OnDataReceived -= OnSerialDataReceived;
         Buffer.CancelWaiters();
         _server?.Dispose();
+    }
+
+    private async void OnSerialDataReceived(LogEntry entry)
+    {
+        if (entry.Direction == "RX" && _parserManager?.ActiveParserName != null && !string.IsNullOrEmpty(entry.RawHex))
+        {
+            var (fields, _) = await ParseRawHexAsync(entry.RawHex).ConfigureAwait(false);
+            if (fields != null && fields.Count > 0)
+                entry.Fields = fields;
+        }
+
+        AddEntry(entry);
     }
 }
 

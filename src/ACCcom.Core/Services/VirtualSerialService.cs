@@ -3,7 +3,7 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public class VirtualSerialService : ISerialService
+public class VirtualSerialService : ISerialService, IDisposable
 {
     private bool _isOpen;
     private string? _currentPort;
@@ -100,4 +100,5 @@ public class VirtualSerialService : ISerialService
 
     public void EnableAutoReconnect(bool enable, int maxAttempts = 10, int delayMs = 1000) { }
     public void UpdateReconnectSettings(ReconnectSettings settings) { }
+    public void Dispose() { }
 }
