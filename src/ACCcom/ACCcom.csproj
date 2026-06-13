@@ -13,4 +13,13 @@
     <ProjectReference Include="..\ACCcom.Core\ACCcom.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="parsers\**\*.csx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Languages\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

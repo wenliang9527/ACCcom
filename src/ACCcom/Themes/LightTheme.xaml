@@ -1,0 +1,68 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================== -->
+    <!-- Effects                                       -->
+    <!-- ============================================== -->
+    <DropShadowEffect x:Key="CardShadow" BlurRadius="16" ShadowDepth="2"
+                      Opacity="0.06" Color="#1A1A2E" Direction="270" />
+    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
+                      Opacity="0.04" Color="#1A1A2E" Direction="270" />
+
+    <!-- ============================================== -->
+    <!-- Light Tech Minimal Palette                     -->
+    <!-- ============================================== -->
+
+    <!-- Neutral base (clean white) -->
+    <Color x:Key="BgBase">#FFFFFF</Color>
+    <Color x:Key="BgSurface">#F8F9FB</Color>
+    <Color x:Key="BgElevated">#FFFFFF</Color>
+    <Color x:Key="BgHover">#F0F3F8</Color>
+    <Color x:Key="BgActive">#E6EBF2</Color>
+    <Color x:Key="BorderColor">#E2E5EA</Color>
+    <Color x:Key="BorderLight">#CDD2DA</Color>
+
+    <!-- Text hierarchy (cool dark) -->
+    <Color x:Key="InkPrimary">#1A1D24</Color>
+    <Color x:Key="InkSecondary">#5A6070</Color>
+    <Color x:Key="InkTertiary">#8B92A0</Color>
+
+    <!-- Accent: tech blue -->
+    <Color x:Key="Accent">#3478F6</Color>
+    <Color x:Key="AccentHover">#5A92FF</Color>
+    <Color x:Key="AccentPressed">#2563DB</Color>
+
+    <!-- Status semantics -->
+    <Color x:Key="StatusBlue">#3478F6</Color>
+    <Color x:Key="StatusGray">#8B92A0</Color>
+    <Color x:Key="StatusGreen">#22C55E</Color>
+    <Color x:Key="RedError">#EF4444</Color>
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}" />
+    <SolidColorBrush x:Key="BgSurfaceBrush" Color="{StaticResource BgSurface}" />
+    <SolidColorBrush x:Key="BgElevatedBrush" Color="{StaticResource BgElevated}" />
+    <SolidColorBrush x:Key="BgHoverBrush" Color="{StaticResource BgHover}" />
+    <SolidColorBrush x:Key="BgActiveBrush" Color="{StaticResource BgActive}" />
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+    <SolidColorBrush x:Key="BorderLightBrush" Color="{StaticResource BorderLight}" />
+    <SolidColorBrush x:Key="InkPrimaryBrush" Color="{StaticResource InkPrimary}" />
+    <SolidColorBrush x:Key="InkSecondaryBrush" Color="{StaticResource InkSecondary}" />
+    <SolidColorBrush x:Key="InkTertiaryBrush" Color="{StaticResource InkTertiary}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
+    <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
+    <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
+    <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource RedError}" />
+
+    <SolidColorBrush x:Key="DividerBrush" Color="#EAECF0" />
+
+    <!-- ScrollBar theme-local overrides -->
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#06000000" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#C8CDD5" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#A8B0BC" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#8B92A0" />
+
+</ResourceDictionary>

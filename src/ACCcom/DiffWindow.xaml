@@ -1,0 +1,101 @@
+<Window x:Class="ACCcom.DiffWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hex Diff Compare" Height="520" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BgBaseBrush}">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Input area -->
+        <Border Grid.Row="0" Padding="10" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Frame A" FontWeight="SemiBold" Margin="0,0,0,4"
+                               Foreground="{DynamicResource StatusBlueBrush}" FontSize="12" />
+                    <TextBox x:Name="HexBoxA" FontFamily="Consolas" FontSize="12"
+                             AcceptsReturn="True" Height="60" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Compare" Click="Compare_Click"
+                        Style="{StaticResource PrimaryButton}" Margin="16,16,16,0"
+                        Padding="20,4" VerticalAlignment="Top" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Frame B" FontWeight="SemiBold" Margin="0,0,0,4"
+                               Foreground="{DynamicResource StatusGreenBrush}" FontSize="12" />
+                    <TextBox x:Name="HexBoxB" FontFamily="Consolas" FontSize="12"
+                             AcceptsReturn="True" Height="60" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Legend -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,4" HorizontalAlignment="Center">
+            <Border Background="#3322C55E" CornerRadius="3" Padding="8,2" Margin="0,0,12,0">
+                <TextBlock Text="Match" FontSize="11" Foreground="#22C55E" />
+            </Border>
+            <Border Background="#33EF4444" CornerRadius="3" Padding="8,2">
+                <TextBlock Text="Diff" FontSize="11" Foreground="#EF4444" />
+            </Border>
+        </StackPanel>
+
+        <!-- Byte-level diff display -->
+        <Border Grid.Row="2" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Frame A header -->
+                <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1"
+                        BorderBrush="{DynamicResource DividerBrush}">
+                    <TextBlock Text="Frame A" FontWeight="SemiBold" FontSize="12"
+                               Foreground="{DynamicResource StatusBlueBrush}" />
+                </Border>
+
+                <!-- Frame A hex bytes -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="8,4">
+                    <TextBlock x:Name="DiffTextA" FontFamily="Consolas" FontSize="13"
+                               Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" />
+                </ScrollViewer>
+
+                <!-- Frame B header -->
+                <Border Grid.Row="2" Padding="10,6" BorderThickness="0,1,0,1"
+                        BorderBrush="{DynamicResource DividerBrush}">
+                    <TextBlock Text="Frame B" FontWeight="SemiBold" FontSize="12"
+                               Foreground="{DynamicResource StatusGreenBrush}" />
+                </Border>
+
+                <!-- Frame B hex bytes -->
+                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Padding="8,4">
+                    <TextBlock x:Name="DiffTextB" FontFamily="Consolas" FontSize="13"
+                               Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Summary -->
+        <Border Grid.Row="3" Padding="10,6" Background="{DynamicResource BgSurfaceBrush}"
+                CornerRadius="6" Margin="0,6,0,0">
+            <TextBlock x:Name="SummaryText" Text="Paste two hex frames and click Compare"
+                       FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}"
+                       HorizontalAlignment="Center" />
+        </Border>
+    </Grid>
+</Window>
