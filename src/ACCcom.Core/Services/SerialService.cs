@@ -4,7 +4,7 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public class SerialService : IDisposable
+public class SerialService : ISerialService, IDisposable
 {
     private SerialPort? _port;
     private int _rxEntryId;
