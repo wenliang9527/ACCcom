@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACCCOM Dashboard</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',sans-serif; background:#1a1a2e; color:#e0e0e0; font-size:13px; height:100vh; display:flex; flex-direction:column; }
+.top-bar { display:flex; gap:16px; padding:8px 12px; background:#16213e; border-bottom:1px solid #0f3460; align-items:center; }
+.top-bar .status { display:flex; align-items:center; gap:6px; }
+.top-bar .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.dot.green { background:#4ecca3; }
+.dot.red { background:#e84545; }
+.main { display:flex; flex:1; overflow:hidden; gap:1px; background:#0f3460; }
+.panel { flex:1; display:flex; flex-direction:column; background:#1a1a2e; overflow:hidden; }
+.panel-header { padding:6px 10px; background:#16213e; font-weight:600; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:6px; user-select:none; border-bottom:1px solid #0f3460; }
+.panel-header .arrow { transition:transform .15s; display:inline-block; }
+.panel-header.collapsed .arrow { transform:rotate(-90deg); }
+.panel-body { flex:1; overflow-y:auto; padding:4px 0; }
+.panel-body.collapsed { display:none; }
+.stream-item { padding:2px 10px; font-family:'Cascadia Code','Consolas',monospace; font-size:12px; display:flex; gap:8px; border-bottom:1px solid #16213e; }
+.stream-item:hover { background:#16213e; }
+.tag-rx { color:#4fc3f7; }
+.tag-tx { color:#ffb74d; }
+.stream-time { color:#888; min-width:60px; }
+.stream-data { word-break:break-all; }
+.reg-table { width:100%; border-collapse:collapse; font-family:'Cascadia Code','Consolas',monospace; font-size:12px; }
+.reg-table th { text-align:left; padding:4px 8px; background:#16213e; border-bottom:1px solid #0f3460; position:sticky; top:0; }
+.reg-table td { padding:3px 8px; border-bottom:1px solid #16213e; }
+.reg-table tr:hover td { background:#16213e; }
+.slave-list { padding:4px 8px; display:flex; gap:6px; flex-wrap:wrap; border-bottom:1px solid #0f3460; }
+.slave-chip { padding:3px 10px; background:#0f3460; border-radius:12px; font-size:11px; cursor:pointer; }
+.slave-chip.active { background:#4ecca3; color:#1a1a2e; font-weight:600; }
+.slave-chip:hover { opacity:.8; }
+.status-label { font-size:11px; color:#888; }
+.status-value { font-size:12px; font-weight:600; }
+.loading { text-align:center; padding:20px; color:#888; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="status"><span class="dot green" id="statusDot"></span><span id="statusText">Disconnected</span></div>
+  <div class="status"><span class="status-label">Port:</span><span class="status-value" id="portText">-</span></div>
+  <div class="status"><span class="status-label">RX:</span><span class="status-value" id="rxText">0</span></div>
+  <div class="status"><span class="status-label">TX:</span><span class="status-value" id="txText">0</span></div>
+  <div style="flex:1"></div>
+  <div class="status"><span class="status-label" id="versionText"></span></div>
+</div>
+
+<div class="main">
+  <div class="panel" id="streamPanel">
+    <div class="panel-header" onclick="toggleStream()">
+      <span class="arrow">&#9660;</span> Real-Time Data Stream
+    </div>
+    <div class="panel-body" id="streamBody"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">MODBUS Slaves</div>
+    <div id="slaveList" class="slave-list"></div>
+    <div class="panel-body" id="slaveBody" style="padding:0;">
+      <table class="reg-table">
+        <thead><tr><th>Addr</th><th>Value (DEC)</th><th>Value (HEX)</th></tr></thead>
+        <tbody id="regTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = '';
+let ws = null;
+let streamCollapsed = false;
+let entries = [];
+let selectedSlave = null;
+
+function toggleStream() {
+  streamCollapsed = !streamCollapsed;
+  document.getElementById('streamPanel').querySelector('.panel-header').classList.toggle('collapsed', streamCollapsed);
+  document.getElementById('streamBody').classList.toggle('collapsed', streamCollapsed);
+}
+
+function addStreamEntry(dir, time, data) {
+  entries.unshift({dir, time, data});
+  if (entries.length > 200) entries.length = 200;
+  if (streamCollapsed) return;
+  const el = document.getElementById('streamBody');
+  const div = document.createElement('div');
+  div.className = 'stream-item';
+  div.innerHTML = `<span class="tag-${dir.toLowerCase()}">[${dir}]</span><span class="stream-time">${time}</span><span class="stream-data">${data}</span>`;
+  el.insertBefore(div, el.firstChild);
+  while (el.children.length > 100) el.removeChild(el.lastChild);
+}
+
+function updateStatus(s) {
+  document.getElementById('statusDot').className = 'dot ' + (s.isOpen ? 'green' : 'red');
+  document.getElementById('statusText').textContent = s.isOpen ? 'Connected' : 'Disconnected';
+  document.getElementById('portText').textContent = s.currentPort || '-';
+  document.getElementById('rxText').textContent = s.rxCount || 0;
+  document.getElementById('txText').textContent = s.txCount || 0;
+}
+
+function updateSlaves(data) {
+  if (!data || !data.slaves) return;
+  const list = document.getElementById('slaveList');
+  list.innerHTML = '';
+  data.slaves.forEach(s => {
+    const chip = document.createElement('span');
+    chip.className = 'slave-chip' + (selectedSlave === s.id ? ' active' : '');
+    chip.textContent = `Slave 0x${s.slaveId.toString(16).padStart(2,'0')} | ${s.transportType.toUpperCase()}`;
+    chip.onclick = () => { selectedSlave = s.id; renderRegisters(data.registers, data.slaves); };
+    list.appendChild(chip);
+  });
+  if (!selectedSlave && data.slaves.length > 0) { selectedSlave = data.slaves[0].id; }
+  renderRegisters(data.registers, data.slaves);
+}
+
+function renderRegisters(regs, slaves) {
+  const tbody = document.getElementById('regTableBody');
+  tbody.innerHTML = '';
+  if (!regs || !selectedSlave || !regs[selectedSlave]) {
+    tbody.innerHTML = '<tr><td colspan="3" class="loading">No slave selected</td></tr>';
+    return;
+  }
+  const list = regs[selectedSlave];
+  list.slice(0, 32).forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>0x${r.address.toString(16).padStart(4,'0')}</td><td>${r.value}</td><td>0x${r.value.toString(16).padStart(4,'0').toUpperCase()}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll('.slave-chip').forEach((chip, i) => {
+    chip.classList.toggle('active', slaves && slaves[i] && slaves[i].id === selectedSlave);
+  });
+}
+
+async function pollStatus() {
+  try {
+    const r = await fetch(BASE + '/api/status');
+    const j = await r.json();
+    if (j.success !== false) updateStatus(j);
+  } catch {}
+}
+async function pollSlaves() {
+  try {
+    const r = await fetch(BASE + '/api/slaves');
+    const j = await r.json();
+    if (j.success !== false) updateSlaves(j);
+  } catch {}
+}
+
+setInterval(pollStatus, 2000);
+setInterval(pollSlaves, 1000);
+
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+  ws.onmessage = e => {
+    try {
+      const entry = JSON.parse(e.data);
+      addStreamEntry(entry.direction, entry.timestamp ? entry.timestamp.substr(11,8) : '', entry.rawHex || entry.text || '');
+    } catch {}
+  };
+  ws.onclose = () => { setTimeout(connectWs, 2000); };
+  ws.onerror = () => {};
+}
+connectWs();
+
+pollStatus();
+pollSlaves();
+</script>
+</body>
+</html>
