@@ -146,3 +146,62 @@ public class ModbusSlaveDeviceTests
         Assert.Equal(0x81, resp[0]); Assert.Equal(0x03, resp[1]);
     }
 }
+
+public class ModbusSlaveTransportTests
+{
+    [Fact]
+    public async Task RtuTransport_ReceivesRequest_SendsResponse()
+    {
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        device.SetHoldingRegister(0, 0x1234);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("01 03 00 00 00 01 84 0A");
+        await Task.Delay(300);
+        var sent = serial.GetSentData();
+        Assert.Single(sent);
+        Assert.StartsWith("0103021234", sent[0].RawHex.Replace(" ", ""));
+    }
+
+    [Fact]
+    public async Task RtuTransport_WrongSlaveId_Ignored()
+    {
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("02 03 00 00 00 01 84 0A");
+        await Task.Delay(300);
+        Assert.Empty(serial.GetSentData());
+    }
+
+    [Fact]
+    public async Task RtuTransport_InvalidCrc_Ignored()
+    {
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("01 03 00 00 00 01 00 00");
+        await Task.Delay(300);
+        Assert.Empty(serial.GetSentData());
+    }
+
+    [Fact]
+    public async Task RtuTransport_StartStop_CanRestart()
+    {
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.Start(); Assert.True(transport.IsRunning);
+        transport.Stop(); Assert.False(transport.IsRunning);
+        transport.Start(); Assert.True(transport.IsRunning);
+    }
+}
