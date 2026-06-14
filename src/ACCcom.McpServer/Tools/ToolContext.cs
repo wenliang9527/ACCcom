@@ -21,6 +21,9 @@ public class ToolContext
     public MultiPortService? MultiPort { get; }
     public AutoBaudDetector? AutoBaud { get; }
     public SessionRecorder Recorder { get; }
+    public ModbusService? Modbus { get; }
+    public ModbusSlaveService? SlaveService { get; set; }
+    public ModbusConnectionManager ConnectionManager { get; } = new();
 
     public static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -42,6 +45,8 @@ public class ToolContext
             Stats = new DataStatistics();
             MultiPort = sp.GetService<MultiPortService>();
             AutoBaud = sp.GetService<AutoBaudDetector>();
+            Modbus = sp.GetService<ModbusService>();
+            SlaveService = sp.GetService<ModbusSlaveService>();
 
             Serial.OnDataReceived += entry =>
             {

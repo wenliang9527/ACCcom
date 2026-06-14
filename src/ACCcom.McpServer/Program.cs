@@ -73,6 +73,9 @@ else
     builder.Services.AddSingleton<LoggerService>();
     builder.Services.AddSingleton<MultiPortService>();
     builder.Services.AddSingleton<AutoBaudDetector>();
+    builder.Services.AddSingleton<ModbusConnectionManager>();
+    builder.Services.AddSingleton<ModbusService>();
+    builder.Services.AddSingleton<ModbusSlaveService>();
     builder.Services.AddSingleton<SessionRecorder>();
 }
 
@@ -85,7 +88,8 @@ builder.Services.AddMcpServer()
     .WithTools<SerialTools>()
     .WithTools<ParserTools>()
     .WithTools<RecordingTools>()
-    .WithTools<AnalysisTools>();
+    .WithTools<AnalysisTools>()
+    .WithTools<ModbusTools>();
 
 var app = builder.Build();
 await app.RunAsync();
