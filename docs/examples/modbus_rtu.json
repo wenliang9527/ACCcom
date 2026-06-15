@@ -1,0 +1,91 @@
+{
+  "name": "modbus_rtu",
+  "description": "Modbus RTU 协议 - 设备地址(1) + 功能码(1) + 数据(N) + CRC16(2)",
+  "type": "binary",
+  "minLength": 4,
+  "frame": {
+    "header": null,
+    "footer": null,
+    "lengthField": null,
+    "checksum": {
+      "type": "crc16",
+      "algorithm": "modbus",
+      "range": "all"
+    },
+    "commandField": {
+      "offset": 1,
+      "length": 1
+    }
+  },
+  "fields": [
+    { "name": "设备地址", "offset": 0, "length": 1, "type": "uint8" },
+    { "name": "功能码", "offset": 1, "length": 1, "type": "enum", "values": {
+      "0x01": "读线圈状态",
+      "0x02": "读离散输入",
+      "0x03": "读保持寄存器",
+      "0x04": "读输入寄存器",
+      "0x05": "写单个线圈",
+      "0x06": "写单个寄存器",
+      "0x0F": "写多个线圈",
+      "0x10": "写多个寄存器"
+    }}
+  ],
+  "commands": {
+    "0x01": {
+      "name": "读线圈状态",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x02": {
+      "name": "读离散输入",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x03": {
+      "name": "读保持寄存器",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "寄存器数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x04": {
+      "name": "读输入寄存器",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "寄存器数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x05": {
+      "name": "写单个线圈",
+      "fields": [
+        { "name": "线圈地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "线圈值", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x06": {
+      "name": "写单个寄存器",
+      "fields": [
+        { "name": "寄存器地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "寄存器值", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x0F": {
+      "name": "写多个线圈",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "线圈数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    },
+    "0x10": {
+      "name": "写多个寄存器",
+      "fields": [
+        { "name": "起始地址", "offset": 2, "length": 2, "type": "uint16" },
+        { "name": "寄存器数量", "offset": 4, "length": 2, "type": "uint16" }
+      ]
+    }
+  }
+}

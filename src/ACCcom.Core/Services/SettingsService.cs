@@ -14,14 +14,18 @@ public class SettingsService
     };
 
     private readonly string _settingsPath;
+    private string? _lastError;
 
     public SettingsService(string? settingsPath = null)
     {
         _settingsPath = settingsPath ?? DefaultSettingsPath;
     }
 
+    public string? LastError => _lastError;
+
     public AppSettings Load()
     {
+        _lastError = null;
         try
         {
             if (File.Exists(_settingsPath))
@@ -30,16 +34,39 @@ public class SettingsService
                 return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             }
         }
-        catch
+        catch (JsonException ex)
         {
-            // Corrupted file — return defaults
+            _lastError = $"Settings file corrupted: {ex.Message}";
+        }
+        catch (IOException ex)
+        {
+            _lastError = $"Failed to read settings file: {ex.Message}";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _lastError = $"Access denied to settings file: {ex.Message}";
         }
         return new AppSettings();
     }
 
-    public void Save(AppSettings settings)
+    public bool Save(AppSettings settings)
     {
-        var json = JsonSerializer.Serialize(settings, JsonOptions);
-        File.WriteAllText(_settingsPath, json);
+        _lastError = null;
+        try
+        {
+            var json = JsonSerializer.Serialize(settings, JsonOptions);
+            File.WriteAllText(_settingsPath, json);
+            return true;
+        }
+        catch (IOException ex)
+        {
+            _lastError = $"Failed to write settings file: {ex.Message}";
+            return false;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _lastError = $"Access denied to settings file: {ex.Message}";
+            return false;
+        }
     }
 }

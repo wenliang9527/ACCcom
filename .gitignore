@@ -15,3 +15,53 @@ obj/
 ## OS
 Thumbs.db
 .DS_Store
+
+# Runtime output files
+err.txt
+out.txt
+acccom_err.txt
+acccom_out.txt
+
+# Runtime PID file
+.acccom_gui.pid
+
+# Build output
+dist/
+dist-mcp/
+build/
+
+# Test results
+TestResults/
+**/TestResults/
+
+# Runtime generated data
+logs/
+recordings/
+
+# Runtime JSON config (auto-generated)
+settings.json
+shortcuts.json
+presets.json
+macros.json
+triggers.json
+
+# NuGet packages (broader scope)
+**/*.nupkg
+
+# Agent/IDE config dirs (generated locally)
+.agents/
+.claude/
+.mimocode/
+.playwright-mcp/
+.codegraph/
+
+# Binary protocol specs
+Agreement/
+
+# Superpowers design docs (internal)
+docs/superpowers/
+
+# Generated skill lockfile
+skills-lock.json
+
+*.wpftmp.csproj

@@ -9,6 +9,7 @@ public class VirtualSerialService : ISerialService, IDisposable
     private string? _currentPort;
     private int _baudRate;
     private int _nextRxId;
+    private int _nextTxId;
 
     private readonly List<LogEntry> _sentData = new();
     private readonly object _lock = new();
@@ -52,7 +53,7 @@ public class VirtualSerialService : ISerialService, IDisposable
 
         var entry = new LogEntry
         {
-            Id = _sentData.Count + 1,
+            Id = Interlocked.Increment(ref _nextTxId),
             Timestamp = DateTime.Now,
             Direction = "TX",
             RawHex = hexStr,

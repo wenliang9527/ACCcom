@@ -34,7 +34,7 @@ public partial class DiffWindow : Window
 
         if (string.IsNullOrEmpty(rawA) || string.IsNullOrEmpty(rawB))
         {
-            SummaryText.Text = "Please paste hex data into both frames";
+            SummaryText.Text = LanguageManager.Instance["DiffWindow.PleasePaste"];
             return;
         }
 
@@ -49,7 +49,7 @@ public partial class DiffWindow : Window
         }
         catch (FormatException)
         {
-            SummaryText.Text = "Frame A contains invalid hex characters";
+            SummaryText.Text = LanguageManager.Instance["DiffWindow.InvalidHexA"];
             return;
         }
 
@@ -59,7 +59,7 @@ public partial class DiffWindow : Window
         }
         catch (FormatException)
         {
-            SummaryText.Text = "Frame B contains invalid hex characters";
+            SummaryText.Text = LanguageManager.Instance["DiffWindow.InvalidHexB"];
             return;
         }
 
@@ -146,6 +146,6 @@ public partial class DiffWindow : Window
             }
         }
 
-        SummaryText.Text = $"{diffCount} bytes differ out of {maxLen} total  |  A: {bytesA.Length} bytes  B: {bytesB.Length} bytes";
+        SummaryText.Text = string.Format(LanguageManager.Instance["DiffWindow.DiffResult"], diffCount, maxLen, bytesA.Length, bytesB.Length);
     }
 }

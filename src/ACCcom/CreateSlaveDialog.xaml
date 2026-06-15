@@ -1,0 +1,47 @@
+<Window x:Class="ACCcom.CreateSlaveDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ACCcom"
+        Title="{Binding [CreateSlave.Title], Source={x:Static local:LanguageManager.Instance}}"
+        Height="260" Width="400"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [CreateSlave.LabelSlaveId], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />
+        <TextBox x:Name="SlaveIdBox" Grid.Row="0" Grid.Column="1" Text="1" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [CreateSlave.LabelTransport], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />
+        <ComboBox x:Name="TransportBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" SelectedIndex="0">
+            <ComboBoxItem Content="TCP" />
+            <ComboBoxItem Content="RTU" />
+        </ComboBox>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [CreateSlave.LabelPort], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />
+        <TextBox x:Name="PortBox" Grid.Row="2" Grid.Column="1" Text="15000" Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding [CreateSlave.LabelHoldingRegs], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />
+        <TextBox x:Name="RegsBox" Grid.Row="3" Grid.Column="1" Text="256" Margin="0,0,0,8" />
+
+        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}" Width="80" Margin="0,0,8,0" Click="OnCancel" />
+            <Button Content="{Binding [CreateSlave.ButtonCreate], Source={x:Static local:LanguageManager.Instance}}" Width="80" Click="OnCreate" Style="{StaticResource PrimaryButton}" />
+        </StackPanel>
+    </Grid>
+</Window>

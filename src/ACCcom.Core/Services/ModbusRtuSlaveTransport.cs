@@ -14,6 +14,7 @@ public class ModbusRtuSlaveTransport : IDisposable
 
     public byte SlaveId { get; set; } = 0x01;
     public bool IsRunning => _isRunning;
+    public string? LastError { get; private set; }
     public Func<byte, byte[], byte[]>? OnRequestReceived { get; set; }
 
     public ModbusRtuSlaveTransport(ISerialService serial)
@@ -64,31 +65,28 @@ public class ModbusRtuSlaveTransport : IDisposable
         var slaveId = frame[0];
         if (slaveId != SlaveId) return;
         var receivedCrc = (ushort)(frame[^2] | (frame[^1] << 8));
-        var computedCrc = Crc16(frame.AsSpan(0, frame.Length - 2));
+        var computedCrc = CrcHelper.Crc16(frame.AsSpan(0, frame.Length - 2));
         if (receivedCrc != computedCrc) return;
         var handler = OnRequestReceived;
         if (handler == null) return;
         var pdu = frame[1..^2];
         byte[] responseBody;
         try { responseBody = handler(slaveId, pdu); }
-        catch { return; }
+        catch (Exception ex)
+        {
+            LastError = $"Handler error: {ex.Message}";
+            return;
+        }
         if (responseBody.Length == 0) return;
         var funcCode = pdu[0];
         var adu = new byte[1 + 1 + responseBody.Length + 2];
         adu[0] = slaveId;
         adu[1] = funcCode;
         Array.Copy(responseBody, 0, adu, 2, responseBody.Length);
-        var crc = Crc16(adu.AsSpan(0, adu.Length - 2));
+        var crc = CrcHelper.Crc16(adu.AsSpan(0, adu.Length - 2));
         adu[^2] = (byte)(crc & 0xFF);
         adu[^1] = (byte)((crc >> 8) & 0xFF);
-        _serial.Send(string.Join(" ", adu.Select(b => b.ToString("X2"))), isHex: true);
-    }
-
-    private static ushort Crc16(ReadOnlySpan<byte> data)
-    {
-        ushort crc = 0xFFFF;
-        foreach (var b in data) { crc ^= b; for (int i = 0; i < 8; i++) crc = (crc & 1) != 0 ? (ushort)((crc >> 1) ^ 0xA001) : (ushort)(crc >> 1); }
-        return crc;
+        _serial.Send(HexHelper.BytesToHexSpaced(adu, 0, adu.Length), isHex: true);
     }
 
     private static byte[] HexStringToBytes(string hex)

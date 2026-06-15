@@ -56,18 +56,18 @@ public partial class PlotWindow : Window
 
         // Update header info
         LatestValueText.Text = points.Count > 0 ? $"{_viewModel.LatestValue:F4}" : "--";
-        PointCountText.Text = $"  ({points.Count} points)";
+        PointCountText.Text = string.Format(LanguageManager.Instance["Plot.Points"], points.Count);
         YRangeText.Text = points.Count > 1
             ? $"{_viewModel.MinValue:F2} ~ {_viewModel.MaxValue:F2}"
             : "--";
 
         if (points.Count < 2)
         {
-            StatusText.Text = "Waiting for data (need at least 2 points)...";
+            StatusText.Text = LanguageManager.Instance["Plot.WaitingForData"];
             return;
         }
 
-        StatusText.Text = $"Plotting {points.Count} points | {_viewModel.MaxValue:F2} max | {_viewModel.MinValue:F2} min";
+        StatusText.Text = string.Format(LanguageManager.Instance["Plot.Status"], points.Count, _viewModel.MaxValue.ToString("F2"), _viewModel.MinValue.ToString("F2"));
 
         double canvasW = PlotCanvas.ActualWidth;
         double canvasH = PlotCanvas.ActualHeight;
@@ -156,8 +156,8 @@ public partial class PlotWindow : Window
         PlotCanvas.Children.Clear();
         YAxisCanvas.Children.Clear();
         LatestValueText.Text = "--";
-        PointCountText.Text = "  (0 points)";
+        PointCountText.Text = LanguageManager.Instance["Plot.ZeroPoints"];
         YRangeText.Text = "--";
-        StatusText.Text = "Waiting for data...";
+        StatusText.Text = LanguageManager.Instance["Plot.Waiting"];
     }
 }

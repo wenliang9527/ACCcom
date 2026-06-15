@@ -285,6 +285,221 @@ public class ParserGeneratorTests
         Assert.Contains("Sum16", csx);
     }
 
+    [Fact]
+    public void Generate_BcdField_GeneratesBcdCall()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "test_bcd",
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "版本号", Offset = 0, Length = 1, Type = "bcd" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        Assert.Contains("bcd", csx.ToLower());
+        Assert.Contains("版本号", csx);
+    }
+
+    [Fact]
+    public void Generate_BitfieldField_GeneratesBitParsing()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "test_bitfield",
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "状态字", Offset = 0, Length = 2, Type = "bitfield" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        Assert.Contains("bit", csx.ToLower());
+        Assert.Contains("状态字", csx);
+    }
+
+    [Fact]
+    public void Generate_FooterOnly_GeneratesFooterValidation()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "footer_only",
+            MinLength = 3,
+            Frame = new FrameSchema
+            {
+                Footer = "DD"
+            },
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "数据", Offset = 0, Length = 1, Type = "uint8" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        Assert.Contains("DD", csx);
+        Assert.Contains("帧尾", csx);
+    }
+
+    [Fact]
+    public void Generate_HeaderFooterChecksum_AllGenerated()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "full_frame",
+            MinLength = 6,
+            Frame = new FrameSchema
+            {
+                Header = "A5 5A",
+                Footer = "DD",
+                Checksum = new ChecksumSchema { Type = "xor8" }
+            },
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "命令", Offset = 2, Length = 1, Type = "uint8" },
+                new FieldSchema { Name = "数据", Offset = 3, Length = 1, Type = "uint8" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        Assert.Contains("A5 5A", csx);
+        Assert.Contains("DD", csx);
+        Assert.Contains("Xor8", csx);
+    }
+
+    [Fact]
+    public void Generate_LengthField_GeneratesLengthCheck()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "len_field",
+            MinLength = 4,
+            Frame = new FrameSchema
+            {
+                Header = "AA",
+                LengthField = new LengthFieldSchema { Offset = 1, Length = 1 },
+                Checksum = new ChecksumSchema { Type = "sum8" }
+            },
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "帧头", Offset = 0, Length = 1, Type = "hex", Value = "AA" },
+                new FieldSchema { Name = "长度", Offset = 1, Length = 1, Type = "uint8" },
+                new FieldSchema { Name = "数据", Offset = 2, Length = 1, Type = "uint8" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        Assert.Contains("长度", csx);
+        Assert.Contains("Sum8", csx);
+    }
+
+    [Fact]
+    public void Validate_CommandFieldWithoutCommands_ReturnsError()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "missing_cmds",
+            Frame = new FrameSchema
+            {
+                CommandField = new CommandFieldSchema { Offset = 2, Length = 1 }
+            },
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "命令", Offset = 2, Length = 1, Type = "uint8" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var (valid, errors) = generator.Validate(schema);
+
+        Assert.False(valid);
+        Assert.Contains(errors, e => e.Contains("CommandField"));
+    }
+
+    [Fact]
+    public void Validate_CommandsWithoutCommandField_ReturnsError()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "missing_cmd_field",
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "数据", Offset = 0, Length = 1, Type = "uint8" }
+            },
+            Commands = new Dictionary<string, CommandSchema>
+            {
+                ["0x01"] = new CommandSchema { Name = "读取" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var (valid, errors) = generator.Validate(schema);
+
+        Assert.False(valid);
+        Assert.Contains(errors, e => e.Contains("CommandField") || e.Contains("Commands"));
+    }
+
+    [Fact]
+    public async Task Generate_BcdType_ProducesWorkingParser()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "bcd_test",
+            MinLength = 2,
+            Frame = new FrameSchema { Checksum = new ChecksumSchema { Type = "xor8" } },
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "版本号", Offset = 0, Length = 1, Type = "bcd" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        var engine = new ParserEngine();
+        Assert.True(engine.Load(csx), $"Failed: {engine.LastError}");
+
+        var data = new byte[] { 0x12, 0x00 };
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
+        Assert.NotNull(fields);
+        Assert.True(fields!.Count > 0);
+    }
+
+    [Fact]
+    public async Task Generate_BitfieldType_ProducesWorkingParser()
+    {
+        var schema = new ProtocolSchema
+        {
+            Name = "bitfield_test",
+            MinLength = 2,
+            Fields = new List<FieldSchema>
+            {
+                new FieldSchema { Name = "标志位", Offset = 0, Length = 1, Type = "bitfield" }
+            }
+        };
+
+        var generator = new ParserGenerator();
+        var csx = generator.Generate(schema);
+
+        var engine = new ParserEngine();
+        Assert.True(engine.Load(csx), $"Failed: {engine.LastError}");
+
+        var data = new byte[] { 0xAB };
+        var fields = await engine.ExecuteAsync(data, DateTime.Now);
+        Assert.NotNull(fields);
+        Assert.True(fields!.Count > 0);
+    }
+
     private ProtocolSchema CreateModbusSchema()
     {
         return new ProtocolSchema

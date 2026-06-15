@@ -17,6 +17,7 @@ public class NetworkBridgeService : IDisposable
     private UdpClient? _udpClient;
     private NetworkStream? _tcpStream;
     private CancellationTokenSource? _receiveCts;
+    private readonly object _lock = new();
     private bool _disposed;
     private int _rxEntryId;
     private int _txEntryId;
@@ -99,13 +100,16 @@ public class NetworkBridgeService : IDisposable
                 bytes = System.Text.Encoding.UTF8.GetBytes(data);
             }
 
-            if (Protocol == NetworkProtocol.TCP)
+            lock (_lock)
             {
-                _tcpStream?.Write(bytes, 0, bytes.Length);
-            }
-            else
-            {
-                _udpClient?.Send(bytes, bytes.Length);
+                if (Protocol == NetworkProtocol.TCP)
+                {
+                    _tcpStream?.Write(bytes, 0, bytes.Length);
+                }
+                else
+                {
+                    _udpClient?.Send(bytes, bytes.Length);
+                }
             }
 
             var entry = new LogEntry
@@ -131,19 +135,22 @@ public class NetworkBridgeService : IDisposable
 
     public bool Close()
     {
-        if (!IsConnected) return true;
+        lock (_lock)
+        {
+            if (!IsConnected) return true;
 
-        try
-        {
-            IsConnected = false;
-            Cleanup();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            OnError?.Invoke($"Network close error: {ex.Message}");
-            Cleanup();
-            return false;
+            try
+            {
+                IsConnected = false;
+                Cleanup();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"Network close error: {ex.Message}");
+                Cleanup();
+                return false;
+            }
         }
     }
 
@@ -226,26 +233,29 @@ public class NetworkBridgeService : IDisposable
 
     private void HandleDisconnect()
     {
-        if (!IsConnected) return;
-        IsConnected = false;
-        Cleanup();
+        lock (_lock)
+        {
+            if (!IsConnected) return;
+            IsConnected = false;
+            Cleanup();
+        }
         OnDisconnected?.Invoke();
     }
 
     private void Cleanup()
     {
-        _receiveCts?.Cancel();
-        _receiveCts?.Dispose();
-        _receiveCts = null;
+        using var cts = Interlocked.Exchange(ref _receiveCts, null);
+        cts?.Cancel();
+        cts?.Dispose();
 
-        _tcpStream?.Dispose();
-        _tcpStream = null;
+        var tcpStream = Interlocked.Exchange(ref _tcpStream, null);
+        tcpStream?.Dispose();
 
-        _tcpClient?.Dispose();
-        _tcpClient = null;
+        var tcpClient = Interlocked.Exchange(ref _tcpClient, null);
+        tcpClient?.Dispose();
 
-        _udpClient?.Dispose();
-        _udpClient = null;
+        var udpClient = Interlocked.Exchange(ref _udpClient, null);
+        udpClient?.Dispose();
     }
 
     public void Dispose()

@@ -203,5 +203,6 @@ public class ParserManager : IDisposable
             _debounceTimer = null;
         }
         _watcher?.Dispose();
+        _engine.Dispose();
     }
 }

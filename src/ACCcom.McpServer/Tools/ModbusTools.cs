@@ -204,4 +204,44 @@ public class ModbusTools
                 : ushort.TryParse(s, out var v) ? v : (ushort)0)
             .ToArray();
     }
+
+    [McpServerTool, Description("Scan for MODBUS slave devices on the bus. Parameters: startAddress (default 1), endAddress (default 247), timeoutMs (default 500), connectionId (optional). Returns list of online devices.")]
+    public async Task<string> ScanDevices(
+        byte startAddress = 1,
+        byte endAddress = 247,
+        int timeoutMs = 500,
+        string? connectionId = null)
+    {
+        var modbus = GetModbus(connectionId);
+        if (modbus == null)
+            return _ctx.RawJson(new { success = false, error = "MODBUS service is only available in direct (non-proxy) mode" });
+
+        var scanner = new ModbusScanner(modbus);
+        try
+        {
+            var devices = await scanner.ScanAsync(startAddress, endAddress, timeoutMs);
+
+            return _ctx.RawJson(new
+            {
+                success = true,
+                data = new
+                {
+                    scannedRange = $"{startAddress}-{endAddress}",
+                    timeoutMs,
+                    deviceCount = devices.Count,
+                    devices = devices.Select(d => new
+                    {
+                        slaveId = (int)d.SlaveId,
+                        slaveIdHex = $"0x{d.SlaveId:X2}",
+                        isOnline = d.IsOnline,
+                        firstRegisterValue = $"0x{d.FirstRegisterValue:X4}"
+                    })
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            return _ctx.RawJson(new { success = false, error = "Scan cancelled" });
+        }
+    }
 }

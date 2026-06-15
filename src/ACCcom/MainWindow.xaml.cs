@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using ACCcom.Core.Services;
 using ACCcom.ViewModels;
 
 namespace ACCcom;
@@ -14,7 +15,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _vm = new MainViewModel();
+        _vm = new MainViewModel(new SerialService());
         DataContext = _vm;
 
         // Restore window position/size from settings

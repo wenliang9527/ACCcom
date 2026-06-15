@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 
@@ -195,7 +196,7 @@ public class ModbusSlaveTransportTests
     }
 
     [Fact]
-    public async Task RtuTransport_StartStop_CanRestart()
+    public void RtuTransport_StartStop_CanRestart()
     {
         using var serial = new VirtualSerialService();
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
@@ -203,5 +204,92 @@ public class ModbusSlaveTransportTests
         transport.Start(); Assert.True(transport.IsRunning);
         transport.Stop(); Assert.False(transport.IsRunning);
         transport.Start(); Assert.True(transport.IsRunning);
+    }
+}
+
+[Collection("SerialTcp")]
+public class ModbusTcpSlaveTransportTests
+{
+    private static int _nextPort = 15020;
+    private static int NextPort() => Interlocked.Increment(ref _nextPort);
+
+    [Fact]
+    public void TcpTransport_StartStop_CanRestart()
+    {
+        var transport = new ModbusTcpSlaveTransport(NextPort());
+        transport.Start(); Assert.True(transport.IsRunning);
+        transport.Stop(); Assert.False(transport.IsRunning);
+        transport.Start(); Assert.True(transport.IsRunning);
+        transport.Dispose();
+    }
+
+    [Fact]
+    public async Task TcpTransport_ReceivesRequest_SendsResponse()
+    {
+        var port = NextPort();
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        device.SetHoldingRegister(0, 0x1234);
+        using var transport = new ModbusTcpSlaveTransport(port);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", port);
+        var stream = client.GetStream();
+        var req = new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 };
+        await stream.WriteAsync(req);
+        await Task.Delay(500);
+
+        var headerBuf = new byte[6];
+        var offset = 0;
+        while (offset < 6)
+        {
+            var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset));
+            if (read == 0) break; offset += read;
+        }
+        Assert.Equal(6, offset);
+        Assert.Equal(0x00, headerBuf[0]); Assert.Equal(0x01, headerBuf[1]);
+        Assert.Equal(0x00, headerBuf[2]); Assert.Equal(0x00, headerBuf[3]);
+        var bodyLen = (headerBuf[4] << 8) | headerBuf[5];
+        Assert.Equal(4, bodyLen);
+
+        var body = new byte[bodyLen]; offset = 0;
+        while (offset < bodyLen)
+        {
+            var read = await stream.ReadAsync(body.AsMemory(offset, bodyLen - offset));
+            if (read == 0) break; offset += read;
+        }
+        Assert.Equal(4, offset);
+        Assert.Equal(0x01, body[0]);
+        Assert.Equal(0x02, body[1]);
+        Assert.Equal(0x12, body[2]);
+        Assert.Equal(0x34, body[3]);
+    }
+
+    [Fact]
+    public async Task TcpTransport_NoHandler_NoResponse()
+    {
+        var port = NextPort();
+        using var transport = new ModbusTcpSlaveTransport(port);
+        transport.Start();
+
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", port);
+        var stream = client.GetStream();
+        var req = new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 };
+        await stream.WriteAsync(req);
+        var cts = new CancellationTokenSource(1000);
+        var headerBuf = new byte[6];
+        var offset = 0;
+        try
+        {
+            while (offset < 6)
+            {
+                var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset), cts.Token);
+                if (read == 0) break; offset += read;
+            }
+        }
+        catch (OperationCanceledException) { }
+        Assert.Equal(0, offset);
     }
 }

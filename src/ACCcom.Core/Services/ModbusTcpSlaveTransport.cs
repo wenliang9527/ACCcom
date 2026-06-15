@@ -12,9 +12,11 @@ public class ModbusTcpSlaveTransport : IDisposable
     private readonly object _lock = new();
     private bool _disposed;
     private bool _isRunning;
+    private string? _lastError;
 
     public bool IsRunning => _isRunning;
     public int ConnectedClients { get { lock (_lock) return _clients.Count; } }
+    public string? LastError => _lastError;
     public Func<byte, byte[], byte[]>? OnRequestReceived { get; set; }
 
     public ModbusTcpSlaveTransport(int port) { _port = port; }
@@ -74,7 +76,11 @@ public class ModbusTcpSlaveTransport : IDisposable
                 if (handler == null) continue;
                 byte[] responsePdu;
                 try { responsePdu = handler(slaveId, pdu); }
-                catch { continue; }
+                catch (Exception ex)
+                {
+                    _lastError = $"Handler error: {ex.Message}";
+                    continue;
+                }
                 if (responsePdu.Length == 0) continue;
                 var respLen = 1 + responsePdu.Length;
                 var resp = new byte[6 + respLen];

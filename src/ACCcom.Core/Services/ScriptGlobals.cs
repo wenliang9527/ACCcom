@@ -34,42 +34,26 @@ public class ScriptGlobals
 
     public ushort Crc16(int offset, int length)
     {
-        if (!InBounds(offset, 0)) return 0;
-        ushort crc = 0xFFFF;
-        for (int i = offset; i < offset + length && i < RawData.Length; i++)
-        {
-            crc ^= RawData[i];
-            for (int j = 0; j < 8; j++)
-                crc = (crc & 1) != 0 ? (ushort)((crc >> 1) ^ 0xA001) : (ushort)(crc >> 1);
-        }
-        return crc;
+        if (!InBounds(offset, length)) return 0;
+        return CrcHelper.Crc16(RawData, offset, length);
     }
 
     public byte Sum8(int offset, int length)
     {
-        if (!InBounds(offset, 0)) return 0;
-        byte sum = 0;
-        for (int i = offset; i < offset + length && i < RawData.Length; i++)
-            sum += RawData[i];
-        return sum;
+        if (!InBounds(offset, length)) return 0;
+        return CrcHelper.Sum8(RawData.AsSpan(offset, length));
     }
 
     public byte Xor8(int offset, int length)
     {
-        if (!InBounds(offset, 0)) return 0;
-        byte xor = 0;
-        for (int i = offset; i < offset + length && i < RawData.Length; i++)
-            xor ^= RawData[i];
-        return xor;
+        if (!InBounds(offset, length)) return 0;
+        return CrcHelper.Xor8(RawData.AsSpan(offset, length));
     }
 
     public ushort Sum16(int offset, int length)
     {
-        if (!InBounds(offset, 0)) return 0;
-        ushort sum = 0;
-        for (int i = offset; i < offset + length && i < RawData.Length; i++)
-            sum += RawData[i];
-        return sum;
+        if (!InBounds(offset, length)) return 0;
+        return CrcHelper.Sum16(RawData.AsSpan(offset, length));
     }
 
     public int ToInt16(int offset, bool bigEndian = false) => (short)ToUInt16(offset, bigEndian);

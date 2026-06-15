@@ -270,19 +270,22 @@
                             ToolTip="{Binding [Tip.OpenParserDir], Source={x:Static local:LanguageManager.Instance}}" />
                     <Button Content="🔗" Command="{Binding OpenFrameAssemblerConfigCommand}"
                             Style="{StaticResource HeaderButton}" FontSize="12" Padding="3,1" VerticalAlignment="Center"
-                            ToolTip="Multi-frame assembly config" />
+                            ToolTip="{Binding [Tip.FrameAssemblyConfig], Source={x:Static local:LanguageManager.Instance}}" />
 
                     <Rectangle Style="{StaticResource ToolSeparator}" />
 
                     <Button Content="{Binding [Button.Diff], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding CompareFramesCommand}"
                             Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
-                            ToolTip="Compare two hex frames byte-by-byte" />
+                            ToolTip="{Binding [Tip.HexDiffCompare], Source={x:Static local:LanguageManager.Instance}}" />
                     <Button Content="{Binding [Button.Plot], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenPlotCommand}"
                             Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
-                            ToolTip="Open real-time data plot" />
+                            ToolTip="{Binding [Tip.OpenRealtimePlot], Source={x:Static local:LanguageManager.Instance}}" />
                     <Button Content="{Binding [Button.Stats], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenStatsCommand}"
                             Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
-                            ToolTip="Open data statistics dashboard" />
+                            ToolTip="{Binding [Tip.OpenDataStats], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="{Binding [Button.Modbus], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenModbusCommand}"
+                            Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
+                            ToolTip="{Binding [Tip.ModbusMaster], Source={x:Static local:LanguageManager.Instance}}" />
 
                     <Rectangle Style="{StaticResource ToolSeparator}" />
 
@@ -315,8 +318,8 @@
                 <TextBlock Text="{Binding [Label.StopBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
                 <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="60" Margin="0,0,14,0" />
                 <Rectangle Style="{StaticResource ToolSeparator}" />
-                <CheckBox Content="DTR" IsChecked="{Binding DtrEnable}" Margin="10,0,12,0" />
-                <CheckBox Content="RTS" IsChecked="{Binding RtsEnable}" />
+                <CheckBox Content="{Binding [Check.DTR], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding DtrEnable}" Margin="10,0,12,0" />
+                <CheckBox Content="{Binding [Check.RTS], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding RtsEnable}" />
                 <Rectangle Style="{StaticResource ToolSeparator}" />
                 <CheckBox Content="{Binding [Label.AutoReconnect], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding AutoReconnect}" Margin="10,0,8,0" />
                 <TextBlock Text="{Binding [Label.Interval], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
@@ -744,14 +747,14 @@
                     <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="4" Padding="5,1"
                             Margin="0,0,4,0" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="RX " FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding [Label.RX], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding RxCount}" FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="Bold" />
                         </StackPanel>
                     </Border>
                     <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="4" Padding="5,1"
                             BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="TX " FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding [Label.TX], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding TxCount}" FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="Bold" />
                         </StackPanel>
                     </Border>

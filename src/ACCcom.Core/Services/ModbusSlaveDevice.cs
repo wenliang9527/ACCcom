@@ -8,6 +8,7 @@ public class ModbusSlaveDevice
     private readonly bool[] _discreteInputs;
     private readonly ushort[] _holdingRegisters;
     private readonly ushort[] _inputRegisters;
+    private readonly object _lock = new();
 
     public byte SlaveId { get; }
     public int CoilCount => _coils.Length;
@@ -28,15 +29,15 @@ public class ModbusSlaveDevice
         _inputRegisters = new ushort[inputRegisters];
     }
 
-    public void SetCoil(ushort addr, bool value) { if (addr < _coils.Length) _coils[addr] = value; }
-    public void SetDiscreteInput(ushort addr, bool value) { if (addr < _discreteInputs.Length) _discreteInputs[addr] = value; }
-    public void SetHoldingRegister(ushort addr, ushort value) { if (addr < _holdingRegisters.Length) _holdingRegisters[addr] = value; }
-    public void SetInputRegister(ushort addr, ushort value) { if (addr < _inputRegisters.Length) _inputRegisters[addr] = value; }
+    public void SetCoil(ushort addr, bool value) { lock (_lock) { if (addr < _coils.Length) _coils[addr] = value; } }
+    public void SetDiscreteInput(ushort addr, bool value) { lock (_lock) { if (addr < _discreteInputs.Length) _discreteInputs[addr] = value; } }
+    public void SetHoldingRegister(ushort addr, ushort value) { lock (_lock) { if (addr < _holdingRegisters.Length) _holdingRegisters[addr] = value; } }
+    public void SetInputRegister(ushort addr, ushort value) { lock (_lock) { if (addr < _inputRegisters.Length) _inputRegisters[addr] = value; } }
 
-    public bool GetCoil(ushort addr) => addr < _coils.Length && _coils[addr];
-    public bool GetDiscreteInput(ushort addr) => addr < _discreteInputs.Length && _discreteInputs[addr];
-    public ushort GetHoldingRegister(ushort addr) => addr < _holdingRegisters.Length ? _holdingRegisters[addr] : (ushort)0;
-    public ushort GetInputRegister(ushort addr) => addr < _inputRegisters.Length ? _inputRegisters[addr] : (ushort)0;
+    public bool GetCoil(ushort addr) { lock (_lock) { return addr < _coils.Length && _coils[addr]; } }
+    public bool GetDiscreteInput(ushort addr) { lock (_lock) { return addr < _discreteInputs.Length && _discreteInputs[addr]; } }
+    public ushort GetHoldingRegister(ushort addr) { lock (_lock) { return addr < _holdingRegisters.Length ? _holdingRegisters[addr] : (ushort)0; } }
+    public ushort GetInputRegister(ushort addr) { lock (_lock) { return addr < _inputRegisters.Length ? _inputRegisters[addr] : (ushort)0; } }
 
     public byte[] HandleRequest(byte functionCode, byte[] pdu)
     {
@@ -177,8 +178,8 @@ public class ModbusSlaveDevice
             Timestamp = DateTime.Now,
             SlaveId = SlaveId,
             FunctionCode = (ModbusFunctionCode)funcCode,
-            RequestHex = string.Join(" ", reqPdu.Select(b => b.ToString("X2"))),
-            ResponseHex = string.Join(" ", respPdu.Select(b => b.ToString("X2"))),
+            RequestHex = HexHelper.BytesToHexSpaced(reqPdu, 0, reqPdu.Length),
+            ResponseHex = HexHelper.BytesToHexSpaced(respPdu, 0, respPdu.Length),
             IsSuccess = true,
             Response = new ModbusResponse { SlaveId = SlaveId, FunctionCode = (ModbusFunctionCode)funcCode, Data = respPdu, IsError = false }
         });

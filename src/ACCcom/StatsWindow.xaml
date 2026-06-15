@@ -1,7 +1,8 @@
 <Window x:Class="ACCcom.StatsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Data Statistics" Height="420" Width="380"
+        xmlns:local="clr-namespace:ACCcom"
+        Title="{Binding [Stats.Title], Source={x:Static local:LanguageManager.Instance}}" Height="420" Width="380"
         MinHeight="350" MinWidth="320"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource BgBaseBrush}">
@@ -14,14 +15,14 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Data Statistics" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Grid.Row="0" Text="{Binding [Stats.Title], Source={x:Static local:LanguageManager.Instance}}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource InkPrimaryBrush}" />
 
         <!-- Stats content -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- RX Section -->
-                <TextBlock Text="RX (Receive)" FontSize="12" FontWeight="SemiBold"
+                <TextBlock Text="{Binding [Stats.RXSection], Source={x:Static local:LanguageManager.Instance}}" FontSize="12" FontWeight="SemiBold"
                            Foreground="{DynamicResource StatusBlueBrush}" Margin="0,0,0,6" />
                 <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
@@ -34,29 +35,29 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Bytes/sec" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.BytesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding RxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource InkPrimaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
-                        <TextBlock Text="Frames/sec" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.FramesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding RxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource InkPrimaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Total Bytes" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.TotalBytes], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TotalRxBytes}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkSecondaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,6">
-                        <TextBlock Text="Total Frames" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.TotalFrames], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TotalRxFrames}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkSecondaryBrush}" />
                     </StackPanel>
                 </Grid>
 
                 <!-- TX Section -->
-                <TextBlock Text="TX (Transmit)" FontSize="12" FontWeight="SemiBold"
+                <TextBlock Text="{Binding [Stats.TXSection], Source={x:Static local:LanguageManager.Instance}}" FontSize="12" FontWeight="SemiBold"
                            Foreground="{DynamicResource InkSecondaryBrush}" Margin="0,0,0,6" />
                 <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
@@ -69,29 +70,29 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Bytes/sec" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.BytesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource InkPrimaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
-                        <TextBlock Text="Frames/sec" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.FramesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource InkPrimaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Total Bytes" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.TotalBytes], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TotalTxBytes}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkSecondaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,6">
-                        <TextBlock Text="Total Frames" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.TotalFrames], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding TotalTxFrames}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkSecondaryBrush}" />
                     </StackPanel>
                 </Grid>
 
                 <!-- Connection Section -->
-                <TextBlock Text="Connection" FontSize="12" FontWeight="SemiBold"
+                <TextBlock Text="{Binding [Stats.Connection], Source={x:Static local:LanguageManager.Instance}}" FontSize="12" FontWeight="SemiBold"
                            Foreground="{DynamicResource StatusGreenBrush}" Margin="0,0,0,6" />
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -103,19 +104,19 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Duration" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.Duration], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding ConnectionDuration}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkPrimaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
-                        <TextBlock Text="Error Rate" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.ErrorRate], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding ErrorRate}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource RedErrorBrush}">
                             <Run Text=" %" />
                         </TextBlock>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
-                        <TextBlock Text="Avg Frame Interval" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                        <TextBlock Text="{Binding [Stats.AvgFrameInterval], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
                         <TextBlock Text="{Binding AvgFrameInterval}" FontFamily="Consolas" FontSize="14"
                                    Foreground="{DynamicResource InkPrimaryBrush}">
                             <Run Text=" ms" />

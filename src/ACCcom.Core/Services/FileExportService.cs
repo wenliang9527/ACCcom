@@ -89,7 +89,13 @@ public class FileExportService
 
             if (!match.Success) { skipped++; continue; }
 
-            var time = DateTime.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            if (!DateTime.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var time))
+            {
+                skipped++;
+                continue;
+            }
+
             var direction = match.Groups[2].Value;
             var hex = match.Groups[3].Value.Trim();
 

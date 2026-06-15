@@ -27,12 +27,13 @@ if (useProxy)
     catch
     {
         Console.Error.WriteLine("[proxy] ACCCOM WPF not detected, launching...");
-        var wpfProject = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "ACCcom", "ACCcom.csproj");
+        var solutionRoot = Directory.GetCurrentDirectory();
+        var wpfProject = Path.Combine(solutionRoot, "src", "ACCcom", "ACCcom.csproj");
         var psi = new System.Diagnostics.ProcessStartInfo("dotnet", $"run --project \"{wpfProject}\"")
         {
             UseShellExecute = true,
             WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
-            WorkingDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."))
+            WorkingDirectory = solutionRoot
         };
         System.Diagnostics.Process.Start(psi);
 

@@ -11,6 +11,8 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private readonly NetworkBridgeService _networkBridge;
     private readonly SerialConnectionManager _connectionManager;
     private readonly Action<string> _setStatus;
+    private readonly Action<string> _durationChangedHandler;
+    private bool _disposed;
 
     public ObservableCollection<string> AvailablePorts { get; } = new();
     public ObservableCollection<int> BaudRates { get; } = new() { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 };
@@ -94,8 +96,9 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         ConnectNetworkCommand = new RelayCommand(_ => ToggleNetworkConnection());
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
 
-        _connectionManager.DurationChanged += duration =>
+        _durationChangedHandler = duration =>
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => ConnectionDuration = duration);
+        _connectionManager.DurationChanged += _durationChangedHandler;
 
         RefreshPorts();
     }
@@ -113,14 +116,14 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         {
             _connectionManager.ToggleConnection(_serial, null, true);
             IsOpen = false;
-            _setStatus("Port closed");
+            _setStatus(LanguageManager.Instance["Status.PortClosed"]);
             ConnectionDuration = "";
         }
         else
         {
             if (string.IsNullOrEmpty(SelectedPort))
             {
-                _setStatus("Please select a port");
+                _setStatus(LanguageManager.Instance["Status.PleaseSelectPort"]);
                 return;
             }
             var config = new SerialConfig
@@ -140,7 +143,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 }
             };
             IsOpen = _connectionManager.ToggleConnection(_serial, config, false);
-            _setStatus(IsOpen ? $"Connected {SelectedPort} | {SelectedBaudRate} bps" : "Open failed");
+            _setStatus(IsOpen ? string.Format(LanguageManager.Instance["Status.ConnectedSerial"], SelectedPort, SelectedBaudRate) : LanguageManager.Instance["Status.OpenFailed"]);
         }
     }
 
@@ -150,18 +153,18 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         {
             _networkBridge.Close();
             IsOpen = false;
-            _setStatus("Network connection closed");
+            _setStatus(LanguageManager.Instance["Status.NetworkClosed"]);
         }
         else
         {
             if (string.IsNullOrEmpty(NetworkHost))
             {
-                _setStatus("Please enter a host address");
+                _setStatus(LanguageManager.Instance["Status.PleaseEnterHost"]);
                 return;
             }
             if (NetworkPort <= 0)
             {
-                _setStatus("Please enter a valid port");
+                _setStatus(LanguageManager.Instance["Status.PleaseEnterValidPort"]);
                 return;
             }
 
@@ -173,13 +176,16 @@ public class ConnectionViewModel : ObservableObject, IDisposable
 
             IsOpen = connected;
             _setStatus(connected
-                ? $"Connected {SelectedConnectionType} {NetworkHost}:{NetworkPort}"
-                : $"{SelectedConnectionType} connection failed");
+                ? string.Format(LanguageManager.Instance["Status.ConnectedNetwork"], SelectedConnectionType, NetworkHost, NetworkPort)
+                : string.Format(LanguageManager.Instance["Status.ConnectionFailed"], SelectedConnectionType));
         }
     }
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _connectionManager.DurationChanged -= _durationChangedHandler;
         _connectionManager.Dispose();
     }
 }

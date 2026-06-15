@@ -57,16 +57,20 @@ public class DataBufferService
 
         _writer.TryWrite(entry);
 
-        List<DataBufferWaiter> snapshot;
-        lock (_waiterLock) { snapshot = _waiters.ToList(); }
-
-        foreach (var waiter in snapshot)
+        lock (_waiterLock)
         {
-            if (!waiter.Completed && waiter.Matches(entry))
-                waiter.Tcs.TrySetResult(entry);
+            for (int i = _waiters.Count - 1; i >= 0; i--)
+            {
+                var waiter = _waiters[i];
+                if (waiter.Completed)
+                {
+                    _waiters.RemoveAt(i);
+                    continue;
+                }
+                if (waiter.Matches(entry))
+                    waiter.Tcs.TrySetResult(entry);
+            }
         }
-
-        lock (_waiterLock) { _waiters.RemoveAll(w => w.Completed); }
     }
 
     public List<LogEntry> GetEntriesSince(int id)
@@ -75,7 +79,7 @@ public class DataBufferService
         try
         {
             if (_count == 0) return new List<LogEntry>();
-            var result = new List<LogEntry>();
+            var result = new List<LogEntry>(_count);
             var start = (_head - _count + _capacity) % _capacity;
             for (int i = 0; i < _count; i++)
             {
@@ -115,13 +119,13 @@ public class DataBufferService
                 return;
             }
 
-            var keepRx = direction.Equals("tx", StringComparison.OrdinalIgnoreCase);
-            var keepTx = direction.Equals("rx", StringComparison.OrdinalIgnoreCase);
+            var clearRx = direction.Equals("rx", StringComparison.OrdinalIgnoreCase);
+            var clearTx = direction.Equals("tx", StringComparison.OrdinalIgnoreCase);
 
             var snapshot = RingSnapshot();
             var keep = snapshot.Where(e =>
-                (keepRx && e.Direction == "RX") ||
-                (keepTx && e.Direction == "TX")).ToList();
+                (!clearRx && e.Direction == "RX") ||
+                (!clearTx && e.Direction == "TX")).ToList();
 
             Array.Clear(_ringBuffer);
             _head = 0;
@@ -211,15 +215,26 @@ public class DataBufferService
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var delayTask = Task.Delay(timeoutMs, cts.Token);
-        return Task.WhenAny(waiter.Tcs.Task, delayTask).ContinueWith(_ =>
+        return WaitForMatchInternal(waiter, delayTask, cts);
+    }
+
+    private static async Task<LogEntry?> WaitForMatchInternal(DataBufferWaiter waiter, Task delayTask, CancellationTokenSource cts)
+    {
+        try
         {
-            cts.Cancel();
+            await Task.WhenAny(waiter.Tcs.Task, delayTask);
+        }
+        finally
+        {
+            await cts.CancelAsync();
             cts.Dispose();
-            if (waiter.Tcs.Task.IsCompleted && !waiter.Tcs.Task.IsFaulted)
-                return waiter.Tcs.Task.Result;
-            waiter.Tcs.TrySetResult(null);
-            return (LogEntry?)null;
-        });
+        }
+
+        if (waiter.Tcs.Task.IsCompletedSuccessfully)
+            return waiter.Tcs.Task.Result;
+
+        waiter.Tcs.TrySetResult(null);
+        return null;
     }
 }
 
@@ -234,30 +249,6 @@ public class DataBufferWaiter
 
     public bool Matches(LogEntry entry)
     {
-        if (!string.IsNullOrEmpty(Direction) &&
-            !string.Equals(entry.Direction, Direction, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var target = MatchHex ? entry.RawHex : entry.Text;
-        if (string.IsNullOrEmpty(target)) return false;
-
-        return (MatchMode ?? "contains") switch
-        {
-            "exact" => string.Equals(target, Pattern, StringComparison.OrdinalIgnoreCase),
-            "regex" => TryRegexMatch(target, Pattern),
-            _ => target.Contains(Pattern, StringComparison.OrdinalIgnoreCase)
-        };
-    }
-
-    private static bool TryRegexMatch(string input, string pattern)
-    {
-        try
-        {
-            return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
+        return PatternMatcher.Matches(entry, Pattern, MatchMode ?? "contains", MatchHex, Direction);
     }
 }

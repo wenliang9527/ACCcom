@@ -33,4 +33,7 @@ public class AppSettings
 
     // Buffer
     public int BufferCapacity { get; set; } = 10000;
+
+    // Display
+    public int MaxDisplayEntries { get; set; } = 10000;
 }

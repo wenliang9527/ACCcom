@@ -46,7 +46,7 @@ public class HttpServiceTests : IDisposable
     public void Constructor_WithSerialServiceAndParserManager_CreatesInstance()
     {
         // Arrange & Act
-        using var service = new HttpService(new SerialService(), new ParserManager(), "http://127.0.0.1:18901");
+        using var service = new HttpService(new SerialService(), new ParserManager(), url: "http://127.0.0.1:18901");
 
         // Assert
         Assert.NotNull(service);

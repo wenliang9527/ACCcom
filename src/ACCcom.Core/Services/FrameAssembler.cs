@@ -77,7 +77,7 @@ public class FrameAssembler : IDisposable
 
             if (hexLen >= frameLen)
             {
-                EmitComplete(bytes);
+                EmitCompleteAsync(bytes).ConfigureAwait(false);
                 return;
             }
 
@@ -89,37 +89,42 @@ public class FrameAssembler : IDisposable
         else if (_config.LengthFieldOffset < 0)
         {
             var bytes = HexToBytes(_partialHexNoSpace);
-            EmitComplete(bytes);
+            EmitCompleteAsync(bytes).ConfigureAwait(false);
         }
     }
 
-    private void EmitComplete(byte[] bytes)
+    private async Task EmitCompleteAsync(byte[] bytes)
     {
-        if (_partialEntry == null)
-            return;
+        LogEntry? entry = null;
 
-        var text = Encoding.UTF8.GetString(bytes);
-        var hex = FormatHex(bytes);
-
-        var assembled = new LogEntry
+        lock (_lock)
         {
-            Id = _partialEntry.Id,
-            Timestamp = _partialEntry.Timestamp,
-            Direction = _partialEntry.Direction,
-            PortTag = _partialEntry.PortTag,
-            RawHex = hex,
-            Text = text
-        };
+            if (_partialEntry == null)
+                return;
+
+            var text = Encoding.UTF8.GetString(bytes);
+            var hex = FormatHex(bytes);
+
+            entry = new LogEntry
+            {
+                Id = _partialEntry.Id,
+                Timestamp = _partialEntry.Timestamp,
+                Direction = _partialEntry.Direction,
+                PortTag = _partialEntry.PortTag,
+                RawHex = hex,
+                Text = text
+            };
+
+            Reset();
+        }
+
+        if (entry == null)
+            return;
 
         if (_parserManager?.ActiveParserName != null)
         {
-            var parserTask = _parserManager.Engine.ExecuteAsync(bytes, _partialEntry.Timestamp);
-            parserTask.Wait();
-            assembled.Fields = parserTask.Result;
+            entry.Fields = await _parserManager.Engine.ExecuteAsync(bytes, entry.Timestamp).ConfigureAwait(false);
         }
-
-        var entry = assembled;
-        Reset();
 
         OnFrameAssembled?.Invoke(entry);
     }

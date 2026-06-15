@@ -38,8 +38,8 @@ public partial class ReplayWindow : Window
             // Pause
             _recorder.IsPaused = true;
             _isPlaying = false;
-            PlayPauseButton.Content = "Play";
-            StatusText.Text = "Paused";
+            PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
+            StatusText.Text = LanguageManager.Instance["Replay.Paused"];
         }
         else
         {
@@ -50,8 +50,8 @@ public partial class ReplayWindow : Window
             {
                 _recorder.IsPaused = false;
                 _isPlaying = true;
-                PlayPauseButton.Content = "Pause";
-                StatusText.Text = "Resumed";
+                PlayPauseButton.Content = LanguageManager.Instance["Replay.Pause"];
+                StatusText.Text = LanguageManager.Instance["Replay.Resumed"];
             }
         }
     }
@@ -59,8 +59,8 @@ public partial class ReplayWindow : Window
     private void Stop_Click(object sender, RoutedEventArgs e)
     {
         CancelReplay();
-        StatusText.Text = "Stopped";
-        PlayPauseButton.Content = "Play";
+        StatusText.Text = LanguageManager.Instance["Replay.Stopped"];
+        PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
     }
 
     private void Speed_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -77,7 +77,7 @@ public partial class ReplayWindow : Window
         _cts = new CancellationTokenSource();
         oldCts?.Dispose();
         _isPlaying = true;
-        PlayPauseButton.Content = "Pause";
+        PlayPauseButton.Content = LanguageManager.Instance["Replay.Pause"];
         _recorder.IsPaused = false;
         var token = _cts.Token;
 
@@ -102,9 +102,9 @@ public partial class ReplayWindow : Window
                 _ = Dispatcher.BeginInvoke(() =>
                 {
                     ReplayCompleted = true;
-                    StatusText.Text = "Replay complete";
+                    StatusText.Text = LanguageManager.Instance["Replay.Complete"];
                     _isPlaying = false;
-                    PlayPauseButton.Content = "Play";
+                    PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
                     _cts?.Dispose();
                     _cts = null;
                 });
@@ -117,9 +117,9 @@ public partial class ReplayWindow : Window
             {
                 _ = Dispatcher.BeginInvoke(() =>
                 {
-                    StatusText.Text = $"Error: {ex.Message}";
+                    StatusText.Text = string.Format(LanguageManager.Instance["Replay.Error"], ex.Message);
                     _isPlaying = false;
-                    PlayPauseButton.Content = "Play";
+                    PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
                     _cts?.Dispose();
                     _cts = null;
                 });
@@ -171,7 +171,7 @@ public partial class ReplayWindow : Window
         ProgressBar.Maximum = total;
         ProgressBar.Value = current;
         ProgressText.Text = $"{current}/{total}";
-        StatusText.Text = $"Replaying entry {current}/{total}...";
+        StatusText.Text = string.Format(LanguageManager.Instance["Replay.Progress"], current, total);
     }
 
     private void UpdateProgressOnUI(int current, int total)

@@ -393,6 +393,10 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     private void CreateSlave()
     {
-        System.Windows.MessageBox.Show("Use the ModbusConnectionDialog to create slaves.\nThis feature is available from code-behind.", "Info");
+        if (_slaveService == null) return;
+        var dialog = new CreateSlaveDialog(_slaveService);
+        dialog.Owner = System.Windows.Application.Current.Windows.OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive);
+        if (dialog.ShowDialog() == true)
+            RefreshSlaveList();
     }
 }

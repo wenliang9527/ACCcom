@@ -15,7 +15,7 @@ public class SchemaEditorViewModel : ObservableObject
 {
     private readonly ParserManager _parserManager;
 
-    private string _parserName = "NewProtocol";
+    private string _parserName = "";
     private string _description = "";
     private string _header = "AA 55";
     private string _footer = "";
@@ -191,7 +191,7 @@ public class SchemaEditorViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            GeneratedCode = $"// Error: {ex.Message}";
+            GeneratedCode = string.Format(LanguageManager.Instance["SchemaEditor.ErrorPrefix"], ex.Message);
         }
     }
 
@@ -201,16 +201,16 @@ public class SchemaEditorViewModel : ObservableObject
         var schema = BuildSchema();
         var (success, error) = _parserManager.GenerateParser(schema);
         if (success)
-            ParseResult = $"Parser '{schema.Name}' saved to parsers/ directory.";
+            ParseResult = string.Format(LanguageManager.Instance["SchemaEditor.Saved"], schema.Name);
         else
-            ParseResult = $"Error: {error}";
+            ParseResult = string.Format(LanguageManager.Instance["SchemaEditor.SaveError"], error);
     }
 
     private async System.Threading.Tasks.Task TestParseAsync()
     {
         if (string.IsNullOrWhiteSpace(_testHexInput))
         {
-            ParseResult = "Please enter hex data to parse.";
+            ParseResult = LanguageManager.Instance["SchemaEditor.PleaseEnterHex"];
             return;
         }
 
@@ -222,7 +222,7 @@ public class SchemaEditorViewModel : ObservableObject
             var engine = new ParserEngine();
             if (!engine.Load(code))
             {
-                ParseResult = $"Compile error: {engine.LastError}";
+                ParseResult = string.Format(LanguageManager.Instance["SchemaEditor.CompileError"], engine.LastError);
                 return;
             }
 
@@ -235,7 +235,7 @@ public class SchemaEditorViewModel : ObservableObject
 
             if (result == null || result.Count == 0)
             {
-                ParseResult = engine.LastError != null ? $"Parse error: {engine.LastError}" : "No fields parsed.";
+                ParseResult = engine.LastError != null ? string.Format(LanguageManager.Instance["SchemaEditor.ParseError"], engine.LastError) : LanguageManager.Instance["SchemaEditor.NoFieldsParsed"];
                 return;
             }
 
@@ -254,14 +254,14 @@ public class SchemaEditorViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ParseResult = $"Error: {ex.Message}";
+            ParseResult = string.Format(LanguageManager.Instance["SchemaEditor.SaveError"], ex.Message);
         }
     }
 
     private void LoadDefaultTemplate()
     {
         ParserName = "MyProtocol";
-        Description = "Custom serial protocol with header + length + command + data + checksum";
+        Description = LanguageManager.Instance["SchemaEditor.TemplateDescription"];
         Header = "AA 55";
         Footer = "";
         MinLength = 6;

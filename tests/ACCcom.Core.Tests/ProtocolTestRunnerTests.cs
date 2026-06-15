@@ -390,4 +390,79 @@ public class ProtocolTestRunnerTests : IDisposable
         Assert.Equal(1, reloaded.Failed);
         Assert.False(reloaded.AllPassed);
     }
+
+    [Fact]
+    public async Task RunAsync_hex_contains_matching_passes()
+    {
+        var step = WithExpectation("HexMatch", "AA", "AABB", mode: "hex_contains");
+        var script = MakeScript(step);
+        var (_, send) = MakeSendMock();
+        var wait = MakeWaitMock("AABBCCDD");
+        var runner = new ProtocolTestRunner();
+
+        var report = await runner.RunAsync(script, send, wait);
+
+        Assert.True(report.AllPassed);
+    }
+
+    [Fact]
+    public async Task Stop_stops_running_execution()
+    {
+        var steps = new List<TestStep>();
+        for (int i = 0; i < 50; i++)
+        {
+            var s = SendOnly($"Step{i}", "AT");
+            s.DelayMs = 100;
+            steps.Add(s);
+        }
+
+        var script = new TestScript { Name = "Stoppable", Steps = steps, RepeatCount = 1 };
+        var (_, send) = MakeSendMock();
+        var wait = MakeWaitMock(null);
+        var runner = new ProtocolTestRunner();
+
+        Assert.False(runner.IsRunning);
+
+        var task = runner.RunAsync(script, send, wait);
+        await Task.Delay(50);
+        Assert.True(runner.IsRunning);
+
+        runner.Stop();
+
+        var report = await task;
+        Assert.True(report.Results.Count < 50, "Should have stopped early");
+        Assert.False(runner.IsRunning);
+    }
+
+    [Fact]
+    public async Task RunAsync_invalid_regex_does_not_crash()
+    {
+        var step = WithExpectation("BadRegex", "AT", @"[invalid", mode: "regex");
+        var script = MakeScript(step);
+        var (_, send) = MakeSendMock();
+        var wait = MakeWaitMock("any response");
+        var runner = new ProtocolTestRunner();
+
+        var report = await runner.RunAsync(script, send, wait);
+
+        Assert.False(report.AllPassed);
+        Assert.NotNull(report.Results[0].FailureReason);
+    }
+
+    [Fact]
+    public async Task RunAsync_repeat_count_zero_loops_until_cancelled()
+    {
+        var step = SendOnly("Ping", "AT");
+        step.DelayMs = 10;
+        var script = new TestScript { Name = "Infinite", Steps = [step], RepeatCount = 0 };
+        var (_, send) = MakeSendMock();
+        var wait = MakeWaitMock(null);
+        var runner = new ProtocolTestRunner();
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
+
+        var report = await runner.RunAsync(script, send, wait, cts.Token);
+
+        Assert.True(report.Results.Count >= 1, "Should have completed at least one iteration");
+    }
 }

@@ -1,0 +1,47 @@
+{
+  "name": "simple_frame",
+  "description": "简单帧协议示例 - 帧头AA55, 长度1字节, 命令1字节, 数据1字节, XOR校验",
+  "type": "binary",
+  "minLength": 5,
+  "frame": {
+    "header": "AA 55",
+    "footer": null,
+    "lengthField": {
+      "offset": 2,
+      "length": 1
+    },
+    "checksum": {
+      "type": "xor8",
+      "range": "all"
+    },
+    "commandField": {
+      "offset": 3,
+      "length": 1
+    }
+  },
+  "fields": [
+    { "name": "帧头", "offset": 0, "length": 2, "type": "hex", "value": "AA 55" },
+    { "name": "长度", "offset": 2, "length": 1, "type": "uint8" },
+    { "name": "命令", "offset": 3, "length": 1, "type": "enum", "values": { "0x01": "查询状态", "0x02": "读取数据", "0x81": "状态回复" } },
+    { "name": "数据", "offset": 4, "length": 1, "type": "uint8", "unit": "°C" }
+  ],
+  "commands": {
+    "0x01": {
+      "name": "查询状态",
+      "fields": []
+    },
+    "0x02": {
+      "name": "读取数据",
+      "fields": [
+        { "name": "数据长度", "offset": 4, "length": 1, "type": "uint8" }
+      ]
+    },
+    "0x81": {
+      "name": "状态回复",
+      "fields": [
+        { "name": "温度", "offset": 4, "length": 1, "type": "uint8", "unit": "°C", "range": [16, 30] },
+        { "name": "湿度", "offset": 5, "length": 1, "type": "uint8", "unit": "%" }
+      ]
+    }
+  }
+}

@@ -43,7 +43,10 @@ public class ModbusSlaveService : IDisposable
 
     private IDisposable CreateTcpTransport(string port, ModbusSlaveDevice device)
     {
-        var transport = new ModbusTcpSlaveTransport(int.Parse(port));
+        if (!int.TryParse(port, out var portNum) || portNum <= 0 || portNum > 65535)
+            throw new ArgumentException($"Invalid TCP port: {port}");
+
+        var transport = new ModbusTcpSlaveTransport(portNum);
         transport.OnRequestReceived = (id, pdu) => id != device.SlaveId ? [] : device.HandleRequest(pdu[0], pdu[1..]);
         transport.Start();
         return transport;

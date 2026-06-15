@@ -41,25 +41,7 @@ public class TriggerService
 
     private static bool MatchesRule(TriggerRule rule, LogEntry entry)
     {
-        if (!string.IsNullOrEmpty(rule.Direction) &&
-            !string.Equals(entry.Direction, rule.Direction, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var target = rule.MatchHex ? entry.RawHex : entry.Text;
-        if (string.IsNullOrEmpty(target)) return false;
-
-        return rule.MatchMode.ToLowerInvariant() switch
-        {
-            "exact" => string.Equals(target, rule.Pattern, StringComparison.OrdinalIgnoreCase),
-            "regex" => TryRegex(target, rule.Pattern),
-            _ => target.Contains(rule.Pattern, StringComparison.OrdinalIgnoreCase)
-        };
-    }
-
-    private static bool TryRegex(string input, string pattern)
-    {
-        try { return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase); }
-        catch (System.Text.RegularExpressions.RegexParseException) { return false; }
+        return PatternMatcher.Matches(entry, rule.Pattern, rule.MatchMode, rule.MatchHex, rule.Direction);
     }
 
     private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };

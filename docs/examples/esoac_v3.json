@@ -1,0 +1,106 @@
+{
+  "name": "esoac_v3",
+  "description": "ESOAC V3.0 空调控制器协议 - FR801xH BLE + ML307A 4G 红外空调控制器",
+  "type": "binary",
+  "minLength": 9,
+  "frame": {
+    "header": "A5 5A",
+    "footer": "DD",
+    "lengthField": {
+      "offset": 2,
+      "length": 1
+    },
+    "checksum": {
+      "type": "crc16",
+      "algorithm": "modbus",
+      "range": "all"
+    },
+    "commandField": {
+      "offset": 5,
+      "length": 1
+    }
+  },
+  "fields": [
+    { "name": "帧头", "offset": 0, "length": 2, "type": "hex", "value": "A5 5A" },
+    { "name": "数据总长", "offset": 2, "length": 1, "type": "uint8" },
+    { "name": "内容类型", "offset": 3, "length": 1, "type": "enum", "values": { "0x07": "结构化数据" } },
+    { "name": "有效数据长", "offset": 4, "length": 1, "type": "uint8" },
+    { "name": "指令码", "offset": 5, "length": 1, "type": "enum", "values": {
+      "0x03": "心跳上报",
+      "0x05": "查询回复",
+      "0x07": "控制回复",
+      "0x08": "修改回复",
+      "0x85": "查询指令",
+      "0x87": "控制指令",
+      "0x88": "修改指令"
+    }},
+    { "name": "随机数(RN)", "offset": 6, "length": 2, "type": "uint16" }
+  ],
+  "commands": {
+    "0x03": {
+      "name": "心跳上报",
+      "fields": [
+        { "name": "功率(Power)", "offset": 8, "length": 4, "type": "float", "unit": "W" },
+        { "name": "温度(Temp)", "offset": 12, "length": 4, "type": "float", "unit": "°C" },
+        { "name": "开关状态(Status)", "offset": 16, "length": 1, "type": "enum", "values": { "0x01": "ON", "0x00": "OFF" } },
+        { "name": "模式(Mode)", "offset": 17, "length": 1, "type": "enum", "values": {
+          "0x00": "Auto", "0x01": "Cold", "0x02": "Hot", "0x03": "Dry", "0x04": "Fan", "0x05": "Sleep"
+        }},
+        { "name": "设定温度(SetTemp)", "offset": 18, "length": 1, "type": "uint8", "unit": "°C", "range": [16, 30] },
+        { "name": "风速(Wind)", "offset": 19, "length": 1, "type": "uint8" }
+      ]
+    },
+    "0x85": {
+      "name": "查询指令",
+      "fields": [
+        { "name": "查询子命令", "offset": 8, "length": 1, "type": "enum", "values": {
+          "0x01": "查询设备信息", "0x02": "查询设备状态", "0x03": "查询功率", "0x04": "查询温度",
+          "0x05": "查询ADC", "0x06": "查询BLE名称", "0x07": "查询设备地址"
+        }}
+      ]
+    },
+    "0x87": {
+      "name": "控制指令",
+      "fields": [
+        { "name": "控制子命令", "offset": 8, "length": 1, "type": "enum", "values": {
+          "0x01": "开关控制", "0x02": "模式控制", "0x03": "温度设置", "0x04": "风速设置",
+          "0x05": "温度增加(+1)", "0x06": "温度减少(-1)", "0x07": "红外学习开始", "0x08": "红外学习停止"
+        }}
+      ]
+    },
+    "0x88": {
+      "name": "修改指令",
+      "fields": [
+        { "name": "修改子命令", "offset": 8, "length": 1, "type": "enum", "values": {
+          "0x12": "修改设备时间", "0x13": "修改设备ID", "0x14": "修改产品ID"
+        }}
+      ]
+    },
+    "0x05": {
+      "name": "查询回复",
+      "fields": [
+        { "name": "查询内容", "offset": 8, "length": 1, "type": "uint8" },
+        { "name": "总包数", "offset": 9, "length": 1, "type": "uint8" },
+        { "name": "分包号", "offset": 10, "length": 1, "type": "uint8" }
+      ]
+    },
+    "0x07": {
+      "name": "控制回复",
+      "fields": [
+        { "name": "控制对象", "offset": 8, "length": 1, "type": "uint8" },
+        { "name": "执行结果", "offset": 9, "length": 1, "type": "enum", "values": { "0x00": "成功", "0x01": "失败" } },
+        { "name": "状态码", "offset": 10, "length": 1, "type": "enum", "values": {
+          "0x00": "SUCCESS", "0x01": "ERROR_PARAM", "0x02": "ERROR_CMD", "0x03": "ERROR_CRC",
+          "0x04": "ERROR_BUSY", "0x05": "ERROR_STORAGE", "0x10": "LISTEN_OFF", "0xFF": "ERROR_FAIL"
+        }}
+      ]
+    },
+    "0x08": {
+      "name": "修改回复",
+      "fields": [
+        { "name": "修改内容", "offset": 8, "length": 1, "type": "uint8" },
+        { "name": "修改结果", "offset": 9, "length": 1, "type": "enum", "values": { "0x00": "成功", "0x01": "失败" } }
+      ]
+    }
+  }
+}

@@ -29,6 +29,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial);
+        serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.Send("Hello");
         Assert.Equal(1, http.Buffer.Count());
@@ -42,6 +43,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial);
+        serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.SendHex("AA 55 03");
         Assert.Equal(1, http.Buffer.Count());
@@ -56,6 +58,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial);
+        serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.InjectRxData("AA 55 03 01 19");
         Assert.Equal(1, http.Buffer.Count());
@@ -70,6 +73,7 @@ public class SerialServiceIntegrationTests : IDisposable
         LogEntry? captured = null;
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial);
+        serial.OnDataReceived += e => http.AddEntry(e);
         http.OnDataEntry += e => captured = e;
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.InjectRxData("AA 55 03");
@@ -85,6 +89,16 @@ public class SerialServiceIntegrationTests : IDisposable
         using var serial = new VirtualSerialService();
         using var parserManager = new ParserManager(_tempParserDir);
         using var http = new HttpService(serial, parserManager);
+        serial.OnDataReceived += async e =>
+        {
+            if (e.Direction == "RX" && parserManager.ActiveParserName != null && !string.IsNullOrEmpty(e.RawHex))
+            {
+                var (fields, _) = await http.ParseRawHexAsync(e.RawHex);
+                if (fields?.Count > 0)
+                    e.Fields = fields;
+            }
+            http.AddEntry(e);
+        };
 
         Assert.True(File.Exists(_tempParserPath), $"Parser file missing: {_tempParserPath}");
         Assert.True(parserManager.Activate("test"), "Failed to activate parser 'test'");
@@ -107,6 +121,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial, bufferCapacity: 5);
+        serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         for (int i = 0; i < 10; i++)
             serial.Send($"Message {i}");
@@ -183,6 +198,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var http = new HttpService(serial);
+        serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
 
         int received = 0;

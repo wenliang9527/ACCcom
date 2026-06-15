@@ -569,6 +569,13 @@
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             </Style>
+
+            <Style x:Key="WindowStyle" TargetType="Window">
+                <Setter Property="Background" Value="{DynamicResource BgBaseBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

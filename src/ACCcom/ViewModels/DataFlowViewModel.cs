@@ -3,14 +3,16 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 
 namespace ACCcom.ViewModels;
 
-public class DataFlowViewModel : ObservableObject
+public class DataFlowViewModel : ObservableObject, IDisposable
 {
-    private const int MaxEntries = 5000;
+    private bool _disposed;
+    private int MaxEntries => _settings?.MaxDisplayEntries ?? 10000;
     private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge;
     private readonly LoggerService _logger;
@@ -21,6 +23,8 @@ public class DataFlowViewModel : ObservableObject
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
     private readonly Action<string> _setStatus;
+    private readonly AppSettings _settings;
+    private readonly DispatcherTimer? _filterDebounce;
 
     private readonly List<string> _sendHistory = new();
     private int _historyIndex = -1;
@@ -72,16 +76,23 @@ public class DataFlowViewModel : ObservableObject
     public string FrameInterval { get => _frameInterval; set => SetField(ref _frameInterval, value); }
 
     private string _rxFilterText = "";
-    public string RxFilterText { get => _rxFilterText; set { if (SetField(ref _rxFilterText, value)) FilteredRxEntries?.Refresh(); } }
+    public string RxFilterText { get => _rxFilterText; set { if (SetField(ref _rxFilterText, value)) DebounceFilter(); } }
 
     private string _txFilterText = "";
-    public string TxFilterText { get => _txFilterText; set { if (SetField(ref _txFilterText, value)) FilteredTxEntries?.Refresh(); } }
+    public string TxFilterText { get => _txFilterText; set { if (SetField(ref _txFilterText, value)) DebounceFilter(); } }
 
     private bool _isRegexFilter;
     public bool IsRegexFilter { get => _isRegexFilter; set { if (SetField(ref _isRegexFilter, value)) { FilteredRxEntries?.Refresh(); FilteredTxEntries?.Refresh(); } } }
 
     private bool _showRx = true;
     public bool ShowRx { get => _showRx; set { if (SetField(ref _showRx, value)) FilteredRxEntries?.Refresh(); } }
+
+    private void DebounceFilter()
+    {
+        if (_filterDebounce == null) return;
+        _filterDebounce.IsEnabled = false;
+        _filterDebounce.IsEnabled = true;
+    }
 
     private bool _showTx = true;
     public bool ShowTx { get => _showTx; set { if (SetField(ref _showTx, value)) FilteredTxEntries?.Refresh(); } }
@@ -104,9 +115,9 @@ public class DataFlowViewModel : ObservableObject
             if (SetField(ref _selectedParser, value))
             {
                 if (!_parserManager.Activate(value))
-                    _setStatus($"Parser load failed: {_parserManager.LastError}");
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ParserLoadFailed"], _parserManager.LastError));
                 else if (value != ParserManager.NoParserName)
-                    _setStatus($"Parser: {value}");
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ParserSelected"], value));
             }
         }
     }
@@ -151,7 +162,8 @@ public class DataFlowViewModel : ObservableObject
         FrameAssemblerConfig frameAssemblerConfig,
         DataStatistics stats,
         FileExportService fileExportService,
-        Action<string> setStatus)
+        Action<string> setStatus,
+        AppSettings settings)
     {
         _serial = serial;
         _networkBridge = networkBridge;
@@ -164,6 +176,19 @@ public class DataFlowViewModel : ObservableObject
         _stats = stats;
         _fileExportService = fileExportService;
         _setStatus = setStatus;
+        _settings = settings;
+
+        _filterDebounce = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(200),
+            IsEnabled = false
+        };
+        _filterDebounce.Tick += (_, _) =>
+        {
+            _filterDebounce.IsEnabled = false;
+            FilteredRxEntries?.Refresh();
+            FilteredTxEntries?.Refresh();
+        };
 
         SendCommand = new RelayCommand(_ => SendData());
         ClearRxCommand = new RelayCommand(_ => { RxEntries.Clear(); RxCount = 0; RxByteCount = 0; });
@@ -185,68 +210,98 @@ public class DataFlowViewModel : ObservableObject
 
     public async void OnSerialData(LogEntry entry)
     {
-        entry.PortTag = "main";
-
-        if (_frameAssembler.IsEnabled)
+        try
         {
-            _frameAssembler.Feed(entry);
-            return;
+            if (string.IsNullOrEmpty(entry.PortTag))
+                entry.PortTag = "main";
+
+            if (_frameAssembler.IsEnabled)
+            {
+                _frameAssembler.Feed(entry);
+                return;
+            }
+
+            _http.AddEntry(entry);
+            _triggerService.Evaluate(entry);
+
+            int byteCount = 0;
+            if (!string.IsNullOrEmpty(entry.RawHex))
+                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+
+            if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
+                await RunParserAsync(entry).ConfigureAwait(false);
+
+            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    _logger.Write(entry);
+
+                    if (entry.Direction == "RX")
+                    {
+                        _stats.RecordRx(byteCount);
+                        if (HexHelper.HasErrorSeverity(entry.Fields))
+                            _stats.RecordError();
+                        AddRxEntry(entry, byteCount);
+                        OnRxProcessed?.Invoke(entry);
+                    }
+                    else
+                    {
+                        AddTxEntry(entry, byteCount);
+                    }
+
+                    OnEntryProcessed?.Invoke(entry, byteCount);
+                }
+                catch (Exception ex)
+                {
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+                }
+            });
         }
-
-        _http.AddEntry(entry);
-        _triggerService.Evaluate(entry);
-
-        int byteCount = 0;
-        if (!string.IsNullOrEmpty(entry.RawHex))
-            byteCount = CountHexBytes(entry.RawHex);
-
-        if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
-            await RunParserAsync(entry).ConfigureAwait(false);
-
-        _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+        catch (Exception ex)
         {
-            _logger.Write(entry);
-
-            if (entry.Direction == "RX")
-            {
-                _stats.RecordRx(byteCount);
-                if (HasErrorSeverity(entry.Fields))
-                    _stats.RecordError();
-                AddRxEntry(entry, byteCount);
-                OnRxProcessed?.Invoke(entry);
-            }
-            else
-            {
-                AddTxEntry(entry, byteCount);
-            }
-
-            OnEntryProcessed?.Invoke(entry, byteCount);
-        });
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
     }
 
     private async void OnAssembledFrame(LogEntry entry)
     {
-        entry.PortTag = "main";
-        _http.AddEntry(entry);
-        _triggerService.Evaluate(entry);
-
-        int byteCount = 0;
-        if (!string.IsNullOrEmpty(entry.RawHex))
-            byteCount = CountHexBytes(entry.RawHex);
-
-        if (_parserManager.ActiveParserName != null)
-            await RunParserAsync(entry).ConfigureAwait(false);
-
-        _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+        try
         {
-            _logger.Write(entry);
-            _stats.RecordRx(byteCount);
-            if (HasErrorSeverity(entry.Fields))
-                _stats.RecordError();
-            AddRxEntry(entry, byteCount);
-            OnRxProcessed?.Invoke(entry);
-            OnEntryProcessed?.Invoke(entry, byteCount);
-        });
+            if (string.IsNullOrEmpty(entry.PortTag))
+                entry.PortTag = "main";
+            _http.AddEntry(entry);
+            _triggerService.Evaluate(entry);
+
+            int byteCount = 0;
+            if (!string.IsNullOrEmpty(entry.RawHex))
+                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+
+            if (_parserManager.ActiveParserName != null)
+                await RunParserAsync(entry).ConfigureAwait(false);
+
+            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    _logger.Write(entry);
+                    _stats.RecordRx(byteCount);
+                    if (HexHelper.HasErrorSeverity(entry.Fields))
+                        _stats.RecordError();
+                    AddRxEntry(entry, byteCount);
+                    OnRxProcessed?.Invoke(entry);
+                    OnEntryProcessed?.Invoke(entry, byteCount);
+                }
+                catch (Exception ex)
+                {
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+        }
     }
 
     public void AddRxEntry(LogEntry entry, int byteCount)
@@ -275,16 +330,16 @@ public class DataFlowViewModel : ObservableObject
         if (string.IsNullOrEmpty(entry.RawHex)) return;
         try
         {
-            var data = HexStringToBytes(entry.RawHex);
+            var data = HexHelper.HexStringToBytes(entry.RawHex);
             var fields = await _parserManager.Engine.ExecuteAsync(data, entry.Timestamp).ConfigureAwait(false);
             if (fields != null && fields.Count > 0)
             {
                 entry.Fields = fields;
-                if (HasErrorSeverity(fields))
+                if (HexHelper.HasErrorSeverity(fields))
                     ErrorFrameCount++;
             }
         }
-        catch (Exception ex) { _setStatus($"Parser execution error: {ex.Message}"); }
+        catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ParserExecError"], ex.Message)); }
     }
 
     public void SendData()
@@ -383,12 +438,12 @@ public class DataFlowViewModel : ObservableObject
             if (opposite != null && !string.IsNullOrEmpty(opposite.RawHex))
             {
                 new DiffWindow(SelectedEntry.RawHex, opposite.RawHex).Show();
-                _setStatus($"Diff: #{SelectedEntry.Id} vs #{opposite.Id}");
+                _setStatus(string.Format(LanguageManager.Instance["Status.DiffOpened"], SelectedEntry.Id, opposite.Id));
                 return;
             }
         }
         new DiffWindow().Show();
-        _setStatus("Diff window opened - paste hex frames to compare");
+        _setStatus(LanguageManager.Instance["Status.DiffWindowOpened"]);
     }
 
     private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection)
@@ -410,43 +465,11 @@ public class DataFlowViewModel : ObservableObject
             || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
     }
 
-    public static bool HasErrorSeverity(List<FieldAnnotation>? fields)
+    public void Dispose()
     {
-        if (fields == null) return false;
-        foreach (var f in fields)
-            if (f.Severity == FieldSeverity.Error) return true;
-        return false;
-    }
-
-    public static int CountHexBytes(string hex)
-    {
-        int count = 0;
-        foreach (var c in hex.AsSpan())
-            if (c != ' ') count++;
-        return count / 2;
-    }
-
-    public static byte[] HexStringToBytes(string hex)
-    {
-        int nonSpaceLen = 0;
-        foreach (var c in hex.AsSpan())
-            if (c != ' ') nonSpaceLen++;
-        var bytes = new byte[nonSpaceLen / 2];
-        int byteIdx = 0;
-        int hi = -1;
-        foreach (var c in hex.AsSpan())
-        {
-            if (c == ' ') continue;
-            int val = c switch
-            {
-                >= '0' and <= '9' => c - '0',
-                >= 'A' and <= 'F' => c - 'A' + 10,
-                >= 'a' and <= 'f' => c - 'a' + 10,
-                _ => 0
-            };
-            if (hi < 0) hi = val;
-            else { bytes[byteIdx++] = (byte)(hi << 4 | val); hi = -1; }
-        }
-        return bytes;
+        if (_disposed) return;
+        _disposed = true;
+        _frameAssembler.Dispose();
+        _filterDebounce?.Stop();
     }
 }

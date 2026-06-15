@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$ProjectDir = "D:\WORK_VSCODE\Vibe-coding\Xcom"
+$ProjectDir = $PSScriptRoot
 $PidFile = Join-Path $ProjectDir ".acccom_gui.pid"
 
 # Check PID file for existing instance

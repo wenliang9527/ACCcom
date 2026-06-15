@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:ACCcom.ViewModels"
         xmlns:converters="clr-namespace:ACCcom.Converters"
         xmlns:local="clr-namespace:ACCcom"
-        Title="Protocol Schema Editor" Height="700" Width="850"
+        Title="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="850"
         MinHeight="500" MinWidth="700"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource BgBaseBrush}">
@@ -140,25 +140,25 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Style="{StaticResource Label}" Margin="0,0,4,0" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [SchemaEditor.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ParserName, UpdateSourceTrigger=PropertyChanged}"
                          FontSize="11" Padding="4,1" Height="22" />
-                <TextBlock Grid.Row="0" Grid.Column="3" Text="Description:" Style="{StaticResource Label}" Margin="0,0,4,0" />
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding [SchemaEditor.Description], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
                 <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
                          FontSize="11" Padding="4,1" Height="22" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Header:" Style="{StaticResource Label}" Margin="0,6,4,0" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [SchemaEditor.Header], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,6,4,0" />
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Header, UpdateSourceTrigger=PropertyChanged}"
                          FontSize="11" Padding="4,1" Height="22" Margin="0,6,0,0" />
-                <TextBlock Grid.Row="1" Grid.Column="3" Text="Footer:" Style="{StaticResource Label}" Margin="0,6,4,0" />
+                <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding [SchemaEditor.Footer], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,6,4,0" />
                 <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding Footer, UpdateSourceTrigger=PropertyChanged}"
                          FontSize="11" Padding="4,1" Height="22" Margin="0,6,0,0" Width="100" HorizontalAlignment="Left" />
 
                 <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="0,6,0,0">
-                    <TextBlock Text="MinLength:" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding [SchemaEditor.MinLength], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <TextBox Text="{Binding MinLength, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource NumericBox}" Width="44" Margin="0,0,12,0" />
-                    <TextBlock Text="Checksum:" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding [SchemaEditor.Checksum], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <ComboBox ItemsSource="{x:Static vm:SchemaEditorViewModel.ChecksumTypes}"
                               SelectedItem="{Binding ChecksumType}"
                               Width="70" FontSize="11" Height="22" />
@@ -176,10 +176,10 @@
             <DataGrid Grid.Row="0" Style="{StaticResource FieldDataGridEdit}"
                       ItemsSource="{Binding Fields}" SelectedItem="{Binding SelectedField, Mode=TwoWay}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Offset" Binding="{Binding Offset, UpdateSourceTrigger=PropertyChanged}" Width="55" />
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MinWidth="80" Width="*" />
-                    <DataGridTextColumn Header="Len" Binding="{Binding Length, Mode=OneWay}" Width="40" IsReadOnly="True" />
-                    <DataGridTemplateColumn Header="Type" Width="80">
+                    <DataGridTextColumn Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset, UpdateSourceTrigger=PropertyChanged}" Width="55" />
+                    <DataGridTextColumn Header="{Binding [Column.Name], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MinWidth="80" Width="*" />
+                    <DataGridTextColumn Header="{Binding [Column.Length], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Length, Mode=OneWay}" Width="40" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="{Binding [Column.Type], Source={x:Static local:LanguageManager.Instance}}" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" />
@@ -193,8 +193,8 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="50" />
-                    <DataGridTemplateColumn Header="BE" Width="38">
+                    <DataGridTextColumn Header="{Binding [Column.Unit], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="50" />
+                    <DataGridTemplateColumn Header="{Binding [Column.BE], Source={x:Static local:LanguageManager.Instance}}" Width="38">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding BigEndian, UpdateSourceTrigger=PropertyChanged}"
@@ -202,7 +202,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="Values" Width="130"
+                    <DataGridTemplateColumn Header="{Binding [Column.Values], Source={x:Static local:LanguageManager.Instance}}" Width="130"
                                             CellTemplateSelector="{StaticResource FieldValuesSelector}">
                         <DataGridTemplateColumn.CellEditingTemplate>
                             <DataTemplate>
@@ -211,7 +211,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Color" Binding="{Binding Color, UpdateSourceTrigger=PropertyChanged}" Width="70" />
+                    <DataGridTextColumn Header="{Binding [Column.Color], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Color, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                     <DataGridTemplateColumn Header="" Width="28">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -231,11 +231,11 @@
                     BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}"
                     Padding="6,4">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="+ Add Field" Command="{Binding AddFieldCommand}"
+                    <Button Content="{Binding [SchemaEditor.AddField], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding AddFieldCommand}"
                             Style="{StaticResource PrimaryButton}" FontSize="11" Height="24" Padding="10,0" Margin="0,0,6,0" />
-                    <Button Content="↑ Move Up" Command="{Binding MoveFieldUpCommand}"
+                    <Button Content="{Binding [SchemaEditor.MoveUp], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding MoveFieldUpCommand}"
                             Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="8,0" Margin="0,0,4,0" />
-                    <Button Content="↓ Move Down" Command="{Binding MoveFieldDownCommand}"
+                    <Button Content="{Binding [SchemaEditor.MoveDown], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding MoveFieldDownCommand}"
                             Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="8,0" />
                 </StackPanel>
             </Border>
@@ -246,9 +246,9 @@
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}"
                 Padding="6,4">
             <StackPanel Orientation="Horizontal">
-                <Button Content="Generate" Command="{Binding GenerateCommand}"
+                <Button Content="{Binding [SchemaEditor.Generate], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding GenerateCommand}"
                         Style="{StaticResource PrimaryButton}" FontSize="11" Height="24" Padding="12,0" Margin="0,0,6,0" />
-                <Button Content="Save" Command="{Binding SaveCommand}"
+                <Button Content="{Binding [SchemaEditor.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveCommand}"
                         Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="12,0" />
             </StackPanel>
         </Border>
@@ -256,20 +256,20 @@
         <!-- Row 3: Preview tabs -->
         <TabControl Grid.Row="3" Margin="0,6,0,6" Background="{DynamicResource BgSurfaceBrush}"
                      BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
-            <TabItem Header="JSON">
+            <TabItem Header="{Binding [Tab.JSON], Source={x:Static local:LanguageManager.Instance}}">
                 <TextBox Style="{StaticResource PreviewTextBox}" Text="{Binding GeneratedJson, Mode=OneWay}" />
             </TabItem>
-            <TabItem Header=".csx Code">
+            <TabItem Header="{Binding [Tab.CsxCode], Source={x:Static local:LanguageManager.Instance}}">
                 <TextBox Style="{StaticResource PreviewTextBox}" Text="{Binding GeneratedCode, Mode=OneWay}" />
             </TabItem>
-            <TabItem Header="Test Parse">
+            <TabItem Header="{Binding [Tab.TestParse], Source={x:Static local:LanguageManager.Instance}}">
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Hex Data:" Style="{StaticResource Label}" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding [SchemaEditor.HexData], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
                     <Grid Grid.Row="1" Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -279,7 +279,7 @@
                                  FontFamily="Consolas" FontSize="12" Padding="6,2" Height="26"
                                  Background="{DynamicResource BgElevatedBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
-                        <Button Grid.Column="1" Content="Parse" Command="{Binding TestParseCommand}"
+                        <Button Grid.Column="1" Content="{Binding [SchemaEditor.Parse], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding TestParseCommand}"
                                 Style="{StaticResource PrimaryButton}" Height="26" Margin="6,0,0,0" Padding="14,0" />
                     </Grid>
                     <TextBox Grid.Row="2" Style="{StaticResource PreviewTextBox}" Text="{Binding ParseResult, Mode=OneWay}" />
@@ -291,11 +291,11 @@
         <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}"
                 Padding="0,6,0,0">
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button Content="Load Template" Command="{Binding LoadSchemaTemplateCommand}"
+                <Button Content="{Binding [SchemaEditor.LoadTemplate], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding LoadSchemaTemplateCommand}"
                         Style="{StaticResource OutlineButton}" FontSize="11" Height="26" Padding="12,0" Margin="0,0,8,0" />
-                <Button Content="Save to parsers/" Command="{Binding SaveCommand}"
+                <Button Content="{Binding [SchemaEditor.SaveToParsers], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveCommand}"
                         Style="{StaticResource PrimaryButton}" FontSize="11" Height="26" Padding="14,0" Margin="0,0,8,0" />
-                <Button Content="Close" FontSize="11" Height="26" Padding="14,0"
+                <Button Content="{Binding [SchemaEditor.Close], Source={x:Static local:LanguageManager.Instance}}" FontSize="11" Height="26" Padding="14,0"
                         Style="{StaticResource OutlineButton}" IsCancel="True" />
             </StackPanel>
         </Border>

@@ -11,7 +11,7 @@ public class MainViewModel : ObservableObject, IDisposable
 {
     private static readonly Regex KeyValueRegex = new(@"[=:]?\s*(-?\d+\.?\d*)", RegexOptions.Compiled);
     private static readonly Regex StandaloneNumberRegex = new(@"-?\d+\.\d+", RegexOptions.Compiled);
-    private readonly ISerialService _serial = new SerialService();
+    private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge = new();
     private readonly LoggerService _logger = new();
     private readonly HttpService _http;
@@ -37,6 +37,11 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly DataFlowViewModel _dataFlow;
     private readonly ToolViewModel _tool;
 
+    private readonly ModbusConnectionManager _modbusConnectionManager = new();
+    private readonly ModbusSlaveService _modbusSlaveService = new();
+    private ModbusViewModel? _modbusViewModel;
+    private ModbusWindow? _modbusWindow;
+
     private readonly Action<LogEntry> _serialDataHandler;
     private readonly Action<string> _serialErrorHandler;
     private readonly Action _serialDisconnectedHandler;
@@ -49,7 +54,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public DataFlowViewModel DataFlow => _dataFlow;
     public ToolViewModel Tool => _tool;
 
-    private string _statusText = "Ready";
+    private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
     private bool _isDarkTheme;
@@ -62,16 +67,21 @@ public class MainViewModel : ObservableObject, IDisposable
 
     public ICommand ToggleThemeCommand { get; }
 
-    public MainViewModel()
+    public MainViewModel() : this(new SerialService()) { }
+
+    public MainViewModel(ISerialService serial)
     {
+        _serial = serial;
         _settings = _settingsService.Load();
         _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action), parserCacheSize: _settings.ParserCacheSize);
 
-        _http = new HttpService(_serial, _parserManager, bufferCapacity: _settings.BufferCapacity);
+        _http = new HttpService(_serial, _parserManager, _modbusSlaveService, bufferCapacity: _settings.BufferCapacity);
         _http.Start();
 
+        // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
+
         _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg);
-        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg);
+        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings);
         _tool = new ToolViewModel(
             _serial, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
             _multiPort, _triggerService, _sessionRecorder,
@@ -93,13 +103,18 @@ public class MainViewModel : ObservableObject, IDisposable
         });
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
+        OpenModbusCommand = new RelayCommand(_ =>
+        {
+            try { OpenModbusWindow(); }
+            catch (Exception ex) { System.Windows.MessageBox.Show($"MODBUS error:\n{ex}"); }
+        });
 
         _serialDataHandler = _dataFlow.OnSerialData;
         _serialErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
-        _serialDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Port disconnected"; });
+        _serialDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = LanguageManager.Instance["Status.PortDisconnected"]; });
         _networkDataHandler = _dataFlow.OnSerialData;
         _networkErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
-        _networkDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = "Network disconnected"; });
+        _networkDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = LanguageManager.Instance["Status.NetworkDisconnected"]; });
         _triggerFiredHandler = _tool.OnTriggerFired;
 
         _serial.OnDataReceived += _serialDataHandler;
@@ -114,16 +129,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
         OpenSchemaEditorCommand = new RelayCommand(_ => OpenSchemaEditor());
 
-        _multiPort.OnDataReceived += entry =>
-        {
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-            {
-                if (entry.Direction == "RX")
-                    _dataFlow.AddRxEntry(entry, 0);
-                else
-                    _dataFlow.AddTxEntry(entry, 0);
-            });
-        };
+        _multiPort.OnDataReceived += entry => _dataFlow.OnSerialData(entry);
 
         _dataFlow.OnRxProcessed = entry =>
         {
@@ -288,6 +294,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenPlotCommand => _tool.OpenPlotCommand;
     public ICommand OpenStatsCommand => _tool.OpenStatsCommand;
     public ICommand OpenSchemaEditorCommand { get; }
+    public ICommand OpenModbusCommand { get; }
 
     private void OpenPlotWindow()
     {
@@ -300,7 +307,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _plotWindow.Owner = System.Windows.Application.Current.MainWindow;
         _plotWindow.Closed += (_, _) => _plotWindow = null;
         _plotWindow.Show();
-        StatusText = "Plot window opened - receiving numeric values from RX data";
+        StatusText = LanguageManager.Instance["Status.PlotWindowOpened"];
     }
 
     private StatsWindow? _statsWindow;
@@ -316,6 +323,39 @@ public class MainViewModel : ObservableObject, IDisposable
         _statsWindow.Owner = System.Windows.Application.Current.MainWindow;
         _statsWindow.Closed += (_, _) => _statsWindow = null;
         _statsWindow.Show();
+    }
+
+    private void OpenModbusWindow()
+    {
+        if (_modbusWindow != null)
+        {
+            _modbusWindow.Activate();
+            return;
+        }
+
+        if (_modbusViewModel == null)
+        {
+            var defaultSvc = _modbusConnectionManager.GetDefaultService(_serial);
+            var dialog = new ModbusConnectionDialog(_modbusConnectionManager, defaultSvc)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            _modbusViewModel = new ModbusViewModel(dialog.Result!, msg => StatusText = msg);
+            _modbusViewModel.SetSlaveService(_modbusSlaveService);
+        }
+
+        _modbusWindow = new ModbusWindow(_modbusViewModel);
+        _modbusWindow.Owner = System.Windows.Application.Current.MainWindow;
+        _modbusWindow.Closed += (_, _) =>
+        {
+            _modbusWindow = null;
+            _modbusViewModel = null;
+        };
+        _modbusWindow.Show();
+        StatusText = "MODBUS Master opened";
     }
 
     private void OpenSchemaEditor()
@@ -335,8 +375,8 @@ public class MainViewModel : ObservableObject, IDisposable
         if (window.ShowDialog() == true)
         {
             StatusText = _frameAssemblerConfig.Enabled
-                ? $"Frame assembly enabled: header={_frameAssemblerConfig.Header}"
-                : "Frame assembly disabled";
+                ? string.Format(LanguageManager.Instance["Status.FrameAssemblyEnabled"], _frameAssemblerConfig.Header)
+                : LanguageManager.Instance["Status.FrameAssemblyDisabled"];
         }
     }
 
@@ -399,6 +439,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
         _tool.Dispose();
         _connection.Dispose();
+        _dataFlow.Dispose();
         _http.Dispose();
         _parserManager.Dispose();
         _multiPort.Dispose();
@@ -406,5 +447,8 @@ public class MainViewModel : ObservableObject, IDisposable
         _serial.Dispose();
         _sessionRecorder.Dispose();
         _logger.Dispose();
+        _modbusViewModel?.Dispose();
+        _modbusConnectionManager.Dispose();
+        _modbusSlaveService.Dispose();
     }
 }

@@ -1,26 +1,32 @@
 using System.Threading;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.Extensions.Caching.Memory;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public class ParserEngine
+public class ParserEngine : IDisposable
 {
     private static readonly ScriptOptions ScriptOptions = ScriptOptions.Default
         .WithImports("System", "System.Collections.Generic", "System.Linq", "ACCcom.Core.Models")
         .WithReferences(typeof(FieldAnnotation).Assembly);
 
-    private readonly Dictionary<string, Script<List<FieldAnnotation>>> _cache = new();
-    private readonly LinkedList<string> _order = new();
+    private readonly MemoryCache _cache;
     private readonly ReaderWriterLockSlim _rwLock = new();
     private readonly int _maxCacheSize;
     private string? _lastError;
     private string? _activeCode;
 
+    public event Action<string>? OnError;
+
     public ParserEngine(int maxCacheSize = 10)
     {
         _maxCacheSize = maxCacheSize;
+        _cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = maxCacheSize
+        });
     }
 
     public int MaxCacheSize => _maxCacheSize;
@@ -47,15 +53,12 @@ public class ParserEngine
                 return false;
             }
 
-            if (_cache.Count >= _maxCacheSize)
-            {
-                var oldest = _order.First!.Value;
-                _order.RemoveFirst();
-                _cache.Remove(oldest);
-            }
+            var options = new MemoryCacheEntryOptions()
+                .SetSize(1)
+                .SetSlidingExpiration(TimeSpan.FromMinutes(30))
+                .SetPriority(CacheItemPriority.Normal);
 
-            _cache[key] = compiled;
-            _order.AddLast(key);
+            _cache.Set(key, compiled, options);
             _activeCode = key;
             _lastError = null;
             return true;
@@ -76,16 +79,24 @@ public class ParserEngine
         _rwLock.EnterReadLock();
         try
         {
-            if (_activeCode == null || !_cache.TryGetValue(_activeCode, out var compiled))
+            if (_activeCode == null)
+                return null;
+
+            if (!_cache.TryGetValue(_activeCode, out var compiled))
+                return null;
+
+            var script = (Script<List<FieldAnnotation>>?)compiled;
+            if (script == null)
                 return null;
 
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
-            var result = await compiled.RunAsync(globals).ConfigureAwait(false);
+            var result = await script.RunAsync(globals).ConfigureAwait(false);
             return result.ReturnValue;
         }
         catch (Exception ex)
         {
             _lastError = ex.Message;
+            OnError?.Invoke(ex.Message);
             return null;
         }
         finally
@@ -99,8 +110,7 @@ public class ParserEngine
         _rwLock.EnterWriteLock();
         try
         {
-            _cache.Clear();
-            _order.Clear();
+            _cache.Compact(1.0);
             _activeCode = null;
             _lastError = null;
         }
@@ -108,5 +118,11 @@ public class ParserEngine
         {
             _rwLock.ExitWriteLock();
         }
+    }
+
+    public void Dispose()
+    {
+        _cache.Dispose();
+        _rwLock.Dispose();
     }
 }
