@@ -19,6 +19,7 @@ public class FrameAssembler : IDisposable
     public FrameAssemblerConfig Config => _config;
 
     public event Action<LogEntry>? OnFrameAssembled;
+    public event Action<string>? OnError;
 
     public FrameAssembler(FrameAssemblerConfig config, ParserManager? parserManager = null)
     {
@@ -77,7 +78,7 @@ public class FrameAssembler : IDisposable
 
             if (hexLen >= frameLen)
             {
-                EmitCompleteAsync(bytes).ConfigureAwait(false);
+                _ = EmitCompleteAsync(bytes);
                 return;
             }
 
@@ -89,7 +90,7 @@ public class FrameAssembler : IDisposable
         else if (_config.LengthFieldOffset < 0)
         {
             var bytes = HexToBytes(_partialHexNoSpace);
-            EmitCompleteAsync(bytes).ConfigureAwait(false);
+            _ = EmitCompleteAsync(bytes);
         }
     }
 
@@ -121,12 +122,19 @@ public class FrameAssembler : IDisposable
         if (entry == null)
             return;
 
-        if (_parserManager?.ActiveParserName != null)
+        try
         {
-            entry.Fields = await _parserManager.Engine.ExecuteAsync(bytes, entry.Timestamp).ConfigureAwait(false);
-        }
+            if (_parserManager?.ActiveParserName != null)
+            {
+                entry.Fields = await _parserManager.Engine.ExecuteAsync(bytes, entry.Timestamp).ConfigureAwait(false);
+            }
 
-        OnFrameAssembled?.Invoke(entry);
+            OnFrameAssembled?.Invoke(entry);
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"FrameAssembler error: {ex.Message}");
+        }
     }
 
     private bool MatchesHeader(string hexNoSpace)
@@ -192,7 +200,7 @@ public class FrameAssembler : IDisposable
 
     private static string FormatHex(byte[] bytes)
     {
-        return BitConverter.ToString(bytes).Replace("-", " ");
+        return HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length);
     }
 
     private static byte[] HexToBytes(string hexNoSpace)

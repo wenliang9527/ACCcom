@@ -41,24 +41,27 @@ public class ModbusSlaveDevice
 
     public byte[] HandleRequest(byte functionCode, byte[] pdu)
     {
-        try
+        lock (_lock)
         {
-            return functionCode switch
+            try
             {
-                0x01 => HandleReadBits(pdu, _coils, 0x01),
-                0x02 => HandleReadBits(pdu, _discreteInputs, 0x02),
-                0x03 => HandleReadRegisters(pdu, _holdingRegisters, 0x03),
-                0x04 => HandleReadRegisters(pdu, _inputRegisters, 0x04),
-                0x05 => HandleWriteSingleCoil(pdu),
-                0x06 => HandleWriteSingleRegister(pdu),
-                0x0F => HandleWriteMultipleCoils(pdu),
-                0x10 => HandleWriteMultipleRegisters(pdu),
-                0x16 => HandleMaskWriteRegister(pdu),
-                0x17 => HandleReadWriteMultipleRegisters(pdu),
-                _ => ErrorResponse(functionCode, 0x01)
-            };
+                return functionCode switch
+                {
+                    0x01 => HandleReadBits(pdu, _coils, 0x01),
+                    0x02 => HandleReadBits(pdu, _discreteInputs, 0x02),
+                    0x03 => HandleReadRegisters(pdu, _holdingRegisters, 0x03),
+                    0x04 => HandleReadRegisters(pdu, _inputRegisters, 0x04),
+                    0x05 => HandleWriteSingleCoil(pdu),
+                    0x06 => HandleWriteSingleRegister(pdu),
+                    0x0F => HandleWriteMultipleCoils(pdu),
+                    0x10 => HandleWriteMultipleRegisters(pdu),
+                    0x16 => HandleMaskWriteRegister(pdu),
+                    0x17 => HandleReadWriteMultipleRegisters(pdu),
+                    _ => ErrorResponse(functionCode, 0x01)
+                };
+            }
+            catch (IndexOutOfRangeException) { return ErrorResponse(functionCode, 0x02); }
         }
-        catch (IndexOutOfRangeException) { return ErrorResponse(functionCode, 0x02); }
     }
 
     private byte[] HandleReadBits(byte[] pdu, bool[] bits, byte funcCode)

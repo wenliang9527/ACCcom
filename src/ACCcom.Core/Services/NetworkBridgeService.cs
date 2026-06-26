@@ -31,14 +31,21 @@ public class NetworkBridgeService : IDisposable
     public event Action<string>? OnError;
     public event Action? OnDisconnected;
 
-    public bool ConnectTcp(string host, int port)
+    public async Task<bool> ConnectTcp(string host, int port)
     {
         if (IsConnected) return true;
 
         try
         {
             _tcpClient = new TcpClient();
-            _tcpClient.Connect(host, port);
+            var connectTask = _tcpClient.ConnectAsync(host, port);
+            if (await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false) != connectTask)
+            {
+                Cleanup();
+                OnError?.Invoke($"TCP connect to {host}:{port} timed out after 5s");
+                return false;
+            }
+            await connectTask.ConfigureAwait(false);
             _tcpStream = _tcpClient.GetStream();
             Protocol = NetworkProtocol.TCP;
             Host = host;
@@ -167,11 +174,11 @@ public class NetworkBridgeService : IDisposable
             {
                 if (Protocol == NetworkProtocol.TCP)
                 {
-                    await ReceiveTcpLoop(token);
+                    await ReceiveTcpLoop(token).ConfigureAwait(false);
                 }
                 else
                 {
-                    await ReceiveUdpLoop(token);
+                    await ReceiveUdpLoop(token).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
@@ -190,7 +197,7 @@ public class NetworkBridgeService : IDisposable
         {
             while (!token.IsCancellationRequested && IsConnected && _tcpStream != null)
             {
-                int bytesRead = await _tcpStream.ReadAsync(buffer, 0, buffer.Length, token);
+                int bytesRead = await _tcpStream.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false);
                 if (bytesRead == 0)
                 {
                     HandleDisconnect();
@@ -210,7 +217,7 @@ public class NetworkBridgeService : IDisposable
     {
         while (!token.IsCancellationRequested && IsConnected && _udpClient != null)
         {
-            var result = await _udpClient.ReceiveAsync(token);
+            var result = await _udpClient.ReceiveAsync(token).ConfigureAwait(false);
             RaiseDataReceived(result.Buffer, 0, result.Buffer.Length);
         }
     }
@@ -244,7 +251,7 @@ public class NetworkBridgeService : IDisposable
 
     private void Cleanup()
     {
-        using var cts = Interlocked.Exchange(ref _receiveCts, null);
+        var cts = Interlocked.Exchange(ref _receiveCts, null);
         cts?.Cancel();
         cts?.Dispose();
 

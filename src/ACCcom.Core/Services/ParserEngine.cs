@@ -76,6 +76,8 @@ public class ParserEngine : IDisposable
 
     public async Task<List<FieldAnnotation>?> ExecuteAsync(byte[] data, DateTime timestamp)
     {
+        Script<List<FieldAnnotation>>? script;
+
         _rwLock.EnterReadLock();
         try
         {
@@ -85,10 +87,17 @@ public class ParserEngine : IDisposable
             if (!_cache.TryGetValue(_activeCode, out var compiled))
                 return null;
 
-            var script = (Script<List<FieldAnnotation>>?)compiled;
+            script = compiled as Script<List<FieldAnnotation>>;
             if (script == null)
                 return null;
+        }
+        finally
+        {
+            _rwLock.ExitReadLock();
+        }
 
+        try
+        {
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
             var result = await script.RunAsync(globals).ConfigureAwait(false);
             return result.ReturnValue;
@@ -98,10 +107,6 @@ public class ParserEngine : IDisposable
             _lastError = ex.Message;
             OnError?.Invoke(ex.Message);
             return null;
-        }
-        finally
-        {
-            _rwLock.ExitReadLock();
         }
     }
 

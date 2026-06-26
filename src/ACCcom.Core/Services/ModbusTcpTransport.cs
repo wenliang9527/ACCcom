@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Sockets;
 using Timer = System.Timers.Timer;
 
@@ -14,6 +15,7 @@ public class ModbusTcpTransport : IModbusTransport
     private readonly Dictionary<ushort, TaskCompletionSource<byte[]>> _pending = new();
     private readonly CancellationTokenSource _receiveCts = new();
     private readonly Timer _heartbeatTimer;
+    private const ushort HeartbeatTid = ushort.MaxValue;
     private int _transactionId;
     private bool _disposed;
 
@@ -26,7 +28,7 @@ public class ModbusTcpTransport : IModbusTransport
         _heartbeatTimer.Elapsed += async (_, _) =>
         {
             try { await HeartbeatAsync(); }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"Heartbeat failed: {ex.Message}"); }
         };
         _heartbeatTimer.AutoReset = true;
         _heartbeatTimer.Start();
@@ -37,6 +39,7 @@ public class ModbusTcpTransport : IModbusTransport
         ct.ThrowIfCancellationRequested();
         await EnsureConnectedAsync().ConfigureAwait(false);
         var tid = (ushort)Interlocked.Increment(ref _transactionId);
+        if (tid == 0 || tid == HeartbeatTid) tid = (ushort)Interlocked.Increment(ref _transactionId);
         var adu = BuildMbap(tid, slaveId, functionCode, pdu);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -103,12 +106,12 @@ public class ModbusTcpTransport : IModbusTransport
         if (!_client.Connected) return;
         try
         {
-            var adu = BuildMbap(0, 0x01, 0x07, []);
+            var adu = BuildMbap(HeartbeatTid, 0x01, 0x07, []);
             await _stream!.WriteAsync(adu).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
-            // silently ignore heartbeat failures
+            Debug.WriteLine($"Heartbeat error: {ex.Message}");
         }
     }
 
@@ -139,6 +142,8 @@ public class ModbusTcpTransport : IModbusTransport
                     if (read == 0) return;
                     offset += read;
                 }
+
+                if (tid == HeartbeatTid) continue;
 
                 TaskCompletionSource<byte[]>? tcs;
                 lock (_lock)

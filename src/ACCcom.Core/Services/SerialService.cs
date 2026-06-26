@@ -61,7 +61,13 @@ public class SerialService : ISerialService, IDisposable
     {
         if (_disposed) return true;
         _reconnectCts?.Cancel();
-        if (_port == null) return true;
+        ClosePortOnly();
+        return true;
+    }
+
+    private void ClosePortOnly()
+    {
+        if (_port == null) return;
         try
         {
             if (_port.IsOpen)
@@ -72,14 +78,12 @@ public class SerialService : ISerialService, IDisposable
             }
             _port.Dispose();
             _port = null;
-            return true;
         }
         catch (Exception ex)
         {
             OnError?.Invoke($"Failed to close serial port: {ex.Message}");
             _port?.Dispose();
             _port = null;
-            return false;
         }
     }
 
@@ -213,7 +217,7 @@ public class SerialService : ISerialService, IDisposable
                 // Apply backoff: delay = interval * (backoff ^ attempt)
                 var delay = (int)(_reconnectSettings.ReconnectIntervalMs
                     * Math.Pow(_reconnectSettings.BackoffMultiplier, _reconnectAttempt));
-                await Task.Delay(delay, token);
+                await Task.Delay(delay, token).ConfigureAwait(false);
                 if (token.IsCancellationRequested) break;
                 if (_port?.IsOpen == true) break;
 
@@ -228,7 +232,7 @@ public class SerialService : ISerialService, IDisposable
                         WriteTimeout = 1000
                     };
                     tempPort.Open();
-                    Close();
+                    ClosePortOnly();
                     _port = tempPort;
                     _port.DataReceived += OnSerialDataReceived;
                     _port.ErrorReceived += OnSerialError;

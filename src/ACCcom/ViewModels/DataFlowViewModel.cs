@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Data;
@@ -44,6 +45,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     private bool _isHexDisplayTx;
     public bool IsHexDisplayTx { get => _isHexDisplayTx; set => SetField(ref _isHexDisplayTx, value); }
+
+    public ICommand ToggleHexDisplayCommand { get; }
 
     private bool _enableRxTimestamp = true;
     public bool EnableRxTimestamp { get => _enableRxTimestamp; set => SetField(ref _enableRxTimestamp, value); }
@@ -201,6 +204,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         SaveTxCsvCommand = new RelayCommand(_ => SaveToCsv(TxEntries, "TX"));
         OpenParserDirCommand = new RelayCommand(_ => OpenParserDir());
         CompareFramesCommand = new RelayCommand(_ => OpenDiffWindow());
+        ToggleHexDisplayCommand = new RelayCommand(_ => { IsHexDisplayRx = !IsHexDisplayRx; IsHexDisplayTx = !IsHexDisplayTx; });
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
         FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx);
@@ -208,7 +212,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx);
     }
 
-    public async void OnSerialData(LogEntry entry)
+    public void OnSerialData(LogEntry entry)
     {
         try
         {
@@ -228,7 +232,51 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(entry.RawHex))
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
-            if (entry.Direction == "RX" && _parserManager.ActiveParserName != null)
+            _ = ProcessSerialEntryAsync(entry, byteCount);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
+    }
+
+    private void OnAssembledFrame(LogEntry entry)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(entry.PortTag))
+                entry.PortTag = "main";
+            _http.AddEntry(entry);
+            _triggerService.Evaluate(entry);
+
+            int byteCount = 0;
+            if (!string.IsNullOrEmpty(entry.RawHex))
+                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+
+            _ = ProcessAssembledFrameAsync(entry, byteCount);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+        }
+    }
+
+    private async Task ProcessSerialEntryAsync(LogEntry entry, int byteCount)
+    {
+        await ProcessEntryAsync(entry, byteCount, forceRx: false, errorContext: "Status.ErrorProcessingData").ConfigureAwait(false);
+    }
+
+    private async Task ProcessAssembledFrameAsync(LogEntry entry, int byteCount)
+    {
+        await ProcessEntryAsync(entry, byteCount, forceRx: true, errorContext: "Status.ErrorProcessingFrame").ConfigureAwait(false);
+    }
+
+    private async Task ProcessEntryAsync(LogEntry entry, int byteCount, bool forceRx, string errorContext)
+    {
+        try
+        {
+            bool isRx = forceRx || entry.Direction == "RX";
+            if (isRx && _parserManager.ActiveParserName != null)
                 await RunParserAsync(entry).ConfigureAwait(false);
 
             _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
@@ -237,7 +285,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 {
                     _logger.Write(entry);
 
-                    if (entry.Direction == "RX")
+                    if (isRx)
                     {
                         _stats.RecordRx(byteCount);
                         if (HexHelper.HasErrorSeverity(entry.Fields))
@@ -254,60 +302,21 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+                    _setStatus(string.Format(LanguageManager.Instance[errorContext], ex.Message));
                 }
             });
         }
         catch (Exception ex)
         {
-            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
-        }
-    }
-
-    private async void OnAssembledFrame(LogEntry entry)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(entry.PortTag))
-                entry.PortTag = "main";
-            _http.AddEntry(entry);
-            _triggerService.Evaluate(entry);
-
-            int byteCount = 0;
-            if (!string.IsNullOrEmpty(entry.RawHex))
-                byteCount = HexHelper.CountHexBytes(entry.RawHex);
-
-            if (_parserManager.ActiveParserName != null)
-                await RunParserAsync(entry).ConfigureAwait(false);
-
-            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
-            {
-                try
-                {
-                    _logger.Write(entry);
-                    _stats.RecordRx(byteCount);
-                    if (HexHelper.HasErrorSeverity(entry.Fields))
-                        _stats.RecordError();
-                    AddRxEntry(entry, byteCount);
-                    OnRxProcessed?.Invoke(entry);
-                    OnEntryProcessed?.Invoke(entry, byteCount);
-                }
-                catch (Exception ex)
-                {
-                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+            _setStatus(string.Format(LanguageManager.Instance[errorContext], ex.Message));
         }
     }
 
     public void AddRxEntry(LogEntry entry, int byteCount)
     {
         RxEntries.Add(entry);
-        RxEntries.TrimTo(MaxEntries);
+        if (RxEntries.Count > MaxEntries)
+            RxEntries.TrimTo(MaxEntries);
         RxCount++;
         RxByteCount += byteCount;
     }
@@ -315,7 +324,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public void AddTxEntry(LogEntry entry, int byteCount)
     {
         TxEntries.Add(entry);
-        TxEntries.TrimTo(MaxEntries);
+        if (TxEntries.Count > MaxEntries)
+            TxEntries.TrimTo(MaxEntries);
         TxCount++;
         TxByteCount += byteCount;
     }
@@ -449,20 +459,46 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection)
     {
         if (!showDirection) return false;
-        if (string.IsNullOrWhiteSpace(filter)) return true;
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            entry.IsSearchMatch = false;
+            return true;
+        }
         var text = entry.Text ?? "";
         var hex = entry.RawHex ?? "";
+        bool matches;
         if (useRegex)
         {
             try
             {
-                return System.Text.RegularExpressions.Regex.IsMatch(text, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                matches = System.Text.RegularExpressions.Regex.IsMatch(text, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase)
                     || System.Text.RegularExpressions.Regex.IsMatch(hex, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             }
-            catch { return false; }
+            catch (Exception regexEx) { Debug.WriteLine($"Regex filter error: {regexEx.Message}"); matches = false; }
         }
-        return text.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase)
-            || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
+        else
+        {
+            matches = text.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase)
+                || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
+        }
+        entry.IsSearchMatch = matches;
+        return matches;
+    }
+
+    public string GetFormattedCopyText(ObservableCollection<LogEntry> entries, string direction)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var entry in entries)
+        {
+            var hex = entry.RawHex ?? "";
+            var text = entry.Text ?? "";
+            var time = entry.Timestamp.ToString("HH:mm:ss.fff");
+            if (!string.IsNullOrEmpty(hex))
+                sb.AppendLine($"[{time}][{direction}][HEX] {hex}");
+            if (!string.IsNullOrEmpty(text))
+                sb.AppendLine($"[{time}][{direction}][TXT] {text}");
+        }
+        return sb.ToString();
     }
 
     public void Dispose()

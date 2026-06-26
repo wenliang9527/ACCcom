@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
@@ -6,6 +7,7 @@ namespace ACCcom.Core.Services;
 public class ModbusTcpSlaveTransport : IDisposable
 {
     private readonly int _port;
+    private readonly int _maxClients;
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private readonly List<TcpClient> _clients = new();
@@ -19,7 +21,11 @@ public class ModbusTcpSlaveTransport : IDisposable
     public string? LastError => _lastError;
     public Func<byte, byte[], byte[]>? OnRequestReceived { get; set; }
 
-    public ModbusTcpSlaveTransport(int port) { _port = port; }
+    public ModbusTcpSlaveTransport(int port, int maxClients = 10)
+    {
+        _port = port;
+        _maxClients = maxClients > 0 ? maxClients : 10;
+    }
 
     public void Start()
     {
@@ -36,7 +42,7 @@ public class ModbusTcpSlaveTransport : IDisposable
         _isRunning = false;
         _cts?.Cancel();
         _listener?.Stop();
-        lock (_lock) { foreach (var c in _clients) { try { c.Dispose(); } catch { } } _clients.Clear(); }
+        lock (_lock) { foreach (var c in _clients) { try { c.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing client: {ex.Message}"); } } _clients.Clear(); }
     }
 
     private async Task AcceptLoopAsync(CancellationToken ct)
@@ -46,7 +52,15 @@ public class ModbusTcpSlaveTransport : IDisposable
             while (!ct.IsCancellationRequested)
             {
                 var client = await _listener!.AcceptTcpClientAsync(ct).ConfigureAwait(false);
-                lock (_lock) _clients.Add(client);
+                lock (_lock)
+                {
+                    if (_clients.Count >= _maxClients)
+                    {
+                        try { client.Dispose(); } catch { }
+                        continue;
+                    }
+                    _clients.Add(client);
+                }
                 _ = HandleClientAsync(client, ct);
             }
         }
@@ -94,7 +108,7 @@ public class ModbusTcpSlaveTransport : IDisposable
         catch (OperationCanceledException) { }
         catch (IOException) { }
         catch (ObjectDisposedException) { }
-        finally { lock (_lock) _clients.Remove(client); try { client.Dispose(); } catch { } }
+        finally { lock (_lock) _clients.Remove(client); try { client.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing client: {ex.Message}"); } }
     }
 
     public void Dispose() { if (_disposed) return; _disposed = true; Stop(); }

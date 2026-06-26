@@ -6,7 +6,7 @@ public class ModbusRtuTransport : IModbusTransport
 {
     private readonly ISerialService _serial;
     private readonly object _lock = new();
-    private readonly Dictionary<string, TaskCompletionSource<byte[]>> _pending = new();
+    private readonly Dictionary<string, Queue<TaskCompletionSource<byte[]>>> _pending = new();
     private readonly Action<LogEntry> _dataHandler;
     private bool _disposed;
 
@@ -25,7 +25,15 @@ public class ModbusRtuTransport : IModbusTransport
         var key = MakeKey(slaveId, functionCode);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        lock (_lock) { _pending[key] = tcs; }
+        lock (_lock)
+        {
+            if (!_pending.TryGetValue(key, out var queue))
+            {
+                queue = new Queue<TaskCompletionSource<byte[]>>();
+                _pending[key] = queue;
+            }
+            queue.Enqueue(tcs);
+        }
 
         try
         {
@@ -33,13 +41,13 @@ public class ModbusRtuTransport : IModbusTransport
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
             using var registration = linkedCts.Token.Register(() =>
             {
-                lock (_lock) { if (_pending.TryGetValue(key, out var p) && p == tcs) _pending.Remove(key); }
+                lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
                 tcs.TrySetException(new OperationCanceledException(ct.IsCancellationRequested ? "Operation cancelled" : $"Timeout after {timeoutMs}ms"));
             }, useSynchronizationContext: false);
 
             if (!_serial.Send(hex, isHex: true))
             {
-                lock (_lock) _pending.Remove(key);
+                lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
                 throw new InvalidOperationException("Send failed");
             }
 
@@ -47,7 +55,7 @@ public class ModbusRtuTransport : IModbusTransport
         }
         catch (Exception)
         {
-            lock (_lock) _pending.Remove(key);
+            lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
             throw;
         }
     }
@@ -67,9 +75,9 @@ public class ModbusRtuTransport : IModbusTransport
         TaskCompletionSource<byte[]>? tcs;
         lock (_lock)
         {
-            if (!_pending.TryGetValue(key, out var p)) return;
-            _pending.Remove(key);
-            tcs = p;
+            if (!_pending.TryGetValue(key, out var queue) || queue.Count == 0) return;
+            tcs = queue.Dequeue();
+            if (queue.Count == 0) _pending.Remove(key);
         }
 
         if ((funcByte & 0x80) != 0)
@@ -89,6 +97,8 @@ public class ModbusRtuTransport : IModbusTransport
         tcs.TrySetResult(bytes.AsSpan(0, bytes.Length - 2).ToArray());
     }
 
+    private static string MakeKey(byte slaveId, byte functionCode) => $"{slaveId}:{functionCode}";
+
     private static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
     {
         var adu = new byte[1 + pdu.Length + 2];
@@ -100,8 +110,6 @@ public class ModbusRtuTransport : IModbusTransport
         adu[^1] = (byte)((crc >> 8) & 0xFF);
         return adu;
     }
-
-    private static string MakeKey(byte slaveId, byte functionCode) => $"{slaveId}:{functionCode}";
 
     internal static byte[] HexStringToBytes(string hex)
     {
@@ -205,7 +213,8 @@ public class ModbusRtuTransport : IModbusTransport
         lock (_lock)
         {
             foreach (var kv in _pending)
-                kv.Value.TrySetException(new ObjectDisposedException(nameof(ModbusRtuTransport)));
+                foreach (var tcs in kv.Value)
+                    tcs.TrySetException(new ObjectDisposedException(nameof(ModbusRtuTransport)));
             _pending.Clear();
         }
     }

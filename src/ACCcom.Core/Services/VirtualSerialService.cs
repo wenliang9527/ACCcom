@@ -49,7 +49,7 @@ public class VirtualSerialService : ISerialService, IDisposable
 
         var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
         var hexStr = isHex ? data.Replace(" ", "") :
-            BitConverter.ToString(textBytes).Replace("-", " ");
+            HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
 
         var entry = new LogEntry
         {
@@ -77,7 +77,7 @@ public class VirtualSerialService : ISerialService, IDisposable
             Id = Interlocked.Increment(ref _nextRxId),
             Timestamp = DateTime.Now,
             Direction = "RX",
-            RawHex = BitConverter.ToString(bytes).Replace("-", " "),
+            RawHex = HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length),
             Text = System.Text.Encoding.UTF8.GetString(bytes)
         };
 
