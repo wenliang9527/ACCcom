@@ -16,7 +16,7 @@ public class AutoBaudDetector : IDisposable
         foreach (var baudRate in CommonRates)
         {
             ct.ThrowIfCancellationRequested();
-            if (await TryBaudRateAsync(portName, baudRate, ct))
+            if (await TryBaudRateAsync(portName, baudRate, ct).ConfigureAwait(false))
                 return baudRate;
         }
         return 0;
@@ -45,11 +45,11 @@ public class AutoBaudDetector : IDisposable
             {
                 ct.ThrowIfCancellationRequested();
                 port.Write(new byte[] { 0x00 }, 0, 1);
-                await Task.Delay(50, ct);
+                await Task.Delay(50, ct).ConfigureAwait(false);
             }
 
             // Wait for any response
-            await Task.Delay(200, ct);
+            await Task.Delay(200, ct).ConfigureAwait(false);
 
             if (port.BytesToRead > 0)
                 return true;

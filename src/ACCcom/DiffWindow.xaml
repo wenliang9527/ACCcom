@@ -94,9 +94,9 @@
         <!-- Summary -->
         <Border Grid.Row="3" Padding="10,6" Background="{DynamicResource BgSurfaceBrush}"
                 CornerRadius="6" Margin="0,6,0,0">
-            <TextBlock x:Name="SummaryText" Text="{Binding [DiffWindow.SummaryHint], Source={x:Static local:LanguageManager.Instance}}"
+            <TextBox x:Name="SummaryText" Text="{Binding [DiffWindow.SummaryHint], Source={x:Static local:LanguageManager.Instance}}"
                        FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}"
-                       HorizontalAlignment="Center" />
+                       HorizontalAlignment="Center" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
         </Border>
     </Grid>
 </Window>

@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --logger trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+
+      - name: Publish WPF app
+        run: |
+          dotnet publish src/ACCcom/ACCcom.csproj `
+            --configuration Release `
+            --output dist/ACCcom `
+            --self-contained true `
+            --runtime win-x64 `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Publish MCP server
+        run: |
+          dotnet publish src/ACCcom.McpServer/ACCcom.McpServer.csproj `
+            --configuration Release `
+            --output dist/ACCcom.McpServer `
+            --self-contained true `
+            --runtime win-x64
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ACCcom-win-x64
+          path: dist/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ACCcom-win-x64
+          path: dist
+
+      - name: Compress artifacts
+        run: |
+          Compress-Archive -Path dist/ACCcom -DestinationPath ACCcom-$env:GITHUB_REF_NAME.zip
+          Compress-Archive -Path dist/ACCcom.McpServer -DestinationPath ACCcom.McpServer-$env:GITHUB_REF_NAME.zip
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ACCcom-*.zip
+          tag_name: ${{ github.ref_name }}
+          name: ACCcom ${{ github.ref_name }}
+          body: |
+            See [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for changes.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

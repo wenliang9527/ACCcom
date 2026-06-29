@@ -378,59 +378,99 @@
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,6,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" Margin="6,0,5,0" />
-                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="0,0,6,0" />
+                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="0,0,6,0" />
+                                 <ToggleButton Content="⇅" IsChecked="{Binding AutoScrollRx}" ToolTip="自动滚动" Margin="0,0,6,0" FontSize="12" Padding="4,0" />
                                 <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" Style="{StaticResource HeaderButton}" Margin="0,0,2,0" />
                                 <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxJsonCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCsvCommand}" Style="{StaticResource HeaderButton}" />
-                            </WrapPanel>
+                                 <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                 <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                             </WrapPanel>
                         </DockPanel>
                     </Border>
 
-                    <!-- Data list -->
-                     <ListBox x:Name="RxListBox" Grid.Row="2"
-                              ItemsSource="{Binding FilteredRxEntries}" SelectedItem="{Binding SelectedEntry}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                              VirtualizingPanel.IsVirtualizing="True"
-                              VirtualizingPanel.VirtualizationMode="Recycling"
-                              VirtualizingPanel.ScrollUnit="Pixel"
-                              ScrollViewer.IsDeferredScrollingEnabled="True"
-                              Background="Transparent" BorderThickness="0"
-                              Padding="4,2,0,2">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="0" Margin="0" Background="Transparent">
-                                    <Grid MinHeight="26">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Rectangle Grid.Column="0" Style="{StaticResource RxAccent}" />
+                     <!-- Data list -->
+                      <ListBox x:Name="RxListBox" Grid.Row="2"
+                               ItemsSource="{Binding FilteredRxEntries}" SelectedItem="{Binding SelectedEntry}"
+                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                               ScrollViewer.VerticalScrollBarVisibility="Auto"
+                               VirtualizingPanel.IsVirtualizing="True"
+                               VirtualizingPanel.VirtualizationMode="Recycling"
+                               VirtualizingPanel.ScrollUnit="Pixel"
+                               ScrollViewer.IsDeferredScrollingEnabled="True"
+                               Background="Transparent" BorderThickness="0"
+                               Padding="4,2,0,2"
+                               SelectionMode="Extended">
+                         <ListBox.Resources>
+                             <Style TargetType="ListBoxItem">
+                                 <Style.Resources>
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent" />
+                                 </Style.Resources>
+                             </Style>
+                         </ListBox.Resources>
+                         <ListBox.ContextMenu>
+                             <ContextMenu>
+                                  <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxSelected_Click" InputGestureText="Ctrl+C" />
+                             </ContextMenu>
+                         </ListBox.ContextMenu>
+                         <ListBox.ItemTemplate>
+                             <DataTemplate>
+                                 <Border Padding="0" Margin="0">
+                                     <Border.Style>
+                                         <Style TargetType="Border">
+                                             <Setter Property="Background" Value="Transparent" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                     <Setter Property="Background" Value="#40FFFF00" />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Border.Style>
+                                     <Grid MinHeight="26">
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="*" />
+                                         </Grid.ColumnDefinitions>
+                                         <Rectangle Grid.Column="0" Style="{StaticResource RxAccent}" />
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding Id, StringFormat='#{0}'}"
                                                    FontFamily="Consolas" FontSize="11"
                                                    Foreground="{DynamicResource InkTertiaryBrush}"
                                                    Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                                   FontFamily="Consolas" FontSize="13"
-                                                   Foreground="{DynamicResource InkSecondaryBrush}"
-                                                   Margin="0,0,14,0" VerticalAlignment="Center"
-                                                   Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
-                                                   FontFamily="Consolas" FontSize="13"
-                                                   Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
-                                                   Margin="0,3,10,3" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                         <TextBlock Grid.Column="2"
+                                                    Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                                                    FontFamily="Consolas" FontSize="13"
+                                                    Foreground="{DynamicResource InkSecondaryBrush}"
+                                                    Margin="0,0,14,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                          <TextBox Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
+                                                    FontFamily="Consolas" FontSize="13"
+                                                    Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
+                                                    Margin="0,3,10,3"
+                                                    IsReadOnly="True" IsTabStop="False"
+                                                    BorderThickness="0" Background="Transparent"
+                                                    Padding="0"
+                                                    Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                          <TextBox Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
+                                                    FontFamily="Consolas" FontSize="13"
+                                                    Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
+                                                    Margin="0,3,10,3"
+                                                    IsReadOnly="True" IsTabStop="False"
+                                                    BorderThickness="0" Background="Transparent"
+                                                    Padding="0"
+                                                    Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
+                                      </Grid>
+                                  </Border>
+                              </DataTemplate>
+                          </ListBox.ItemTemplate>
+                      </ListBox>
 
-                    <!-- Field splitter -->
+                     <!-- Field splitter -->
                     <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                   Background="Transparent" ResizeBehavior="PreviousAndNext"
                                   Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
@@ -526,37 +566,65 @@
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,6,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" Margin="6,0,5,0" />
-                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="0,0,6,0" />
+                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="0,0,6,0" />
+                                 <ToggleButton Content="⇅" IsChecked="{Binding AutoScrollTx}" ToolTip="自动滚动" Margin="0,0,6,0" FontSize="12" Padding="4,0" />
                                 <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" Style="{StaticResource HeaderButton}" Margin="0,0,2,0" />
                                 <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxJsonCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCsvCommand}" Style="{StaticResource HeaderButton}" />
-                            </WrapPanel>
+                                 <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                  <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                             </WrapPanel>
                         </DockPanel>
                     </Border>
 
-                    <!-- TX Data -->
-                      <ListBox x:Name="TxListBox" Grid.Row="2"
-                               ItemsSource="{Binding FilteredTxEntries}"
-                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                               ScrollViewer.VerticalScrollBarVisibility="Auto"
-                               VirtualizingPanel.IsVirtualizing="True"
-                               VirtualizingPanel.VirtualizationMode="Recycling"
-                               VirtualizingPanel.ScrollUnit="Pixel"
-                               ScrollViewer.IsDeferredScrollingEnabled="True"
-                               Background="Transparent" BorderThickness="0"
-                               Padding="4,2,0,2">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="0" Margin="0" Background="Transparent">
-                                    <Grid MinHeight="26">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Rectangle Grid.Column="0" Style="{StaticResource TxAccent}" />
+                     <!-- TX Data -->
+                       <ListBox x:Name="TxListBox" Grid.Row="2"
+                                ItemsSource="{Binding FilteredTxEntries}"
+                                ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                VirtualizingPanel.IsVirtualizing="True"
+                                VirtualizingPanel.VirtualizationMode="Recycling"
+                                VirtualizingPanel.ScrollUnit="Pixel"
+                                ScrollViewer.IsDeferredScrollingEnabled="True"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4,2,0,2"
+                                SelectionMode="Extended">
+                         <ListBox.Resources>
+                             <Style TargetType="ListBoxItem">
+                                 <Style.Resources>
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="Transparent" />
+                                     <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent" />
+                                 </Style.Resources>
+                             </Style>
+                         </ListBox.Resources>
+                         <ListBox.ContextMenu>
+                             <ContextMenu>
+                                  <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxSelected_Click" InputGestureText="Ctrl+C" />
+                             </ContextMenu>
+                         </ListBox.ContextMenu>
+                         <ListBox.ItemTemplate>
+                             <DataTemplate>
+                                 <Border Padding="0" Margin="0">
+                                     <Border.Style>
+                                         <Style TargetType="Border">
+                                             <Setter Property="Background" Value="Transparent" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                     <Setter Property="Background" Value="#40FFFF00" />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Border.Style>
+                                     <Grid MinHeight="26">
+                                         <Grid.ColumnDefinitions>
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="Auto" />
+                                             <ColumnDefinition Width="*" />
+                                         </Grid.ColumnDefinitions>
+                                         <Rectangle Grid.Column="0" Style="{StaticResource TxAccent}" />
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding Id, StringFormat='#{0}'}"
                                                    FontFamily="Consolas" FontSize="11"
@@ -568,17 +636,29 @@
                                                    Foreground="{DynamicResource InkSecondaryBrush}"
                                                    Margin="0,0,14,0" VerticalAlignment="Center"
                                                    Visibility="{Binding DataContext.EnableTxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
-                                                   FontFamily="Consolas" FontSize="13"
-                                                   Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
-                                                   Margin="0,3,10,3" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                          <TextBox Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
+                                                    FontFamily="Consolas" FontSize="13"
+                                                    Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
+                                                    Margin="0,3,10,3"
+                                                    IsReadOnly="True" IsTabStop="False"
+                                                    BorderThickness="0" Background="Transparent"
+                                                    Padding="0"
+                                                     Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                           <TextBox Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
+                                                     FontFamily="Consolas" FontSize="13"
+                                                     Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center"
+                                                     Margin="0,3,10,3"
+                                                     IsReadOnly="True" IsTabStop="False"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     Padding="0"
+                                                     Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
+                                       </Grid>
+                                   </Border>
+                               </DataTemplate>
+                           </ListBox.ItemTemplate>
+                       </ListBox>
 
-                    <!-- Quick Send bar -->
+                      <!-- Quick Send bar -->
                     <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}" Padding="10,5">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Left" Text="{Binding [Label.QuickSend], Source={x:Static local:LanguageManager.Instance}}"
@@ -738,8 +818,9 @@
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock Text="{Binding StatusText}" FontSize="11"
-                               Foreground="{DynamicResource InkSecondaryBrush}" />
+                    <TextBox Text="{Binding StatusText}" FontSize="11"
+                              Foreground="{DynamicResource InkSecondaryBrush}"
+                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right" Margin="6,0,0,0">
@@ -748,14 +829,16 @@
                             Margin="0,0,4,0" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding [Label.RX], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding RxCount}" FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="Bold" />
+                            <TextBox Text="{Binding RxCount}" FontSize="10" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="Bold"
+                                      IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                         </StackPanel>
                     </Border>
                     <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="4" Padding="5,1"
                             BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding [Label.TX], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding TxCount}" FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="Bold" />
+                            <TextBox Text="{Binding TxCount}" FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontWeight="Bold"
+                                      IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -779,7 +862,8 @@
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="{Binding HttpUrl}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+                <TextBox Text="{Binding HttpUrl}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}"
+                           IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
             </StatusBarItem>
         </StatusBar>
     </Grid>

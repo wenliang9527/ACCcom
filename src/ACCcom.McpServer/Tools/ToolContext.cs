@@ -44,7 +44,7 @@ public class ToolContext
             Logger = sp.GetRequiredService<LoggerService>();
             Stats = new DataStatistics();
             MultiPort = sp.GetService<MultiPortService>();
-            AutoBaud = sp.GetService<AutoBaudDetector>();
+            AutoBaud = sp.GetRequiredService<AutoBaudDetector>();
             Modbus = sp.GetService<ModbusService>();
             SlaveService = sp.GetService<ModbusSlaveService>();
 

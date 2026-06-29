@@ -35,13 +35,16 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 | 按键 | 行为 |
 |------|------|
 | Enter | 发送输入框内容 |
-| Ctrl+Enter | 插入换行 |
-| Ctrl+S | 保存接收区数据 |
-| ESC | 清空 RX/TX |
-| F5 | 打开 Modbus 窗口 |
-| F6 | 打开实时绘图窗口 |
-| F7 | 打开统计仪表盘 |
-| F8 | 打开会话回放窗口 |
+| Ctrl+Enter | 发送（换行用 Shift+Enter） |
+| Ctrl+S / Ctrl+Shift+S | 保存 RX / TX 数据 |
+| Ctrl+L / Ctrl+Shift+L | 清空 RX / TX 面板 |
+| Ctrl+F | 聚焦 RX 搜索框 |
+| Ctrl+D | 切换深色/浅色主题 |
+| Ctrl+H | 切换 HEX 显示 |
+| Ctrl+B | 添加书签 |
+| Ctrl+Left/Right | 书签前后导航 |
+| ESC | 停止循环发送 |
+| F5 | 刷新可用串口列表 |
 
 ## 相关文档
 

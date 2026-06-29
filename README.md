@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-421_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-486_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 
@@ -58,22 +58,22 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 | 文档 | 内容 |
 |------|------|
-| [串口操作指南](docs/guide/serial.md) | 串口配置、数据收发、文件操作、连接管理器 |
-| [数据管理](docs/guide/data-management.md) | 高性能数据缓冲区、实时统计、多格式导出 |
+| [串口操作指南](docs/guide/serial.md) | 串口配置、数据收发、文件操作、连接管理器、包过滤引擎、高亮规则 |
+| [数据管理](docs/guide/data-management.md) | 高性能数据缓冲区、实时统计、多格式导出（TXT/JSON/CSV/PCAP） |
 | [高级通信](docs/guide/advanced-comms.md) | 多端口并发、TCP/UDP 桥接、自动波特率、虚拟串口 |
 
 ### 📋 协议解析
 
 | 文档 | 内容 |
 |------|------|
-| [协议解析引擎](docs/guide/protocol-parsing.md) | C# Script 解析器、可视化编辑器、多帧拼接、测试运行器 |
+| [协议解析引擎](docs/guide/protocol-parsing.md) | C# Script 解析器、可视化编辑器、多帧拼接、测试运行器、自动解析器匹配 |
 | [协议→解析器 操作指南](docs/protocol-to-parser.md) | 从协议文档到生成 .csx 解析器的完整流程 |
 
 ### 🔧 Modbus
 
 | 文档 | 内容 |
 |------|------|
-| [Modbus 支持](docs/guide/modbus.md) | 图形界面操作、功能码速查、设备扫描、从站模拟、MCP 工具 |
+| [Modbus 支持](docs/guide/modbus.md) | 图形界面操作、功能码速查、设备扫描、从站模拟、RTU/TCP/ASCII 传输、MCP 工具 |
 
 ### ⚡ 自动化
 
@@ -101,14 +101,15 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 | 类别 | 功能 |
 |------|------|
-| 🔌 串口 | 300~921600 波特率、DTR/RTS 流控、自动扫描、断线重连 |
+| 🔌 串口 | 300~921600 波特率、DTR/RTS 流控、自动扫描、断线重连、多端口并发 |
 | 📡 网络 | TCP/UDP 客户端、自动桥接、零拷贝接收 |
-| 📝 协议 | Roslyn C# Script 引擎、热加载、LRU 缓存、自动代码生成 |
-| 🔧 Modbus | RTU/TCP 主站、10 种功能码、自动分片、轮询、从站模拟 |
-| 🎨 界面 | 深色/浅色主题、中英文切换（运行时即时生效） |
-| 🤖 AI | MCP Server（34 个工具）、HTTP REST API、WebSocket 实时推送 |
-| 📊 数据 | Channel+RingBuffer 缓冲、实时统计、TXT/JSON/CSV 导出 |
+| 📝 协议 | Roslyn C# Script 引擎、热加载、LRU 缓存、自动代码生成、自动解析器匹配、高亮规则 |
+| 🔧 Modbus | RTU/TCP/ASCII 主站、10 种功能码、自动分片、轮询、从站模拟 |
+| 🎨 界面 | 深色/浅色主题、中英文切换（运行时即时生效）、发送历史 |
+| 🤖 AI | MCP Server（38 个工具）、HTTP REST API、WebSocket 实时推送 |
+| 📊 数据 | Channel+RingBuffer 缓冲、实时统计、TXT/JSON/CSV/PCAP 导出 |
 | ⚡ 自动化 | 会话录制回放、多步骤宏、条件触发器、协议测试运行器 |
+| 🧩 工具 | 协议可视化编辑器、数据对比/差异分析、实时波形绘图、包过滤引擎 |
 
 ---
 
@@ -116,14 +117,18 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 | 按键 | 行为 |
 |------|------|
-| `Enter` | 发送 |
-| `Ctrl+Enter` | 换行 |
-| `Ctrl+S` | 保存 RX |
-| `ESC` | 清空面板 |
-| `F5` | 打开 Modbus |
-| `F6` | 打开绘图 |
-| `F7` | 打开统计 |
-| `F8` | 打开回放 |
+| `Enter` | 发送输入框内容 |
+| `Ctrl+Enter` | 发送（换行用 Shift+Enter） |
+| `Ctrl+S` / `Ctrl+Shift+S` | 保存 RX / TX 数据 |
+| `Ctrl+Shift+L` | 清空 TX 面板 |
+| `Ctrl+L` | 清空 RX 面板 |
+| `Ctrl+F` | 聚焦 RX 搜索框 |
+| `Ctrl+D` | 切换深色/浅色主题 |
+| `Ctrl+H` | 切换 HEX 显示 |
+| `Ctrl+B` | 添加书签 |
+| `Ctrl+Left/Right` | 书签前后导航 |
+| `ESC` | 停止循环发送 |
+| `F5` | 刷新可用串口列表 |
 
 ---
 

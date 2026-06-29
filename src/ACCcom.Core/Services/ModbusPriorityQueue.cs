@@ -39,7 +39,7 @@ public class ModbusPriorityQueue<T> where T : notnull
         {
             if (_highQueue.Count > 0) return _highQueue.Dequeue();
             if (_lowQueue.Count > 0) return _lowQueue.Dequeue();
-            return default!;
+            throw new InvalidOperationException("Queue is empty");
         }
     }
 

@@ -53,7 +53,7 @@ public class DataStatistics
         long totalBytes = 0;
         int count = 0;
         DateTime first = default;
-        foreach (var s in samples)
+        foreach (var s in samples.ToArray())
         {
             if (s.Timestamp >= cutoff)
             {
@@ -74,7 +74,7 @@ public class DataStatistics
         var cutoff = now - TimeSpan.FromSeconds(5);
         int count = 0;
         DateTime first = default;
-        foreach (var s in samples)
+        foreach (var s in samples.ToArray())
         {
             if (s.Timestamp >= cutoff)
             {

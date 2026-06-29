@@ -7,6 +7,7 @@ namespace ACCcom.ViewModels;
 
 public class ToolViewModel : ObservableObject, IDisposable
 {
+    private readonly NetworkBridgeService _networkBridge;
     private readonly MacroManager _macroManager;
     private readonly Action _openPlotWindow;
     private readonly Action _openStatsWindow;
@@ -67,6 +68,7 @@ public class ToolViewModel : ObservableObject, IDisposable
 
     public ToolViewModel(
         ISerialService serial,
+        NetworkBridgeService networkBridge,
         ShortcutManager shortcutManager,
         PresetManager presetManager,
         MacroManager macroManager,
@@ -81,11 +83,12 @@ public class ToolViewModel : ObservableObject, IDisposable
         Action openPlotWindow,
         Action openStatsWindow)
     {
+        _networkBridge = networkBridge;
         _macroManager = macroManager;
         _openPlotWindow = openPlotWindow;
         _openStatsWindow = openStatsWindow;
 
-        Shortcuts = new ShortcutViewModel(serial, shortcutManager, getDataFlow, setStatus);
+        Shortcuts = new ShortcutViewModel(serial, shortcutManager, getDataFlow, setStatus, networkBridge);
         PresetsVm = new PresetViewModel(presetManager, getConnection, setStatus);
         LoopSend = new LoopSendViewModel(serial, getIsOpen, getDataFlow, setStatus);
         MultiPort = new MultiPortViewModel(multiPort, setStatus);

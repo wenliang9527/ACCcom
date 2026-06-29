@@ -6,7 +6,7 @@ namespace ACCcom.ViewModels;
 public class ModbusConnectionViewModel : ObservableObject
 {
     private readonly ModbusConnectionManager _manager;
-    private readonly Func<ModbusService, bool> _onConnected;
+    private readonly Action<ModbusService?>? _onConnected;
 
     private bool _isTcpMode;
     public bool IsTcpMode
@@ -27,7 +27,7 @@ public class ModbusConnectionViewModel : ObservableObject
     private int _port = 502;
     public int Port { get => _port; set => SetField(ref _port, value); }
 
-    private string _statusText = "Select connection mode";
+    private string _statusText = LanguageManager.Instance["ModbusConnection.StatusSelect"];
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
     private bool _canConnect = true;
@@ -35,7 +35,7 @@ public class ModbusConnectionViewModel : ObservableObject
 
     public ICommand ConnectCommand { get; }
 
-    public ModbusConnectionViewModel(ModbusConnectionManager manager, Func<ModbusService, bool> onConnected)
+    public ModbusConnectionViewModel(ModbusConnectionManager manager, Action<ModbusService?>? onConnected)
     {
         _manager = manager;
         _onConnected = onConnected;
@@ -45,7 +45,7 @@ public class ModbusConnectionViewModel : ObservableObject
     private async Task ConnectAsync()
     {
         CanConnect = false;
-        StatusText = "Connecting...";
+        StatusText = LanguageManager.Instance["ModbusConnection.StatusConnecting"];
         try
         {
             await Task.Run(() =>
@@ -53,17 +53,17 @@ public class ModbusConnectionViewModel : ObservableObject
                 if (IsTcpMode)
                 {
                     var svc = _manager.CreateTcpConnection($"tcp_{Host}_{Port}", Host, Port);
-                    _onConnected(svc);
+                    _onConnected?.Invoke(svc);
                 }
                 else
                 {
-                    _onConnected(null!);
+                    _onConnected?.Invoke(null);
                 }
             });
         }
         catch (Exception ex)
         {
-            StatusText = $"Failed: {ex.Message}";
+            StatusText = string.Format(LanguageManager.Instance["ModbusConnection.StatusFailed"], ex.Message);
             CanConnect = true;
         }
     }

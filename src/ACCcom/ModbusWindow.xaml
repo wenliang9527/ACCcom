@@ -67,7 +67,8 @@
                             <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding PollIntervalMs}" Style="{StaticResource NumericBox}" />
                         </Grid>
 
-                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,6,0,0" Foreground="{DynamicResource AccentBrush}" />
+                        <TextBox Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,6,0,0" Foreground="{DynamicResource AccentBrush}"
+                                  IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                 </Border>
 
@@ -113,9 +114,9 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [Modbus.SectionTransactionLog], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
                         <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
-                            <Button Content="CSV" Command="{Binding ExportCsvCommand}" Style="{StaticResource HeaderButton}" />
-                            <Button Content="JSON" Command="{Binding ExportJsonCommand}" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
-                            <Button Content="TXT" Command="{Binding ExportTxtCommand}" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                            <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ExportCsvCommand}" Style="{StaticResource HeaderButton}" />
+                            <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ExportJsonCommand}" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                            <Button Content="{Binding [Button.TXT], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ExportTxtCommand}" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
                             <Button Content="{Binding [Modbus.ButtonClear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearLogCommand}" Style="{StaticResource HeaderButton}" Margin="8,0,0,0" />
                         </StackPanel>
                         <ListView Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding TransactionLog}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.IsDeferredScrollingEnabled="True" Background="Transparent" BorderThickness="0">
@@ -175,7 +176,7 @@
         </TabItem>
         <TabItem Header="{Binding [Modbus.TabDashboard], Source={x:Static local:LanguageManager.Instance}}">
             <Grid x:Name="DashboardContainer">
-                <TextBlock x:Name="DashboardPlaceholder" Text="Loading Dashboard..." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource InkSecondaryBrush}" />
+                <TextBlock x:Name="DashboardPlaceholder" Text="{Binding [Modbus.DashboardLoading], Source={x:Static local:LanguageManager.Instance}}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource InkSecondaryBrush}" />
             </Grid>
         </TabItem>
     </TabControl>

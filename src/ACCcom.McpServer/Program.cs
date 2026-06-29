@@ -14,14 +14,19 @@ var builder = Host.CreateApplicationBuilder(args);
 var useProxy = args.Contains("--proxy");
 var proxyUrl = args.SkipWhile(a => a != "--proxy-url").Skip(1).FirstOrDefault() ?? HttpService.DefaultUrl;
 
+var parserDir = args.SkipWhile(a => a != "--parsers-dir").Skip(1).FirstOrDefault();
+
 if (useProxy)
 {
     // Ensure WPF app is running before starting MCP server
-    var healthUrl = proxyUrl.TrimEnd('/') + "/api/health";
+    const string healthEndpoint = "/api/health";
+    const int maxRetries = 30;
+    const int healthCheckTimeoutMs = 2000;
+    var healthUrl = proxyUrl.TrimEnd('/') + healthEndpoint;
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
     try
     {
-        var healthResp = await http.GetAsync(healthUrl);
+        var healthResp = await http.GetAsync(healthUrl).ConfigureAwait(false);
         if (!healthResp.IsSuccessStatusCode) throw new Exception("health check failed");
     }
     catch
@@ -40,37 +45,31 @@ if (useProxy)
         // Wait for WPF to start up (up to 30s)
         Console.Error.Write("[proxy] Waiting for WPF to start...");
         var started = false;
-        for (int i = 0; i < 30; i++)
+        for (int i = 0; i < maxRetries; i++)
         {
-            await Task.Delay(1000);
+            await Task.Delay(1000).ConfigureAwait(false);
             try
             {
-                using var cts = new CancellationTokenSource(2000);
-                var resp = await http.GetAsync(healthUrl, cts.Token);
+                using var cts = new CancellationTokenSource(healthCheckTimeoutMs);
+                var resp = await http.GetAsync(healthUrl, cts.Token).ConfigureAwait(false);
                 if (resp.IsSuccessStatusCode) { started = true; break; }
             }
-            catch { }
-            Console.Error.Write(".");
+            catch
+            {
+                Console.Error.Write(".");
+            }
         }
         Console.Error.WriteLine(started ? " OK" : " FAILED - WPF may not have started");
     }
 
     builder.Services.AddSingleton<ProxyClient>(_ => new ProxyClient(proxyUrl));
-    builder.Services.AddSingleton<ParserManager>(sp =>
-    {
-        var parserDir = args.SkipWhile(a => a != "--parsers-dir").Skip(1).FirstOrDefault();
-        return new ParserManager(parserDir);
-    });
-    builder.Services.AddSingleton<SessionRecorder>();
+    builder.Services.AddSingleton<ParserManager>(_ => new ParserManager(parserDir));
+builder.Services.AddSingleton<SessionRecorder>();
 }
 else
 {
     builder.Services.AddSingleton<ISerialService, SerialService>();
-    builder.Services.AddSingleton<ParserManager>(sp =>
-    {
-        var parserDir = args.SkipWhile(a => a != "--parsers-dir").Skip(1).FirstOrDefault();
-        return new ParserManager(parserDir);
-    });
+    builder.Services.AddSingleton<ParserManager>(_ => new ParserManager(parserDir));
     builder.Services.AddSingleton<LoggerService>();
     builder.Services.AddSingleton<MultiPortService>();
     builder.Services.AddSingleton<AutoBaudDetector>();
@@ -93,4 +92,4 @@ builder.Services.AddMcpServer()
     .WithTools<ModbusTools>();
 
 var app = builder.Build();
-await app.RunAsync();
+await app.RunAsync().ConfigureAwait(false);

@@ -139,14 +139,14 @@ async function pollStatus() {
     const r = await fetch(BASE + '/api/status');
     const j = await r.json();
     if (j.success !== false) updateStatus(j);
-  } catch {}
+  } catch (e) { console.debug('pollStatus error:', e); }
 }
 async function pollSlaves() {
   try {
     const r = await fetch(BASE + '/api/slaves');
     const j = await r.json();
     if (j.success !== false) updateSlaves(j);
-  } catch {}
+  } catch (e) { console.debug('pollSlaves error:', e); }
 }
 
 setInterval(pollStatus, 2000);
@@ -159,10 +159,10 @@ function connectWs() {
     try {
       const entry = JSON.parse(e.data);
       addStreamEntry(entry.direction, entry.timestamp ? entry.timestamp.substr(11,8) : '', entry.rawHex || entry.text || '');
-    } catch {}
+    } catch (ex) { console.debug('WS parse error:', ex); }
   };
   ws.onclose = () => { setTimeout(connectWs, 2000); };
-  ws.onerror = () => {};
+  ws.onerror = () => { console.debug('WS connection error'); };
 }
 connectWs();
 

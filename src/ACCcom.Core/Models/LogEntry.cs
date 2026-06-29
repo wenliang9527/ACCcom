@@ -10,4 +10,5 @@ public class LogEntry
     public string Text { get; set; } = "";
     public List<FieldAnnotation>? Fields { get; set; }
     public string? HighlightColor { get; set; }
+    public bool IsSearchMatch { get; set; }
 }

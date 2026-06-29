@@ -20,6 +20,9 @@ public partial class App : Application
     private static void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
     {
         LogCrash(e.Exception);
+        var title = LanguageManager.Instance["App.CrashTitle"];
+        var message = string.Format(LanguageManager.Instance["App.CrashMessage"], e.Exception.Message);
+        MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 
@@ -41,10 +44,23 @@ public partial class App : Application
         {
             var dir = Path.GetDirectoryName(LogPath);
             if (dir != null) Directory.CreateDirectory(dir);
-            File.AppendAllText(LogPath,
-                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.GetType().Name}: {ex.Message}");
+            sb.AppendLine(ex.StackTrace);
+            var inner = ex.InnerException;
+            while (inner != null)
+            {
+                sb.AppendLine($"--- Inner {inner.GetType().Name}: {inner.Message}");
+                sb.AppendLine(inner.StackTrace ?? "");
+                inner = inner.InnerException;
+            }
+            sb.AppendLine("---");
+            File.AppendAllText(LogPath, sb.ToString());
         }
-        catch { }
+        catch (Exception logEx)
+        {
+            Debug.WriteLine($"Failed to write crash log: {logEx.Message}");
+        }
     }
 
     public static void ApplyTheme(bool isDark)

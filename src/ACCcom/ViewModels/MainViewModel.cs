@@ -75,7 +75,9 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings = _settingsService.Load();
         _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action), parserCacheSize: _settings.ParserCacheSize);
 
-        _http = new HttpService(_serial, _parserManager, _modbusSlaveService, bufferCapacity: _settings.BufferCapacity);
+        _http = new HttpService(_serial, _parserManager, _modbusSlaveService,
+            _multiPort, _modbusConnectionManager.GetDefaultService(_serial), _modbusConnectionManager,
+            new AutoBaudDetector(), _sessionRecorder, _stats, bufferCapacity: _settings.BufferCapacity);
         _http.Start();
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
@@ -83,7 +85,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg);
         _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings);
         _tool = new ToolViewModel(
-            _serial, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
+            _serial, _networkBridge, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
             _multiPort, _triggerService, _sessionRecorder,
             msg => StatusText = msg,
             () => _connection.IsOpen,
@@ -343,7 +345,9 @@ public class MainViewModel : ObservableObject, IDisposable
 
             if (dialog.ShowDialog() != true) return;
 
-            _modbusViewModel = new ModbusViewModel(dialog.Result!, msg => StatusText = msg);
+            var result = dialog.Result;
+            if (result == null) return;
+            _modbusViewModel = new ModbusViewModel(result, msg => StatusText = msg);
             _modbusViewModel.SetSlaveService(_modbusSlaveService);
         }
 
@@ -355,7 +359,7 @@ public class MainViewModel : ObservableObject, IDisposable
             _modbusViewModel = null;
         };
         _modbusWindow.Show();
-        StatusText = "MODBUS Master opened";
+        StatusText = LanguageManager.Instance["Status.ModbusMasterOpened"];
     }
 
     private void OpenSchemaEditor()

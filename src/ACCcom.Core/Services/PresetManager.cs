@@ -4,7 +4,7 @@ namespace ACCcom.Core.Services;
 
 public class PresetManager : JsonFilePersistenceManager<SerialPreset>
 {
-    public static readonly string PresetsFile = Path.Combine(AppContext.BaseDirectory, "presets.json");
+    public static readonly string PresetsFile = Path.Combine(BaseDir, "presets.json");
     protected override string FileName => "presets.json";
 
     public static SerialPreset Create(string port, int baudRate, int dataBits, int stopBits, int parity, bool dtr, bool rts)

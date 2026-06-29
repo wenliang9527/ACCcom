@@ -85,6 +85,23 @@ public partial class MainWindow : Window
 
         var mods = Keyboard.Modifiers;
 
+        // Ctrl+C: Copy selected entries
+        if (e.Key == Key.C && mods == ModifierKeys.Control)
+        {
+            if (RxListBox.IsKeyboardFocusWithin && RxListBox.SelectedItems.Count > 0)
+            {
+                CopySelected(RxListBox, "RX");
+                e.Handled = true;
+                return;
+            }
+            if (TxListBox.IsKeyboardFocusWithin && TxListBox.SelectedItems.Count > 0)
+            {
+                CopySelected(TxListBox, "TX");
+                e.Handled = true;
+                return;
+            }
+        }
+
         // Ctrl+Enter: Send data
         if (e.Key == Key.Enter && mods == ModifierKeys.Control)
         {
@@ -170,13 +187,52 @@ public partial class MainWindow : Window
             _vm.PrevBookmarkCommand.Execute(null);
             e.Handled = true;
         }
-        // Ctrl+H: Toggle hex display (bonus, kept from original)
+        // Ctrl+H: Toggle hex display
         else if (e.Key == Key.H && mods == ModifierKeys.Control)
         {
-            _vm.IsHexDisplayRx = !_vm.IsHexDisplayRx;
-            _vm.IsHexDisplayTx = !_vm.IsHexDisplayTx;
+            _vm.DataFlow.ToggleHexDisplayCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    private void CopySelected(ListBox listBox, string direction)
+    {
+        var entries = new System.Collections.ObjectModel.ObservableCollection<ACCcom.Core.Models.LogEntry>();
+        foreach (var item in listBox.SelectedItems)
+            if (item is ACCcom.Core.Models.LogEntry entry)
+                entries.Add(entry);
+        if (entries.Count > 0)
+            Clipboard.SetText(_vm.DataFlow.GetFormattedCopyText(entries, direction));
+    }
+
+    private void CopyAll(ListBox listBox, string direction)
+    {
+        var entries = new System.Collections.ObjectModel.ObservableCollection<ACCcom.Core.Models.LogEntry>();
+        foreach (var item in listBox.Items)
+            if (item is ACCcom.Core.Models.LogEntry entry)
+                entries.Add(entry);
+        if (entries.Count > 0)
+            Clipboard.SetText(_vm.DataFlow.GetFormattedCopyText(entries, direction));
+    }
+
+    private void CopyRxSelected_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelected(RxListBox, "RX");
+    }
+
+    private void CopyTxSelected_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelected(TxListBox, "TX");
+    }
+
+    private void CopyRxAll_Click(object sender, RoutedEventArgs e)
+    {
+        CopyAll(RxListBox, "RX");
+    }
+
+    private void CopyTxAll_Click(object sender, RoutedEventArgs e)
+    {
+        CopyAll(TxListBox, "TX");
     }
 
     protected override void OnClosed(EventArgs e)

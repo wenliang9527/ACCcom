@@ -62,7 +62,7 @@ public class MacroViewModel : ObservableObject
             _macroManager.Save(Macros);
             _setStatus(string.Format(LanguageManager.Instance["Status.MacrosSaved"], Macros.Count));
         }
-        catch (Exception ex) { _setStatus($"Failed to save macros: {ex.Message}"); }
+        catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.MacrosSaveFailed"], ex.Message)); }
     }
 
     private void LoadMacro()

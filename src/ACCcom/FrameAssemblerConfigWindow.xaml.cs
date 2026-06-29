@@ -21,7 +21,7 @@ public partial class FrameAssemblerConfigWindow : Window
 
         foreach (ComboBoxItem item in SizeCombo.Items)
         {
-            if ((int)item.Tag == config.LengthFieldSize)
+            if (item.Tag is string tagStr && int.TryParse(tagStr, out var tagSize) && tagSize == config.LengthFieldSize)
             {
                 SizeCombo.SelectedItem = item;
                 break;

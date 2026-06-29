@@ -15,7 +15,6 @@ public partial class ModbusConnectionDialog : Window
         {
             Result = svc ?? defaultService;
             Dispatcher.BeginInvoke(() => DialogResult = true);
-            return true;
         });
         DataContext = vm;
     }

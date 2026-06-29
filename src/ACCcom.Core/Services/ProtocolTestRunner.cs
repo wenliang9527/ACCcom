@@ -47,12 +47,12 @@ public class ProtocolTestRunner
                 {
                     token.ThrowIfCancellationRequested();
                     var step = script.Steps[i];
-                    var result = await ExecuteStepAsync(step, send, waitForResponse, token);
+                    var result = await ExecuteStepAsync(step, send, waitForResponse, token).ConfigureAwait(false);
                     report.Results.Add(result);
                 }
 
                 if (script.RepeatDelayMs > 0 && (rep < script.RepeatCount - 1 || script.RepeatCount == 0))
-                    await Task.Delay(script.RepeatDelayMs, token);
+                    await Task.Delay(script.RepeatDelayMs, token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -99,7 +99,7 @@ public class ProtocolTestRunner
         {
             // Apply pre-step delay
             if (step.DelayMs > 0)
-                await Task.Delay(step.DelayMs, ct);
+                await Task.Delay(step.DelayMs, ct).ConfigureAwait(false);
 
             int maxAttempts = 1 + step.RetryCount;
 
@@ -123,7 +123,7 @@ public class ProtocolTestRunner
                     step.MatchMode,
                     step.IsHex,
                     step.ResponseTimeoutMs,
-                    ct);
+                    ct).ConfigureAwait(false);
 
                 result.ActualResponse = response;
 
@@ -149,7 +149,7 @@ public class ProtocolTestRunner
 
                 // Retry delay
                 if (step.RetryDelayMs > 0)
-                    await Task.Delay(step.RetryDelayMs, ct);
+                    await Task.Delay(step.RetryDelayMs, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)

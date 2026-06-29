@@ -17,14 +17,12 @@ public class AnalysisTools
         _ctx = ctx;
     }
 
-    [McpServerTool, Description("Analyze protocol data by parsing multiple hex frames. Returns field statistics, error distribution, and parsed results. Parameters: hexFrames (JSON array of hex strings), parserName (optional).")]
+    [McpServerTool, Description("Analyze protocol data by parsing multiple hex frames. Returns field statistics, error distribution, and parsed results. Works in both direct and proxy mode (uses local parser engine). Parameters: hexFrames (JSON array of hex strings), parserName (optional).")]
     public async Task<string> AnalyzeProtocol(
         [Description("JSON array of hex strings, e.g. [\"AA5503\", \"AA5504\"]")] string hexFrames,
         [Description("Parser name (null = use active parser)")] string? parserName = null)
     {
-        if (_ctx.UseProxy)
-            return _ctx.RawJson(new { success = false, error = "Protocol analysis not available in proxy mode" });
-
+        // 离线分析,不依赖串口,两种模式都可使用本进程的 ParserManager
         List<string> frames;
         try { frames = JsonSerializer.Deserialize<List<string>>(hexFrames) ?? new(); }
         catch (Exception ex) { return _ctx.RawJson(new { success = false, error = $"Invalid hexFrames JSON: {ex.Message}" }); }
@@ -96,15 +94,13 @@ public class AnalysisTools
         });
     }
 
-    [McpServerTool, Description("Compare two hex frames field-by-field using the active parser. Shows differences in field values. Parameters: hex1, hex2, parserName (optional).")]
+    [McpServerTool, Description("Compare two hex frames field-by-field using the active parser. Shows differences in field values. Works in both direct and proxy mode (uses local parser engine). Parameters: hex1, hex2, parserName (optional).")]
     public async Task<string> CompareFrames(
         [Description("First hex frame (e.g. 'AA 55 03 01 19 2E')")] string hex1,
         [Description("Second hex frame (e.g. 'AA 55 03 02 1A 2F')")] string hex2,
         [Description("Parser name (null = use active parser)")] string? parserName = null)
     {
-        if (_ctx.UseProxy)
-            return _ctx.RawJson(new { success = false, error = "Frame comparison not available in proxy mode" });
-
+        // 离线对比,不依赖串口,两种模式都可使用本进程的 ParserManager
         if (string.IsNullOrEmpty(hex1) || string.IsNullOrEmpty(hex2))
             return _ctx.RawJson(new { success = false, error = "Both hex1 and hex2 are required" });
 

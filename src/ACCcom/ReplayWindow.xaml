@@ -19,9 +19,10 @@
         </Grid.RowDefinitions>
 
         <!-- Status text -->
-        <TextBlock x:Name="StatusText" Grid.Row="0"
+        <TextBox x:Name="StatusText" Grid.Row="0"
                    Text="{Binding [Replay.Ready], Source={x:Static local:LanguageManager.Instance}}" FontSize="13"
-                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                   Foreground="{DynamicResource InkPrimaryBrush}"
+                   IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
 
         <!-- Progress bar -->
         <Grid Grid.Row="2">
@@ -33,10 +34,11 @@
                          Height="20" Minimum="0" Maximum="1"
                          Foreground="{DynamicResource AccentBrush}"
                          Background="{DynamicResource BgElevatedBrush}" />
-            <TextBlock x:Name="ProgressText" Grid.Column="1"
+            <TextBox x:Name="ProgressText" Grid.Column="1"
                        Text="0/0" FontSize="11" FontFamily="Consolas"
                        Foreground="{DynamicResource InkSecondaryBrush}"
-                       VerticalAlignment="Center" Margin="8,0,0,0" />
+                       VerticalAlignment="Center" Margin="8,0,0,0"
+                       IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
         </Grid>
 
         <!-- Controls -->

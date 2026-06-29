@@ -13,13 +13,13 @@
         <converters:FieldValuesTemplateSelector x:Key="FieldValuesSelector">
             <converters:FieldValuesTemplateSelector.DefaultTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="11" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="11" VerticalAlignment="Center" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.DefaultTemplate>
             <converters:FieldValuesTemplateSelector.EnumTemplate>
                 <DataTemplate>
                     <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="3" Background="{DynamicResource BgElevatedBrush}" Padding="4,1">
-                        <TextBlock Text="{Binding ValuesText}" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding ValuesText}" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </Border>
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.EnumTemplate>
@@ -182,7 +182,7 @@
                     <DataGridTemplateColumn Header="{Binding [Column.Type], Source={x:Static local:LanguageManager.Instance}}" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" />
+                                <TextBox Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                         <DataGridTemplateColumn.CellEditingTemplate>

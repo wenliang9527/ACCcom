@@ -1,0 +1,27 @@
+# Normalize line endings
+* text=auto
+
+# C# files
+*.cs text=auto diff=csharp
+
+# XML/XAML
+*.csproj text=auto
+*.sln text=auto
+*.xaml text=auto
+
+# Web assets
+*.html text=auto
+*.js text=auto
+*.css text=auto
+*.json text=auto
+
+# Git files
+.gitattributes text=auto
+.gitignore text=auto
+
+# Binary files - leave as is
+*.png binary
+*.jpg binary
+*.ico binary
+*.dll binary
+*.exe binary

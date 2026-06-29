@@ -25,6 +25,27 @@ public class ProtocolSchema
     
     /// <summary>最小帧长度 (可选, 用于快速校验)</summary>
     public int MinLength { get; set; } = 0;
+    
+    /// <summary>自动匹配配置 (可选)</summary>
+    public AutoMatchConfig? AutoMatch { get; set; }
+}
+
+public class AutoMatchConfig
+{
+    /// <summary>是否启用自动匹配</summary>
+    public bool Enabled { get; set; } = true;
+    
+    /// <summary>匹配优先级 (数值越大优先级越高)</summary>
+    public int Priority { get; set; } = 0;
+    
+    /// <summary>帧头特征 (十六进制字符串，如 "A5 5A")</summary>
+    public string? HeaderPattern { get; set; }
+    
+    /// <summary>命令码偏移 (用于多命令协议)</summary>
+    public int? CommandOffset { get; set; }
+    
+    /// <summary>已知命令码列表 (十六进制)</summary>
+    public string[]? KnownCommands { get; set; }
 }
 
 /// <summary>

@@ -29,8 +29,8 @@
 
         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [CreateSlave.LabelTransport], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />
         <ComboBox x:Name="TransportBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" SelectedIndex="0">
-            <ComboBoxItem Content="TCP" />
-            <ComboBoxItem Content="RTU" />
+            <ComboBoxItem Content="{Binding [CreateSlave.TransportTCP], Source={x:Static local:LanguageManager.Instance}}" />
+            <ComboBoxItem Content="{Binding [CreateSlave.TransportRTU], Source={x:Static local:LanguageManager.Instance}}" />
         </ComboBox>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [CreateSlave.LabelPort], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" />

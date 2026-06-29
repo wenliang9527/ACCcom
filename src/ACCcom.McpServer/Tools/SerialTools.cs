@@ -53,7 +53,7 @@ public class SerialTools
     {
         if (_ctx.UseProxy)
         {
-            var proxyResult = await _proxy!.GetAsync("/api/health");
+            var proxyResult = await _proxy!.GetAsync("/api/health").ConfigureAwait(false);
             return proxyResult;
         }
 
@@ -65,7 +65,7 @@ public class SerialTools
             data = new
             {
                 status = "ok",
-                version = "1.0.0",
+                version = typeof(SerialTools).Assembly.GetName()?.Version?.ToString(3) ?? "1.0.0",
                 uptime = uptime.ToString(@"d\.hh\:mm\:ss"),
                 memoryMb = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
                 threadCount = process.Threads.Count,
@@ -92,7 +92,7 @@ public class SerialTools
         [Description("Enable RTS (default false)")] bool rts = false)
     {
         if (_ctx.UseProxy)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Multi-port not supported in proxy mode. Use direct mode." }));
+            return _proxy!.PostAsync("/api/multiport/open", new { tag, port, baudRate, dataBits, stopBits, parity, dtr, rts });
         if (string.IsNullOrEmpty(tag) || string.IsNullOrEmpty(port))
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Both tag and port are required" }));
         var config = new SerialConfig { PortName = port, BaudRate = baudRate, DataBits = dataBits, StopBits = stopBits, Parity = parity, DtrEnable = dtr, RtsEnable = rts };
@@ -106,7 +106,7 @@ public class SerialTools
         [Description("Tag of the port to close")] string tag)
     {
         if (_ctx.UseProxy)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Multi-port not supported in proxy mode" }));
+            return _proxy!.PostAsync("/api/multiport/close", new { tag });
         if (_ctx.MultiPort!.ClosePort(tag))
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = $"Port '{tag}' closed", tag } }));
         return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Failed to close port '{tag}'" }));
@@ -119,7 +119,7 @@ public class SerialTools
         [Description("Send as hex (default false)")] bool isHex = false)
     {
         if (_ctx.UseProxy)
-            return Task.FromResult(_ctx.RawJson(new { success = false, error = "Multi-port not supported in proxy mode" }));
+            return _proxy!.PostAsync("/api/multiport/send", new { tag, data, isHex });
         if (_ctx.MultiPort!.SendToPort(tag, data, isHex))
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { tag, sent = data, isHex } }));
         return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Send failed on port '{tag}'" }));
@@ -136,7 +136,7 @@ public class SerialTools
         [Description("Enable RTS (default false)")] bool rts = false)
     {
         if (_ctx.UseProxy)
-            return await _proxy!.PostAsync("/api/port/open", new { port, baudRate, dataBits, stopBits, parity, dtr, rts });
+            return await _proxy!.PostAsync("/api/port/open", new { port, baudRate, dataBits, stopBits, parity, dtr, rts }).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(port))
             return _ctx.RawJson(new { success = false, error = "Port name is required (e.g. COM3)" });
@@ -183,7 +183,7 @@ public class SerialTools
         {
             var query = $"/api/data?since={sinceId}&limit={limit}";
             if (!string.IsNullOrEmpty(direction)) query += $"&direction={direction}";
-            return await _proxy!.GetAsync(query);
+            return await _proxy!.GetAsync(query).ConfigureAwait(false);
         }
 
         var entries = _ctx.Buffer.GetEntriesSince(sinceId);
@@ -202,12 +202,12 @@ public class SerialTools
         [Description("Filter direction: RX or TX (null for any)")] string? direction = null)
     {
         if (_ctx.UseProxy)
-            return await _proxy!.PostAsync("/api/wait-for", new { pattern, timeoutMs, matchMode, matchHex, direction });
+            return await _proxy!.PostAsync("/api/wait-for", new { pattern, timeoutMs, matchMode, matchHex, direction }).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(pattern))
             return _ctx.RawJson(new { success = false, error = "Pattern is required" });
         var timeout = Math.Clamp(timeoutMs, 100, 60000);
-        var entry = await WaitForDataInternalAsync(pattern, matchMode, matchHex, direction, timeout);
+        var entry = await WaitForDataInternalAsync(pattern, matchMode, matchHex, direction, timeout).ConfigureAwait(false);
         if (entry != null)
             return _ctx.RawJson(new { success = true, data = new { matched = true, entry } });
         return _ctx.RawJson(new { success = true, data = new { matched = false, message = $"Timeout ({timeout}ms), no matching data found" } });
@@ -231,11 +231,11 @@ public class SerialTools
         if (_ctx.UseProxy)
         {
             // For proxy mode, send then wait via HTTP
-            var sendResult = await _proxy!.PostAsync("/api/send", new { data, isHex });
+            var sendResult = await _proxy!.PostAsync("/api/send", new { data, isHex }).ConfigureAwait(false);
             using var sendDoc = JsonDocument.Parse(sendResult);
             if (!sendDoc.RootElement.GetProperty("success").GetBoolean())
                 return sendResult;
-            return await _proxy.PostAsync("/api/wait-for", new { pattern, timeoutMs, matchMode, matchHex, direction });
+            return await _proxy.PostAsync("/api/wait-for", new { pattern, timeoutMs, matchMode, matchHex, direction }).ConfigureAwait(false);
         }
 
         if (string.IsNullOrEmpty(data))
@@ -250,7 +250,7 @@ public class SerialTools
         if (!_serial!.Send(data, isHex))
             return _ctx.RawJson(new { success = false, error = "Send failed, port may not be open" });
 
-        var entry = await waiterTask;
+        var entry = await waiterTask.ConfigureAwait(false);
         if (entry != null)
             return _ctx.RawJson(new { success = true, data = new { sent = data, isHex, matched = true, response = entry } });
         return _ctx.RawJson(new { success = true, data = new { sent = data, isHex, matched = false, message = $"Timeout ({timeout}ms), no matching response" } });
@@ -263,7 +263,7 @@ public class SerialTools
         [Description("Per-command timeout in ms (default 3000)")] int timeoutMs = 3000)
     {
         if (_ctx.UseProxy)
-            return await _proxy!.PostAsync("/api/send-batch", new { commands, responsePattern, timeoutMs });
+            return await _proxy!.PostAsync("/api/send-batch", new { commands, responsePattern, timeoutMs }).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(commands))
             return _ctx.RawJson(new { success = false, error = "Commands array is required" });
@@ -301,7 +301,7 @@ public class SerialTools
                 continue;
             }
 
-            var entry = await waiterTask;
+            var entry = await waiterTask.ConfigureAwait(false);
             results.Add(new
             {
                 sent = cmd.Data,
@@ -319,16 +319,16 @@ public class SerialTools
     public async Task<string> ClearBuffer(
         [Description("What to clear: rx, tx, or all (default all)")] string? target = null)
     {
-        if (_ctx.UseProxy) return await _proxy!.PostAsync("/api/clear", new { target = target ?? "all" });
+        if (_ctx.UseProxy) return await _proxy!.PostAsync("/api/clear", new { target = target ?? "all" }).ConfigureAwait(false);
         _ctx.Buffer.Clear(target);
         return _ctx.RawJson(new { success = true, data = new { cleared = target ?? "all" } });
     }
 
     [McpServerTool, Description("Get RX data statistics: data rate (bytes/sec), error rate (%), frame intervals, and totals.")]
-    public string GetStatistics()
+    public async Task<string> GetStatistics()
     {
         if (_ctx.UseProxy)
-            return _ctx.RawJson(new { success = false, error = "Statistics not available in proxy mode" });
+            return await _proxy!.GetAsync("/api/statistics").ConfigureAwait(false);
 
         return _ctx.RawJson(new
         {
@@ -353,7 +353,7 @@ public class SerialTools
         [Description("Serial port name, e.g. COM3")] string port)
     {
         if (_ctx.UseProxy)
-            return _ctx.RawJson(new { success = false, error = "Auto baud detection not available in proxy mode" });
+            return await _proxy!.PostAsync("/api/baud/detect", new { port }).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(port))
             return _ctx.RawJson(new { success = false, error = "Port name is required (e.g. COM3)" });
@@ -361,9 +361,13 @@ public class SerialTools
         if (_serial!.IsOpen)
             return _ctx.RawJson(new { success = false, error = "Close the current port before running auto baud detection" });
 
+        var autoBaud = _ctx.AutoBaud;
+        if (autoBaud == null)
+            return _ctx.RawJson(new { success = false, error = "AutoBaudDetector not available in this mode" });
+
         try
         {
-            var detected = await _ctx.AutoBaud!.DetectAsync(port);
+            var detected = await autoBaud.DetectAsync(port).ConfigureAwait(false);
             if (detected > 0)
                 return _ctx.RawJson(new { success = true, data = new { port, baudRate = detected, message = $"Detected baud rate: {detected}" } });
             return _ctx.RawJson(new { success = true, data = new { port, baudRate = 0, message = "No baud rate detected. Device may not be responding." } });

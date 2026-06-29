@@ -18,11 +18,16 @@ public partial class ModbusWindow : Window
         MainTabControl.SelectionChanged += OnTabSelected;
     }
 
-    private async void OnTabSelected(object sender, SelectionChangedEventArgs e)
+    private void OnTabSelected(object sender, SelectionChangedEventArgs e)
+    {
+        _ = OnTabSelectedAsync(e);
+    }
+
+    private async Task OnTabSelectedAsync(SelectionChangedEventArgs e)
     {
         if (e.AddedItems.Count == 0) return;
         var tab = e.AddedItems[0] as TabItem;
-        if (tab?.Header?.ToString() != "Dashboard") return;
+        if (tab?.Header?.ToString() != LanguageManager.Instance["Modbus.TabDashboard"]) return;
         if (_dashboardInitialized) return;
         _dashboardInitialized = true;
 
@@ -39,7 +44,7 @@ public partial class ModbusWindow : Window
         }
         catch (Exception ex)
         {
-            DashboardPlaceholder.Text = $"WebView2 init failed: {ex.Message}\nInstall WebView2 Runtime from https://go.microsoft.com/fwlink/p/?LinkId=2124703";
+            DashboardPlaceholder.Text = string.Format(LanguageManager.Instance["Modbus.WebView2Error"], ex.Message);
         }
     }
 

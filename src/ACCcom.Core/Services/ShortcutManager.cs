@@ -4,7 +4,7 @@ namespace ACCcom.Core.Services;
 
 public class ShortcutManager : JsonFilePersistenceManager<ShortcutItem>
 {
-    public static readonly string ShortcutsFile = Path.Combine(AppContext.BaseDirectory, "shortcuts.json");
+    public static readonly string ShortcutsFile = Path.Combine(BaseDir, "shortcuts.json");
     protected override string FileName => "shortcuts.json";
 
     public static List<ShortcutItem> GetDefaults()

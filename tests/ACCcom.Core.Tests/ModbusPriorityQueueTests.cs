@@ -26,10 +26,10 @@ public class ModbusPriorityQueueTests
     }
 
     [Fact]
-    public void Empty_ReturnsDefault()
+    public void Empty_ThrowsInvalidOperation()
     {
         var q = new ModbusPriorityQueue<int>(maxLowPerSecond: 10);
-        Assert.Equal(0, q.TryDequeue());
+        Assert.Throws<InvalidOperationException>(() => q.TryDequeue());
     }
 
     [Fact]

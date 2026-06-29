@@ -7,7 +7,8 @@ public class BoolToOpenTextConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        return value is true ? "关闭串口" : "打开串口";
+        var lm = LanguageManager.Instance;
+        return value is true ? lm["SerialPort.Close"] : lm["SerialPort.Open"];
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

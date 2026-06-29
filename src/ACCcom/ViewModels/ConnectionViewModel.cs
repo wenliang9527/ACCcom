@@ -93,7 +93,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         _setStatus = setStatus;
 
         OpenCloseCommand = new RelayCommand(_ => ToggleOpenClose());
-        ConnectNetworkCommand = new RelayCommand(_ => ToggleNetworkConnection());
+        ConnectNetworkCommand = new RelayCommand(_ => _ = ToggleNetworkConnectionAsync());
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
 
         _durationChangedHandler = duration =>
@@ -147,37 +147,44 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ToggleNetworkConnection()
+    private async Task ToggleNetworkConnectionAsync()
     {
-        if (IsOpen)
+        try
         {
-            _networkBridge.Close();
-            IsOpen = false;
-            _setStatus(LanguageManager.Instance["Status.NetworkClosed"]);
-        }
-        else
-        {
-            if (string.IsNullOrEmpty(NetworkHost))
+            if (IsOpen)
             {
-                _setStatus(LanguageManager.Instance["Status.PleaseEnterHost"]);
-                return;
+                _networkBridge.Close();
+                IsOpen = false;
+                _setStatus(LanguageManager.Instance["Status.NetworkClosed"]);
             }
-            if (NetworkPort <= 0)
-            {
-                _setStatus(LanguageManager.Instance["Status.PleaseEnterValidPort"]);
-                return;
-            }
-
-            bool connected;
-            if (SelectedConnectionType == "TCP")
-                connected = _networkBridge.ConnectTcp(NetworkHost, NetworkPort);
             else
-                connected = _networkBridge.ConnectUdp(NetworkHost, NetworkPort);
+            {
+                if (string.IsNullOrEmpty(NetworkHost))
+                {
+                    _setStatus(LanguageManager.Instance["Status.PleaseEnterHost"]);
+                    return;
+                }
+                if (NetworkPort <= 0)
+                {
+                    _setStatus(LanguageManager.Instance["Status.PleaseEnterValidPort"]);
+                    return;
+                }
 
-            IsOpen = connected;
-            _setStatus(connected
-                ? string.Format(LanguageManager.Instance["Status.ConnectedNetwork"], SelectedConnectionType, NetworkHost, NetworkPort)
-                : string.Format(LanguageManager.Instance["Status.ConnectionFailed"], SelectedConnectionType));
+                bool connected;
+                if (SelectedConnectionType == "TCP")
+                    connected = await _networkBridge.ConnectTcp(NetworkHost, NetworkPort);
+                else
+                    connected = _networkBridge.ConnectUdp(NetworkHost, NetworkPort);
+
+                IsOpen = connected;
+                _setStatus(connected
+                    ? string.Format(LanguageManager.Instance["Status.ConnectedNetwork"], SelectedConnectionType, NetworkHost, NetworkPort)
+                    : string.Format(LanguageManager.Instance["Status.ConnectionFailed"], SelectedConnectionType));
+            }
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Network error: {ex.Message}");
         }
     }
 

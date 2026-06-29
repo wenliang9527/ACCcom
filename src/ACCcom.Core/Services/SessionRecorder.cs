@@ -26,7 +26,9 @@ public class SessionRecorder : BufferedFileWriter
 
             if (string.IsNullOrEmpty(filePath))
             {
-                var dir = Path.Combine(AppContext.BaseDirectory, "recordings");
+                var dir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "ACCcom", "recordings");
                 Directory.CreateDirectory(dir);
                 filePath = Path.Combine(dir, $"session_{DateTime.Now:yyyyMMdd_HHmmss}.jsonl");
             }
@@ -150,7 +152,9 @@ public class SessionRecorder : BufferedFileWriter
 
     public static string[] ListRecordings(string? directory = null)
     {
-        directory ??= Path.Combine(AppContext.BaseDirectory, "recordings");
+        directory ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom", "recordings");
         if (!Directory.Exists(directory))
             return Array.Empty<string>();
 

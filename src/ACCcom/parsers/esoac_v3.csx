@@ -182,6 +182,19 @@ void ParseTextLog(List<FieldAnnotation> f, string text)
     }
 
     if (TryParseHeartbeatText(f, text)) return;
+    if (TryParseAppStartup(f, text)) return;
+    if (TryParseBleRxOk(f, text)) return;
+    if (TryParseBleTx(f, text)) return;
+    if (TryParseBleRxFail(f, text)) return;
+    if (TryParseBleConnected(f, text)) return;
+    if (TryParseBleDisconnected(f, text)) return;
+    if (TryParseBleMtu(f, text)) return;
+    if (TryParseBleGattWrite(f, text)) return;
+    if (TryParseBleRxChunk(f, text)) return;
+    if (TryParseBleWarn(f, text)) return;
+    if (TryParseBleLinkReset(f, text)) return;
+    if (TryParseBleAppSteps(f, text)) return;
+    if (TryParseBleRxDrop(f, text)) return;
     if (TryParseBleFrame(f, text)) return;
     if (TryParseProtocolEntry(f, text)) return;
     if (TryParseProtocolError(f, text)) return;
@@ -189,7 +202,10 @@ void ParseTextLog(List<FieldAnnotation> f, string text)
     if (TryParseMqttState(f, text)) return;
     if (TryParseMl307(f, text)) return;
     if (TryParseBleEvent(f, text)) return;
+    if (TryParseAutoListen(f, text)) return;
+    if (TryParseTimerLog(f, text)) return;
     if (TryParseIrLog(f, text)) return;
+    if (TryParseIrCodecPersist(f, text)) return;
     if (TryParseDeviceConfig(f, text)) return;
     if (TryParseMqttConfig(f, text)) return;
     if (TryParseAircondata(f, text)) return;
@@ -202,6 +218,8 @@ void ParseTextLog(List<FieldAnnotation> f, string text)
     if (TryParseEsairCcc(f, text)) return;
     if (TryParseOta(f, text)) return;
     if (TryParseIotToMqtt(f, text)) return;
+    if (TryParseAudioEncoder(f, text)) return;
+    if (TryParseAudioDecoder(f, text)) return;
 
     f.Add(new FieldAnnotation { Name = "文本日志", Offset = 0, Length = RawData.Length, RawHex = RawHex(0, RawData.Length), DisplayValue = text, Color = "#888888" });
 }
@@ -210,16 +228,23 @@ void ParseTextLog(List<FieldAnnotation> f, string text)
 
 bool TryParseHeartbeatText(List<FieldAnnotation> f, string text)
 {
-    var m = Regex.Match(text, @"^\[Heartbeat\]\s+Power:(\d+)\.?(\d*)W\s+Temp:(\d+)\.?(\d*)C\s+Status:(ON|OFF)\s+Mode:(\w+)\s+SetTemp:(\d+)\s+Wind:(\d+)");
-    if (!m.Success) return false;
+    var m = Regex.Match(text, @"^\[Heartbeat\]\s+Power:(\d+)\.?(\d*)W\s+Temp:(\d+)\.?(\d*)C\s+Status:(ON|OFF)\s+Mode:(\w+)\(\d+\)\s+SetTemp:(\d+)\s+Wind:(\d+)\(raw:(\d+)\)");
+    if (!m.Success)
+    {
+        m = Regex.Match(text, @"^\[Heartbeat\]\s+Power:(\d+)\.?(\d*)W\s+Temp:(\d+)\.?(\d*)C\s+Status:(ON|OFF)\s+Mode:(\w+)\s+SetTemp:(\d+)\s+Wind:(\d+)");
+        if (!m.Success) return false;
+    }
+
+    string modeStr = m.Groups[6].Value;
+    string windStr = m.Groups[8].Value;
 
     f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 11, RawHex = RawHex(0, 11), DisplayValue = "[Heartbeat] 心跳上报", Color = "#22C55E" });
     f.Add(new FieldAnnotation { Name = "功率", Offset = 0, Length = RawData.Length, RawHex = "", DisplayValue = $"{m.Groups[1].Value}.{m.Groups[2].Value}W", Color = "#FF9800" });
     f.Add(new FieldAnnotation { Name = "温度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[3].Value}.{m.Groups[4].Value}°C", Color = "#FF9800" });
     f.Add(new FieldAnnotation { Name = "开关", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[5].Value, Color = m.Groups[5].Value == "ON" ? "#22C55E" : "#888888" });
-    f.Add(new FieldAnnotation { Name = "模式", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[6].Value });
+    f.Add(new FieldAnnotation { Name = "模式", Offset = 0, Length = 0, RawHex = "", DisplayValue = modeStr });
     f.Add(new FieldAnnotation { Name = "设定温度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[7].Value}°C" });
-    f.Add(new FieldAnnotation { Name = "风速", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[8].Value });
+    f.Add(new FieldAnnotation { Name = "风速", Offset = 0, Length = 0, RawHex = "", DisplayValue = windStr });
     return true;
 }
 
@@ -234,12 +259,212 @@ bool TryParseBleFrame(List<FieldAnnotation> f, string text)
     var crcStatus = m.Groups[2].Value;
     bool crcOk = crcStatus == "OK";
 
-    // 映射命令名称到协议
     string protoDesc = GetBleCmdDescription(cmdName);
 
-    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 5, RawHex = RawHex(0, 5), DisplayValue = "[BLE] 帧跟踪", Color = "#3478F6" });
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 5, RawHex = RawHex(0, 5), DisplayValue = "[BLE] 帧跟踪(旧格式)", Color = "#3478F6" });
     f.Add(new FieldAnnotation { Name = "命令", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{cmdName} ({protoDesc})", Color = "#3478F6" });
     f.Add(new FieldAnnotation { Name = "CRC状态", Offset = 0, Length = 0, RawHex = "", DisplayValue = crcOk ? "校验通过" : "校验失败", Color = crcOk ? "#22C55E" : "#EF5350", Severity = crcOk ? FieldSeverity.Normal : FieldSeverity.Error });
+    return true;
+}
+
+// ---- [BLE RX] OK CMD ... (新格式) ----
+
+bool TryParseBleRxOk(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE RX\]\s+OK\s+(\S+)\s+cmd=0x([0-9A-Fa-f]{2})\s+sub=0x([0-9A-Fa-f]{2}|--)\s+ver=0x([0-9A-Fa-f]{2})\s+m=(\d+)");
+    if (!m.Success)
+    {
+        m = Regex.Match(text, @"^\[BLE RX\]\s+OK\s+(\S+)\s+cmd=0x([0-9A-Fa-f]{2})\s+sub=0x([0-9A-Fa-f]{2}|--)\s+ver=0x([0-9A-Fa-f]{2})");
+        if (!m.Success) return false;
+    }
+
+    var cmdName = m.Groups[1].Value;
+    var cmdHex = m.Groups[2].Value;
+    var subHex = m.Groups[3].Value;
+    var ver = m.Groups[4].Value;
+    string mVal = m.Groups[5].Success ? m.Groups[5].Value : "?";
+
+    string protoDesc = GetBleCmdDescription(cmdName);
+    bool verOk = ver == "07";
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE RX] 协议帧解析成功", Color = "#22C55E" });
+    f.Add(new FieldAnnotation { Name = "命令", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{cmdName} ({protoDesc})", Color = "#3478F6" });
+    f.Add(new FieldAnnotation { Name = "指令码", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"0x{cmdHex}/0x{subHex}" });
+    f.Add(new FieldAnnotation { Name = "协议版本", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"0x{ver}{(verOk ? "" : " (期望0x07)")}", Color = verOk ? "#22C55E" : "#EF5350", Severity = verOk ? FieldSeverity.Normal : FieldSeverity.Error });
+    return true;
+}
+
+// ---- [BLE TX] ... ----
+
+bool TryParseBleTx(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE TX\]\s+protocol reply len=(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE TX] 协议层准备回复", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE TX\]\s+notify\s+(\S+)\s+len=(\d+)\s+mtu_payload=(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE TX] Notify 发送", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "特征", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[2].Value} 字节" });
+        f.Add(new FieldAnnotation { Name = "MTU承载", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[3].Value });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE TX\]\s+sent\s+(\d+)\s+notify packet");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE TX] 多包 Notify 发送完成", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "包数", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE TX\]\s+skip\s+len=(\d+):");
+    if (m.Success)
+    {
+        string reason = text.Contains("CCCD") ? "TX CCCD 未开启，手机收不到" : "未连接";
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE TX] 发送跳过", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+        f.Add(new FieldAnnotation { Name = "原因", Offset = 0, Length = 0, RawHex = "", DisplayValue = reason, Color = "#FF9800" });
+        return true;
+    }
+
+    return false;
+}
+
+// ---- [BLE RX] FAIL / bad frame / reasm ----
+
+bool TryParseBleRxFail(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE RX\]\s+FAIL\s+parse");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE RX] 帧解析失败", Color = "#EF5350", Severity = FieldSeverity.Error });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE RX\]\s+bad\s+frame");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE RX] 无效帧", Color = "#EF5350", Severity = FieldSeverity.Error });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE RX\]\s+reasm:");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE RX] 帧重组失败", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^\[BLE RX\]\s+frame\s+len=\d+:");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE RX] 成功帧 HEX", Color = "#22C55E" });
+        return true;
+    }
+
+    return false;
+}
+
+// ---- [BLE] connected / disconnected (新格式) ----
+
+bool TryParseBleConnected(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+connected\s+conidx=(\d+)\s+links=(\d+)");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] 从机连接成功", Color = "#22C55E" });
+    f.Add(new FieldAnnotation { Name = "连接索引", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+    f.Add(new FieldAnnotation { Name = "链路数", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+    return true;
+}
+
+bool TryParseBleDisconnected(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+disconnected\s+conidx=(\d+)\s+reason=0x([0-9A-Fa-f]{2})");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] 连接断开", Color = "#FF9800", Severity = FieldSeverity.Warning });
+    f.Add(new FieldAnnotation { Name = "连接索引", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+    f.Add(new FieldAnnotation { Name = "断开原因", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"0x{m.Groups[2].Value}" });
+    return true;
+}
+
+bool TryParseBleMtu(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+mtu\s+conidx=(\d+)\s+mtu=(\d+)");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] MTU 协商完成", Color = "#3478F6" });
+    f.Add(new FieldAnnotation { Name = "连接索引", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+    f.Add(new FieldAnnotation { Name = "MTU", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+    return true;
+}
+
+bool TryParseBleGattWrite(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+GATT write att=(\S+)\s+idx=(\d+)\s+len=(\d+)");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] GATT Write", Color = "#3478F6" });
+    f.Add(new FieldAnnotation { Name = "特征", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+    f.Add(new FieldAnnotation { Name = "索引", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+    f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[3].Value} 字节" });
+    return true;
+}
+
+bool TryParseBleRxChunk(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+RX chunk len=(\d+):");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] RX 原始数据", Color = "#888888" });
+    f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+    return true;
+}
+
+bool TryParseBleWarn(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+WARN\s+(.+)");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] 警告", Color = "#FF9800", Severity = FieldSeverity.Warning });
+    f.Add(new FieldAnnotation { Name = "内容", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value, Color = "#FF9800" });
+    return true;
+}
+
+bool TryParseBleLinkReset(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+link reset NOTI=(\d+) TX=(\d+)");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] 断开时清零 CCCD 标志", Color = "#888888" });
+    f.Add(new FieldAnnotation { Name = "NOTI", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+    f.Add(new FieldAnnotation { Name = "TX", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+    return true;
+}
+
+bool TryParseBleAppSteps(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^\[BLE\]\s+App steps:");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "[BLE] App 操作提示", Color = "#3478F6" });
+    return true;
+}
+
+bool TryParseBleRxDrop(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^ERR:\s+BLE RX drop");
+    if (!m.Success) return false;
+
+    f.Add(new FieldAnnotation { Name = "日志类别", Offset = 0, Length = 0, RawHex = "", DisplayValue = "BLE RX 丢包(内存不足)", Color = "#EF5350", Severity = FieldSeverity.Error });
     return true;
 }
 
@@ -370,7 +595,8 @@ bool TryParseMqttState(List<FieldAnnotation> f, string text)
     else if (text == "MQTT config save FAILED") { desc = "MQTT 配置保存失败"; color = "#EF5350"; sev = FieldSeverity.Error; }
     else if (text == "MQTT reconnect timer started (200ms drive)") { desc = "MQTT 重连定时器启动(200ms周期)"; cat = "MQTT重连"; }
     else if (text == "MQTT reconnect timer started (pending DISC)") { desc = "MQTT 重连定时器启动(等待断开)"; cat = "MQTT重连"; }
-    else if (text == "MQTT reconnect timer stopped") { desc = "MQTT 重连定时器停止"; cat = "MQTT重连"; cat = "MQTT重连"; }
+    else if (text == "MQTT reconnect timer stopped") { desc = "MQTT 重连定时器停止"; cat = "MQTT重连"; }
+    else if (text == "MQTT Handler initialized (OneNET)") { desc = "MQTT Handler 初始化完成(OneNET)"; cat = "MQTT Handler"; color = "#22C55E"; }
     else if (text == "APP: MQTT config updated, reconnecting...") { desc = "MQTT 配置更新，触发重连"; }
     else if (text == "APP: MQTTDISC deferred (UART busy)") { desc = "MQTT 断开命令延迟(UART忙)"; color = "#FF9800"; sev = FieldSeverity.Warning; }
     else if (text == "APP: IOT config apply (debounce timer)") { desc = "IOT→MQTT 配置转换防抖定时器触发"; cat = "IOT"; }
@@ -378,6 +604,26 @@ bool TryParseMqttState(List<FieldAnnotation> f, string text)
     if (desc != null)
     {
         f.Add(new FieldAnnotation { Name = $"日志类别({cat})", Offset = 0, Length = RawData.Length, RawHex = "", DisplayValue = desc, Color = color, Severity = sev });
+        return true;
+    }
+
+    // MQTT: property/post enqueued id=%d len=%d period=%ds
+    var mqttProp = Regex.Match(text, @"^MQTT:\s+property/post enqueued id=(\d+) len=(\d+) period=(\d+)s");
+    if (mqttProp.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(MQTT Handler)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "MQTT 属性/遥测 JSON 已入队", Color = "#8B5CF6" });
+        f.Add(new FieldAnnotation { Name = "ID", Offset = 0, Length = 0, RawHex = "", DisplayValue = mqttProp.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{mqttProp.Groups[2].Value} 字节" });
+        f.Add(new FieldAnnotation { Name = "周期", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{mqttProp.Groups[3].Value}s" });
+        return true;
+    }
+
+    // MQTT Handler initialized (%s)
+    var mqttInit = Regex.Match(text, @"^MQTT Handler initialized \((\w+)\)");
+    if (mqttInit.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(MQTT Handler)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "MQTT Handler 初始化完成", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "平台", Offset = 0, Length = 0, RawHex = "", DisplayValue = mqttInit.Groups[1].Value });
         return true;
     }
 
@@ -430,6 +676,8 @@ bool TryParseMl307(List<FieldAnnotation> f, string text)
     else if (text == "ML307A: Module ready (+MATREADY received)") { desc = "ML307A 模组就绪"; color = "#22C55E"; }
     else if (text == "ML307A: Module not ready (timeout waiting for +MATREADY)") { desc = "ML307A 模组就绪超时"; color = "#EF5350"; sev = FieldSeverity.Error; }
     else if (text == "ML307A: Module ready (+MATREADY in AT accum)") { desc = "ML307A 模组就绪(AT缓冲检测)"; color = "#22C55E"; }
+    else if (text == "ML307A: Module ready (+MATREADY in AT resp)") { desc = "ML307A 模组就绪(AT响应检测)"; color = "#22C55E"; }
+    else if (text == "ML307A: Module ready (MATREADY timeout, AT sync OK)") { desc = "ML307A MATREADY超时但AT同步成功"; color = "#FF9800"; sev = FieldSeverity.Warning; }
     else if (text == "AT rx trunc") { desc = "AT 接收缓冲区溢出，数据截断"; color = "#FF9800"; sev = FieldSeverity.Warning; }
 
     if (desc != null)
@@ -941,6 +1189,66 @@ bool TryParseUrc(List<FieldAnnotation> f, string text)
         return true;
     }
 
+    // URC reasm: timeout %d/%d
+    var ur = Regex.Match(text, @"^URC reasm:\s+timeout\s+(\d+)/(\d+)");
+    if (ur.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC MQTT 下行重组超时", Color = "#EF5350", Severity = FieldSeverity.Error });
+        f.Add(new FieldAnnotation { Name = "超时", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{ur.Groups[1].Value}s/{ur.Groups[2].Value}s" });
+        return true;
+    }
+
+    // URC MQTTURC: bad declared len=%d
+    ur = Regex.Match(text, @"^URC MQTTURC:\s+bad declared len=(\d+)");
+    if (ur.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC MQTT 声明长度非法", Color = "#EF5350", Severity = FieldSeverity.Error });
+        return true;
+    }
+
+    // URC MQTTURC: invalid data_len=%d
+    ur = Regex.Match(text, @"^URC MQTTURC:\s+invalid data_len=(\d+)");
+    if (ur.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC MQTT 数据长度非法", Color = "#EF5350", Severity = FieldSeverity.Error });
+        return true;
+    }
+
+    // URC: MQTT disconnected
+    if (text == "URC: MQTT disconnected")
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC 解析到 MQTT 断开事件", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        return true;
+    }
+
+    // URC queue full, dropped %s
+    ur = Regex.Match(text, @"^URC queue full, dropped (.+)");
+    if (ur.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC 队列满，丢弃数据", Color = "#EF5350", Severity = FieldSeverity.Error });
+        f.Add(new FieldAnnotation { Name = "标签", Offset = 0, Length = 0, RawHex = "", DisplayValue = ur.Groups[1].Value });
+        return true;
+    }
+
+    // URC system initialized
+    if (text == "URC system initialized")
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC 子系统初始化", Color = "#22C55E" });
+        return true;
+    }
+
+    // URC timer started/stopped
+    if (text == "URC timer started, 5min init timeout armed")
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC 定时器启动(5分钟初始化超时)", Color = "#3478F6" });
+        return true;
+    }
+    if (text == "URC timer stopped")
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(URC)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "URC 定时器停止", Color = "#888888" });
+        return true;
+    }
+
     return false;
 }
 
@@ -984,6 +1292,47 @@ bool TryParseKeyEvent(List<FieldAnnotation> f, string text)
     return false;
 }
 
+// ---- APP 启动日志 ----
+
+bool TryParseAppStartup(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^APP Task created, id:(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(APP)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "应用任务创建成功", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "ID", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^HEAP free:\s+(\d+)\s+bytes");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(APP)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "启动空闲堆大小", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "堆大小", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^APP:\s+telemetry period=(\d+)s");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(APP)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "遥测/心跳周期", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "周期", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value}s" });
+        return true;
+    }
+
+    // heap=%d, mqtt=%d (断开后状态)
+    m = Regex.Match(text, @"^\s+heap=(\d+), mqtt=(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(状态)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "断开后堆/MQTT状态", Color = "#888888" });
+        f.Add(new FieldAnnotation { Name = "堆", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+        f.Add(new FieldAnnotation { Name = "MQTT", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        return true;
+    }
+
+    return false;
+}
+
 // ---- GATT 客户端事件 ----
 
 bool TryParseGattEvent(List<FieldAnnotation> f, string text)
@@ -994,6 +1343,176 @@ bool TryParseGattEvent(List<FieldAnnotation> f, string text)
         return true;
     }
 
+    // CCC:%x
+    var m = Regex.Match(text, @"^CCC:([0-9A-Fa-f]+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(GATT)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "GATT CCCD 事件", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "类型", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"0x{m.Groups[1].Value}" });
+        return true;
+    }
+
+    // svc:%d,start_hdl:%d,end_hdl:%d
+    m = Regex.Match(text, @"^svc:(\d+),start_hdl:(\d+),end_hdl:(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(GATT)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "GATT 服务发现" });
+        f.Add(new FieldAnnotation { Name = "UUID 长度", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "起始句柄", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        f.Add(new FieldAnnotation { Name = "结束句柄", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[3].Value });
+        return true;
+    }
+
+    // op:%d done
+    m = Regex.Match(text, @"^op:(\d+) done");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(GATT)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "GATT 操作完成", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "操作码", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        return true;
+    }
+
+    // heap:%d (服务发现后)
+    m = Regex.Match(text, @"^heap:(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(GATT)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "服务发现后空闲堆" });
+        f.Add(new FieldAnnotation { Name = "堆大小", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value} 字节" });
+        return true;
+    }
+
+    return false;
+}
+
+// ---- 自动监听 ----
+
+bool TryParseAutoListen(List<FieldAnnotation> f, string text)
+{
+    if (text == "AutoListen: Initialized, switch=ON") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "自动监听模块初始化(开)", Color = "#22C55E" }); return true; }
+    if (text == "AutoListen: Initialized, switch=OFF") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "自动监听模块初始化(关)", Color = "#888888" }); return true; }
+    if (text == "AutoListen: Switch set to ON") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "监听总开关开启", Color = "#22C55E" }); return true; }
+    if (text == "AutoListen: Switch set to OFF") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "监听总开关关闭", Color = "#888888" }); return true; }
+    if (text == "AutoListen: Enter waiting mode (90s)") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "自动监听进入等待模式(90s)", Color = "#3478F6" }); return true; }
+    if (text == "AutoListen: Enter listen mode") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "自动监听进入监听模式", Color = "#22C55E" }); return true; }
+    if (text == "AutoListen: Exit listen mode") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "自动监听退出监听模式", Color = "#888888" }); return true; }
+    if (text == "AutoListen: 90s timeout, entering listen mode") { f.Add(new FieldAnnotation { Name = "日志类别(AutoListen)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "90s 超时，自动进入监听模式", Color = "#FF9800" }); return true; }
+
+    var m = Regex.Match(text, @"^\[IR\]\s+Key\[(\d+)\]\s+(.+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(自动监听)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "按键匹配结果", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "按键", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "结果", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        return true;
+    }
+
+    if (text == "[IR] No match") { f.Add(new FieldAnnotation { Name = "日志类别(自动监听)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "按键无匹配", Color = "#FF9800", Severity = FieldSeverity.Warning }); return true; }
+
+    return false;
+}
+
+// ---- 定时关日志 ----
+
+bool TryParseTimerLog(List<FieldAnnotation> f, string text)
+{
+    if (text == "Timer: IR op busy, deferring shutdown") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "红外忙，定时关延迟", Color = "#FF9800", Severity = FieldSeverity.Warning }); return true; }
+    if (text == "Timer: Power key not learned, cannot shutdown") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "电源键未学习，无法定时关机", Color = "#EF5350", Severity = FieldSeverity.Error }); return true; }
+    if (text == "Timer: shutdown via codec") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "通过 Codec 关机", Color = "#22C55E" }); return true; }
+    if (text == "Timer: shutdown via learned key") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "通过学习键关机", Color = "#22C55E" }); return true; }
+    if (text == "Timer: IR send failed, will retry") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "红外发送失败，将重试", Color = "#FF9800", Severity = FieldSeverity.Warning }); return true; }
+    if (text == "Timer: shutdown confirmed") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "关机确认成功", Color = "#22C55E" }); return true; }
+
+    var m = Regex.Match(text, @"^Timer:\s+confirm timeout, retry (\d+)/(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "关机确认超时重试", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        f.Add(new FieldAnnotation { Name = "重试", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{m.Groups[1].Value}/{m.Groups[2].Value}" });
+        return true;
+    }
+
+    if (text == "Timer: max retries reached, giving up") { f.Add(new FieldAnnotation { Name = "日志类别(定时关)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "定时关最大重试已达，放弃", Color = "#EF5350", Severity = FieldSeverity.Error }); return true; }
+
+    return false;
+}
+
+// ---- IR Codec 持久化 ----
+
+bool TryParseIrCodecPersist(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^IR_Codec_Persist_Load:\s+Loaded\s+\(proto=(\d+)\s+T=(\d+)\s+M=(\d+)\s+P=(\d+)\s+F=(\d+)\)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "红外 Codec 持久化加载成功", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "协议", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "温度", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        f.Add(new FieldAnnotation { Name = "模式", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[3].Value });
+        f.Add(new FieldAnnotation { Name = "风扇", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[4].Value });
+        f.Add(new FieldAnnotation { Name = "频率", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[5].Value });
+        return true;
+    }
+
+    m = Regex.Match(text, @"^IR_Codec_Persist_Save:\s+Saved\s+\(proto=(\d+)\s+T=(\d+)\s+M=(\d+)\s+P=(\d+)\s+F=(\d+)\)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "红外 Codec 持久化保存成功", Color = "#22C55E" });
+        f.Add(new FieldAnnotation { Name = "协议", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "温度", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        f.Add(new FieldAnnotation { Name = "模式", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[3].Value });
+        f.Add(new FieldAnnotation { Name = "风扇", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[4].Value });
+        f.Add(new FieldAnnotation { Name = "频率", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[5].Value });
+        return true;
+    }
+
+    if (text.Contains("IR_Codec_Persist_Load: Magic invalid"))
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "IR Codec Flash 魔数无效", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        return true;
+    }
+
+    if (text.Contains("IR_Codec_Persist_Load: Version mismatch"))
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "IR Codec 版本不匹配", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        return true;
+    }
+
+    if (text.Contains("IR_Codec_Persist_Load: Checksum error"))
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "IR Codec 校验和错误", Color = "#EF5350", Severity = FieldSeverity.Error });
+        return true;
+    }
+
+    if (text.Contains("IR_Codec_Persist_Save: state invalid"))
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(IR Codec)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "IR Codec 状态无效，跳过保存", Color = "#FF9800", Severity = FieldSeverity.Warning });
+        return true;
+    }
+
+    return false;
+}
+
+// ---- 音频编码 ----
+
+bool TryParseAudioEncoder(List<FieldAnnotation> f, string text)
+{
+    var m = Regex.Match(text, @"^blk_sz:(\d+),frm_sz:(\d+)");
+    if (m.Success)
+    {
+        f.Add(new FieldAnnotation { Name = "日志类别(音频编码)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "音频编码参数" });
+        f.Add(new FieldAnnotation { Name = "块大小", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[1].Value });
+        f.Add(new FieldAnnotation { Name = "帧大小", Offset = 0, Length = 0, RawHex = "", DisplayValue = m.Groups[2].Value });
+        return true;
+    }
+
+    return false;
+}
+
+// ---- 音频解码 ----
+
+bool TryParseAudioDecoder(List<FieldAnnotation> f, string text)
+{
+    if (text == "speaker_flash_start") { f.Add(new FieldAnnotation { Name = "日志类别(音频播放)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "语音播放开始(从Flash读数据)", Color = "#3478F6" }); return true; }
+    if (text == "E") { f.Add(new FieldAnnotation { Name = "日志类别(音频播放)", Offset = 0, Length = 0, RawHex = "", DisplayValue = "语音播放结束", Color = "#22C55E" }); return true; }
+
     return false;
 }
 
@@ -1001,13 +1520,30 @@ bool TryParseGattEvent(List<FieldAnnotation> f, string text)
 
 bool TryParseEsairCcc(List<FieldAnnotation> f, string text)
 {
-    // ESAIR CCC notify %s  / ESAIR TX CCC notify %s
-    var m = Regex.Match(text, @"^(ESAIR(?:\s+\w+)?\s+CCC)\s+notify\s+(EN|DIS)");
+    // ESAIR TX CCC EN (FF10, required for reply)
+    var m = Regex.Match(text, @"^(ESAIR\s+(TX|NOTI)\s+CCC)\s+(EN|DIS)\s+\((\S+)\)");
+    if (m.Success)
+    {
+        var ch = m.Groups[1].Value;
+        var en = m.Groups[3].Value;
+        var uuid = m.Groups[4].Value;
+        bool isTx = m.Groups[2].Value == "TX";
+        bool isEn = en == "EN";
+
+        f.Add(new FieldAnnotation { Name = "日志类别(ESAIR)", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"ESAIR {(isTx ? "TX" : "NOTI")} CCCD (uuid={uuid})", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "状态", Offset = 0, Length = 0, RawHex = "", DisplayValue = isEn ? "已使能" : "已禁能", Color = isEn ? "#22C55E" : "#888888" });
+        if (isTx && isEn)
+            f.Add(new FieldAnnotation { Name = "提示", Offset = 0, Length = 0, RawHex = "", DisplayValue = "必须出现，否则设备不会发 Notify 回复", Color = "#FF9800" });
+        return true;
+    }
+
+    // ESAIR CCC notify %s  / ESAIR TX CCC notify %s (旧格式)
+    m = Regex.Match(text, @"^(ESAIR(?:\s+\w+)?\s+CCC)\s+notify\s+(EN|DIS)");
     if (m.Success)
     {
         var ch = m.Groups[1].Value;
         var en = m.Groups[2].Value;
-        f.Add(new FieldAnnotation { Name = "日志类别(ESAIR)", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{ch} CCCD 通知", Color = "#3478F6" });
+        f.Add(new FieldAnnotation { Name = "日志类别(ESAIR)", Offset = 0, Length = 0, RawHex = "", DisplayValue = $"{ch} CCCD 通知(旧格式)", Color = "#3478F6" });
         f.Add(new FieldAnnotation { Name = "状态", Offset = 0, Length = 0, RawHex = "", DisplayValue = en == "EN" ? "已使能" : "已禁能", Color = en == "EN" ? "#22C55E" : "#888888" });
         return true;
     }

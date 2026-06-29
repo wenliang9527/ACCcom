@@ -4,7 +4,7 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
-public class DataBufferService
+public class DataBufferService : IDisposable
 {
     private readonly Channel<LogEntry> _channel;
     private readonly ChannelWriter<LogEntry> _writer;
@@ -222,19 +222,26 @@ public class DataBufferService
     {
         try
         {
-            await Task.WhenAny(waiter.Tcs.Task, delayTask);
+            await Task.WhenAny(waiter.Tcs.Task, delayTask).ConfigureAwait(false);
         }
         finally
         {
-            await cts.CancelAsync();
+            await cts.CancelAsync().ConfigureAwait(false);
             cts.Dispose();
         }
 
         if (waiter.Tcs.Task.IsCompletedSuccessfully)
-            return waiter.Tcs.Task.Result;
+            return await waiter.Tcs.Task.ConfigureAwait(false);
 
         waiter.Tcs.TrySetResult(null);
         return null;
+    }
+
+    public void Dispose()
+    {
+        _writer.TryComplete();
+        CancelWaiters();
+        _rwLock.Dispose();
     }
 }
 

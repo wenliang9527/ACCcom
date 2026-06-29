@@ -1,7 +1,8 @@
 <Window x:Class="ACCcom.PlotWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="实时数据绘图" Height="450" Width="700"
+        xmlns:local="clr-namespace:ACCcom"
+        Title="{Binding [Plot.Title], Source={x:Static local:LanguageManager.Instance}}" Height="450" Width="700"
         MinHeight="300" MinWidth="500"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource BgBaseBrush}">
@@ -17,20 +18,23 @@
         <Border Grid.Row="0" Padding="8,4" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6" Margin="0,0,0,4">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="当前值:" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock x:Name="LatestValueText" Text="--"
-                               FontFamily="Consolas" FontSize="14" FontWeight="Bold"
-                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
-                    <TextBlock x:Name="PointCountText" Text="  (0 点)"
-                               FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
-                               VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock Text="{Binding [Plot.CurrentValue], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="LatestValueText" Text="--"
+                              FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
+                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                    <TextBox x:Name="PointCountText" Text="{Binding [Plot.ZeroPoints], Source={x:Static local:LanguageManager.Instance}}"
+                              FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                              VerticalAlignment="Center" Margin="12,0,0,0"
+                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="Y范围:" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBlock x:Name="YRangeText" Text="--"
-                               FontFamily="Consolas" FontSize="11"
-                               Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
-                    <Button Content="清空" Click="Clear_Click" Margin="12,0,0,0"
+                    <TextBlock Text="{Binding [Plot.YRange], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <TextBox x:Name="YRangeText" Text="--"
+                              FontFamily="Consolas" FontSize="11"
+                              Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center"
+                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                    <Button Content="{Binding [Plot.Clear], Source={x:Static local:LanguageManager.Instance}}" Click="Clear_Click" Margin="12,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
             </DockPanel>
@@ -50,8 +54,9 @@
         <!-- Status bar -->
         <Border Grid.Row="2" Padding="8,3" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6" Margin="0,4,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock x:Name="StatusText" Text="等待数据..."
-                           FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}" />
+                <TextBox x:Name="StatusText" Text="{Binding [Plot.Waiting], Source={x:Static local:LanguageManager.Instance}}"
+                           FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                           IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
             </StackPanel>
         </Border>
     </Grid>

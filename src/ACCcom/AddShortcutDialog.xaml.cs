@@ -46,15 +46,15 @@ public partial class AddShortcutDialog : Window
                 CommandBox.CaretIndex = Math.Min(caret + spacesBeforeCaret, formatted.Length);
             }
             _updating = false;
-            HexInfo.Text = $"{raw.Length / 2} 字节";
+            HexInfo.Text = string.Format(LanguageManager.Instance["AddShortcut.HexBytes"], raw.Length / 2);
         }
         else if (HexPattern.IsMatch(raw))
         {
-            HexInfo.Text = "字节数不完整";
+            HexInfo.Text = LanguageManager.Instance["AddShortcut.HexIncomplete"];
         }
         else
         {
-            HexInfo.Text = "包含非 HEX 字符";
+            HexInfo.Text = LanguageManager.Instance["AddShortcut.HexInvalid"];
         }
     }
 
@@ -86,7 +86,7 @@ public partial class AddShortcutDialog : Window
     {
         if (string.IsNullOrWhiteSpace(ShortcutName) || string.IsNullOrWhiteSpace(ShortcutCommand))
         {
-            MessageBox.Show("名称和命令不能为空", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(LanguageManager.Instance["AddShortcut.ValidationError"], LanguageManager.Instance["AddShortcut.ValidationTitle"], MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         DialogResult = true;

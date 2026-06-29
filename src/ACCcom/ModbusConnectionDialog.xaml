@@ -1,7 +1,8 @@
 <Window x:Class="ACCcom.ModbusConnectionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MODBUS Connection" Height="250" Width="380"
+        xmlns:local="clr-namespace:ACCcom"
+        Title="{Binding [ModbusConnection.Title], Source={x:Static local:LanguageManager.Instance}}" Height="250" Width="380"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource BgBaseBrush}"
@@ -15,12 +16,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Select MODBUS Transport" Style="{StaticResource SectionHeader}" Margin="0,0,0,12" />
+        <TextBlock Grid.Row="0" Text="{Binding [ModbusConnection.SelectTransport], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource SectionHeader}" Margin="0,0,0,12" />
 
         <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
             <StackPanel>
-                <RadioButton Content="RTU (Serial)" IsChecked="{Binding IsRtuMode}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
-                <RadioButton Content="TCP (Ethernet)" IsChecked="{Binding IsTcpMode}" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.RTU], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode, Converter={StaticResource BoolInverter}, Mode=OneWay}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.TCP], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode, Mode=TwoWay}" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
 
                 <StackPanel IsEnabled="{Binding IsTcpMode}" Margin="20,8,0,0">
                     <Grid>
@@ -37,18 +38,19 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Host:" Style="{StaticResource Label}" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [ModbusConnection.Host], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" />
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Host}" Style="{StaticResource NumericBox}" Height="24" />
-                        <TextBlock Grid.Row="0" Grid.Column="3" Text="Port:" Style="{StaticResource Label}" />
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding [ModbusConnection.Port], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" />
                         <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding Port}" Style="{StaticResource NumericBox}" Height="24" />
                     </Grid>
                 </StackPanel>
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,8,0,0" Foreground="{DynamicResource AccentBrush}" />
+        <TextBox Grid.Row="2" Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,8,0,0" Foreground="{DynamicResource AccentBrush}"
+                  IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
 
-        <Button Grid.Row="4" Content="Connect &amp; Open MODBUS Window"
+        <Button Grid.Row="4" Content="{Binding [ModbusConnection.Connect], Source={x:Static local:LanguageManager.Instance}}"
                 Command="{Binding ConnectCommand}"
                 Style="{StaticResource PrimaryButton}"
                 Height="32" FontSize="13" />

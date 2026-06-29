@@ -16,13 +16,13 @@ public partial class CompareWindow : Window
 
     private void BrowseFileA_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "日志文件 (*.txt;*.json)|*.txt;*.json|所有文件 (*.*)|*.*" };
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = LanguageManager.Instance["CompareWindow.FileFilter"] };
         if (dlg.ShowDialog() == true) FileAPath.Text = dlg.FileName;
     }
 
     private void BrowseFileB_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "日志文件 (*.txt;*.json)|*.txt;*.json|所有文件 (*.*)|*.*" };
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = LanguageManager.Instance["CompareWindow.FileFilter"] };
         if (dlg.ShowDialog() == true) FileBPath.Text = dlg.FileName;
     }
 
@@ -30,7 +30,7 @@ public partial class CompareWindow : Window
     {
         if (string.IsNullOrEmpty(FileAPath.Text) || string.IsNullOrEmpty(FileBPath.Text))
         {
-            SummaryText.Text = "请选择两个文件";
+            SummaryText.Text = LanguageManager.Instance["CompareWindow.SelectFilesError"];
             return;
         }
 
@@ -42,7 +42,7 @@ public partial class CompareWindow : Window
         }
         catch (IOException ex)
         {
-            SummaryText.Text = $"读取文件失败: {ex.Message}";
+            SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.ReadFileError"], ex.Message);
             return;
         }
 
@@ -73,6 +73,6 @@ public partial class CompareWindow : Window
             ListBoxB.Items.Add(itemB);
         }
 
-        SummaryText.Text = $"共 {maxCount} 行 | 相同: {matching} | 不同: {different}";
+        SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.SummaryFormat"], maxCount, matching, different);
     }
 }

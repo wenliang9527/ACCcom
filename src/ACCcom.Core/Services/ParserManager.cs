@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
@@ -191,6 +192,34 @@ public class ParserManager : IDisposable
             return (false, "Invalid JSON schema");
 
         return GenerateParser(schema);
+    }
+
+    public ProtocolSchema? GetSchema(string parserName)
+    {
+        var schemaPath = Path.Combine(_parserDir, parserName + ".schema.json");
+        if (!File.Exists(schemaPath)) return null;
+
+        try
+        {
+            var json = File.ReadAllText(schemaPath);
+            return JsonSerializer.Deserialize<ProtocolSchema>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            });
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public ParserFingerprint? GetFingerprint(string parserName)
+    {
+        var schema = GetSchema(parserName);
+        if (schema == null) return null;
+        return ParserFingerprint.FromSchema(schema);
     }
 
     public void Dispose()

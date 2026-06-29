@@ -383,7 +383,7 @@ public class ParserGenerator
         var cs = schema.Frame.Checksum;
         var csFunc = cs.Type.ToLower() switch
         {
-            "crc16" => cs.Algorithm.ToLower() == "ccitt" ? "Crc16Ccitt" : "Crc16",
+            "crc16" => string.Equals(cs.Algorithm, "ccitt", StringComparison.OrdinalIgnoreCase) ? "Crc16Ccitt" : "Crc16",
             "sum8" => "Sum8",
             "xor8" => "Xor8",
             "sum16" => "Sum16",

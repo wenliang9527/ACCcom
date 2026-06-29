@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -105,8 +106,28 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
         _modbus.OnTransaction += OnTransaction;
 
-        ReadCommand = new RelayCommand(async _ => await ReadAsync(), _ => true);
-        WriteCommand = new RelayCommand(async _ => await WriteAsync(), _ => !IsReadFunction);
+        ReadCommand = new RelayCommand(async _ =>
+        {
+            try
+            {
+                await ReadAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Read error: {ex.Message}");
+            }
+        }, _ => true);
+        WriteCommand = new RelayCommand(async _ =>
+        {
+            try
+            {
+                await WriteAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Write error: {ex.Message}");
+            }
+        }, _ => !IsReadFunction);
         StartPollCommand = new RelayCommand(_ => StartPoll(), _ => !IsPolling);
         StopPollCommand = new RelayCommand(_ => StopPoll(), _ => IsPolling);
         ClearLogCommand = new RelayCommand(_ => TransactionLog.Clear());
@@ -247,7 +268,11 @@ public class ModbusViewModel : ObservableObject, IDisposable
         if (IsPolling) return;
         StopPoll();
         _pollTimer = new System.Timers.Timer(PollIntervalMs > 0 ? PollIntervalMs : 1000);
-        _pollTimer.Elapsed += async (_, _) => await ReadAsync();
+        _pollTimer.Elapsed += (_, _) =>
+        {
+            var app = Application.Current;
+            app?.Dispatcher.InvokeAsync(() => ReadAsync());
+        };
         _pollTimer.Start();
         IsPolling = true;
         StatusText = $"Polling every {PollIntervalMs}ms";

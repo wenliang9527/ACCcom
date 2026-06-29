@@ -17,14 +17,14 @@ public partial class CreateSlaveDialog : Window
     {
         if (!byte.TryParse(SlaveIdBox.Text, out var slaveId))
         {
-            MessageBox.Show("Invalid Slave ID", "Error");
+            MessageBox.Show(LanguageManager.Instance["CreateSlave.ErrorInvalidSlaveId"], LanguageManager.Instance["CreateSlave.ErrorTitle"]);
             return;
         }
         var transport = TransportBox.SelectedIndex == 0 ? "tcp" : "rtu";
         var port = PortBox.Text;
         if (!int.TryParse(RegsBox.Text, out var regs) || regs < 1)
         {
-            MessageBox.Show("Invalid holding register count", "Error");
+            MessageBox.Show(LanguageManager.Instance["CreateSlave.ErrorInvalidRegs"], LanguageManager.Instance["CreateSlave.ErrorTitle"]);
             return;
         }
         _slaveService.CreateSlave(slaveId, transport, port, holdingRegisters: regs);

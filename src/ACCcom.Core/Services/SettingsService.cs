@@ -5,8 +5,11 @@ namespace ACCcom.Core.Services;
 
 public class SettingsService
 {
+    private static readonly string BaseDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ACCcom");
+
     private static readonly string DefaultSettingsPath =
-        Path.Combine(AppContext.BaseDirectory, "settings.json");
+        Path.Combine(BaseDir, "settings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -54,6 +57,7 @@ public class SettingsService
         _lastError = null;
         try
         {
+            Directory.CreateDirectory(BaseDir);
             var json = JsonSerializer.Serialize(settings, JsonOptions);
             File.WriteAllText(_settingsPath, json);
             return true;

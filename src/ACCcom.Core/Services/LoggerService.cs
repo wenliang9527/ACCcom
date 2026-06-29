@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using ACCcom.Core.Models;
 
@@ -7,10 +8,17 @@ public class LoggerService : BufferedFileWriter
 {
     private readonly string _logDir;
     private readonly long _maxFileSize = 5 * 1024 * 1024;
+    private const int MaxFileCount = 10;
 
-    public LoggerService()
+    public LoggerService() : this(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ACCcom", "logs"))
     {
-        _logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+    }
+
+    internal LoggerService(string logDir)
+    {
+        _logDir = logDir;
         Directory.CreateDirectory(_logDir);
         RotateFile();
     }
@@ -34,8 +42,28 @@ public class LoggerService : BufferedFileWriter
     private void RotateFile()
     {
         CloseWriter();
+        CleanupOldLogs();
         var fileName = $"ACCCOM_{DateTime.Now:yyyyMMdd_HHmmss}.log";
         var filePath = Path.Combine(_logDir, fileName);
         OpenWriter(filePath);
+    }
+
+    private void CleanupOldLogs()
+    {
+        try
+        {
+            var files = Directory.GetFiles(_logDir, "ACCCOM_*.log")
+                .OrderByDescending(f => f)
+                .ToArray();
+            if (files.Length >= MaxFileCount)
+            {
+                foreach (var f in files.Skip(MaxFileCount - 1))
+                    File.Delete(f);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Log cleanup error: {ex.Message}");
+        }
     }
 }

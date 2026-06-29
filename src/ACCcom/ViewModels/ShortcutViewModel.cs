@@ -8,6 +8,7 @@ namespace ACCcom.ViewModels;
 public class ShortcutViewModel : ObservableObject
 {
     private readonly ISerialService _serial;
+    private readonly NetworkBridgeService? _networkBridge;
     private readonly ShortcutManager _shortcutManager;
     private readonly Func<DataFlowViewModel> _getDataFlow;
     private readonly Action<string> _setStatus;
@@ -22,9 +23,11 @@ public class ShortcutViewModel : ObservableObject
         ISerialService serial,
         ShortcutManager shortcutManager,
         Func<DataFlowViewModel> getDataFlow,
-        Action<string> setStatus)
+        Action<string> setStatus,
+        NetworkBridgeService? networkBridge = null)
     {
         _serial = serial;
+        _networkBridge = networkBridge;
         _shortcutManager = shortcutManager;
         _getDataFlow = getDataFlow;
         _setStatus = setStatus;
@@ -61,13 +64,21 @@ public class ShortcutViewModel : ObservableObject
 
     private void SendShortcut(ShortcutItem item)
     {
-        if (_serial.Send(item.Command, item.IsHex))
+        var df = _getDataFlow();
+        var toSend = item.IsHex ? item.Command : df.ExpandVariables(item.Command);
+
+        bool sent;
+        if (_networkBridge?.IsConnected == true)
+            sent = _networkBridge.Send(toSend, item.IsHex);
+        else
+            sent = _serial.Send(toSend, item.IsHex);
+
+        if (sent)
         {
-            var df = _getDataFlow();
             df.TxCount++;
             df.RecordTxBytes(item.IsHex
-                ? item.Command.Replace(" ", "").Length / 2
-                : System.Text.Encoding.UTF8.GetByteCount(item.Command));
+                ? toSend.Replace(" ", "").Length / 2
+                : System.Text.Encoding.UTF8.GetByteCount(toSend));
         }
     }
 

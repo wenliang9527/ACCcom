@@ -10,7 +10,9 @@ public class LoggerServiceTests : IDisposable
 
     public LoggerServiceTests()
     {
-        _logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        _logDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom", "logs");
     }
 
     public void Dispose()

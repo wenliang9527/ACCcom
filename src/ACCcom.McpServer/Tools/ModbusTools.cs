@@ -33,20 +33,23 @@ public class ModbusTools
         int timeoutMs = 1000,
         string? connectionId = null)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/modbus/read", new { slaveId, functionCode, startAddress, quantity, timeoutMs, connectionId }).ConfigureAwait(false);
+
         var modbus = GetModbus(connectionId);
         if (modbus == null)
-            return _ctx.RawJson(new { success = false, error = "MODBUS service is only available in direct (non-proxy) mode" });
+            return _ctx.RawJson(new { success = false, error = "MODBUS service not available" });
 
         ModbusResponse result;
         try
         {
             result = functionCode switch
             {
-                "ReadCoils" or "01" => await modbus.ReadCoilsAsync(slaveId, startAddress, quantity, timeoutMs),
-                "ReadDiscreteInputs" or "02" => await modbus.ReadDiscreteInputsAsync(slaveId, startAddress, quantity, timeoutMs),
-                "ReadHoldingRegisters" or "03" => await modbus.ReadHoldingRegistersAsync(slaveId, startAddress, quantity, timeoutMs),
-                "ReadInputRegisters" or "04" => await modbus.ReadInputRegistersAsync(slaveId, startAddress, quantity, timeoutMs),
-                _ => await modbus.ReadHoldingRegistersAsync(slaveId, startAddress, quantity, timeoutMs)
+                "ReadCoils" or "01" => await modbus.ReadCoilsAsync(slaveId, startAddress, quantity, timeoutMs).ConfigureAwait(false),
+                "ReadDiscreteInputs" or "02" => await modbus.ReadDiscreteInputsAsync(slaveId, startAddress, quantity, timeoutMs).ConfigureAwait(false),
+                "ReadHoldingRegisters" or "03" => await modbus.ReadHoldingRegistersAsync(slaveId, startAddress, quantity, timeoutMs).ConfigureAwait(false),
+                "ReadInputRegisters" or "04" => await modbus.ReadInputRegistersAsync(slaveId, startAddress, quantity, timeoutMs).ConfigureAwait(false),
+                _ => await modbus.ReadHoldingRegistersAsync(slaveId, startAddress, quantity, timeoutMs).ConfigureAwait(false)
             };
         }
         catch (Exception ex)
@@ -89,22 +92,25 @@ public class ModbusTools
         int timeoutMs = 1000,
         string? connectionId = null)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/modbus/write", new { slaveId, functionCode, address, value, values, andMask, orMask, timeoutMs, connectionId }).ConfigureAwait(false);
+
         var modbus = GetModbus(connectionId);
         if (modbus == null)
-            return _ctx.RawJson(new { success = false, error = "MODBUS service is only available in direct (non-proxy) mode" });
+            return _ctx.RawJson(new { success = false, error = "MODBUS service not available" });
 
         ModbusResponse result;
         try
         {
             result = functionCode switch
             {
-                "WriteSingleCoil" or "05" => await modbus.WriteSingleCoilAsync(slaveId, address, value != 0, timeoutMs),
-                "WriteSingleRegister" or "06" => await modbus.WriteSingleRegisterAsync(slaveId, address, value, timeoutMs),
-                "WriteMultipleCoils" or "15" => await modbus.WriteMultipleCoilsAsync(slaveId, address, ParseCoils(values!), timeoutMs),
-                "WriteMultipleRegisters" or "16" => await modbus.WriteMultipleRegistersAsync(slaveId, address, ParseRegisters(values!), timeoutMs),
-                "MaskWriteRegister" or "22" => await modbus.MaskWriteRegisterAsync(slaveId, address, ParseHexOrZero(andMask), ParseHexOrZero(orMask), timeoutMs),
-                "ReadWriteMultipleRegisters" or "23" => await modbus.ReadWriteMultipleRegistersAsync(slaveId, address, value, address, ParseRegisters(values!), timeoutMs),
-                _ => await modbus.WriteSingleRegisterAsync(slaveId, address, value, timeoutMs)
+                "WriteSingleCoil" or "05" => await modbus.WriteSingleCoilAsync(slaveId, address, value != 0, timeoutMs).ConfigureAwait(false),
+                "WriteSingleRegister" or "06" => await modbus.WriteSingleRegisterAsync(slaveId, address, value, timeoutMs).ConfigureAwait(false),
+                "WriteMultipleCoils" or "15" => await modbus.WriteMultipleCoilsAsync(slaveId, address, ParseCoils(values ?? ""), timeoutMs).ConfigureAwait(false),
+                "WriteMultipleRegisters" or "16" => await modbus.WriteMultipleRegistersAsync(slaveId, address, ParseRegisters(values ?? ""), timeoutMs).ConfigureAwait(false),
+                "MaskWriteRegister" or "22" => await modbus.MaskWriteRegisterAsync(slaveId, address, ParseHexOrZero(andMask), ParseHexOrZero(orMask), timeoutMs).ConfigureAwait(false),
+                "ReadWriteMultipleRegisters" or "23" => await modbus.ReadWriteMultipleRegistersAsync(slaveId, address, value, address, ParseRegisters(values ?? ""), timeoutMs).ConfigureAwait(false),
+                _ => await modbus.WriteSingleRegisterAsync(slaveId, address, value, timeoutMs).ConfigureAwait(false)
             };
         }
         catch (Exception ex)
@@ -130,9 +136,11 @@ public class ModbusTools
     }
 
     [McpServerTool, Description("Create a virtual MODBUS slave device. Parameters: slaveId (default 1), transport ('rtu' or 'tcp', default 'tcp'), connectionParam (COM port for rtu, port number for tcp, default '15000'), coils (default 1024), discreteInputs (default 1024), holdingRegisters (default 256), inputRegisters (default 256).")]
-    public string SlaveCreate(byte slaveId = 1, string transport = "tcp", string connectionParam = "15000",
+    public async Task<string> SlaveCreate(byte slaveId = 1, string transport = "tcp", string connectionParam = "15000",
         int coils = 1024, int discreteInputs = 1024, int holdingRegisters = 256, int inputRegisters = 256)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/slave/create", new { slaveId, transport, connectionParam, coils, discreteInputs, holdingRegisters, inputRegisters }).ConfigureAwait(false);
         var svc = _ctx.SlaveService;
         if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
         var id = svc.CreateSlave(slaveId, transport, connectionParam, coils, discreteInputs, holdingRegisters, inputRegisters);
@@ -140,8 +148,10 @@ public class ModbusTools
     }
 
     [McpServerTool, Description("Remove a MODBUS slave device. Parameters: slaveId (the id returned by slave_create).")]
-    public string SlaveRemove(string slaveId)
+    public async Task<string> SlaveRemove(string slaveId)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/slave/remove", new { tag = slaveId }).ConfigureAwait(false);
         var svc = _ctx.SlaveService;
         if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
         svc.RemoveSlave(slaveId);
@@ -149,8 +159,10 @@ public class ModbusTools
     }
 
     [McpServerTool, Description("List all active MODBUS slave devices.")]
-    public string SlaveList()
+    public async Task<string> SlaveList()
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.GetAsync("/api/slave/list").ConfigureAwait(false);
         var svc = _ctx.SlaveService;
         if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
         var slaves = svc.GetActiveSlaves().ToList();
@@ -158,8 +170,10 @@ public class ModbusTools
     }
 
     [McpServerTool, Description("Write a register value on a MODBUS slave device. Parameters: slaveId, type ('coil'/'holding'/'discrete'/'input'), address, value.")]
-    public string SlaveWrite(string slaveId, string type, ushort address, ushort value)
+    public async Task<string> SlaveWrite(string slaveId, string type, ushort address, ushort value)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/slave/write", new { slaveId, type, address, value }).ConfigureAwait(false);
         var svc = _ctx.SlaveService;
         if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
         var rt = type.ToLowerInvariant() switch
@@ -169,8 +183,10 @@ public class ModbusTools
     }
 
     [McpServerTool, Description("Read a register value from a MODBUS slave device. Parameters: slaveId, type, address.")]
-    public string SlaveRead(string slaveId, string type, ushort address)
+    public async Task<string> SlaveRead(string slaveId, string type, ushort address)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/slave/read", new { slaveId, type, address }).ConfigureAwait(false);
         var svc = _ctx.SlaveService;
         if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
         var rt = type.ToLowerInvariant() switch
@@ -212,14 +228,17 @@ public class ModbusTools
         int timeoutMs = 500,
         string? connectionId = null)
     {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.PostAsync("/api/modbus/scan", new { startAddress, endAddress, timeoutMs, connectionId }).ConfigureAwait(false);
+
         var modbus = GetModbus(connectionId);
         if (modbus == null)
-            return _ctx.RawJson(new { success = false, error = "MODBUS service is only available in direct (non-proxy) mode" });
+            return _ctx.RawJson(new { success = false, error = "MODBUS service not available" });
 
         var scanner = new ModbusScanner(modbus);
         try
         {
-            var devices = await scanner.ScanAsync(startAddress, endAddress, timeoutMs);
+            var devices = await scanner.ScanAsync(startAddress, endAddress, timeoutMs).ConfigureAwait(false);
 
             return _ctx.RawJson(new
             {

@@ -1,7 +1,8 @@
 <Window x:Class="ACCcom.CompareWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="数据对比" Height="700" Width="1100"
+        xmlns:local="clr-namespace:ACCcom"
+        Title="{Binding [CompareWindow.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BgBaseBrush}">
     <Grid Margin="10">
@@ -20,19 +21,19 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="文件A:" VerticalAlignment="Center" Margin="0,0,8,0"
+                    <TextBlock Text="{Binding [CompareWindow.FileA], Source={x:Static local:LanguageManager.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0"
                                Foreground="{DynamicResource InkSecondaryBrush}" />
                     <TextBox x:Name="FileAPath" Width="300" IsReadOnly="True" />
-                    <Button Content="浏览..." Click="BrowseFileA_Click" Margin="6,0,0,0"
+                    <Button Content="{Binding [CompareWindow.Browse], Source={x:Static local:LanguageManager.Instance}}" Click="BrowseFileA_Click" Margin="6,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
-                <Button Grid.Column="1" Content="对比" Click="Compare_Click" Margin="16,0"
+                <Button Grid.Column="1" Content="{Binding [CompareWindow.Compare], Source={x:Static local:LanguageManager.Instance}}" Click="Compare_Click" Margin="16,0"
                         Style="{StaticResource PrimaryButton}" Padding="20,4" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock Text="文件B:" VerticalAlignment="Center" Margin="0,0,8,0"
+                    <TextBlock Text="{Binding [CompareWindow.FileB], Source={x:Static local:LanguageManager.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0"
                                Foreground="{DynamicResource InkSecondaryBrush}" />
                     <TextBox x:Name="FileBPath" Width="300" IsReadOnly="True" />
-                    <Button Content="浏览..." Click="BrowseFileB_Click" Margin="6,0,0,0"
+                    <Button Content="{Binding [CompareWindow.Browse], Source={x:Static local:LanguageManager.Instance}}" Click="BrowseFileB_Click" Margin="6,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
             </Grid>
@@ -53,7 +54,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="文件 A" FontWeight="SemiBold" Margin="10,8"
+                    <TextBlock Grid.Row="0" Text="{Binding [CompareWindow.FileALabel], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="10,8"
                                Foreground="{DynamicResource StatusBlueBrush}" />
                     <ListBox x:Name="ListBoxA" Grid.Row="1"
                              FontFamily="Consolas" FontSize="12"
@@ -70,7 +71,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="文件 B" FontWeight="SemiBold" Margin="10,8"
+                    <TextBlock Grid.Row="0" Text="{Binding [CompareWindow.FileBLabel], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="10,8"
                                Foreground="{DynamicResource StatusGreenBrush}" />
                     <ListBox x:Name="ListBoxB" Grid.Row="1"
                              FontFamily="Consolas" FontSize="12"
@@ -82,8 +83,9 @@
         <!-- Summary -->
         <Border Grid.Row="2" Padding="10,6" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock x:Name="SummaryText" Text="选择两个文件进行对比"
-                           FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}" />
+                <TextBox x:Name="SummaryText" Text="{Binding [CompareWindow.Hint], Source={x:Static local:LanguageManager.Instance}}"
+                           FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}"
+                           IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
             </StackPanel>
         </Border>
     </Grid>

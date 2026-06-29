@@ -36,23 +36,23 @@
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.BytesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding RxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding RxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
                         <TextBlock Text="{Binding [Stats.FramesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding RxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding RxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.TotalBytes], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TotalRxBytes}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkSecondaryBrush}" />
+                        <TextBox Text="{Binding TotalRxBytes}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkSecondaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,6">
                         <TextBlock Text="{Binding [Stats.TotalFrames], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TotalRxFrames}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkSecondaryBrush}" />
+                        <TextBox Text="{Binding TotalRxFrames}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkSecondaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                 </Grid>
 
@@ -71,23 +71,23 @@
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.BytesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding TxBytesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
                         <TextBlock Text="{Binding [Stats.FramesPerSec], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding TxFramesPerSec}" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.TotalBytes], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TotalTxBytes}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkSecondaryBrush}" />
+                        <TextBox Text="{Binding TotalTxBytes}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkSecondaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,6">
                         <TextBlock Text="{Binding [Stats.TotalFrames], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding TotalTxFrames}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkSecondaryBrush}" />
+                        <TextBox Text="{Binding TotalTxFrames}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkSecondaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                 </Grid>
 
@@ -105,22 +105,18 @@
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.Duration], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding ConnectionDuration}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBox Text="{Binding ConnectionDuration}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,6">
                         <TextBlock Text="{Binding [Stats.ErrorRate], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding ErrorRate}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource RedErrorBrush}">
-                            <Run Text=" %" />
-                        </TextBlock>
+                        <TextBox Text="{Binding ErrorRate, StringFormat='{}{0} %'}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource RedErrorBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,6">
                         <TextBlock Text="{Binding [Stats.AvgFrameInterval], Source={x:Static local:LanguageManager.Instance}}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
-                        <TextBlock Text="{Binding AvgFrameInterval}" FontFamily="Consolas" FontSize="14"
-                                   Foreground="{DynamicResource InkPrimaryBrush}">
-                            <Run Text=" ms" />
-                        </TextBlock>
+                        <TextBox Text="{Binding AvgFrameInterval, StringFormat='{}{0} ms'}" FontFamily="Consolas" FontSize="14"
+                                  Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                 </Grid>
             </StackPanel>

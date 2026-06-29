@@ -36,33 +36,45 @@ public class ReplayViewModel : ObservableObject
 
         _replayWindow?.Close();
 
-        var df = _getDataFlow();
-        async void OnReplayEntry(LogEntry entry)
-        {
-            try
-            {
-                entry.PortTag = "replay";
-                if (entry.Direction == "RX")
-                {
-                    await df.RunParserAsync(entry);
-                    df.AddRxEntry(entry, HexHelper.CountHexBytes(entry.RawHex ?? ""));
-                }
-                else
-                {
-                    df.AddTxEntry(entry, HexHelper.CountHexBytes(entry.RawHex ?? ""));
-                }
-            }
-            catch (Exception ex)
-            {
-                _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
-            }
-        }
-
         _replayWindow = new ReplayWindow(dialog.FileName, _sessionRecorder, OnReplayEntry);
         _replayWindow.Owner = System.Windows.Application.Current.MainWindow;
         _replayWindow.Closed += (_, _) => _replayWindow = null;
         _replayWindow.Show();
         _setStatus(string.Format(LanguageManager.Instance["Status.ReplayWindowOpened"], Path.GetFileName(dialog.FileName)));
+    }
+
+    private void OnReplayEntry(LogEntry entry)
+    {
+        var df = _getDataFlow();
+        try
+        {
+            entry.PortTag = "replay";
+            if (entry.Direction == "RX")
+            {
+                _ = ProcessReplayRxAsync(df, entry);
+            }
+            else
+            {
+                df.AddTxEntry(entry, HexHelper.CountHexBytes(entry.RawHex ?? ""));
+            }
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+        }
+    }
+
+    private static async Task ProcessReplayRxAsync(DataFlowViewModel df, LogEntry entry)
+    {
+        try
+        {
+            await df.RunParserAsync(entry);
+            df.AddRxEntry(entry, HexHelper.CountHexBytes(entry.RawHex ?? ""));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Replay error: {ex.Message}");
+        }
     }
 
     public void CloseWindow()

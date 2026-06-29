@@ -11,9 +11,11 @@
 
             <converters:BoolToOpenTextConverter x:Key="BoolToOpenText" />
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+            <converters:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted" />
             <converters:SeverityToColorConverter x:Key="SeverityToColor" />
             <converters:NullToVisibilityConverter x:Key="NullToVisibility" />
             <converters:BoolToThemeIconConverter x:Key="BoolToThemeIcon" />
+            <converters:BoolInverterConverter x:Key="BoolInverter" />
 
             <!-- ============================================== -->
             <!-- ComboBox ToggleButton Template                 -->

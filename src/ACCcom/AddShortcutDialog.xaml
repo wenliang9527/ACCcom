@@ -6,7 +6,7 @@
         Width="480" Height="300"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{StaticResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}">
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -16,10 +16,10 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="{Binding [AddShortcut.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
-            <TextBox x:Name="NameBox" Text="{Binding [AddShortcut.DefaultName], Source={x:Static local:LanguageManager.Instance}}" />
-        </StackPanel>
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <TextBlock Text="{Binding [AddShortcut.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
+                <TextBox x:Name="NameBox" Text="新指令" />
+            </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="0,0,0,4">
             <TextBlock Text="{Binding [AddShortcut.Command], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />

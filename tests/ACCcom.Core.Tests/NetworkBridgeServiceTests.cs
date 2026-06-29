@@ -26,7 +26,7 @@ public class NetworkBridgeServiceTests
     }
 
     [Fact]
-    public void ConnectTcp_InvalidHost_ReturnsFalse()
+    public async Task ConnectTcp_InvalidHost_ReturnsFalse()
     {
         // Arrange
         using var service = new NetworkBridgeService();
@@ -34,7 +34,7 @@ public class NetworkBridgeServiceTests
         service.OnError += _ => errorRaised = true;
 
         // Act
-        var result = service.ConnectTcp("invalid.host.local", 9999);
+        var result = await service.ConnectTcp("invalid.host.local", 9999);
 
         // Assert
         Assert.False(result);

@@ -52,4 +52,108 @@ public class HexHelperTests
         var result = HexHelper.BytesToHexSpaced([0x00], 0, 1);
         Assert.Equal("00", result);
     }
+
+    // ========== CountHexBytes ==========
+
+    [Fact]
+    public void CountHexBytes_EmptyString_ReturnsZero()
+    {
+        Assert.Equal(0, HexHelper.CountHexBytes(""));
+    }
+
+    [Fact]
+    public void CountHexBytes_SingleByte_ReturnsOne()
+    {
+        Assert.Equal(1, HexHelper.CountHexBytes("AA"));
+    }
+
+    [Fact]
+    public void CountHexBytes_SpacedHex_ReturnsCorrectCount()
+    {
+        Assert.Equal(3, HexHelper.CountHexBytes("AA BB CC"));
+    }
+
+    [Fact]
+    public void CountHexBytes_MultipleSpaces_ReturnsCorrectCount()
+    {
+        Assert.Equal(3, HexHelper.CountHexBytes("AA   BB   CC"));
+    }
+
+    // ========== HexStringToBytes ==========
+
+    [Fact]
+    public void HexStringToBytes_EmptyString_ReturnsEmpty()
+    {
+        Assert.Empty(HexHelper.HexStringToBytes(""));
+    }
+
+    [Fact]
+    public void HexStringToBytes_SpacedHex_ReturnsCorrectBytes()
+    {
+        var result = HexHelper.HexStringToBytes("AA BB CC");
+        Assert.Equal([0xAA, 0xBB, 0xCC], result);
+    }
+
+    [Fact]
+    public void HexStringToBytes_UnspacedHex_ReturnsCorrectBytes()
+    {
+        var result = HexHelper.HexStringToBytes("AABBCC");
+        Assert.Equal([0xAA, 0xBB, 0xCC], result);
+    }
+
+    [Fact]
+    public void HexStringToBytes_MixedCase_ReturnsCorrectBytes()
+    {
+        var result = HexHelper.HexStringToBytes("aA bB cC");
+        Assert.Equal([0xAA, 0xBB, 0xCC], result);
+    }
+
+    [Fact]
+    public void HexStringToBytes_SingleNibble_ReturnsEmpty()
+    {
+        Assert.Empty(HexHelper.HexStringToBytes("A"));
+    }
+
+    [Fact]
+    public void HexStringToBytes_WithInvalidChars_ReplacesWithZero()
+    {
+        var result = HexHelper.HexStringToBytes("XZ YY");
+        Assert.Equal([0x00, 0x00], result);
+    }
+
+    // ========== HasErrorSeverity ==========
+
+    [Fact]
+    public void HasErrorSeverity_NullFields_ReturnsFalse()
+    {
+        Assert.False(HexHelper.HasErrorSeverity(null));
+    }
+
+    [Fact]
+    public void HasErrorSeverity_EmptyFields_ReturnsFalse()
+    {
+        Assert.False(HexHelper.HasErrorSeverity([]));
+    }
+
+    [Fact]
+    public void HasErrorSeverity_NoErrorSeverity_ReturnsFalse()
+    {
+        var fields = new List<FieldAnnotation>
+        {
+            new() { Severity = FieldSeverity.Normal },
+            new() { Severity = FieldSeverity.Warning }
+        };
+        Assert.False(HexHelper.HasErrorSeverity(fields));
+    }
+
+    [Fact]
+    public void HasErrorSeverity_HasErrorSeverity_ReturnsTrue()
+    {
+        var fields = new List<FieldAnnotation>
+        {
+            new() { Severity = FieldSeverity.Normal },
+            new() { Severity = FieldSeverity.Error }
+        };
+        Assert.True(HexHelper.HasErrorSeverity(fields));
+    }
 }

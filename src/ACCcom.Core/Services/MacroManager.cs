@@ -33,21 +33,21 @@ public class MacroManager : JsonFilePersistenceManager<MacroTemplate>, IDisposab
                     var step = macro.Steps[i];
 
                     if (step.DelayMs > 0)
-                        await Task.Delay(step.DelayMs, token);
+                        await Task.Delay(step.DelayMs, token).ConfigureAwait(false);
 
                     var toSend = step.IsHex ? step.Command : expandVariables(step.Command);
                     send(toSend, step.IsHex);
 
-                    updateStatus($"步骤 {i + 1}/{macro.Steps.Count} (第{rep + 1}轮)");
+                    updateStatus($"Step {i + 1}/{macro.Steps.Count} (round {rep + 1})");
 
                     if (step.WaitFor != null)
                     {
-                        await Task.Delay(Math.Min(step.WaitTimeoutMs, 1000), token);
+                        await Task.Delay(Math.Min(step.WaitTimeoutMs, 1000), token).ConfigureAwait(false);
                     }
                 }
 
                 if (macro.RepeatDelayMs > 0 && (rep < macro.RepeatCount - 1 || macro.RepeatCount == 0))
-                    await Task.Delay(macro.RepeatDelayMs, token);
+                    await Task.Delay(macro.RepeatDelayMs, token).ConfigureAwait(false);
             }
 
             return true;

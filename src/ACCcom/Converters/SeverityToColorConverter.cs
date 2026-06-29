@@ -7,14 +7,17 @@ namespace ACCcom.Converters;
 
 public class SeverityToColorConverter : IValueConverter
 {
+    private static readonly SolidColorBrush WarningBrush = new(Color.FromRgb(250, 204, 21));
+    private static readonly SolidColorBrush ErrorBrush = new(Color.FromRgb(220, 38, 38));
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is FieldSeverity severity)
         {
             return severity switch
             {
-                FieldSeverity.Warning => new SolidColorBrush(Color.FromRgb(250, 204, 21)),
-                FieldSeverity.Error => new SolidColorBrush(Color.FromRgb(220, 38, 38)),
+                FieldSeverity.Warning => WarningBrush,
+                FieldSeverity.Error => ErrorBrush,
                 _ => Brushes.Transparent
             };
         }

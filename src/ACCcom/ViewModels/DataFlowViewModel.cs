@@ -21,6 +21,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly TriggerService _triggerService;
     private readonly ParserManager _parserManager;
     private readonly FrameAssembler _frameAssembler;
+    private readonly FrameBuffer _frameBuffer;
+    private readonly AutoParserMatcher _autoMatcher;
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
     private readonly Action<string> _setStatus;
@@ -181,6 +183,25 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _setStatus = setStatus;
         _settings = settings;
 
+        _autoMatcher = new AutoParserMatcher();
+        LoadParserFingerprints();
+        _parserManager.OnParserReloaded += _ => LoadParserFingerprints();
+
+        var bufferConfig = new FrameBufferConfig
+        {
+            Strategy = FrameExtractStrategy.ByHeader,
+            Header = new byte[] { 0xA5, 0x5A },
+            LengthFieldOffset = 2,
+            LengthFieldSize = 1,
+            LengthFieldIncludes = 4,
+            MaxFrameSize = 4096,
+            BufferCapacity = 65536,
+            PartialFrameTimeoutMs = 2000
+        };
+        _frameBuffer = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
+        _frameBuffer.OnFrameAssembled += OnFrameReady;
+        _frameBuffer.OnError += msg => _setStatus(msg);
+
         _filterDebounce = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMilliseconds(200),
@@ -230,14 +251,42 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
             int byteCount = 0;
             if (!string.IsNullOrEmpty(entry.RawHex))
+            {
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
+                try
+                {
+                    var bytes = HexHelper.HexStringToBytes(entry.RawHex);
+                    if (bytes.Length > 0)
+                        _frameBuffer.Write(bytes);
+                }
+                catch { }
+            }
 
-            _ = ProcessSerialEntryAsync(entry, byteCount);
+            if (entry.Direction == "RX")
+            {
+                _stats.RecordRx(byteCount);
+                AddRxEntry(entry, byteCount);
+            }
+            else
+            {
+                AddTxEntry(entry, byteCount);
+            }
         }
         catch (Exception ex)
         {
             _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
         }
+    }
+
+    private static byte[]? ExtractHexBytesFromText(string text)
+    {
+        var matches = System.Text.RegularExpressions.Regex.Matches(text, @"0x([0-9A-Fa-f]{2})");
+        if (matches.Count == 0) return null;
+
+        var bytes = new byte[matches.Count];
+        for (int i = 0; i < matches.Count; i++)
+            bytes[i] = Convert.ToByte(matches[i].Groups[1].Value, 16);
+        return bytes;
     }
 
     private void OnAssembledFrame(LogEntry entry)
@@ -254,6 +303,53 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
             _ = ProcessAssembledFrameAsync(entry, byteCount);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+        }
+    }
+
+    private void OnFrameReady(LogEntry entry)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(entry.PortTag))
+                entry.PortTag = "main";
+
+            _http.AddEntry(entry);
+            _triggerService.Evaluate(entry);
+
+            int byteCount = 0;
+            if (!string.IsNullOrEmpty(entry.RawHex))
+                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+
+            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    _logger.Write(entry);
+
+                    if (entry.Direction == "RX")
+                    {
+                        _stats.RecordRx(byteCount);
+                        if (HexHelper.HasErrorSeverity(entry.Fields))
+                            _stats.RecordError();
+                        AddRxEntry(entry, byteCount);
+                        OnRxProcessed?.Invoke(entry);
+                    }
+                    else
+                    {
+                        AddTxEntry(entry, byteCount);
+                    }
+
+                    OnEntryProcessed?.Invoke(entry, byteCount);
+                }
+                catch (Exception ex)
+                {
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -501,11 +597,26 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         return sb.ToString();
     }
 
+    private void LoadParserFingerprints()
+    {
+        _autoMatcher.Clear();
+        foreach (var parserName in _parserManager.AvailableParsers)
+        {
+            if (parserName == ParserManager.NoParserName)
+                continue;
+
+            var fingerprint = _parserManager.GetFingerprint(parserName);
+            if (fingerprint != null)
+                _autoMatcher.UpdateFingerprint(parserName, fingerprint);
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         _frameAssembler.Dispose();
+        _frameBuffer.Dispose();
         _filterDebounce?.Stop();
     }
 }
