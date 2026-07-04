@@ -64,7 +64,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | System.Threading.Channels + RingBuffer |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（486 个测试） |
+| 测试 | xUnit 2.5.3（492 个测试） |
 
 ## 项目结构
 
@@ -202,13 +202,13 @@ ACCcom/
 │       ├── Program.cs
 │       └── Tools/
 │           ├── SerialTools.cs      # 串口操作工具 (16 个)
-│           ├── ParserTools.cs      # 解析器工具 (5 个)
+│           ├── ParserTools.cs      # 解析器工具 (8 个)
 │           ├── AnalysisTools.cs    # 分析工具 (2 个)
-│           ├── RecordingTools.cs   # 录制回放工具 (3 个)
-│           ├── ModbusTools.cs      # Modbus 工具 (7 个)
+│           ├── RecordingTools.cs   # 录制回放工具 (4 个)
+│           ├── ModbusTools.cs      # Modbus 工具 (8 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tests/
-│   ├── ACCcom.Core.Tests/          # 核心库单元测试 (47 个文件, ~430 个测试)
+│   ├── ACCcom.Core.Tests/          # 核心库单元测试 (47 个文件, ~448 个测试)
 │   │   ├── DataBufferServiceTests.cs
 │   │   ├── DataBufferServiceConcurrencyTests.cs
 │   │   ├── TriggerServiceTests.cs
@@ -254,7 +254,7 @@ ACCcom/
 │   │   ├── ModbusMergingTests.cs
 │   │   ├── ModbusFunctionCodeExtensionTests.cs
 │   │   └── TestCollections.cs
-│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (14 个文件, ~56 个测试)
+│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (8 个文件, ~44 个测试)
 │       ├── SerialToolsTests.cs
 │       ├── ParserToolsTests.cs
 │       ├── ModbusToolsTests.cs
