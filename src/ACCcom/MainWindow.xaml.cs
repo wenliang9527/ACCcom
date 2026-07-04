@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ACCcom.Core.Services;
+using ACCcom.Helpers;
 using ACCcom.ViewModels;
 
 namespace ACCcom;
@@ -17,6 +18,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         _vm = new MainViewModel(new SerialService());
         DataContext = _vm;
+
+        // Setup chromeless titlebar
+        WindowHelper.SetupTitleBar(this, TitleBar);
 
         // Restore window position/size from settings
         var s = _vm.Settings;
@@ -240,5 +244,20 @@ public partial class MainWindow : Window
         _vm.SaveSettings(Left, Top, Width, Height);
         _vm.Dispose();
         base.OnClosed(e);
+    }
+
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e)
+    {
+        WindowHelper.Minimize(this);
+    }
+
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e)
+    {
+        WindowHelper.MaximizeRestore(this);
+    }
+
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

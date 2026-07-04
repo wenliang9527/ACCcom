@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Windows;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -17,6 +18,7 @@ public partial class AddShortcutDialog : Window
         _updating = true;
         InitializeComponent();
         _updating = false;
+        WindowHelper.SetupTitleBar(this, TitleBar);
         NameBox.Focus();
         NameBox.SelectAll();
     }
@@ -93,6 +95,11 @@ public partial class AddShortcutDialog : Window
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+    }
+
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
     }

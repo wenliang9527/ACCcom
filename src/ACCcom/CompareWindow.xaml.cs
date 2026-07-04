@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -12,6 +13,7 @@ public partial class CompareWindow : Window
     public CompareWindow()
     {
         InitializeComponent();
+        WindowHelper.SetupTitleBar(this, TitleBar);
     }
 
     private void BrowseFileA_Click(object sender, RoutedEventArgs e)
@@ -75,4 +77,8 @@ public partial class CompareWindow : Window
 
         SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.SummaryFormat"], maxCount, matching, different);
     }
+
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

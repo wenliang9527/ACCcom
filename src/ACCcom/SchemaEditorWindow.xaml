@@ -7,19 +7,20 @@
         Title="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="850"
         MinHeight="500" MinWidth="700"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}">
 
     <Window.Resources>
         <converters:FieldValuesTemplateSelector x:Key="FieldValuesSelector">
             <converters:FieldValuesTemplateSelector.DefaultTemplate>
                 <DataTemplate>
-                    <TextBox Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="11" VerticalAlignment="Center" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                    <TextBlock Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="11" VerticalAlignment="Center" />
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.DefaultTemplate>
             <converters:FieldValuesTemplateSelector.EnumTemplate>
                 <DataTemplate>
                     <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="3" Background="{DynamicResource BgElevatedBrush}" Padding="4,1">
-                        <TextBox Text="{Binding ValuesText}" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                        <TextBlock Text="{Binding ValuesText}" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" />
                     </Border>
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.EnumTemplate>
@@ -114,7 +115,30 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="10">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="最小化" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="最大化" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+    <Grid Grid.Row="1" Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -182,7 +206,7 @@
                     <DataGridTemplateColumn Header="{Binding [Column.Type], Source={x:Static local:LanguageManager.Instance}}" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBox Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                                <TextBlock Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                         <DataGridTemplateColumn.CellEditingTemplate>
@@ -299,5 +323,6 @@
                         Style="{StaticResource OutlineButton}" IsCancel="True" />
             </StackPanel>
         </Border>
+    </Grid>
     </Grid>
 </Window>

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using ACCcom.Helpers;
 using ACCcom.ViewModels;
 
 namespace ACCcom;
@@ -16,6 +17,8 @@ public partial class PlotWindow : Window
         _viewModel = viewModel;
         DataContext = _viewModel;
         InitializeComponent();
+
+        WindowHelper.SetupTitleBar(this, TitleBar);
 
         _viewModel.DataChanged += OnDataChanged;
         SizeChanged += (_, _) => RequestRender();
@@ -160,4 +163,8 @@ public partial class PlotWindow : Window
         YRangeText.Text = "--";
         StatusText.Text = LanguageManager.Instance["Plot.Waiting"];
     }
+
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

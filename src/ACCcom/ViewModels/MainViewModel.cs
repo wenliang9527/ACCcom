@@ -75,9 +75,19 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings = _settingsService.Load();
         _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action), parserCacheSize: _settings.ParserCacheSize);
 
-        _http = new HttpService(_serial, _parserManager, _modbusSlaveService,
-            _multiPort, _modbusConnectionManager.GetDefaultService(_serial), _modbusConnectionManager,
-            new AutoBaudDetector(), _sessionRecorder, _stats, bufferCapacity: _settings.BufferCapacity);
+        _http = new HttpService(new HttpServiceOptions
+        {
+            SerialService = _serial,
+            ParserManager = _parserManager,
+            SlaveService = _modbusSlaveService,
+            MultiPortService = _multiPort,
+            ModbusService = _modbusConnectionManager.GetDefaultService(_serial),
+            ModbusConnections = _modbusConnectionManager,
+            AutoBaudDetector = new AutoBaudDetector(),
+            SessionRecorder = _sessionRecorder,
+            DataStatistics = _stats,
+            BufferCapacity = _settings.BufferCapacity
+        });
         _http.Start();
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化

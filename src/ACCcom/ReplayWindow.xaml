@@ -6,10 +6,32 @@
         MinHeight="140" MinWidth="360"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}"
         Closing="Window_Closing">
 
-    <Grid Margin="16">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar (no min/max since ResizeMode=NoResize) -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [Replay.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="12" />
@@ -19,10 +41,9 @@
         </Grid.RowDefinitions>
 
         <!-- Status text -->
-        <TextBox x:Name="StatusText" Grid.Row="0"
+        <TextBlock x:Name="StatusText" Grid.Row="0"
                    Text="{Binding [Replay.Ready], Source={x:Static local:LanguageManager.Instance}}" FontSize="13"
-                   Foreground="{DynamicResource InkPrimaryBrush}"
-                   IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                   Foreground="{DynamicResource InkPrimaryBrush}" />
 
         <!-- Progress bar -->
         <Grid Grid.Row="2">
@@ -34,11 +55,10 @@
                          Height="20" Minimum="0" Maximum="1"
                          Foreground="{DynamicResource AccentBrush}"
                          Background="{DynamicResource BgElevatedBrush}" />
-            <TextBox x:Name="ProgressText" Grid.Column="1"
+            <TextBlock x:Name="ProgressText" Grid.Column="1"
                        Text="0/0" FontSize="11" FontFamily="Consolas"
                        Foreground="{DynamicResource InkSecondaryBrush}"
-                       VerticalAlignment="Center" Margin="8,0,0,0"
-                       IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                       VerticalAlignment="Center" Margin="8,0,0,0" />
         </Grid>
 
         <!-- Controls -->
@@ -64,5 +84,6 @@
                 <ComboBoxItem Content="{Binding [Replay.SpeedInstant], Source={x:Static local:LanguageManager.Instance}}" Tag="0" />
             </ComboBox>
         </StackPanel>
+        </Grid>
     </Grid>
 </Window>

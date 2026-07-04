@@ -11,7 +11,7 @@ public class HttpServiceTests : IDisposable
 
     public HttpServiceTests()
     {
-        _service = new HttpService(url: BaseUrl);
+        _service = new HttpService(new HttpServiceOptions { Url = BaseUrl });
         _service.Start();
         _client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
     }
@@ -46,7 +46,12 @@ public class HttpServiceTests : IDisposable
     public void Constructor_WithSerialServiceAndParserManager_CreatesInstance()
     {
         // Arrange & Act
-        using var service = new HttpService(new SerialService(), new ParserManager(), url: "http://127.0.0.1:18901");
+        using var service = new HttpService(new HttpServiceOptions
+        {
+            SerialService = new SerialService(),
+            ParserManager = new ParserManager(),
+            Url = "http://127.0.0.1:18901"
+        });
 
         // Assert
         Assert.NotNull(service);
@@ -56,7 +61,7 @@ public class HttpServiceTests : IDisposable
     public void Constructor_WithDefaults_CreatesInstance()
     {
         // Arrange & Act
-        using var service = new HttpService();
+        using var service = new HttpService(new HttpServiceOptions());
 
         // Assert
         Assert.NotNull(service);

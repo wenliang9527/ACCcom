@@ -28,7 +28,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void SendData_Appears_In_Buffer()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.Send("Hello");
@@ -42,7 +42,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void SendHexData_Appears_In_Buffer()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.SendHex("AA 55 03");
@@ -57,7 +57,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void InjectedRxData_Appears_In_Buffer()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.InjectRxData("AA 55 03 01 19");
@@ -72,7 +72,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         LogEntry? captured = null;
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.OnDataReceived += e => http.AddEntry(e);
         http.OnDataEntry += e => captured = e;
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
@@ -88,7 +88,7 @@ public class SerialServiceIntegrationTests : IDisposable
     {
         using var serial = new VirtualSerialService();
         using var parserManager = new ParserManager(_tempParserDir);
-        using var http = new HttpService(serial, parserManager);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial, ParserManager = parserManager });
         serial.OnDataReceived += async e =>
         {
             if (e.Direction == "RX" && parserManager.ActiveParserName != null && !string.IsNullOrEmpty(e.RawHex))
@@ -120,7 +120,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void Buffer_Exceeds_Capacity_Drops_Oldest()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial, bufferCapacity: 5);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial, BufferCapacity = 5 });
         serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         for (int i = 0; i < 10; i++)
@@ -135,7 +135,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void Send_Without_Open_Returns_False()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         var result = serial.Send("test");
         Assert.False(result);
     }
@@ -146,7 +146,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void HttpService_GetStatus_Works_With_VirtualSerial()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.Open(new SerialConfig { PortName = "TEST", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.Send("ping");
         var status = http.GetStatus();
@@ -197,7 +197,7 @@ public class SerialServiceIntegrationTests : IDisposable
     public void ConcurrentInjectRxData_NoDataLoss()
     {
         using var serial = new VirtualSerialService();
-        using var http = new HttpService(serial);
+        using var http = new HttpService(new HttpServiceOptions { SerialService = serial });
         serial.OnDataReceived += e => http.AddEntry(e);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
 

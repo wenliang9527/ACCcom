@@ -5,10 +5,34 @@
         Title="{Binding [Modbus.WindowTitle], Source={x:Static local:LanguageManager.Instance}}" Height="650" Width="900"
         MinHeight="450" MinWidth="600"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}"
         Style="{StaticResource WindowStyle}">
 
-    <TabControl x:Name="MainTabControl" Margin="10">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [Modbus.WindowTitle], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="最小化" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="最大化" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+    <TabControl x:Name="MainTabControl" Grid.Row="1" Margin="10">
         <TabItem Header="{Binding [Modbus.TabMaster], Source={x:Static local:LanguageManager.Instance}}">
             <Grid Margin="0">
                 <Grid.RowDefinitions>
@@ -95,6 +119,28 @@
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="FontFamily" Value="Consolas" />
                                     <Setter Property="FontSize" Value="12" />
+                                    <Setter Property="Height" Value="26" />
+                                    <Setter Property="Padding" Value="6,0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListViewItem">
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                        BorderThickness="0" Padding="{TemplateBinding Padding}"
+                                                        Margin="{TemplateBinding Margin}">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
                                 </Style>
                             </ListView.ItemContainerStyle>
                         </ListView>
@@ -180,4 +226,5 @@
             </Grid>
         </TabItem>
     </TabControl>
+    </Grid>
 </Window>

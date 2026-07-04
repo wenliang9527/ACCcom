@@ -1,5 +1,6 @@
 using System.Windows;
 using ACCcom.Core.Services;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -11,6 +12,7 @@ public partial class CreateSlaveDialog : Window
     {
         InitializeComponent();
         _slaveService = slaveService;
+        WindowHelper.SetupTitleBar(this, TitleBar);
     }
 
     private void OnCreate(object sender, RoutedEventArgs e)
@@ -32,6 +34,11 @@ public partial class CreateSlaveDialog : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+    }
+
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
     }

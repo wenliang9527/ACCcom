@@ -6,9 +6,32 @@
         Width="480" Height="300"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{DynamicResource BgBaseBrush}">
+        WindowStyle="None"
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
 
-    <Grid Margin="20">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="28" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar (Close only for dialogs) -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [AddShortcut.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -28,7 +51,7 @@
         </StackPanel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
-            <CheckBox x:Name="HexCheckBox" Content="{Binding [Check.HexMode], Source={x:Static local:LanguageManager.Instance}}" Checked="HexCheckBox_Changed" Unchecked="HexCheckBox_Changed" />
+            <CheckBox x:Name="HexCheckBox" Content="{Binding [Check.HexMode], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkPrimaryBrush}" Checked="HexCheckBox_Changed" Unchecked="HexCheckBox_Changed" />
             <TextBlock x:Name="HexInfo" Text="" Style="{StaticResource Label}" Margin="12,0,0,0"
                        VerticalAlignment="Center" />
         </StackPanel>
@@ -39,5 +62,6 @@
             <Button Content="{Binding [AddShortcut.Add], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource PrimaryButton}" Width="60"
                     Click="Add_Click" />
         </StackPanel>
+        </Grid>
     </Grid>
 </Window>

@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -29,6 +30,7 @@ public partial class ReplayWindow : Window
         _onEntry = onEntry;
         _isJsonl = string.Equals(Path.GetExtension(filePath), ".jsonl", StringComparison.OrdinalIgnoreCase);
         InitializeComponent();
+        WindowHelper.SetupTitleBar(this, TitleBar);
     }
 
     private void PlayPause_Click(object sender, RoutedEventArgs e)
@@ -192,4 +194,6 @@ public partial class ReplayWindow : Window
     {
         CancelReplay();
     }
+
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

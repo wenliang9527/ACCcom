@@ -6,10 +6,32 @@
         Height="260" Width="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}"
         Style="{StaticResource WindowStyle}">
 
-    <Grid Margin="16">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="28" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar (Close only for dialogs) -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [CreateSlave.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -40,8 +62,9 @@
         <TextBox x:Name="RegsBox" Grid.Row="3" Grid.Column="1" Text="256" Margin="0,0,0,8" />
 
         <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}" Width="80" Margin="0,0,8,0" Click="OnCancel" />
+            <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}" Width="80" Margin="0,0,8,0" Click="OnCancel" Style="{StaticResource OutlineButton}" />
             <Button Content="{Binding [CreateSlave.ButtonCreate], Source={x:Static local:LanguageManager.Instance}}" Width="80" Click="OnCreate" Style="{StaticResource PrimaryButton}" />
         </StackPanel>
+        </Grid>
     </Grid>
 </Window>

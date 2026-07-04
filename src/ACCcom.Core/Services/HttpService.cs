@@ -21,22 +21,21 @@ public class HttpService : IDisposable
     public DataBufferService Buffer { get; }
     public event Action<LogEntry>? OnDataEntry;
 
-    public HttpService(ISerialService? serialService = null, ParserManager? parserManager = null, ModbusSlaveService? slaveService = null,
-        MultiPortService? multiPort = null, ModbusService? modbus = null, ModbusConnectionManager? modbusConnections = null,
-        AutoBaudDetector? autoBaud = null, SessionRecorder? recorder = null, DataStatistics? stats = null,
-        string url = DefaultUrl, int bufferCapacity = 10000)
+    public HttpService(HttpServiceOptions options)
     {
-        Buffer = new DataBufferService(bufferCapacity);
-        _serialService = serialService;
-        _parserManager = parserManager;
-        _slaveService = slaveService;
-        _multiPort = multiPort;
-        _modbus = modbus;
-        _modbusConnections = modbusConnections;
-        _autoBaud = autoBaud;
-        _recorder = recorder;
-        _stats = stats;
-        _server = new WebServer(o => o.WithUrlPrefix(url).WithMode(HttpListenerMode.EmbedIO))
+        ArgumentNullException.ThrowIfNull(options);
+
+        Buffer = new DataBufferService(options.BufferCapacity);
+        _serialService = options.SerialService;
+        _parserManager = options.ParserManager;
+        _slaveService = options.SlaveService;
+        _multiPort = options.MultiPortService;
+        _modbus = options.ModbusService;
+        _modbusConnections = options.ModbusConnections;
+        _autoBaud = options.AutoBaudDetector;
+        _recorder = options.SessionRecorder;
+        _stats = options.DataStatistics;
+        _server = new WebServer(o => o.WithUrlPrefix(options.Url).WithMode(HttpListenerMode.EmbedIO))
             .WithWebApi("/api", m => m.WithController(() => new SerialController(this)))
             .WithModule(new SerialWebSocketHandler("/ws", this));
         var asmDir = Path.GetDirectoryName(typeof(HttpService).Assembly.Location)!;

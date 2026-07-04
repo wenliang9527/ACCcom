@@ -54,7 +54,11 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                                </Border.RenderTransform>
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -63,6 +67,30 @@
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35" />
@@ -88,7 +116,11 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                                </Border.RenderTransform>
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -112,6 +144,30 @@
                                 </MultiDataTrigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -134,8 +190,12 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="5"
-                                    Padding="{TemplateBinding Padding}">
+                                    CornerRadius="6"
+                                    Padding="{TemplateBinding Padding}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                                </Border.RenderTransform>
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -146,6 +206,30 @@
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35" />
@@ -169,13 +253,43 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="3" Padding="{TemplateBinding Padding}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                                </Border.RenderTransform>
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -201,7 +315,11 @@
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="13"
-                                    Padding="{TemplateBinding Padding}">
+                                    Padding="{TemplateBinding Padding}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                                </Border.RenderTransform>
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -211,6 +329,30 @@
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -237,7 +379,7 @@
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="5">
+                                        CornerRadius="6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -277,7 +419,7 @@
                                     <Border Background="{DynamicResource BgSurfaceBrush}"
                                             BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="6"
+                                            CornerRadius="8"
                                             MaxHeight="220"
                                             Effect="{DynamicResource CardShadow}">
                                         <ScrollViewer>
@@ -348,7 +490,11 @@
                                         BorderBrush="{DynamicResource BorderLightBrush}"
                                         BorderThickness="1.5"
                                         CornerRadius="3"
-                                        VerticalAlignment="Center">
+                                        VerticalAlignment="Center"
+                                        RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="1" ScaleY="1" />
+                                    </Border.RenderTransform>
                                     <Path x:Name="CheckMark"
                                           Data="M3,7 L5.5,10 L11,3"
                                           Stroke="{DynamicResource AccentBrush}"
@@ -365,6 +511,18 @@
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
                                     <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="CheckBoxBorder"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.12" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="CheckBoxBorder"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.1" BeginTime="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
@@ -392,7 +550,7 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="5">
+                                    CornerRadius="6">
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -563,6 +721,78 @@
             </Style>
 
             <!-- ============================================== -->
+            <!-- TabControl                                     -->
+            <!-- ============================================== -->
+            <Style TargetType="TabControl">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
+            <Style TargetType="TabItem">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Margin" Value="0,0,2,0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Grid>
+                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}" CornerRadius="4,4,0,0"
+                                        Margin="{TemplateBinding Margin}">
+                                    <ContentPresenter x:Name="Content" ContentSource="Header"
+                                                      VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Border>
+                                <Border x:Name="Underline"
+                                        Height="2"
+                                        Background="{DynamicResource AccentBrush}"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Bottom"
+                                        CornerRadius="1"
+                                        ClipToBounds="True">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="0" ScaleY="1" />
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Underline"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.2">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Underline"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.0" Duration="0:0:0.15" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
             <!-- Window                                         -->
             <!-- ============================================== -->
             <Style TargetType="Window">
@@ -577,6 +807,52 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+            </Style>
+
+            <!-- ============================================== -->
+            <!-- Title Bar Button Styles (chromeless windows)   -->
+            <!-- ============================================== -->
+            <Style x:Key="TitleBarButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+                <Setter Property="FontSize" Value="10" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    CornerRadius="0" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="TitleBarCloseButton" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    CornerRadius="0" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#E81123" />
+                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

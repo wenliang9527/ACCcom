@@ -4,13 +4,37 @@
         xmlns:local="clr-namespace:ACCcom"
         Title="{Binding [CompareWindow.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}">
-    <Grid Margin="10">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="32" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [CompareWindow.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="最小化" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="最大化" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
         <!-- File selection -->
         <Border Grid.Row="0" Padding="10" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6">
@@ -88,5 +112,6 @@
                            IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
             </StackPanel>
         </Border>
+        </Grid>
     </Grid>
 </Window>

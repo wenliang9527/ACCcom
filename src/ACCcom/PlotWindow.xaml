@@ -5,9 +5,33 @@
         Title="{Binding [Plot.Title], Source={x:Static local:LanguageManager.Instance}}" Height="450" Width="700"
         MinHeight="300" MinWidth="500"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}">
 
-    <Grid Margin="8">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [Plot.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="最小化" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="最大化" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="关闭" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -19,21 +43,18 @@
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding [Plot.CurrentValue], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBox x:Name="LatestValueText" Text="--"
+                    <TextBlock x:Name="LatestValueText" Text="--"
                               FontFamily="Consolas" FontSize="14" FontWeight="Bold"
-                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
-                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
-                    <TextBox x:Name="PointCountText" Text="{Binding [Plot.ZeroPoints], Source={x:Static local:LanguageManager.Instance}}"
+                              Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="PointCountText" Text="{Binding [Plot.ZeroPoints], Source={x:Static local:LanguageManager.Instance}}"
                               FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
-                              VerticalAlignment="Center" Margin="12,0,0,0"
-                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                              VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock Text="{Binding [Plot.YRange], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="YRangeText" Text="--"
+                    <TextBlock x:Name="YRangeText" Text="--"
                               FontFamily="Consolas" FontSize="11"
-                              Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center"
-                              IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                              Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                     <Button Content="{Binding [Plot.Clear], Source={x:Static local:LanguageManager.Instance}}" Click="Clear_Click" Margin="12,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
@@ -54,10 +75,10 @@
         <!-- Status bar -->
         <Border Grid.Row="2" Padding="8,3" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6" Margin="0,4,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBox x:Name="StatusText" Text="{Binding [Plot.Waiting], Source={x:Static local:LanguageManager.Instance}}"
-                           FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
-                           IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
+                <TextBlock x:Name="StatusText" Text="{Binding [Plot.Waiting], Source={x:Static local:LanguageManager.Instance}}"
+                           FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}" />
             </StackPanel>
         </Border>
+        </Grid>
     </Grid>
 </Window>

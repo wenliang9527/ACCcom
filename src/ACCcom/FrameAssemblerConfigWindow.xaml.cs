@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using ACCcom.Core.Services;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -12,6 +13,7 @@ public partial class FrameAssemblerConfigWindow : Window
     {
         InitializeComponent();
         _config = config;
+        WindowHelper.SetupTitleBar(this, TitleBar);
 
         EnabledCheckBox.IsChecked = config.Enabled;
         HeaderBox.Text = config.Header;
@@ -55,4 +57,6 @@ public partial class FrameAssemblerConfigWindow : Window
         DialogResult = false;
         Close();
     }
+
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

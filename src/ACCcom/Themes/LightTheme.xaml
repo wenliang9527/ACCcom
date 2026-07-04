@@ -15,28 +15,44 @@
 
     <!-- Neutral base (clean white) -->
     <Color x:Key="BgBase">#FFFFFF</Color>
-    <Color x:Key="BgSurface">#F8F9FB</Color>
+    <Color x:Key="BgSurface">#F9FAFB</Color>
     <Color x:Key="BgElevated">#FFFFFF</Color>
-    <Color x:Key="BgHover">#F0F3F8</Color>
-    <Color x:Key="BgActive">#E6EBF2</Color>
-    <Color x:Key="BorderColor">#E2E5EA</Color>
-    <Color x:Key="BorderLight">#CDD2DA</Color>
+    <Color x:Key="BgHover">#F3F4F6</Color>
+    <Color x:Key="BgActive">#E5E7EB</Color>
+    <Color x:Key="BorderColor">#E5E7EB</Color>
+    <Color x:Key="BorderLight">#D1D5DB</Color>
 
     <!-- Text hierarchy (cool dark) -->
     <Color x:Key="InkPrimary">#1A1D24</Color>
     <Color x:Key="InkSecondary">#5A6070</Color>
-    <Color x:Key="InkTertiary">#8B92A0</Color>
+    <Color x:Key="InkTertiary">#9CA3AF</Color>
 
-    <!-- Accent: tech blue -->
-    <Color x:Key="Accent">#3478F6</Color>
-    <Color x:Key="AccentHover">#5A92FF</Color>
-    <Color x:Key="AccentPressed">#2563DB</Color>
+    <!-- Accent: violet -->
+    <Color x:Key="Accent">#8B5CF6</Color>
+    <Color x:Key="AccentHover">#A78BFA</Color>
+    <Color x:Key="AccentPressed">#7C3AED</Color>
 
     <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#3478F6</Color>
-    <Color x:Key="StatusGray">#8B92A0</Color>
+    <Color x:Key="StatusBlue">#8B5CF6</Color>
+    <Color x:Key="StatusGray">#9CA3AF</Color>
     <Color x:Key="StatusGreen">#22C55E</Color>
-    <Color x:Key="RedError">#EF4444</Color>
+    <Color x:Key="StatusWarning">#EAB308</Color>
+    <Color x:Key="StatusError">#EF4444</Color>
+
+    <!-- Status background tints -->
+    <Color x:Key="StatusWarningBg">#15EAB308</Color>
+    <Color x:Key="StatusErrorBg">#10DC2626</Color>
+
+    <!-- Connection badge -->
+    <Color x:Key="ConnBadgeBg">#0D22C55E</Color>
+    <Color x:Key="ConnBadgeBorder">#3322C55E</Color>
+
+    <!-- Diff badge backgrounds -->
+    <Color x:Key="DiffMatchBg">#1A22C55E</Color>
+    <Color x:Key="DiffDiffBg">#15EF4444</Color>
+
+    <!-- Search highlight -->
+    <Color x:Key="SearchHighlight">#50FFF3B0</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}" />
@@ -55,14 +71,19 @@
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
-    <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource RedError}" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
+    <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
+    <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />
 
-    <SolidColorBrush x:Key="DividerBrush" Color="#EAECF0" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#E5E7EB" />
 
     <!-- ScrollBar theme-local overrides -->
     <SolidColorBrush x:Key="ScrollTrackBrush" Color="#06000000" />
-    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#C8CDD5" />
-    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#A8B0BC" />
-    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#8B92A0" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#D1D5DB" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#B0B8C4" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#9CA3AF" />
 
 </ResourceDictionary>

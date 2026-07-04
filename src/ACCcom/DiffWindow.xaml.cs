@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -15,6 +16,7 @@ public partial class DiffWindow : Window
     public DiffWindow()
     {
         InitializeComponent();
+        WindowHelper.SetupTitleBar(this, TitleBar);
     }
 
     /// <summary>
@@ -148,4 +150,8 @@ public partial class DiffWindow : Window
 
         SummaryText.Text = string.Format(LanguageManager.Instance["DiffWindow.DiffResult"], diffCount, maxLen, bytesA.Length, bytesB.Length);
     }
+
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
+    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }
