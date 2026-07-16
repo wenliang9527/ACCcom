@@ -12,9 +12,10 @@ public class DataBufferService : IDisposable
     private int _head;
     private int _count;
     private readonly int _capacity;
-    private readonly ReaderWriterLockSlim _rwLock = new();
+    private readonly object _lock = new();
     private readonly List<DataBufferWaiter> _waiters = new();
     private readonly object _waiterLock = new();
+    private readonly MetricsCollector _metrics = MetricsCollector.Instance;
 
     public DataBufferService(int capacity = 10000)
     {
@@ -30,30 +31,33 @@ public class DataBufferService : IDisposable
 
     private void RingAdd(LogEntry entry)
     {
+        if (_count >= _capacity)
+            _metrics.RecordBufferOverrun();
+
         _ringBuffer[_head] = entry;
         _head = (_head + 1) % _capacity;
         if (_count < _capacity) _count++;
+
+        _metrics.SetBufferUsage((double)_count / _capacity);
     }
 
     private List<LogEntry> RingSnapshot()
     {
+        if (_count == 0) return new List<LogEntry>();
         var list = new List<LogEntry>(_count);
-        if (_count == 0) return list;
         var start = (_head - _count + _capacity) % _capacity;
         for (int i = 0; i < _count; i++)
         {
             var idx = (start + i) % _capacity;
-            if (_ringBuffer[idx] is { } entry)
-                list.Add(entry);
+            var entry = _ringBuffer[idx];
+            if (entry != null) list.Add(entry);
         }
         return list;
     }
 
     public void AddEntry(LogEntry entry)
     {
-        _rwLock.EnterWriteLock();
-        try { RingAdd(entry); }
-        finally { _rwLock.ExitWriteLock(); }
+        lock (_lock) { RingAdd(entry); }
 
         _writer.TryWrite(entry);
 
@@ -75,8 +79,7 @@ public class DataBufferService : IDisposable
 
     public List<LogEntry> GetEntriesSince(int id)
     {
-        _rwLock.EnterReadLock();
-        try
+        lock (_lock)
         {
             if (_count == 0) return new List<LogEntry>();
             var result = new List<LogEntry>(_count);
@@ -90,25 +93,22 @@ public class DataBufferService : IDisposable
             }
             return result;
         }
-        finally { _rwLock.ExitReadLock(); }
     }
 
     public void Clear()
     {
-        _rwLock.EnterWriteLock();
-        try
+        lock (_lock)
         {
             Array.Clear(_ringBuffer);
             _count = 0;
             _head = 0;
         }
-        finally { _rwLock.ExitWriteLock(); }
+        _metrics.SetBufferUsage(0);
     }
 
     public void Clear(string? direction)
     {
-        _rwLock.EnterWriteLock();
-        try
+        lock (_lock)
         {
             if (string.IsNullOrEmpty(direction) ||
                 direction.Equals("all", StringComparison.OrdinalIgnoreCase))
@@ -116,6 +116,7 @@ public class DataBufferService : IDisposable
                 Array.Clear(_ringBuffer);
                 _head = 0;
                 _count = 0;
+                _metrics.SetBufferUsage(0);
                 return;
             }
 
@@ -123,23 +124,24 @@ public class DataBufferService : IDisposable
             var clearTx = direction.Equals("tx", StringComparison.OrdinalIgnoreCase);
 
             var snapshot = RingSnapshot();
-            var keep = snapshot.Where(e =>
-                (!clearRx && e.Direction == "RX") ||
-                (!clearTx && e.Direction == "TX")).ToList();
+            var keep = new List<LogEntry>(snapshot.Count);
+            foreach (var e in snapshot)
+            {
+                if ((!clearRx && e.Direction == "RX") ||
+                    (!clearTx && e.Direction == "TX"))
+                    keep.Add(e);
+            }
 
             Array.Clear(_ringBuffer);
             _head = 0;
             _count = 0;
             foreach (var e in keep) RingAdd(e);
         }
-        finally { _rwLock.ExitWriteLock(); }
     }
 
     public int Count()
     {
-        _rwLock.EnterReadLock();
-        try { return _count; }
-        finally { _rwLock.ExitReadLock(); }
+        lock (_lock) { return _count; }
     }
 
     public void CancelWaiters()
@@ -152,8 +154,7 @@ public class DataBufferService : IDisposable
 
     public int CountWhere(Func<LogEntry, bool> predicate)
     {
-        _rwLock.EnterReadLock();
-        try
+        lock (_lock)
         {
             int c = 0;
             var start = (_head - _count + _capacity) % _capacity;
@@ -165,7 +166,6 @@ public class DataBufferService : IDisposable
             }
             return c;
         }
-        finally { _rwLock.ExitReadLock(); }
     }
 
 
@@ -191,8 +191,7 @@ public class DataBufferService : IDisposable
             Tcs = new TaskCompletionSource<LogEntry?>(TaskCreationOptions.RunContinuationsAsynchronously)
         };
 
-        _rwLock.EnterReadLock();
-        try
+        lock (_lock)
         {
             if (_count > 0)
             {
@@ -209,7 +208,6 @@ public class DataBufferService : IDisposable
                 }
             }
         }
-        finally { _rwLock.ExitReadLock(); }
 
         lock (_waiterLock) { _waiters.Add(waiter); }
 
@@ -241,7 +239,6 @@ public class DataBufferService : IDisposable
     {
         _writer.TryComplete();
         CancelWaiters();
-        _rwLock.Dispose();
     }
 }
 

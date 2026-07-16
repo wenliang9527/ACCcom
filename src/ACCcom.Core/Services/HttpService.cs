@@ -44,7 +44,22 @@ public class HttpService : IDisposable
             _server = _server.WithStaticFolder("/dashboard", wwwroot, true);
     }
 
-    public void Start() => _server.Start();
+    public void Start()
+    {
+        try
+        {
+            _server.Start();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            throw new InvalidOperationException("[HttpService] Start failed: server has been disposed", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"[HttpService] Start failed: {ex.Message}", ex);
+        }
+    }
+
     public void Stop() => _server.Dispose();
 
     public void AddEntry(LogEntry entry)

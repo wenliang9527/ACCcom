@@ -6,18 +6,22 @@ namespace ACCcom.Core.Services;
 public class FileExportService
 {
     private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
+    private const int MaxRetries = 1;
+    private const int RetryDelayMs = 500;
 
     /// <summary>
     /// Exports entries to a plain text file at the given path.
     /// </summary>
     public void ExportToText(IEnumerable<LogEntry> entries, string filePath)
     {
-        using var sw = new StreamWriter(filePath);
-        foreach (var e in entries)
-        {
-            var ts = e.Timestamp.ToString("HH:mm:ss.fff");
-            sw.WriteLine($"[{ts}][{e.Direction}] {e.RawHex} | {e.Text}");
-        }
+        var text = string.Join(Environment.NewLine,
+            entries.Select(e =>
+            {
+                var ts = e.Timestamp.ToString("HH:mm:ss.fff");
+                return $"[{ts}][{e.Direction}] {e.RawHex} | {e.Text}";
+            }));
+
+        WriteWithRetry(filePath, text);
     }
 
     /// <summary>
@@ -42,7 +46,7 @@ public class FileExportService
             })
         });
         var json = JsonSerializer.Serialize(data, IndentedOptions);
-        File.WriteAllText(filePath, json);
+        WriteWithRetry(filePath, json);
     }
 
     /// <summary>
@@ -51,22 +55,46 @@ public class FileExportService
     /// </summary>
     public static void ExportToCsv(IEnumerable<LogEntry> entries, string filePath)
     {
-        using var sw = new StreamWriter(filePath);
-        sw.WriteLine("Timestamp,Direction,RawHex,Text,ParsedFields");
+        var lines = new List<string> { "Timestamp,Direction,RawHex,Text,ParsedFields" };
         foreach (var e in entries)
         {
             var ts = e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var fields = e.Fields is { Count: > 0 }
                 ? string.Join(";", e.Fields.Select(f => $"{f.Name}={f.DisplayValue}"))
                 : "";
-            sw.WriteLine($"\"{ts}\",\"{e.Direction}\",\"{Escape(e.RawHex)}\",\"{Escape(e.Text)}\",\"{Escape(fields)}\"");
+            lines.Add($"\"{ts}\",\"{e.Direction}\",\"{Escape(e.RawHex)}\",\"{Escape(e.Text)}\",\"{Escape(fields)}\"");
         }
+        WriteWithRetry(filePath, string.Join(Environment.NewLine, lines));
     }
 
     private static string Escape(string? value)
     {
         if (string.IsNullOrEmpty(value)) return "";
         return value.Replace("\"", "\"\"");
+    }
+
+    private static void WriteWithRetry(string filePath, string content)
+    {
+        Exception? lastException = null;
+
+        for (int attempt = 0; attempt <= MaxRetries; attempt++)
+        {
+            if (attempt > 0)
+                Thread.Sleep(RetryDelayMs);
+
+            try
+            {
+                using var sw = new StreamWriter(filePath);
+                sw.Write(content);
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+        }
+
+        throw new IOException($"[FileExportService] Write failed after {MaxRetries + 1} attempts: {lastException?.Message}", lastException);
     }
 
     /// <summary>

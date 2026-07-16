@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Threading;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,11 +14,14 @@ public class ParserEngine : IDisposable
         .WithImports("System", "System.Collections.Generic", "System.Linq", "ACCcom.Core.Models")
         .WithReferences(typeof(FieldAnnotation).Assembly);
 
+    private const int DefaultExecutionTimeoutMs = 5000;
+
     private readonly MemoryCache _cache;
     private readonly ReaderWriterLockSlim _rwLock = new();
     private readonly int _maxCacheSize;
     private string? _lastError;
     private string? _activeCode;
+    private readonly MetricsCollector _metrics = MetricsCollector.Instance;
 
     public event Action<string>? OnError;
 
@@ -74,7 +79,7 @@ public class ParserEngine : IDisposable
         }
     }
 
-    public async Task<List<FieldAnnotation>?> ExecuteAsync(byte[] data, DateTime timestamp)
+    public async Task<List<FieldAnnotation>?> ExecuteAsync(byte[] data, DateTime timestamp, int timeoutMs = DefaultExecutionTimeoutMs)
     {
         Script<List<FieldAnnotation>>? script;
 
@@ -96,16 +101,45 @@ public class ParserEngine : IDisposable
             _rwLock.ExitReadLock();
         }
 
+        using var cts = new CancellationTokenSource(timeoutMs);
+        var sw = Stopwatch.StartNew();
         try
         {
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
-            var result = await script.RunAsync(globals).ConfigureAwait(false);
+            var task = script.RunAsync(globals, cts.Token);
+            var completed = await Task.WhenAny(task, Task.Delay(timeoutMs)).ConfigureAwait(false);
+
+            if (completed != task)
+            {
+                _lastError = $"Script execution timed out after {timeoutMs}ms";
+                OnError?.Invoke($"[ParserEngine] Execution timed out after {timeoutMs}ms");
+                _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
+                return null;
+            }
+
+            var result = await task.ConfigureAwait(false);
+            _metrics.RecordParseCompleted(true, sw.Elapsed.TotalMilliseconds);
             return result.ReturnValue;
+        }
+        catch (OperationCanceledException)
+        {
+            _lastError = $"Script execution cancelled after {timeoutMs}ms";
+            OnError?.Invoke($"[ParserEngine] Execution cancelled after {timeoutMs}ms");
+            _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
+            return null;
+        }
+        catch (CompilationErrorException ex)
+        {
+            _lastError = $"Compilation error: {ex.Message}";
+            OnError?.Invoke($"[ParserEngine] Compilation error: {ex.Message}");
+            _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
+            return null;
         }
         catch (Exception ex)
         {
-            _lastError = ex.Message;
-            OnError?.Invoke(ex.Message);
+            _lastError = $"Execution failed: {ex.Message}";
+            OnError?.Invoke($"[ParserEngine] Execution failed: {ex.Message}");
+            _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
             return null;
         }
     }

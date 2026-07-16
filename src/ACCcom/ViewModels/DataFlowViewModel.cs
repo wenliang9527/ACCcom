@@ -302,7 +302,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(entry.RawHex))
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
-            _ = ProcessAssembledFrameAsync(entry, byteCount);
+            _ = Task.Run(async () =>
+            {
+                try { await ProcessAssembledFrameAsync(entry, byteCount).ConfigureAwait(false); }
+                catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message)); }
+            });
         }
         catch (Exception ex)
         {
@@ -552,6 +556,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _setStatus(LanguageManager.Instance["Status.DiffWindowOpened"]);
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> _regexCache = new();
+
     private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection)
     {
         if (!showDirection) return false;
@@ -567,8 +573,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             try
             {
-                matches = System.Text.RegularExpressions.Regex.IsMatch(text, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase)
-                    || System.Text.RegularExpressions.Regex.IsMatch(hex, filter, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var regex = _regexCache.GetOrAdd(filter,
+                    static f => new System.Text.RegularExpressions.Regex(f,
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled));
+                matches = regex.IsMatch(text) || regex.IsMatch(hex);
             }
             catch (Exception regexEx) { Debug.WriteLine($"Regex filter error: {regexEx.Message}"); matches = false; }
         }

@@ -1,0 +1,29 @@
+<UserControl x:Class="ACCcom.Controls.ToolBarPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ACCcom">
+
+    <WrapPanel VerticalAlignment="Center">
+        <Button Content="{Binding [Button.Diff], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding CompareFramesCommand}"
+                Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
+                ToolTip="{Binding [Tip.HexDiffCompare], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.Plot], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenPlotCommand}"
+                Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
+                ToolTip="{Binding [Tip.OpenRealtimePlot], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.Stats], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenStatsCommand}"
+                Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
+                ToolTip="{Binding [Tip.OpenDataStats], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.Modbus], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenModbusCommand}"
+                Style="{StaticResource OutlineButton}" Margin="0,0,6,0"
+                ToolTip="{Binding [Tip.ModbusMaster], Source={x:Static local:LanguageManager.Instance}}" />
+
+        <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}" Margin="12,0,8,0"
+                  Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" />
+        <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}" Margin="0,0,8,0"
+                  Foreground="{DynamicResource InkSecondaryBrush}" FontSize="11" />
+
+        <ToggleButton x:Name="AdvancedToggle" Style="{StaticResource ToolToggle}" ToolTip="{Binding [Tip.AdvancedParams], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#x2699;" />
+        </ToggleButton>
+    </WrapPanel>
+</UserControl>

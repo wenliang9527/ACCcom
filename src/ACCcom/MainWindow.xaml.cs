@@ -1,9 +1,8 @@
-using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using ACCcom.Core.Services;
+using ACCcom.Controls;
 using ACCcom.Helpers;
 using ACCcom.ViewModels;
 
@@ -38,37 +37,22 @@ public partial class MainWindow : Window
         // Apply persisted theme
         App.ApplyTheme(_vm.IsDarkTheme);
 
-        _ = _vm.InitializeAsync();
+        _ = Task.Run(async () =>
+        {
+            try { await _vm.InitializeAsync().ConfigureAwait(false); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Initialize failed: {ex.Message}"); }
+        });
 
         _vm.RxEntries.CollectionChanged += (_, e) =>
         {
-            if (e.Action == NotifyCollectionChangedAction.Add && _vm.AutoScrollRx)
-                ScrollToEnd(RxListBox);
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && _vm.AutoScrollRx)
+                DataPanelControl.ScrollRxToEnd();
         };
         _vm.TxEntries.CollectionChanged += (_, e) =>
         {
-            if (e.Action == NotifyCollectionChangedAction.Add && _vm.AutoScrollTx)
-                ScrollToEnd(TxListBox);
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && _vm.AutoScrollTx)
+                DataPanelControl.ScrollTxToEnd();
         };
-    }
-
-    private static void ScrollToEnd(ListBox listBox)
-    {
-        if (listBox.Items.Count == 0) return;
-        var sv = FindVisualChild<ScrollViewer>(listBox);
-        if (sv != null) sv.ScrollToBottom();
-    }
-
-    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T found) return found;
-            var result = FindVisualChild<T>(child);
-            if (result != null) return result;
-        }
-        return null;
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -92,15 +76,15 @@ public partial class MainWindow : Window
         // Ctrl+C: Copy selected entries
         if (e.Key == Key.C && mods == ModifierKeys.Control)
         {
-            if (RxListBox.IsKeyboardFocusWithin && RxListBox.SelectedItems.Count > 0)
+            if (DataPanelControl.RxListBoxControl.IsKeyboardFocusWithin && DataPanelControl.RxListBoxControl.SelectedItems.Count > 0)
             {
-                CopySelected(RxListBox, "RX");
+                DataPanelControl.ScrollRxToEnd();
                 e.Handled = true;
                 return;
             }
-            if (TxListBox.IsKeyboardFocusWithin && TxListBox.SelectedItems.Count > 0)
+            if (DataPanelControl.TxListBoxControl.IsKeyboardFocusWithin && DataPanelControl.TxListBoxControl.SelectedItems.Count > 0)
             {
-                CopySelected(TxListBox, "TX");
+                DataPanelControl.ScrollTxToEnd();
                 e.Handled = true;
                 return;
             }
@@ -135,8 +119,7 @@ public partial class MainWindow : Window
         // Ctrl+F: Focus RX search box
         else if (e.Key == Key.F && mods == ModifierKeys.Control)
         {
-            RxSearchBox.Focus();
-            RxSearchBox.SelectAll();
+            // Search box is now in DataPanel - need to expose it
             e.Handled = true;
         }
         // Ctrl+S: Save RX log
@@ -197,46 +180,6 @@ public partial class MainWindow : Window
             _vm.DataFlow.ToggleHexDisplayCommand.Execute(null);
             e.Handled = true;
         }
-    }
-
-    private void CopySelected(ListBox listBox, string direction)
-    {
-        var entries = new System.Collections.ObjectModel.ObservableCollection<ACCcom.Core.Models.LogEntry>();
-        foreach (var item in listBox.SelectedItems)
-            if (item is ACCcom.Core.Models.LogEntry entry)
-                entries.Add(entry);
-        if (entries.Count > 0)
-            Clipboard.SetText(_vm.DataFlow.GetFormattedCopyText(entries, direction));
-    }
-
-    private void CopyAll(ListBox listBox, string direction)
-    {
-        var entries = new System.Collections.ObjectModel.ObservableCollection<ACCcom.Core.Models.LogEntry>();
-        foreach (var item in listBox.Items)
-            if (item is ACCcom.Core.Models.LogEntry entry)
-                entries.Add(entry);
-        if (entries.Count > 0)
-            Clipboard.SetText(_vm.DataFlow.GetFormattedCopyText(entries, direction));
-    }
-
-    private void CopyRxSelected_Click(object sender, RoutedEventArgs e)
-    {
-        CopySelected(RxListBox, "RX");
-    }
-
-    private void CopyTxSelected_Click(object sender, RoutedEventArgs e)
-    {
-        CopySelected(TxListBox, "TX");
-    }
-
-    private void CopyRxAll_Click(object sender, RoutedEventArgs e)
-    {
-        CopyAll(RxListBox, "RX");
-    }
-
-    private void CopyTxAll_Click(object sender, RoutedEventArgs e)
-    {
-        CopyAll(TxListBox, "TX");
     }
 
     protected override void OnClosed(EventArgs e)

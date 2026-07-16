@@ -93,7 +93,11 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         _setStatus = setStatus;
 
         OpenCloseCommand = new RelayCommand(_ => ToggleOpenClose());
-        ConnectNetworkCommand = new RelayCommand(_ => _ = ToggleNetworkConnectionAsync());
+        ConnectNetworkCommand = new RelayCommand(_ => _ = Task.Run(async () =>
+        {
+            try { await ToggleNetworkConnectionAsync().ConfigureAwait(false); }
+            catch (Exception ex) { _setStatus($"Network error: {ex.Message}"); }
+        }));
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
 
         _durationChangedHandler = duration =>

@@ -1,13 +1,20 @@
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Caching.Memory;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
 /// <summary>
-/// 模式匹配工具类，提供统一的匹配逻辑
+/// 模式匹配工具类，提供统一的匹配逻辑，支持正则表达式缓存
 /// </summary>
 public static class PatternMatcher
 {
+    private static readonly MemoryCache _regexCache = new(new MemoryCacheOptions
+    {
+        SizeLimit = 100,
+        CompactionPercentage = 0.25
+    });
+
     /// <summary>
     /// 检查日志条目是否匹配指定模式
     /// </summary>
@@ -38,17 +45,64 @@ public static class PatternMatcher
     }
 
     /// <summary>
-    /// 尝试正则表达式匹配
+    /// 尝试正则表达式匹配，使用缓存提升性能
     /// </summary>
     public static bool TryRegexMatch(string input, string pattern)
     {
+        var regex = GetOrCompileRegex(pattern);
+        if (regex == null)
+            return false;
+
         try
         {
-            return Regex.IsMatch(input, pattern, RegexOptions.IgnoreCase);
+            return regex.IsMatch(input);
         }
-        catch (RegexParseException)
+        catch (RegexMatchTimeoutException)
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 获取或编译正则表达式（带缓存）
+    /// </summary>
+    private static Regex? GetOrCompileRegex(string pattern)
+    {
+        var cacheKey = "regex_" + pattern;
+
+        if (_regexCache.TryGetValue(cacheKey, out Regex? cached))
+            return cached;
+
+        Regex? regex;
+        try
+        {
+            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }
+        catch (ArgumentException)
+        {
+            // 缓存负结果，避免对无效模式的重复编译尝试
+            var failOptions = new MemoryCacheEntryOptions()
+                .SetSize(1)
+                .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+                .SetPriority(CacheItemPriority.Low);
+            _regexCache.Set(cacheKey, (Regex?)null, failOptions);
+            return null;
+        }
+
+        var options = new MemoryCacheEntryOptions()
+            .SetSize(1)
+            .SetSlidingExpiration(TimeSpan.FromMinutes(30))
+            .SetPriority(CacheItemPriority.Normal);
+
+        _regexCache.Set(cacheKey, regex, options);
+        return regex;
+    }
+
+    /// <summary>
+    /// 清除正则表达式缓存
+    /// </summary>
+    public static void ClearCache()
+    {
+        _regexCache.Compact(1.0);
     }
 }

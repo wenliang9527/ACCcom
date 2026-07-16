@@ -40,6 +40,14 @@ public class SerialController : WebApiController
     [Route(HttpVerbs.Get, "/health")]
     public object Health() => ApiResponse.Ok(new { status = "ok", time = DateTime.Now });
 
+    // GET /api/metrics
+    [Route(HttpVerbs.Get, "/metrics")]
+    public object GetMetrics()
+    {
+        HttpContext.Response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
+        return MetricsCollector.Instance.ToPrometheusFormat();
+    }
+
     // GET /api/ports
     [Route(HttpVerbs.Get, "/ports")]
     public object GetPorts()

@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.IO.Ports;
 using ACCcom.Core.Models;
 
@@ -14,6 +15,7 @@ public class SerialService : ISerialService, IDisposable
     private CancellationTokenSource? _reconnectCts;
     private SerialConfig? _lastConfig;
     private bool _disposed;
+    private readonly MetricsCollector _metrics = MetricsCollector.Instance;
 
     public bool IsOpen => _port?.IsOpen ?? false;
     public string? CurrentPort => _port?.PortName;
@@ -29,32 +31,50 @@ public class SerialService : ISerialService, IDisposable
     {
         if (_port?.IsOpen == true) return true;
 
-        _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
-        {
-            DtrEnable = config.DtrEnable,
-            RtsEnable = config.RtsEnable,
-            ReadTimeout = 1000,
-            WriteTimeout = 1000
-        };
+        const int maxRetries = 2;
+        const int retryDelayMs = 500;
 
-        _port.DataReceived += OnSerialDataReceived;
-        _port.ErrorReceived += OnSerialError;
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            if (attempt > 0)
+                Thread.Sleep(retryDelayMs);
 
-        try
-        {
-            _port.Open();
-            _lastConfig = config;
-            _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
-            _reconnectAttempt = 0;
-            return true;
+            _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
+            {
+                DtrEnable = config.DtrEnable,
+                RtsEnable = config.RtsEnable,
+                ReadTimeout = 1000,
+                WriteTimeout = 1000
+            };
+
+            _port.DataReceived += OnSerialDataReceived;
+            _port.ErrorReceived += OnSerialError;
+
+            try
+            {
+                _port.Open();
+                _lastConfig = config;
+                _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
+                _reconnectAttempt = 0;
+                _metrics.RecordPortOpened();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _port.DataReceived -= OnSerialDataReceived;
+                _port.ErrorReceived -= OnSerialError;
+                _port?.Dispose();
+                _port = null;
+
+                if (attempt == maxRetries)
+                {
+                    OnError?.Invoke($"[SerialService] Open failed after {maxRetries + 1} attempts: {ex.Message}");
+                    return false;
+                }
+            }
         }
-        catch (Exception ex)
-        {
-            OnError?.Invoke($"Failed to open serial port: {ex.Message}");
-            _port?.Dispose();
-            _port = null;
-            return false;
-        }
+
+        return false;
     }
 
     public bool Close()
@@ -75,13 +95,14 @@ public class SerialService : ISerialService, IDisposable
                 _port.DataReceived -= OnSerialDataReceived;
                 _port.ErrorReceived -= OnSerialError;
                 _port.Close();
+                _metrics.RecordPortClosed();
             }
             _port.Dispose();
             _port = null;
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"Failed to close serial port: {ex.Message}");
+            OnError?.Invoke($"[SerialService] Close failed: {ex.Message}");
             _port?.Dispose();
             _port = null;
         }
@@ -91,41 +112,57 @@ public class SerialService : ISerialService, IDisposable
     {
         if (_port?.IsOpen != true)
         {
-            OnError?.Invoke("Serial port not open");
+            OnError?.Invoke("[SerialService] Send failed: serial port not open");
             return false;
         }
 
-        try
-        {
-            if (isHex)
-            {
-                var bytes = Convert.FromHexString(data.Replace(" ", ""));
-                _port.Write(bytes, 0, bytes.Length);
-            }
-            else
-            {
-                _port.Write(data);
-            }
+        const int maxRetries = 1;
+        const int retryDelayMs = 500;
+        Exception? lastException = null;
 
-            var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
-            var hexStr = isHex ? data.Replace(" ", "") :
-                HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
-            var entry = new LogEntry
-            {
-                Id = Interlocked.Increment(ref _txEntryId),
-                Timestamp = DateTime.Now,
-                Direction = "TX",
-                RawHex = hexStr,
-                Text = data
-            };
-            OnDataReceived?.Invoke(entry);
-            return true;
-        }
-        catch (Exception ex)
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            OnError?.Invoke($"Send failed: {ex.Message}");
-            return false;
+            if (attempt > 0)
+                Thread.Sleep(retryDelayMs);
+
+            try
+            {
+                long sentBytes;
+                if (isHex)
+                {
+                    var bytes = Convert.FromHexString(data.Replace(" ", ""));
+                    _port.Write(bytes, 0, bytes.Length);
+                    sentBytes = bytes.Length;
+                }
+                else
+                {
+                    _port.Write(data);
+                    sentBytes = System.Text.Encoding.UTF8.GetByteCount(data);
+                }
+                _metrics.RecordBytesSent(sentBytes);
+
+                var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
+                var hexStr = isHex ? data.Replace(" ", "") :
+                    HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
+                var entry = new LogEntry
+                {
+                    Id = Interlocked.Increment(ref _txEntryId),
+                    Timestamp = DateTime.Now,
+                    Direction = "TX",
+                    RawHex = hexStr,
+                    Text = data
+                };
+                OnDataReceived?.Invoke(entry);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
         }
+
+        OnError?.Invoke($"[SerialService] Send failed after {maxRetries + 1} attempts: {lastException?.Message}");
+        return false;
     }
 
     public bool SendHex(string hex)
@@ -146,6 +183,7 @@ public class SerialService : ISerialService, IDisposable
             try
             {
                 int bytesRead = _port.Read(buffer, 0, bytesToRead);
+                _metrics.RecordBytesReceived(bytesRead);
                 var hex = HexHelper.BytesToHexSpaced(buffer, 0, bytesRead);
                 var text = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
@@ -166,17 +204,22 @@ public class SerialService : ISerialService, IDisposable
         }
         catch (Exception ex)
         {
-            OnError?.Invoke($"Receive data error: {ex.Message}");
+            OnError?.Invoke($"[SerialService] Receive failed: {ex.Message}");
         }
     }
 
     private void OnSerialError(object sender, SerialErrorReceivedEventArgs e)
     {
-        OnError?.Invoke($"Serial port error: {e.EventType}");
+        _metrics.RecordError();
+        OnError?.Invoke($"[SerialService] Port error: {e.EventType}");
         if (_port?.IsOpen != true)
         {
             OnDisconnected?.Invoke();
-            _ = StartAutoReconnectAsync();
+            _ = Task.Run(async () =>
+            {
+                try { await StartAutoReconnectAsync().ConfigureAwait(false); }
+                catch (Exception ex) { OnError?.Invoke($"[SerialService] Auto reconnect failed: {ex.Message}"); }
+            });
         }
     }
 
@@ -252,7 +295,7 @@ public class SerialService : ISerialService, IDisposable
                     if (_reconnectSettings.MaxReconnectAttempts > 0
                         && _reconnectAttempt >= _reconnectSettings.MaxReconnectAttempts)
                     {
-                        OnError?.Invoke($"Auto reconnect failed after {_reconnectSettings.MaxReconnectAttempts} attempts");
+                        OnError?.Invoke($"[SerialService] Auto reconnect failed after {_reconnectSettings.MaxReconnectAttempts} attempts");
                     }
                 }
             }
@@ -260,7 +303,7 @@ public class SerialService : ISerialService, IDisposable
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            OnError?.Invoke($"Auto reconnect error: {ex.Message}");
+            OnError?.Invoke($"[SerialService] Auto reconnect error: {ex.Message}");
         }
     }
 
