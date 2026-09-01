@@ -79,6 +79,31 @@ public class ModbusToolsTests
     }
 
     [Fact]
+    public async Task GetSlaves_IncludesRegisterSnapshot()
+    {
+        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        try
+        {
+            var tools = new ModbusTools(ctx);
+            var create = await tools.SlaveCreate(1, "tcp", "15003", 1024, 1024, 256, 256);
+            using var doc = System.Text.Json.JsonDocument.Parse(create);
+            var id = doc.RootElement.GetProperty("data").GetProperty("id").GetString()!;
+
+            // 写一个寄存器,快照应能读到
+            var write = await tools.SlaveWrite(id!, "holding", 5, 0xABCD);
+            Assert.True(ToolContextFactory.ExtractSuccess(write));
+
+            var snapshot = await tools.GetSlaves();
+            Assert.True(ToolContextFactory.ExtractSuccess(snapshot), $"GetSlaves failed: {snapshot}");
+            Assert.Contains($"\"address\":5", snapshot);
+            Assert.Contains("0xABCD", snapshot);
+
+            await tools.SlaveRemove(id!);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
     public async Task ScanDevices_ReturnsError_WhenNoTransport()
     {
         var (ctx, sp) = ToolContextFactory.CreateDirect();

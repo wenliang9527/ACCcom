@@ -169,6 +169,37 @@ public class ModbusTools
         return _ctx.RawJson(new { success = true, data = new { count = slaves.Count, slaves } });
     }
 
+    [McpServerTool, Description("List active MODBUS slave devices together with a snapshot of their holding registers (first 32 addresses). Returns each slave's id, address, transport, and per-register value with hex representation.")]
+    public async Task<string> GetSlaves()
+    {
+        if (_ctx.UseProxy)
+            return await _ctx.Proxy!.GetAsync("/api/slaves").ConfigureAwait(false);
+        var svc = _ctx.SlaveService;
+        if (svc == null) return _ctx.RawJson(new { success = false, error = "SlaveService not available" });
+
+        var slaves = svc.GetActiveSlaves().ToList();
+        var registers = new Dictionary<string, List<object>>();
+        foreach (var s in slaves)
+        {
+            var device = svc.GetDevice(s.Id);
+            if (device == null) continue;
+            var list = new List<object>();
+            var count = Math.Min(device.HoldingRegisterCount, 32);
+            for (int i = 0; i < count; i++)
+            {
+                var v = device.GetHoldingRegister((ushort)i);
+                list.Add(new { address = i, value = (int)v, hex = $"0x{v:X4}" });
+            }
+            registers[s.Id] = list;
+        }
+
+        return _ctx.RawJson(new
+        {
+            success = true,
+            data = new { count = slaves.Count, slaves, registers }
+        });
+    }
+
     [McpServerTool, Description("Write a register value on a MODBUS slave device. Parameters: slaveId, type ('coil'/'holding'/'discrete'/'input'), address, value.")]
     public async Task<string> SlaveWrite(string slaveId, string type, ushort address, ushort value)
     {

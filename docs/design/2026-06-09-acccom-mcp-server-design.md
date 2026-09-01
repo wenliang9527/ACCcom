@@ -130,7 +130,7 @@ MCP 服务器默认以**直接模式**运行，无需 WPF 桌面端。桌面端�
 
 代理模式下所有 MCP 工具调用转发给 WPF 桌面端的 HTTP API（端口 8899），数据实时同步到 GUI。先单独启动 `launch_acccom_gui.ps1` 启动桌面端。
 
-> 代理模式支持全部 38 个 MCP 工具（含 `read_parser`、`write_parser`、`parse_raw`），与直连模式功能一致。
+> 代理模式支持全部 39 个 MCP 工具（含 `read_parser`、`write_parser`、`parse_raw`），与直连模式功能一致。
 
 #### 3.3 MCP 资源（Resources）
 

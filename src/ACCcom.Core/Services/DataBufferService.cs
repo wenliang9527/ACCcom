@@ -11,6 +11,8 @@ public class DataBufferService : IDisposable
     private readonly LogEntry?[] _ringBuffer;
     private int _head;
     private int _count;
+    private int _maxId;
+    private int _waiterCount;
     private readonly int _capacity;
     private readonly object _lock = new();
     private readonly List<DataBufferWaiter> _waiters = new();
@@ -37,6 +39,7 @@ public class DataBufferService : IDisposable
         _ringBuffer[_head] = entry;
         _head = (_head + 1) % _capacity;
         if (_count < _capacity) _count++;
+        if (entry.Id > _maxId) _maxId = entry.Id;
 
         _metrics.SetBufferUsage((double)_count / _capacity);
     }
@@ -61,6 +64,10 @@ public class DataBufferService : IDisposable
 
         _writer.TryWrite(entry);
 
+        // Fast path: no active waiters, skip the waiter lock + scan entirely.
+        if (Volatile.Read(ref _waiterCount) == 0)
+            return;
+
         lock (_waiterLock)
         {
             for (int i = _waiters.Count - 1; i >= 0; i--)
@@ -69,6 +76,7 @@ public class DataBufferService : IDisposable
                 if (waiter.Completed)
                 {
                     _waiters.RemoveAt(i);
+                    Interlocked.Decrement(ref _waiterCount);
                     continue;
                 }
                 if (waiter.Matches(entry))
@@ -81,8 +89,10 @@ public class DataBufferService : IDisposable
     {
         lock (_lock)
         {
-            if (_count == 0) return new List<LogEntry>();
-            var result = new List<LogEntry>(_count);
+            if (_count == 0 || id >= _maxId) return new List<LogEntry>();
+
+            // Pre-size modestly; most polls return a small tail of new entries.
+            var result = new List<LogEntry>(Math.Min(_count, 64));
             var start = (_head - _count + _capacity) % _capacity;
             for (int i = 0; i < _count; i++)
             {
@@ -102,6 +112,7 @@ public class DataBufferService : IDisposable
             Array.Clear(_ringBuffer);
             _count = 0;
             _head = 0;
+            _maxId = 0;
         }
         _metrics.SetBufferUsage(0);
     }
@@ -116,6 +127,7 @@ public class DataBufferService : IDisposable
                 Array.Clear(_ringBuffer);
                 _head = 0;
                 _count = 0;
+                _maxId = 0;
                 _metrics.SetBufferUsage(0);
                 return;
             }
@@ -135,6 +147,7 @@ public class DataBufferService : IDisposable
             Array.Clear(_ringBuffer);
             _head = 0;
             _count = 0;
+            _maxId = 0;
             foreach (var e in keep) RingAdd(e);
         }
     }
@@ -147,7 +160,12 @@ public class DataBufferService : IDisposable
     public void CancelWaiters()
     {
         List<DataBufferWaiter> snapshot;
-        lock (_waiterLock) { snapshot = _waiters.ToList(); _waiters.Clear(); }
+        lock (_waiterLock)
+        {
+            snapshot = _waiters.ToList();
+            _waiters.Clear();
+            Volatile.Write(ref _waiterCount, 0);
+        }
         foreach (var waiter in snapshot)
             waiter.Tcs.TrySetResult(null);
     }
@@ -207,9 +225,17 @@ public class DataBufferService : IDisposable
                     }
                 }
             }
-        }
 
-        lock (_waiterLock) { _waiters.Add(waiter); }
+            // Register inside the same _lock critical section as the scan so there is
+            // no gap between "no match found" and "waiter registered": an entry added
+            // after this block sees the registered waiter (via _waiterCount) and is
+            // delivered through AddEntry; one added before is found by the scan above.
+            lock (_waiterLock)
+            {
+                _waiters.Add(waiter);
+                Interlocked.Increment(ref _waiterCount);
+            }
+        }
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var delayTask = Task.Delay(timeoutMs, cts.Token);
