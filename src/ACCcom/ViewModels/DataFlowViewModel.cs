@@ -33,6 +33,17 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private int _historyIndex = -1;
     private int _sendCounter;
 
+    // Batched UI updates: serial/network events arrive on background threads and
+    // at high rates; entries are queued here and flushed to the observable
+    // collections in one ranged Add per tick (see FlushPendingEntries).
+    private const int TrimChunkSize = 100;
+    private readonly List<LogEntry> _pendingRx = new();
+    private readonly List<LogEntry> _pendingTx = new();
+    private readonly DispatcherTimer? _flushTimer;
+    private readonly Action<LogEntry> _frameBufferFrameHandler;
+    private readonly Action<string> _frameBufferErrorHandler;
+    private readonly Action<string> _parserReloadedHandler;
+
     public ObservableRangeCollection<LogEntry> RxEntries { get; } = new();
     public ObservableRangeCollection<LogEntry> TxEntries { get; } = new();
 
@@ -156,6 +167,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public ICommand SaveTxCsvCommand { get; }
     public ICommand OpenParserDirCommand { get; }
     public ICommand CompareFramesCommand { get; }
+    public ICommand ResetCountersCommand { get; }
 
     public DataFlowViewModel(
         ISerialService serial,
@@ -185,7 +197,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         _autoMatcher = new AutoParserMatcher();
         LoadParserFingerprints();
-        _parserManager.OnParserReloaded += _ => LoadParserFingerprints();
+        _parserReloadedHandler = _ => LoadParserFingerprints();
+        _parserManager.OnParserReloaded += _parserReloadedHandler;
 
         var bufferConfig = new FrameBufferConfig
         {
@@ -199,8 +212,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             PartialFrameTimeoutMs = 2000
         };
         _frameBuffer = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
-        _frameBuffer.OnFrameAssembled += OnFrameReady;
-        _frameBuffer.OnError += msg => _setStatus(msg);
+        _frameBufferFrameHandler = OnFrameReady;
+        _frameBuffer.OnFrameAssembled += _frameBufferFrameHandler;
+        _frameBufferErrorHandler = msg => _setStatus(msg);
+        _frameBuffer.OnError += _frameBufferErrorHandler;
 
         _filterDebounce = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -214,17 +229,31 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             FilteredTxEntries?.Refresh();
         };
 
+        _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(30),
+            IsEnabled = true
+        };
+        _flushTimer.Tick += (_, _) => FlushPendingEntries();
+
         SendCommand = new RelayCommand(_ => SendData());
-        ClearRxCommand = new RelayCommand(_ => { RxEntries.Clear(); RxCount = 0; RxByteCount = 0; });
-        ClearTxCommand = new RelayCommand(_ => { TxEntries.Clear(); TxCount = 0; TxByteCount = 0; });
-        SaveRxCommand = new RelayCommand(_ => SaveToFile(RxEntries, "RX"));
-        SaveTxCommand = new RelayCommand(_ => SaveToFile(TxEntries, "TX"));
-        SaveRxJsonCommand = new RelayCommand(_ => SaveToJson(RxEntries, "RX"));
-        SaveTxJsonCommand = new RelayCommand(_ => SaveToJson(TxEntries, "TX"));
-        SaveRxCsvCommand = new RelayCommand(_ => SaveToCsv(RxEntries, "RX"));
-        SaveTxCsvCommand = new RelayCommand(_ => SaveToCsv(TxEntries, "TX"));
+        ClearRxCommand = new RelayCommand(_ => { FlushPendingEntries(); RxEntries.Clear(); _pendingRx.Clear(); RxCount = 0; RxByteCount = 0; });
+        ClearTxCommand = new RelayCommand(_ => { FlushPendingEntries(); TxEntries.Clear(); _pendingTx.Clear(); TxCount = 0; TxByteCount = 0; });
+        SaveRxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(RxEntries, "RX"); });
+        SaveTxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(TxEntries, "TX"); });
+        SaveRxJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(RxEntries, "RX"); });
+        SaveTxJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(TxEntries, "TX"); });
+        SaveRxCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(RxEntries, "RX"); });
+        SaveTxCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(TxEntries, "TX"); });
         OpenParserDirCommand = new RelayCommand(_ => OpenParserDir());
         CompareFramesCommand = new RelayCommand(_ => OpenDiffWindow());
+        ResetCountersCommand = new RelayCommand(_ =>
+        {
+            RxByteCount = 0;
+            TxByteCount = 0;
+            ErrorFrameCount = 0;
+            _stats?.Reset();
+        });
         ToggleHexDisplayCommand = new RelayCommand(_ => { IsHexDisplayRx = !IsHexDisplayRx; IsHexDisplayTx = !IsHexDisplayTx; });
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
@@ -252,41 +281,46 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             int byteCount = 0;
             if (!string.IsNullOrEmpty(entry.RawHex))
             {
-                byteCount = HexHelper.CountHexBytes(entry.RawHex);
                 try
                 {
+                    // Single hex pass: reuse the parsed bytes for both count and feed.
                     var bytes = HexHelper.HexStringToBytes(entry.RawHex);
-                    if (bytes.Length > 0)
+                    byteCount = bytes.Length;
+                    if (byteCount > 0)
                         _frameBuffer.Write(bytes);
                 }
                 catch { }
             }
 
-            if (entry.Direction == "RX")
+            // Serial events arrive on a background thread; collection updates
+            // must be marshaled to the UI thread.
+            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                _stats.RecordRx(byteCount);
-                AddRxEntry(entry, byteCount);
-            }
-            else
-            {
-                AddTxEntry(entry, byteCount);
-            }
+                try
+                {
+                    if (entry.Direction == "RX")
+                    {
+                        _stats.RecordRx(byteCount);
+                        AddRxEntry(entry, byteCount);
+                        OnRxProcessed?.Invoke(entry);
+                    }
+                    else
+                    {
+                        AddTxEntry(entry, byteCount);
+                    }
+
+                    OnEntryProcessed?.Invoke(entry, byteCount);
+                }
+                catch (Exception ex)
+                {
+                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+                }
+            });
         }
         catch (Exception ex)
         {
             _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
         }
-    }
-
-    private static byte[]? ExtractHexBytesFromText(string text)
-    {
-        var matches = System.Text.RegularExpressions.Regex.Matches(text, @"0x([0-9A-Fa-f]{2})");
-        if (matches.Count == 0) return null;
-
-        var bytes = new byte[matches.Count];
-        for (int i = 0; i < matches.Count; i++)
-            bytes[i] = Convert.ToByte(matches[i].Groups[1].Value, 16);
-        return bytes;
     }
 
     private void OnAssembledFrame(LogEntry entry)
@@ -361,11 +395,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task ProcessSerialEntryAsync(LogEntry entry, int byteCount)
-    {
-        await ProcessEntryAsync(entry, byteCount, forceRx: false, errorContext: "Status.ErrorProcessingData").ConfigureAwait(false);
-    }
-
     private async Task ProcessAssembledFrameAsync(LogEntry entry, int byteCount)
     {
         await ProcessEntryAsync(entry, byteCount, forceRx: true, errorContext: "Status.ErrorProcessingFrame").ConfigureAwait(false);
@@ -412,22 +441,49 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Queues an RX entry; the UI collection is updated in batches by the flush timer.</summary>
     public void AddRxEntry(LogEntry entry, int byteCount)
     {
-        RxEntries.Add(entry);
-        if (RxEntries.Count > MaxEntries)
-            RxEntries.TrimTo(MaxEntries);
+        _pendingRx.Add(entry);
         RxCount++;
         RxByteCount += byteCount;
     }
 
+    /// <summary>Queues a TX entry; the UI collection is updated in batches by the flush timer.</summary>
     public void AddTxEntry(LogEntry entry, int byteCount)
     {
-        TxEntries.Add(entry);
-        if (TxEntries.Count > MaxEntries)
-            TxEntries.TrimTo(MaxEntries);
+        _pendingTx.Add(entry);
         TxCount++;
         TxByteCount += byteCount;
+    }
+
+    /// <summary>Moves queued entries into the observable collections (UI thread only).</summary>
+    private void FlushPendingEntries()
+    {
+        if (_pendingRx.Count > 0)
+        {
+            RxEntries.AddRange(_pendingRx);
+            _pendingRx.Clear();
+            TrimBuffer(RxEntries);
+        }
+        if (_pendingTx.Count > 0)
+        {
+            TxEntries.AddRange(_pendingTx);
+            _pendingTx.Clear();
+            TrimBuffer(TxEntries);
+        }
+    }
+
+    /// <summary>
+    /// Trims overflow beyond MaxEntries in chunks so the Remove notification
+    /// fires once per chunk instead of once per entry.
+    /// </summary>
+    private void TrimBuffer(ObservableRangeCollection<LogEntry> entries)
+    {
+        var overflow = entries.Count - MaxEntries;
+        if (overflow <= 0) return;
+        var removeCount = Math.Min(((overflow + TrimChunkSize - 1) / TrimChunkSize) * TrimChunkSize, entries.Count);
+        entries.RemoveRange(0, removeCount);
     }
 
     public void RecordTxBytes(int byteCount)
@@ -556,7 +612,28 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _setStatus(LanguageManager.Instance["Status.DiffWindowOpened"]);
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> _regexCache = new();
+    // Bounded regex cache: user-typed patterns would otherwise grow without limit.
+    private const int MaxRegexCacheEntries = 16;
+    private static readonly object _regexCacheLock = new();
+    private static readonly Dictionary<string, System.Text.RegularExpressions.Regex> _regexCache = new(StringComparer.Ordinal);
+
+    private static System.Text.RegularExpressions.Regex GetOrAddRegex(string pattern)
+    {
+        lock (_regexCacheLock)
+        {
+            if (_regexCache.TryGetValue(pattern, out var regex)) return regex;
+            regex = new System.Text.RegularExpressions.Regex(pattern,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+            if (_regexCache.Count >= MaxRegexCacheEntries)
+            {
+                // Drop an arbitrary old entry (first key) to stay bounded.
+                var oldest = System.Linq.Enumerable.First(_regexCache.Keys);
+                _regexCache.Remove(oldest);
+            }
+            _regexCache[pattern] = regex;
+            return regex;
+        }
+    }
 
     private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection)
     {
@@ -573,9 +650,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             try
             {
-                var regex = _regexCache.GetOrAdd(filter,
-                    static f => new System.Text.RegularExpressions.Regex(f,
-                        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled));
+                var regex = GetOrAddRegex(filter);
                 matches = regex.IsMatch(text) || regex.IsMatch(hex);
             }
             catch (Exception regexEx) { Debug.WriteLine($"Regex filter error: {regexEx.Message}"); matches = false; }
@@ -589,7 +664,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         return matches;
     }
 
-    public string GetFormattedCopyText(ObservableCollection<LogEntry> entries, string direction)
+    public string GetFormattedCopyText(IEnumerable<LogEntry> entries, string direction)
     {
         var sb = new System.Text.StringBuilder();
         foreach (var entry in entries)
@@ -623,8 +698,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _flushTimer?.Stop();
+        _filterDebounce?.Stop();
+        _frameAssembler.OnFrameAssembled -= OnAssembledFrame;
+        _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
+        _frameBuffer.OnError -= _frameBufferErrorHandler;
+        _parserManager.OnParserReloaded -= _parserReloadedHandler;
         _frameAssembler.Dispose();
         _frameBuffer.Dispose();
-        _filterDebounce?.Stop();
     }
 }

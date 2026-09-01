@@ -6,7 +6,7 @@
     <StatusBar Padding="10,2">
         <StatusBarItem>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Ellipse Width="5" Height="5" Margin="0,0,6,0">
+                <Ellipse Width="6" Height="6" Margin="0,0,6,0" ToolTip="连接状态指示灯（绿=已连接，灰=未连接）">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
                             <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
@@ -19,27 +19,108 @@
                     </Ellipse.Style>
                 </Ellipse>
                 <TextBlock Text="{Binding StatusText}" FontSize="11"
-                          Foreground="{DynamicResource InkSecondaryBrush}" />
+                          Foreground="{DynamicResource InkSecondaryBrush}"
+                          ToolTip="操作状态/最近消息（双击清空）" />
             </StackPanel>
         </StatusBarItem>
-        <StatusBarItem HorizontalAlignment="Right"
-                      Visibility="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}">
-            <Border Background="{DynamicResource BgElevatedBrush}" CornerRadius="4" Padding="8,2"
-                    BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
-                <TextBlock FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}" FontFamily="Consolas">
-                    <Run Text="RX: " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
-                    <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                    <Run Text=" bytes  |  TX: " Foreground="{DynamicResource InkTertiaryBrush}" />
-                    <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                    <Run Text=" bytes  |  Errors: " Foreground="{DynamicResource InkTertiaryBrush}" />
-                    <Run Text="{Binding ErrorFrameCount, Mode=OneWay}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="Bold" />
-                    <Run Text="  |  Up: " Foreground="{DynamicResource InkTertiaryBrush}" />
-                    <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
-                </TextBlock>
-            </Border>
+
+        <!-- 分隔符 1：连接指示与计数器 -->
+        <Separator Width="1" Height="12" Margin="8,0"
+                   Background="{DynamicResource DividerBrush}" />
+
+        <!-- RX 计数块（点击重置） -->
+        <StatusBarItem>
+            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                       ToolTip="点击重置全部计数器（RX/TX/Errors/统计）"
+                       MouseLeftButtonUp="OnCounterClick"
+                       TextDecorations="Underline">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+                <Run Text="RX " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
+                <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
+            </TextBlock>
         </StatusBarItem>
+
+        <!-- 分隔符 2 -->
+        <Separator Width="1" Height="12" Margin="6,0"
+                   Background="{DynamicResource DividerBrush}" />
+
+        <!-- TX 计数块（点击重置） -->
+        <StatusBarItem>
+            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                       ToolTip="点击重置全部计数器"
+                       MouseLeftButtonUp="OnCounterClick"
+                       TextDecorations="Underline">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+                <Run Text="TX " Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
+                <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
+            </TextBlock>
+        </StatusBarItem>
+
+        <!-- 分隔符 3 -->
+        <Separator Width="1" Height="12" Margin="6,0"
+                   Background="{DynamicResource DividerBrush}" />
+
+        <!-- 错误帧计数（点击重置） -->
+        <StatusBarItem>
+            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                       ToolTip="错误帧数。点击重置全部计数器"
+                       MouseLeftButtonUp="OnCounterClick"
+                       TextDecorations="Underline">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+                <Run Text="Err " FontWeight="SemiBold" />
+                <Run Text="{Binding ErrorFrameCount, Mode=OneWay}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="Bold" />
+            </TextBlock>
+        </StatusBarItem>
+
+        <!-- 分隔符 4 -->
+        <Separator Width="1" Height="12" Margin="6,0"
+                   Background="{DynamicResource DividerBrush}" />
+
+        <!-- 连接时长（无点击行为，纯显示） -->
+        <StatusBarItem>
+            <TextBlock FontSize="10" FontFamily="Consolas"
+                       ToolTip="连接持续时长"
+                       Foreground="{DynamicResource InkSecondaryBrush}">
+                <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
+            </TextBlock>
+        </StatusBarItem>
+
+        <!-- 弹性空间 -->
         <StatusBarItem HorizontalAlignment="Right">
-            <TextBlock Text="{Binding HttpUrl}" FontSize="10" Foreground="{DynamicResource InkTertiaryBrush}" />
+            <TextBlock Text="{Binding HttpUrl}" FontSize="10" Cursor="Hand"
+                       Foreground="{DynamicResource InkTertiaryBrush}"
+                       ToolTip="HTTP API 监听地址（用于外部程序/AI 集成）"
+                       MouseLeftButtonDown="OnHttpUrlClick" />
         </StatusBarItem>
     </StatusBar>
 </UserControl>
