@@ -64,7 +64,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | System.Threading.Channels + RingBuffer |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（504 个测试） |
+| 测试 | xUnit 2.5.3（515 个测试） |
 
 ## 项目结构
 

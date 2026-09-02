@@ -49,6 +49,8 @@ public partial class DataPanel : UserControl
 
     public ListBox RxListBoxControl => RxListBox;
     public ListBox TxListBoxControl => TxListBox;
+    public TextBox RxSearchBoxControl => RxSearchBox;
+    public TextBox TxSearchBoxControl => TxSearchBox;
 
     public void ScrollRxToEnd()
     {

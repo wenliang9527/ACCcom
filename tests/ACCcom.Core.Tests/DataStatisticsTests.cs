@@ -161,4 +161,68 @@ public class DataStatisticsTests
         Assert.True(stats.RxFramesPerSecond > 0,
             $"Expected positive frame rate but got {stats.RxFramesPerSecond}");
     }
+
+    // ========== RecordTx (mirrors RecordRx for outbound traffic) ==========
+
+    [Fact]
+    public void RecordTx_UpdatesByteAndFrameCounts()
+    {
+        var stats = new DataStatistics();
+        stats.RecordTx(10);
+        stats.RecordTx(20);
+
+        Assert.Equal(30, stats.TotalTxBytes);
+        Assert.Equal(2, stats.TotalTxFrames);
+    }
+
+    [Fact]
+    public void RecordTx_DoesNotAffectRxCounters()
+    {
+        var stats = new DataStatistics();
+        stats.RecordRx(100);
+        stats.RecordTx(50);
+
+        // RX stats untouched, TX independent
+        Assert.Equal(100, stats.TotalRxBytes);
+        Assert.Equal(1, stats.TotalRxFrames);
+        Assert.Equal(50, stats.TotalTxBytes);
+        Assert.Equal(1, stats.TotalTxFrames);
+    }
+
+    [Fact]
+    public void TxBytesPerSecond_ZeroWhenNoData()
+    {
+        var stats = new DataStatistics();
+        Assert.Equal(0, stats.TxBytesPerSecond);
+        Assert.Equal(0, stats.TxFramesPerSecond);
+    }
+
+    [Fact]
+    public void TxBytesPerSecond_IncreasesAfterRecentTraffic()
+    {
+        var stats = new DataStatistics();
+        stats.RecordTx(100);
+        Thread.Sleep(50);
+        stats.RecordTx(100);
+
+        Assert.True(stats.TxBytesPerSecond > 0,
+            $"Expected positive TX rate but got {stats.TxBytesPerSecond}");
+    }
+
+    [Fact]
+    public void Reset_ClearsTxSamplesAndCounters()
+    {
+        var stats = new DataStatistics();
+        stats.RecordTx(64);
+        stats.RecordTx(128);
+        Assert.Equal(192, stats.TotalTxBytes);
+
+        stats.Reset();
+
+        Assert.Equal(0, stats.TotalTxBytes);
+        Assert.Equal(0, stats.TotalTxFrames);
+        Assert.Equal(0, stats.TxBytesPerSecond);
+        // RX side should also be cleared (symmetric reset)
+        Assert.Equal(0, stats.TotalRxBytes);
+    }
 }

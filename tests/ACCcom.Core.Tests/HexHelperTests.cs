@@ -209,4 +209,58 @@ public class HexHelperTests
         Assert.True(r.IsValid);
         Assert.Equal(3, r.ByteCount);
     }
+
+    // ========== TryHexStringToBytes (strict) ==========
+
+    [Fact]
+    public void TryHexStringToBytes_NullOrEmpty_ReturnsTrueEmpty()
+    {
+        Assert.True(HexHelper.TryHexStringToBytes(null, out var a));
+        Assert.Empty(a);
+        Assert.True(HexHelper.TryHexStringToBytes("", out var b));
+        Assert.Empty(b);
+    }
+
+    [Fact]
+    public void TryHexStringToBytes_ValidHex_ParsesBytes()
+    {
+        var ok = HexHelper.TryHexStringToBytes("AA 55 03", out var bytes);
+        Assert.True(ok);
+        Assert.Equal(new byte[] { 0xAA, 0x55, 0x03 }, bytes);
+    }
+
+    [Fact]
+    public void TryHexStringToBytes_MixedCaseAndWhitespace_ParsesBytes()
+    {
+        var ok = HexHelper.TryHexStringToBytes("aaBb\ncc\tdd", out var bytes);
+        Assert.True(ok);
+        Assert.Equal(new byte[] { 0xAA, 0xBB, 0xCC, 0xDD }, bytes);
+    }
+
+    [Fact]
+    public void TryHexStringToBytes_InvalidCharacter_Fails()
+    {
+        // The strict parser refuses 'Z' instead of silently substituting 0.
+        var ok = HexHelper.TryHexStringToBytes("ZZ", out var bytes);
+        Assert.False(ok);
+        Assert.Empty(bytes);
+    }
+
+    [Fact]
+    public void TryHexStringToBytes_OddDigitCount_Fails()
+    {
+        var ok = HexHelper.TryHexStringToBytes("AAB", out var bytes);
+        Assert.False(ok);
+        Assert.Empty(bytes);
+    }
+
+    [Fact]
+    public void TryHexStringToBytes_DoesNotMaskFirstNibble()
+    {
+        // Regression: legacy HexStringToBytes("Z1") returned [0x01] (Z -> 0).
+        // The strict version must reject the input outright.
+        var ok = HexHelper.TryHexStringToBytes("Z1", out var bytes);
+        Assert.False(ok);
+        Assert.Empty(bytes);
+    }
 }

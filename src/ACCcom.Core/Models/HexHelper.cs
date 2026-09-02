@@ -45,6 +45,43 @@ public static class HexHelper
     }
 
     /// <summary>
+    /// Strict variant of <see cref="HexStringToBytes"/> that surfaces invalid input
+    /// instead of silently substituting zero nibbles. Returns false (and outputs an
+    /// empty array) when the input contains characters other than hex digits /
+    /// whitespace, or when the number of hex digits is odd.
+    ///
+    /// New call sites should prefer this over the legacy lenient parser, which can
+    /// mask real data corruption by turning an invalid nibble into 0 (e.g. a real
+    /// 0xZ1 byte would be read as 0x01 with no warning).
+    /// </summary>
+    public static bool TryHexStringToBytes(string? hex, out byte[] bytes)
+    {
+        if (string.IsNullOrEmpty(hex)) { bytes = Array.Empty<byte>(); return true; }
+        int digitCount = 0;
+        foreach (var c in hex.AsSpan())
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n') digitCount++;
+        if ((digitCount & 1) != 0) { bytes = Array.Empty<byte>(); return false; }
+
+        var buf = new byte[digitCount / 2];
+        int byteIdx = 0;
+        int hi = -1;
+        foreach (var c in hex.AsSpan())
+        {
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+            int val;
+            if (c >= '0' && c <= '9') val = c - '0';
+            else if (c >= 'A' && c <= 'F') val = c - 'A' + 10;
+            else if (c >= 'a' && c <= 'f') val = c - 'a' + 10;
+            else { bytes = Array.Empty<byte>(); return false; }
+
+            if (hi < 0) hi = val;
+            else { buf[byteIdx++] = (byte)((hi << 4) | val); hi = -1; }
+        }
+        bytes = buf;
+        return true;
+    }
+
+    /// <summary>
     /// Result of validating a user-typed hex payload in the send box. <see cref="IsValid"/>
     /// is true when the string is empty, contains only hex digits and spaces, and has an
     /// even number of hex digits. <see cref="InvalidIndex"/> points at the first offending

@@ -90,6 +90,21 @@ public partial class MainWindow : Window
 
         var mods = Keyboard.Modifiers;
 
+        // Ctrl+1 / Ctrl+2: Jump to RX / TX panel and focus the search box. Saves the
+        // user a click on the search field when they want to filter incoming data.
+        if (mods == ModifierKeys.Control && (e.Key == Key.D1 || e.Key == Key.NumPad1))
+        {
+            FocusDataPanelSearch(rx: true);
+            e.Handled = true;
+            return;
+        }
+        if (mods == ModifierKeys.Control && (e.Key == Key.D2 || e.Key == Key.NumPad2))
+        {
+            FocusDataPanelSearch(rx: false);
+            e.Handled = true;
+            return;
+        }
+
         // Alt+1~9: Send quick command by index
         if (mods == ModifierKeys.Alt)
         {
@@ -272,6 +287,19 @@ public partial class MainWindow : Window
         btn.ContextMenu.PlacementTarget = btn;
         btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         btn.ContextMenu.IsOpen = true;
+    }
+
+    /// <summary>Used by Ctrl+1 / Ctrl+2 to move keyboard focus to the appropriate
+    /// data-panel search box. The ListBox itself is focused first to ensure the
+    /// panel scrolls into view on a tiny window, then the search box takes focus
+    /// with the existing text selected so the user can start typing immediately.</summary>
+    private void FocusDataPanelSearch(bool rx)
+    {
+        var listBox = rx ? DataPanelControl.RxListBoxControl : DataPanelControl.TxListBoxControl;
+        var search = rx ? DataPanelControl.RxSearchBoxControl : DataPanelControl.TxSearchBoxControl;
+        listBox.Focus();
+        search.Focus();
+        search.SelectAll();
     }
 
     private void HistoryItem_Click(object sender, RoutedEventArgs e)
