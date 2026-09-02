@@ -25,6 +25,18 @@ public class TransactionLogItem
     public string Status { get; set; } = "";
 }
 
+/// <summary>Display row for a device found by the slave scanner (record kept
+/// simple so it binds directly in the ListView).</summary>
+public class ScanResultItem
+{
+    public byte SlaveId { get; set; }
+    public string SlaveIdHex => $"0x{SlaveId:X2}";
+    public bool IsOnline { get; set; }
+    public int ResponseTimeMs { get; set; }
+    public string FirstRegister => $"0x{FirstRegisterValue:X4}";
+    public ushort FirstRegisterValue { get; set; }
+}
+
 public class ModbusViewModel : ObservableObject, IDisposable
 {
     private readonly ModbusService _modbus;
@@ -34,6 +46,33 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<RegisterItem> Registers { get; } = new();
     public ObservableCollection<TransactionLogItem> TransactionLog { get; } = new();
+    public ObservableCollection<ScanResultItem> ScanResults { get; } = new();
+
+    // ===== Slave scanning =====
+    private bool _isScanning;
+    public bool IsScanning
+    {
+        get => _isScanning;
+        set
+        {
+            if (SetField(ref _isScanning, value))
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private byte _scanStartAddress = 1;
+    public byte ScanStartAddress { get => _scanStartAddress; set => SetField(ref _scanStartAddress, value); }
+
+    private byte _scanEndAddress = 247;
+    public byte ScanEndAddress { get => _scanEndAddress; set => SetField(ref _scanEndAddress, value); }
+
+    private int _scanTimeoutMs = 500;
+    public int ScanTimeoutMs { get => _scanTimeoutMs; set => SetField(ref _scanTimeoutMs, value); }
+
+    private string _scanProgress = "";
+    public string ScanProgress { get => _scanProgress; set => SetField(ref _scanProgress, value); }
+
+    private ModbusScanner? _scanner;
 
     private byte _slaveId = 0x01;
     public byte SlaveId { get => _slaveId; set => SetField(ref _slaveId, value); }
@@ -98,6 +137,9 @@ public class ModbusViewModel : ObservableObject, IDisposable
     public ICommand ExportCsvCommand { get; }
     public ICommand ExportJsonCommand { get; }
     public ICommand ExportTxtCommand { get; }
+    public ICommand ScanCommand { get; }
+    public ICommand StopScanCommand { get; }
+    public ICommand UseScanSlaveCommand { get; }
 
     public ModbusViewModel(ModbusService modbus, Action<string> setStatus)
     {
@@ -136,6 +178,12 @@ public class ModbusViewModel : ObservableObject, IDisposable
         ExportTxtCommand = new RelayCommand(_ => ExportLog("TXT"));
         CreateSlaveCommand = new RelayCommand(_ => CreateSlave());
         RemoveSlaveCommand = new RelayCommand(_ => RemoveSlave(), _ => !string.IsNullOrEmpty(SelectedSlaveId));
+        ScanCommand = new RelayCommand(_ => StartScan(), _ => !IsScanning);
+        StopScanCommand = new RelayCommand(_ => StopScan(), _ => IsScanning);
+        UseScanSlaveCommand = new RelayCommand(p =>
+        {
+            if (p is ScanResultItem item) { SlaveId = item.SlaveId; StatusText = string.Format(LanguageManager.Instance["Modbus.ScanSlaveSelected"], item.SlaveIdHex); }
+        });
 
         SelectedFunctionIndex = 2;
     }
@@ -395,8 +443,76 @@ public class ModbusViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         StopPoll();
+        _scanner?.Dispose();
+        _scanner = null;
         _modbus.OnTransaction -= OnTransaction;
     }
+
+    // ===== Slave scanning =====
+
+    /// <summary>Starts a background scan of the configured slave-address range.
+    /// Results are streamed into <see cref="ScanResults"/> as they are found;
+    /// the button toggles to Stop while running.</summary>
+    private async void StartScan()
+    {
+        if (IsScanning) return;
+        if (ScanStartAddress > ScanEndAddress)
+        {
+            StatusText = LanguageManager.Instance["Modbus.ScanInvalidRange"];
+            return;
+        }
+
+        _scanner?.Dispose();
+        _scanner = new ModbusScanner(_modbus);
+        _scanner.OnDeviceFound += OnScanDeviceFound;
+
+        ScanResults.Clear();
+        IsScanning = true;
+        ScanProgress = string.Format(LanguageManager.Instance["Modbus.ScanProgressFormat"], ScanStartAddress, ScanEndAddress);
+
+        try
+        {
+            await _scanner.ScanAsync(ScanStartAddress, ScanEndAddress, ScanTimeoutMs);
+            StatusText = string.Format(LanguageManager.Instance["Modbus.ScanDone"], ScanResults.Count);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = LanguageManager.Instance["Modbus.ScanCanceled"];
+        }
+        catch (Exception ex)
+        {
+            StatusText = string.Format(LanguageManager.Instance["Modbus.ScanError"], ex.Message);
+        }
+        finally
+        {
+            _scanner.OnDeviceFound -= OnScanDeviceFound;
+            IsScanning = false;
+            ScanProgress = "";
+        }
+    }
+
+    private void StopScan()
+    {
+        _scanner?.StopScan();
+    }
+
+    /// <summary>Raises a real transaction log so the scan shows as a "probe" in
+    /// the log too — every ReadHoldingRegisters probe the scanner emits is a
+    /// real bus transaction, so we surface it uniformly.</summary>
+    private void OnScanDeviceFound(ModbusScanResult result)
+    {
+        var app = System.Windows.Application.Current;
+        if (app == null) { ScanResults.Add(ToResultItem(result)); return; }
+        app.Dispatcher.BeginInvoke(() => ScanResults.Add(ToResultItem(result)));
+    }
+
+    private static ScanResultItem ToResultItem(ModbusScanResult result) => new()
+    {
+        SlaveId = result.SlaveId,
+        IsOnline = result.IsOnline,
+        ResponseTimeMs = result.ResponseTimeMs,
+        FirstRegisterValue = result.FirstRegisterValue
+    };
 
     // ===== Slave Mode =====
     private ModbusSlaveService? _slaveService;

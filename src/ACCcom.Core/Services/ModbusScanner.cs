@@ -73,8 +73,10 @@ public class ModbusScanner : IDisposable
                     SlaveId = slaveId,
                     IsOnline = true,
                     ResponseTimeMs = timeoutMs,
-                    FirstRegisterValue = result.Data.Length >= 2
-                        ? (ushort)((result.Data[0] << 8) | result.Data[1])
+                    // ModbusService.Data is [byteCount, data...] — skip the
+                    // byteCount prefix to read the actual first register value.
+                    FirstRegisterValue = result.Data.Length >= 3
+                        ? (ushort)((result.Data[1] << 8) | result.Data[2])
                         : (ushort)0
                 };
             }

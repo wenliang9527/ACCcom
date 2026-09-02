@@ -37,6 +37,7 @@
             <Grid Margin="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -96,8 +97,76 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Slave Scanner -->
+                <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <DockPanel Margin="0,0,0,8">
+                                <TextBlock DockPanel.Dock="Left" Text="{Binding [Modbus.SectionScan], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding [Modbus.LabelScanStart], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+                                    <TextBox Text="{Binding ScanStartAddress, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="48" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding [Modbus.LabelScanEnd], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+                                    <TextBox Text="{Binding ScanEndAddress, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="48" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding [Modbus.LabelScanTimeout], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+                                    <TextBox Text="{Binding ScanTimeoutMs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="60" Margin="0,0,10,0" />
+                                    <Button Content="{Binding [Modbus.ButtonScan], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ScanCommand}" Style="{StaticResource OutlineButton}" />
+                                    <Button Content="{Binding [Modbus.ButtonStopScan], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding StopScanCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                            <TextBlock Text="{Binding ScanProgress}" Style="{StaticResource Label}" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,4"
+                                       Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                        <ListView Grid.Row="1" ItemsSource="{Binding ScanResults}" MaxHeight="110"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  Background="Transparent" BorderThickness="0"
+                                  Visibility="{Binding ScanResults.Count, Converter={StaticResource NullToVisibility}}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="{Binding [Modbus.ColScanSlave], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding SlaveIdHex}" />
+                                    <GridViewColumn Header="{Binding [Modbus.ColScanStatus], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding IsOnline}" />
+                                    <GridViewColumn Header="{Binding [Modbus.ColScanRtt], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding ResponseTimeMs, StringFormat={}{0} ms}" />
+                                    <GridViewColumn Header="{Binding [Modbus.ColScanFirstReg], Source={x:Static local:LanguageManager.Instance}}" Width="100" DisplayMemberBinding="{Binding FirstRegister}" />
+                                </GridView>
+                            </ListView.View>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="FontFamily" Value="Consolas" />
+                                    <Setter Property="FontSize" Value="12" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListViewItem">
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                        BorderThickness="0" Padding="{TemplateBinding Padding}"
+                                                        Margin="{TemplateBinding Margin}">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+                    </Grid>
+                </Border>
+
                 <!-- Register Data Grid -->
-                <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                <Border Grid.Row="2" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -148,7 +217,7 @@
                 </Border>
 
                 <!-- Transaction Log -->
-                <Border Grid.Row="3" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
+                <Border Grid.Row="4" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
