@@ -35,4 +35,14 @@ public partial class StatusBarPanel : UserControl
             }
         }
     }
+
+    /// <summary>Click on the REC chip toggles recording. The chip is only visible
+    /// while recording, so a click always means "stop".</summary>
+    private void OnRecordingClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.ToggleRecordingCommand.CanExecute(null))
+        {
+            vm.ToggleRecordingCommand.Execute(null);
+        }
+    }
 }

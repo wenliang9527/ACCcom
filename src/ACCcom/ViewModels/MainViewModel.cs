@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -53,6 +54,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly Action<string> _serialDeviceWaitHandler;
     private readonly Action<LogEntry> _multiPortDataHandler;
     private readonly System.Windows.Threading.DispatcherTimer? _statsTimer;
+    private readonly System.Windows.Threading.DispatcherTimer? _recordingPollTimer;
 
     public ConnectionViewModel Connection => _connection;
     public DataFlowViewModel DataFlow => _dataFlow;
@@ -127,12 +129,46 @@ public class MainViewModel : ObservableObject, IDisposable
         SelectedTheme = Helpers.ThemeManager.NextOf(_selectedTheme);
     }
 
+    private void ToggleRecording()
+    {
+        if (_sessionRecorder.IsRecording)
+        {
+            var path = _sessionRecorder.CurrentFile;
+            var count = _sessionRecorder.RecordedCount;
+            _sessionRecorder.StopRecording();
+            StatusText = string.Format(LanguageManager.Instance["Status.RecordingStopped"], count, Path.GetFileName(path ?? ""));
+        }
+        else
+        {
+            if (_sessionRecorder.StartRecording())
+            {
+                var path = _sessionRecorder.CurrentFile ?? "";
+                StatusText = string.Format(LanguageManager.Instance["Status.RecordingStarted"], Path.GetFileName(path));
+            }
+            else
+            {
+                StatusText = LanguageManager.Instance["Status.RecordingStartFailed"];
+            }
+        }
+        OnPropertyChanged(nameof(IsRecording));
+        OnPropertyChanged(nameof(RecordedCount));
+        OnPropertyChanged(nameof(RecordingFile));
+    }
+
     private string _httpUrl = HttpService.DefaultUrl;
     public string HttpUrl { get => _httpUrl; set => SetField(ref _httpUrl, value); }
 
     public AppSettings Settings => _settings;
 
+    /// <summary>True while the SessionRecorder is writing RX/TX entries to disk.
+    /// Backed by a DispatcherTimer that polls the recorder so the UI updates
+    /// even though SessionRecorder itself has no PropertyChanged surface.</summary>
+    public bool IsRecording => _sessionRecorder.IsRecording;
+    public int RecordedCount => _sessionRecorder.RecordedCount;
+    public string? RecordingFile => _sessionRecorder.CurrentFile;
+
     public ICommand ToggleThemeCommand { get; }
+    public ICommand ToggleRecordingCommand { get; }
 
     public MainViewModel() : this(new SerialService()) { }
 
@@ -164,7 +200,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings);
         _tool = new ToolViewModel(
             _serial, _networkBridge, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
-            _multiPort, _triggerService, _sessionRecorder,
+            _multiPort, _triggerService, _sessionRecorder, _logger,
             msg => StatusText = msg,
             () => _connection.IsOpen,
             () => _dataFlow,
@@ -177,6 +213,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _tool.PropertyChanged += (_, e) => RaisePropertyChanged(e);
 
         ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
+        ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -225,7 +262,26 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             if (entry.Direction == "TX")
                 _tool.StatsViewModel?.RecordTx(byteCount);
+            // Pipe every accepted entry into the recorder; the recorder itself
+            // drops writes when it's not actively recording so the cost is one
+            // null-check per frame.
+            _sessionRecorder.Record(entry);
         };
+
+        // Poll the recorder so IsRecording / RecordedCount surface in the UI.
+        // The recorder doesn't raise change notifications of its own; a low-rate
+        // timer keeps the binding fresh without coupling the service to WPF.
+        _recordingPollTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _recordingPollTimer.Tick += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsRecording));
+            OnPropertyChanged(nameof(RecordedCount));
+            OnPropertyChanged(nameof(RecordingFile));
+        };
+        _recordingPollTimer.Start();
 
         HttpUrl = HttpService.DefaultUrl;
 
@@ -554,6 +610,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _disposed = true;
 
         _statsTimer?.Stop();
+        _recordingPollTimer?.Stop();
         _serial.OnDataReceived -= _serialDataHandler;
         _serial.OnError -= _serialErrorHandler;
         _serial.OnDisconnected -= _serialDisconnectedHandler;

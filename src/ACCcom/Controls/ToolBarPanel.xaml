@@ -38,6 +38,29 @@
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
 
+        <!-- Recording toggle. Mirrors IsRecording so the glyph flips between a
+             red dot (● recording) and a hollow square (■ idle). The tooltip
+             also reflects the current state via the Status.* keys. -->
+        <Button Command="{Binding ToggleRecordingCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                ToolTip="{Binding [Tip.ToggleRecording], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock x:Name="RecordGlyph" FontSize="13">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="&#x25A1;" />
+                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                <Setter Property="Text" Value="&#x25CF;" />
+                                <Setter Property="Foreground" Value="{DynamicResource RedErrorBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Button>
+
+        <Rectangle Style="{StaticResource ToolSeparator}" />
+
         <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"
                   Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" />
         <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}"

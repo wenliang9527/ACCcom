@@ -9,6 +9,7 @@ public class ToolViewModel : ObservableObject, IDisposable
 {
     private readonly NetworkBridgeService _networkBridge;
     private readonly MacroManager _macroManager;
+    private readonly LoggerService _logger;
     private readonly Action _openPlotWindow;
     private readonly Action _openStatsWindow;
 
@@ -76,6 +77,7 @@ public class ToolViewModel : ObservableObject, IDisposable
         MultiPortService multiPort,
         TriggerService triggerService,
         SessionRecorder sessionRecorder,
+        LoggerService logger,
         Action<string> setStatus,
         Func<bool> getIsOpen,
         Func<DataFlowViewModel> getDataFlow,
@@ -85,6 +87,7 @@ public class ToolViewModel : ObservableObject, IDisposable
     {
         _networkBridge = networkBridge;
         _macroManager = macroManager;
+        _logger = logger;
         _openPlotWindow = openPlotWindow;
         _openStatsWindow = openStatsWindow;
 
@@ -92,7 +95,7 @@ public class ToolViewModel : ObservableObject, IDisposable
         PresetsVm = new PresetViewModel(presetManager, getConnection, setStatus);
         LoopSend = new LoopSendViewModel(serial, getIsOpen, getDataFlow, setStatus);
         MultiPort = new MultiPortViewModel(multiPort, setStatus);
-        Triggers = new TriggerViewModel(serial, triggerService, getDataFlow, setStatus);
+        Triggers = new TriggerViewModel(serial, triggerService, getDataFlow, setStatus, _logger);
         BookmarksVm = new BookmarkViewModel(bookmarkManager, getDataFlow, setStatus);
         MacrosVm = new MacroViewModel(serial, macroManager, getDataFlow, getIsOpen, setStatus);
         Replay = new ReplayViewModel(sessionRecorder, getDataFlow, setStatus);

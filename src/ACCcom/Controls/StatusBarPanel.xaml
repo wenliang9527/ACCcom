@@ -115,14 +115,60 @@
         <Separator Width="1" Height="12" Margin="6,0"
                    Background="{DynamicResource DividerBrush}" />
 
-        <!-- 连接时长（无点击行为，纯显示） -->
+<!-- 连接时长（无点击行为，纯显示） -->
         <StatusBarItem>
-            <TextBlock FontSize="10" FontFamily="Consolas"
+            <TextBlock Text="{Binding ConnectionDuration}" FontSize="10" FontFamily="Consolas"
                        ToolTip="连接持续时长"
                        Foreground="{DynamicResource InkSecondaryBrush}">
                 <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
                 <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
             </TextBlock>
+        </StatusBarItem>
+
+        <!-- 分隔符 5 -->
+        <Separator Width="1" Height="12" Margin="6,0"
+                   Background="{DynamicResource DividerBrush}" />
+
+        <!-- 录制指示（点击切换录制开关）。隐藏整个控件以避免占用状态栏空间。 -->
+        <StatusBarItem>
+            <StatusBarItem.Style>
+                <Style TargetType="StatusBarItem">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StatusBarItem.Style>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                        Background="Transparent" MouseLeftButtonUp="OnRecordingClick"
+                        ToolTip="{Binding RecordingFile}">
+                <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource RedErrorBrush}">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                            <Style.Triggers>
+                                <!-- 简单的"呼吸"动画：用 RenderTransform 做透明度脉冲 -->
+                                <Trigger Property="IsVisible" Value="True">
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="1.0" To="0.4" Duration="0:0:0.8"
+                                                                 AutoReverse="True" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
+                </Ellipse>
+                <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{DynamicResource RedErrorBrush}" FontWeight="SemiBold">
+                    <Run Text="REC " />
+                    <Run Text="{Binding RecordedCount, Mode=OneWay}" />
+                </TextBlock>
+            </StackPanel>
         </StatusBarItem>
 
         <!-- 弹性空间 -->

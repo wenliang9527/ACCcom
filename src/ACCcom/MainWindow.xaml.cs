@@ -258,6 +258,13 @@ public partial class MainWindow : Window
             _vm.DataFlow.ToggleHexDisplayCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+R: Toggle session recording (start/stop writing RX/TX to JSONL).
+        else if (e.Key == Key.R && mods == ModifierKeys.Control)
+        {
+            if (_vm.ToggleRecordingCommand.CanExecute(null))
+                _vm.ToggleRecordingCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void ApplySidebarVisibility()

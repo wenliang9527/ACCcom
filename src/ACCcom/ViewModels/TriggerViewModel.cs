@@ -10,6 +10,7 @@ public class TriggerViewModel : ObservableObject
 {
     private readonly ISerialService _serial;
     private readonly TriggerService _triggerService;
+    private readonly LoggerService _logger;
     private readonly Func<DataFlowViewModel> _getDataFlow;
     private readonly Action<string> _setStatus;
 
@@ -24,12 +25,14 @@ public class TriggerViewModel : ObservableObject
         ISerialService serial,
         TriggerService triggerService,
         Func<DataFlowViewModel> getDataFlow,
-        Action<string> setStatus)
+        Action<string> setStatus,
+        LoggerService? logger = null)
     {
         _serial = serial;
         _triggerService = triggerService;
         _getDataFlow = getDataFlow;
         _setStatus = setStatus;
+        _logger = logger ?? new LoggerService();
 
         SaveTriggersCommand = new RelayCommand(_ => SaveTriggers());
         LoadTriggersCommand = new RelayCommand(_ => LoadTriggers());
@@ -100,17 +103,35 @@ public class TriggerViewModel : ObservableObject
                     {
                         try
                         {
-                            var dir = Path.GetDirectoryName(rule.ActionParameter);
+                            var resolved = TriggerPathResolver.Resolve(rule.ActionParameter);
+                            var dir = Path.GetDirectoryName(resolved);
                             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                                 Directory.CreateDirectory(dir);
                             var line = $"[{entry.Timestamp:HH:mm:ss.fff}] {entry.Direction} {entry.Text}";
-                            File.AppendAllText(rule.ActionParameter, line + Environment.NewLine);
+                            File.AppendAllText(resolved, line + Environment.NewLine);
                         }
                         catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.SaveTriggersFailed"], ex.Message)); }
                     }
                     break;
                 case TriggerAction.LogMessage:
-                    _setStatus(string.Format(LanguageManager.Instance["Status.TriggerFired"], rule.Name, rule.ActionParameter ?? rule.Pattern));
+                    {
+                        var msg = string.Format(LanguageManager.Instance["Status.TriggerFired"], rule.Name, rule.ActionParameter ?? rule.Pattern);
+                        _setStatus(msg);
+                        // Also pipe into the on-disk log so post-mortem review
+                        // (via MCP / `get_log_tail` or any external tail tool)
+                        // can see what fired and when, not just the live UI.
+                        try
+                        {
+                            _logger.Write(new LogEntry
+                            {
+                                Timestamp = entry.Timestamp,
+                                Direction = "TRG",
+                                RawHex = entry.RawHex,
+                                Text = $"[{rule.Name}] {rule.ActionParameter ?? rule.Pattern}"
+                            });
+                        }
+                        catch { /* logging must never crash a trigger */ }
+                    }
                     break;
                 case TriggerAction.PlaySound:
                     System.Media.SystemSounds.Asterisk.Play();
