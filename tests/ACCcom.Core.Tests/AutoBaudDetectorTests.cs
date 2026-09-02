@@ -57,8 +57,9 @@ public class AutoBaudDetectorTests
     {
         // Arrange
         var type = typeof(AutoBaudDetector);
+        // Field is now public so the UI can iterate it without reflection.
         var field = type.GetField("CommonRates",
-            BindingFlags.NonPublic | BindingFlags.Static);
+            BindingFlags.Public | BindingFlags.Static);
 
         // Act
         Assert.NotNull(field);
@@ -75,12 +76,34 @@ public class AutoBaudDetectorTests
     }
 
     [Fact]
-    public void Dispose_DoesNotThrow()
+    public async Task DetectAsync_NoMatch_ReturnsZero()
     {
-        // Arrange
-        var detector = new AutoBaudDetector();
+        // A non-existent port name can never be opened, so every baud probe
+        // fails silently and DetectAsync returns 0 without throwing.
+        using var detector = new AutoBaudDetector();
+        using var cts = new CancellationTokenSource();
 
-        // Act & Assert
+        var result = await detector.DetectAsync("COM_nonexistent_port", cts.Token);
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public async Task DetectAsync_Cancelled_ThrowsOperationCanceledException()
+    {
+        using var detector = new AutoBaudDetector();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            detector.DetectAsync("COM_nonexistent_port", cts.Token));
+    }
+
+    [Fact]
+    public void Dispose_IsIdempotent()
+    {
+        var detector = new AutoBaudDetector();
+        detector.Dispose();
         var exception = Record.Exception(() => detector.Dispose());
         Assert.Null(exception);
     }

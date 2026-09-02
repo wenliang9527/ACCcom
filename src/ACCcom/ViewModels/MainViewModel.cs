@@ -32,6 +32,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly PlotViewModel _plotViewModel = new();
     private readonly SettingsService _settingsService = new();
     private readonly HighlightService _highlightService = new();
+    private readonly AutoBaudDetector _autoBaudDetector = new();
     private AppSettings _settings;
     private PlotWindow? _plotWindow;
     private bool _disposed;
@@ -193,7 +194,7 @@ public class MainViewModel : ObservableObject, IDisposable
             MultiPortService = _multiPort,
             ModbusService = _modbusConnectionManager.GetDefaultService(_serial),
             ModbusConnections = _modbusConnectionManager,
-            AutoBaudDetector = new AutoBaudDetector(),
+            AutoBaudDetector = _autoBaudDetector,
             SessionRecorder = _sessionRecorder,
             DataStatistics = _stats,
             BufferCapacity = _settings.BufferCapacity,
@@ -203,7 +204,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
 
-        _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg, _portMonitor);
+        _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg, _portMonitor, _autoBaudDetector);
         _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings, _highlightService);
         _highlights = new HighlightViewModel(_highlightService, () => _dataFlow, msg => StatusText = msg);
         _highlights.Load();
@@ -442,6 +443,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenCloseCommand => _connection.OpenCloseCommand;
     public ICommand ConnectNetworkCommand => _connection.ConnectNetworkCommand;
     public ICommand RefreshPortsCommand => _connection.RefreshPortsCommand;
+    public ICommand AutoDetectBaudCommand => _connection.AutoDetectBaudCommand;
     public ICommand SendCommand => _dataFlow.SendCommand;
     public ICommand ClearRxCommand => _dataFlow.ClearRxCommand;
     public ICommand ClearTxCommand => _dataFlow.ClearTxCommand;
@@ -661,5 +663,6 @@ public class MainViewModel : ObservableObject, IDisposable
         _modbusConnectionManager.Dispose();
         _modbusSlaveService.Dispose();
         _portMonitor.Dispose();
+        _autoBaudDetector.Dispose();
     }
 }

@@ -4,8 +4,9 @@ namespace ACCcom.Core.Services;
 
 public class AutoBaudDetector : IDisposable
 {
-    // Standard baud rates to try, in order of likelihood
-    private static readonly int[] CommonRates = { 9600, 115200, 57600, 38400, 19200, 4800, 2400, 1200, 460800, 230400, 921600 };
+    // Standard baud rates to try, in order of likelihood. Exposed so the UI
+    // can show "trying 9600…" without re-declaring the list.
+    public static readonly int[] CommonRates = { 9600, 115200, 57600, 38400, 19200, 4800, 2400, 1200, 460800, 230400, 921600 };
 
     /// <summary>
     /// Auto-detect the baud rate of a connected serial device by probing common rates.

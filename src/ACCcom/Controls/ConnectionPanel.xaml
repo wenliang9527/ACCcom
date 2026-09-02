@@ -26,7 +26,15 @@
             <ComboBox ItemsSource="{Binding AvailablePorts}" Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
                       Width="100" IsEditable="True" Margin="0,0,10,0" />
             <TextBlock Text="{Binding [Label.BaudRate], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="88" Margin="0,0,12,0" />
+            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="88" Margin="0,0,4,0" />
+            <!-- Auto-detect baud rate by probing common rates against the
+                 selected port. Disabled while a probe is running or when the
+                 port is already open. Clicking again mid-probe cancels it. -->
+            <Button Command="{Binding AutoDetectBaudCommand}"
+                    Style="{StaticResource HeaderButton}" FontSize="12" Padding="4,1" VerticalAlignment="Center"
+                    ToolTip="{Binding [Tip.AutoDetectBaud], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding DetectGlyph, FallbackValue='🔍'}" FontSize="12" />
+            </Button>
         </StackPanel>
 
         <!-- Network fields: visible when SelectedConnectionType != "Serial" -->

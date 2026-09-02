@@ -12,9 +12,11 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private readonly NetworkBridgeService _networkBridge;
     private readonly SerialConnectionManager _connectionManager;
     private readonly PortMonitorService? _portMonitor;
+    private readonly AutoBaudDetector? _autoBaud;
     private readonly Action<string> _setStatus;
     private readonly Action<string> _durationChangedHandler;
     private bool _disposed;
+    private CancellationTokenSource? _detectCts;
 
     public ObservableCollection<string> AvailablePorts { get; } = new();
     public ObservableCollection<int> BaudRates { get; } = new() { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 };
@@ -83,21 +85,49 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private string _connectionDuration = "";
     public string ConnectionDuration { get => _connectionDuration; set => SetField(ref _connectionDuration, value); }
 
+    /// <summary>True while the auto-baud probe is cycling through common rates.
+    /// The button stays disabled (and shows "Detecting…") until it finishes.</summary>
+    private bool _isDetecting;
+    public bool IsDetecting
+    {
+        get => _isDetecting;
+        private set
+        {
+            if (SetField(ref _isDetecting, value))
+            {
+                System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                OnPropertyChanged(nameof(DetectGlyph));
+            }
+        }
+    }
+
+    /// <summary>The baud rate currently being probed, e.g. "9600". Empty when idle.</summary>
+    private string _detectProgressText = "";
+    public string DetectProgressText { get => _detectProgressText; set => SetField(ref _detectProgressText, value); }
+
+    /// <summary>Button face text: spinner while detecting, magnifier icon when idle.</summary>
+    public string DetectGlyph => IsDetecting ? "⟳" : "🔍";
+
     public ICommand OpenCloseCommand { get; }
     public ICommand ConnectNetworkCommand { get; }
     public ICommand RefreshPortsCommand { get; }
+    public ICommand AutoDetectBaudCommand { get; }
 
-    public ConnectionViewModel(ISerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus, PortMonitorService? portMonitor = null)
+    public ConnectionViewModel(ISerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus, PortMonitorService? portMonitor = null, AutoBaudDetector? autoBaud = null)
     {
         _serial = serial;
         _networkBridge = networkBridge;
         _connectionManager = connectionManager;
         _setStatus = setStatus;
         _portMonitor = portMonitor;
+        _autoBaud = autoBaud;
 
         OpenCloseCommand = new RelayCommand(_ => ToggleOpenClose());
         ConnectNetworkCommand = new RelayCommand(_ => _ = ConnectNetworkAsync());
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
+        AutoDetectBaudCommand = new RelayCommand(
+            _ => _ = DetectBaudAsync(),
+            _ => !IsDetecting && !IsOpen && !string.IsNullOrEmpty(SelectedPort) && _autoBaud != null);
 
         _durationChangedHandler = duration =>
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => ConnectionDuration = duration);
@@ -242,10 +272,71 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Probes common baud rates against the selected serial port. Each rate is
+    /// tried in turn; the first one that elicits a response from the device
+    /// becomes the new <see cref="SelectedBaudRate"/>. Clicking the button again
+    /// while a probe is running cancels it.
+    /// </summary>
+    private async Task DetectBaudAsync()
+    {
+        if (_autoBaud == null) return;
+
+        // Second click while detecting = cancel.
+        if (IsDetecting)
+        {
+            _detectCts?.Cancel();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(SelectedPort))
+        {
+            _setStatus(LanguageManager.Instance["Status.PleaseSelectPortFirst"]);
+            return;
+        }
+
+        IsDetecting = true;
+        _detectCts = new CancellationTokenSource();
+        var portName = SelectedPort;
+        try
+        {
+            foreach (var rate in AutoBaudDetector.CommonRates)
+            {
+                _detectCts.Token.ThrowIfCancellationRequested();
+                DetectProgressText = rate.ToString();
+                _setStatus(string.Format(LanguageManager.Instance["Status.BaudDetecting"], rate));
+
+                if (await _autoBaud.TryBaudRateAsync(portName, rate, _detectCts.Token).ConfigureAwait(true))
+                {
+                    SelectedBaudRate = rate;
+                    _setStatus(string.Format(LanguageManager.Instance["Status.BaudDetected"], rate));
+                    return;
+                }
+            }
+            _setStatus(LanguageManager.Instance["Status.BaudDetectFailed"]);
+        }
+        catch (OperationCanceledException)
+        {
+            _setStatus(LanguageManager.Instance["Status.BaudDetectCanceled"]);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.BaudDetectFailed"], ex.Message));
+        }
+        finally
+        {
+            DetectProgressText = "";
+            IsDetecting = false;
+            _detectCts?.Dispose();
+            _detectCts = null;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        _detectCts?.Cancel();
         if (_portMonitor != null)
         {
             _portMonitor.PortsChanged -= OnPortsChanged;
