@@ -25,6 +25,12 @@
         </Button>
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
+        <Button Command="{Binding OpenProtocolTestCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                ToolTip="{Binding [Tip.OpenProtocolTest], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#x2714;" FontSize="13" />
+        </Button>
+
+        <Rectangle Style="{StaticResource ToolSeparator}" />
 
         <!-- Bookmarks: mark a moment in the RX stream and jump back to it later.
              Hotkeys: Ctrl+B (add), Ctrl+Left / Ctrl+Right (prev / next). -->

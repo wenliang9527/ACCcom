@@ -271,6 +271,12 @@ public partial class MainWindow : Window
             _vm.OpenHighlightCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+T: Open protocol regression test editor.
+        else if (e.Key == Key.T && mods == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _vm.OpenProtocolTestCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void ApplySidebarVisibility()

@@ -1,0 +1,156 @@
+<Window x:Class="ACCcom.ProtocolTestWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ACCcom"
+        xmlns:models="clr-namespace:ACCcom.Core.Models;assembly=ACCcom.Core"
+        Title="{Binding [ProtocolTest.Title], Source={x:Static local:LanguageManager.Instance}}"
+        Height="580" Width="860"
+        MinHeight="480" MinWidth="700"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Background="{DynamicResource BgBaseBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [ProtocolTest.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Script metadata -->
+        <Grid Grid.Row="1" Margin="12,8,12,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="55" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="55" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding [ProtocolTest.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <TextBox Grid.Column="1" Text="{Binding ScriptName, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="4,1" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="2" Text="{Binding [ProtocolTest.Description], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <TextBox Grid.Column="3" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="4,1" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="4" Text="{Binding [ProtocolTest.Repeat], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <TextBox Grid.Column="5" Text="{Binding RepeatCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="55" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="6" Text="{Binding [ProtocolTest.RepeatDelay], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <TextBox Grid.Column="7" Text="{Binding RepeatDelayMs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="55" />
+        </Grid>
+
+        <!-- Steps -->
+        <Grid Grid.Row="2" Margin="12,4,12,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" Margin="0,0,0,4">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding [ProtocolTest.Steps], Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="{Binding [ProtocolTest.AddStep], Source={x:Static local:LanguageManager.Instance}}"
+                            Style="{StaticResource OutlineButton}" FontSize="10" Padding="8,0" Height="22" Command="{Binding AddStepCommand}" />
+                    <Button Content="{Binding [ProtocolTest.RemoveStep], Source={x:Static local:LanguageManager.Instance}}"
+                            Style="{StaticResource OutlineButton}" FontSize="10" Padding="8,0" Height="22" Margin="4,0,0,0"
+                            Command="{Binding RemoveStepCommand}" CommandParameter="{Binding SelectedItem, ElementName=StepsGrid}" />
+                </StackPanel>
+            </DockPanel>
+            <DataGrid x:Name="StepsGrid" Grid.Row="1" Style="{StaticResource FieldDataGrid}"
+                      ItemsSource="{Binding Steps}" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColName], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" Width="90" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColCommand], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Command}" Width="*" />
+                    <DataGridCheckBoxColumn Header="HEX" Binding="{Binding IsHex}" Width="40" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColDelay], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding DelayMs}" Width="55" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColExpected], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding ExpectedPattern}" Width="120" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColMatchMode], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding MatchMode}" Width="80" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColTimeout], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding ResponseTimeoutMs}" Width="70" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColRetries], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RetryCount}" Width="60" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+
+        <!-- Results -->
+        <Grid Grid.Row="4" Margin="12,4,12,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" Margin="0,0,0,4">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding [ProtocolTest.Results], Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding PassedCount, StringFormat='Passed: {0}'}" Foreground="{DynamicResource StatusGreenBrush}" FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FailedCount, StringFormat='  Failed: {0}'}" Foreground="{DynamicResource RedErrorBrush}" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </StackPanel>
+            </DockPanel>
+            <DataGrid Grid.Row="1" Style="{StaticResource FieldDataGrid}"
+                      ItemsSource="{Binding Results}" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColName], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding StepName}" Width="110" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="{Binding [ProtocolTest.ColStatus], Source={x:Static local:LanguageManager.Instance}}" Width="70" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock FontSize="13" FontWeight="Bold" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#x2714;" />
+                                            <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Passed}" Value="False">
+                                                    <Setter Property="Text" Value="&#x2718;" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource RedErrorBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColAttempts], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Attempts}" Width="60" IsReadOnly="True" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColDuration], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Duration, StringFormat={}{0:ss\.fff}s}" Width="80" IsReadOnly="True" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColResponse], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding ActualResponse}" Width="*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="{Binding [ProtocolTest.ColReason], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding FailureReason}" Width="160" IsReadOnly="True" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+
+        <!-- Bottom actions -->
+        <DockPanel Grid.Row="5" Margin="12,4,12,10">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Content="{Binding [ProtocolTest.NewScript], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" Command="{Binding NewScriptCommand}" />
+                <Button Content="{Binding [ProtocolTest.LoadScript], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" Margin="6,0,0,0" Command="{Binding LoadScriptCommand}" />
+                <Button Content="{Binding [ProtocolTest.SaveScript], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" Margin="6,0,0,0" Command="{Binding SaveScriptCommand}" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{Binding [ProtocolTest.Stop], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" Margin="0,0,6,0" Command="{Binding StopTestsCommand}" />
+                <Button Content="{Binding [ProtocolTest.Run], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource PrimaryButton}" Command="{Binding RunTestsCommand}" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

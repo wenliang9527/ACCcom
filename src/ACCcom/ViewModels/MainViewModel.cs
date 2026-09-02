@@ -42,6 +42,8 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly ToolViewModel _tool;
     private readonly HighlightViewModel _highlights;
     private HighlightWindow? _highlightWindow;
+    private ProtocolTestViewModel? _protocolTest;
+    private ProtocolTestWindow? _protocolTestWindow;
 
     private readonly ModbusConnectionManager _modbusConnectionManager = new();
     private readonly ModbusSlaveService _modbusSlaveService = new();
@@ -174,9 +176,11 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleThemeCommand { get; }
     public ICommand ToggleRecordingCommand { get; }
     public ICommand OpenHighlightCommand { get; }
+    public ICommand OpenProtocolTestCommand { get; }
     public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
     public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
     public HighlightViewModel Highlights => _highlights;
+    public ProtocolTestViewModel? ProtocolTest => _protocolTest;
 
     public MainViewModel() : this(new SerialService()) { }
 
@@ -225,6 +229,7 @@ public class MainViewModel : ObservableObject, IDisposable
         ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
         ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
+        OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -277,6 +282,9 @@ public class MainViewModel : ObservableObject, IDisposable
             // drops writes when it's not actively recording so the cost is one
             // null-check per frame.
             _sessionRecorder.Record(entry);
+            // Same for the protocol-test runner — its RX queue only grows when
+            // a test is actually running (checked inside OnRxEntry).
+            _protocolTest?.OnRxEntry(entry);
         };
 
         // Poll the recorder so IsRecording / RecordedCount surface in the UI.
@@ -338,6 +346,34 @@ public class MainViewModel : ObservableObject, IDisposable
         await _tool.LoadPresetsAsync();
         await _tool.LoadMacrosAsync();
         _tool.LoadTriggers();
+    }
+
+    private void OpenProtocolTestWindow()
+    {
+        if (_protocolTestWindow != null)
+        {
+            _protocolTestWindow.Activate();
+            return;
+        }
+
+        _protocolTest ??= new ProtocolTestViewModel(
+            new ProtocolTestRunner(),
+            _serial,
+            () => _connection.IsOpen,
+            msg => StatusText = msg);
+
+        _protocolTestWindow = new ProtocolTestWindow(_protocolTest)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _protocolTestWindow.Closed += (_, _) =>
+        {
+            _protocolTestWindow = null;
+            _protocolTest?.Dispose();
+            _protocolTest = null;
+        };
+        _protocolTestWindow.Show();
+        StatusText = LanguageManager.Instance["Status.ProtocolTestOpened"];
     }
 
     private void OpenHighlightWindow()

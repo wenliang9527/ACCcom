@@ -465,4 +465,67 @@ public class ProtocolTestRunnerTests : IDisposable
 
         Assert.True(report.Results.Count >= 1, "Should have completed at least one iteration");
     }
+
+    // --- TryMatchEntry (UI-layer convenience wrapper) ---
+
+    private static LogEntry MakeEntry(string text, string hex = "AA BB") => new()
+    {
+        Id = 1,
+        Direction = "RX",
+        Text = text,
+        RawHex = hex
+    };
+
+    [Fact]
+    public void TryMatchEntry_hex_contains_matches_raw_hex()
+    {
+        var entry = MakeEntry("hello world", hex: "AA BB CC DD");
+
+        var matched = ProtocolTestRunner.TryMatchEntry(entry, "BB CC", "hex_contains", matchHex: true, out var text);
+
+        Assert.True(matched);
+        Assert.Equal("AA BB CC DD", text);
+    }
+
+    [Fact]
+    public void TryMatchEntry_regex_matches_decoded_text()
+    {
+        var entry = MakeEntry("firmware v2.1.3");
+
+        var matched = ProtocolTestRunner.TryMatchEntry(entry, @"v\d+\.\d+\.\d+", "regex", matchHex: false, out _);
+
+        Assert.True(matched);
+    }
+
+    [Fact]
+    public void TryMatchEntry_contains_when_matchHex_false_ignores_raw_hex()
+    {
+        // Pattern exists only in raw hex; text matching must not see it.
+        var entry = MakeEntry("plain text", hex: "CA FE BA BE");
+
+        var matched = ProtocolTestRunner.TryMatchEntry(entry, "CA FE", "contains", matchHex: false, out _);
+
+        Assert.False(matched);
+    }
+
+    [Fact]
+    public void TryMatchEntry_empty_pattern_returns_false()
+    {
+        var entry = MakeEntry("hello");
+
+        var matched = ProtocolTestRunner.TryMatchEntry(entry, "", "contains", matchHex: false, out var text);
+
+        Assert.False(matched);
+        Assert.Null(text);
+    }
+
+    [Fact]
+    public void TryMatchEntry_exact_match_is_case_sensitive()
+    {
+        var entry = MakeEntry("READY");
+
+        var matched = ProtocolTestRunner.TryMatchEntry(entry, "READY", "exact", matchHex: false, out _);
+
+        Assert.True(matched);
+    }
 }

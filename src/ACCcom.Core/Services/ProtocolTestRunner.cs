@@ -186,6 +186,29 @@ public class ProtocolTestRunner
         };
     }
 
+    /// <summary>
+    /// Convenience wrapper used by the UI layer to match an incoming RX entry
+    /// against a step's expected pattern. The <paramref name="matchHex"/> flag
+    /// decides whether to compare against the raw hex or the decoded text.
+    /// <paramref name="matchedText"/> receives the compared payload so the
+    /// caller can surface it in a report (it is null on no-match).
+    /// </summary>
+    public static bool TryMatchEntry(LogEntry entry, string pattern, string matchMode, bool matchHex, out string? matchedText)
+    {
+        matchedText = null;
+        if (entry == null || string.IsNullOrWhiteSpace(pattern)) return false;
+
+        var target = matchHex ? entry.RawHex : entry.Text;
+        if (string.IsNullOrEmpty(target)) return false;
+
+        if (MatchesExpectation(target, pattern, matchMode))
+        {
+            matchedText = target;
+            return true;
+        }
+        return false;
+    }
+
     private static bool TryRegexMatch(string input, string pattern)
     {
         try
