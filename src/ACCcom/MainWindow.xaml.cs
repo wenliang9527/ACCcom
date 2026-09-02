@@ -176,6 +176,24 @@ public partial class MainWindow : Window
             _vm.DataFlow.IsHexSend = !_vm.DataFlow.IsHexSend;
             e.Handled = true;
         }
+        // F3 / Shift+F3: Jump to the next / previous RX entry that matches the
+        // current search filter. Mirrors the standard editor find-next behaviour.
+        else if (e.Key == Key.F3 && mods == ModifierKeys.None)
+        {
+            if (_vm.JumpToRxMatch(forward: true))
+            {
+                DataPanelControl.RxListBoxControl.ScrollIntoView(_vm.DataFlow.SelectedEntry);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.F3 && mods == ModifierKeys.Shift)
+        {
+            if (_vm.JumpToRxMatch(forward: false))
+            {
+                DataPanelControl.RxListBoxControl.ScrollIntoView(_vm.DataFlow.SelectedEntry);
+                e.Handled = true;
+            }
+        }
         // Ctrl+F: Focus RX search box
         else if (e.Key == Key.F && mods == ModifierKeys.Control)
         {

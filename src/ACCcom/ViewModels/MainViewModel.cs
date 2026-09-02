@@ -327,6 +327,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public string RxFilterText { get => _dataFlow.RxFilterText; set => _dataFlow.RxFilterText = value; }
     public string TxFilterText { get => _dataFlow.TxFilterText; set => _dataFlow.TxFilterText = value; }
     public bool IsRegexFilter { get => _dataFlow.IsRegexFilter; set => _dataFlow.IsRegexFilter = value; }
+    public bool JumpToRxMatch(bool forward) => _dataFlow.JumpToMatch(forward);
     public bool ShowRx { get => _dataFlow.ShowRx; set => _dataFlow.ShowRx = value; }
     public bool ShowTx { get => _dataFlow.ShowTx; set => _dataFlow.ShowTx = value; }
     public ListCollectionView? FilteredRxEntries => _dataFlow.FilteredRxEntries;

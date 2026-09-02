@@ -21,6 +21,23 @@
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
 
+        <!-- Bookmarks: mark a moment in the RX stream and jump back to it later.
+             Hotkeys: Ctrl+B (add), Ctrl+Left / Ctrl+Right (prev / next). -->
+        <Button Command="{Binding AddBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                ToolTip="{Binding [Tip.AddBookmark], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#x2606;" FontSize="13" />
+        </Button>
+        <Button Command="{Binding PrevBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                ToolTip="{Binding [Tip.PrevBookmark], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#xAB;" FontSize="11" />
+        </Button>
+        <Button Command="{Binding NextBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#xBB;" FontSize="11" />
+        </Button>
+
+        <Rectangle Style="{StaticResource ToolSeparator}" />
+
         <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"
                   Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" />
         <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}"

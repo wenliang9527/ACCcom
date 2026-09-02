@@ -209,6 +209,32 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Step the selection to the next/previous RX entry that matches the
+    /// current filter. Used by F3 / Shift+F3 in MainWindow. The filter is whatever
+    /// the user typed in the RX search box — "no filter" is treated as no match,
+    /// which mirrors how the data panel already highlights matches.</summary>
+    public bool JumpToMatch(bool forward)
+    {
+        if (FilteredRxEntries == null) return false;
+        var entries = FilteredRxEntries.Cast<LogEntry>().ToList();
+        if (entries.Count == 0) return false;
+
+        // Only entries the filter accepted (IsSearchMatch already set by FilterEntry).
+        var matches = entries.Where(e => e.IsSearchMatch).ToList();
+        if (matches.Count == 0) return false;
+
+        var currentIdx = SelectedEntry == null ? -1 : matches.IndexOf(SelectedEntry);
+        int nextIdx;
+        if (forward)
+            nextIdx = currentIdx < 0 ? 0 : Math.Min(currentIdx + 1, matches.Count - 1);
+        else
+            nextIdx = currentIdx <= 0 ? 0 : currentIdx - 1;
+
+        if (matches[nextIdx] == SelectedEntry) return false;
+        SelectedEntry = matches[nextIdx];
+        return true;
+    }
+
     public bool HasFields => SelectedEntry?.Fields is { Count: > 0 };
 
     public Action<LogEntry>? OnRxProcessed { get; set; }
@@ -584,7 +610,12 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             _setStatus(LanguageManager.Instance["Status.HexInvalid"] + ": " + HexValidationError);
             return;
         }
-        var toSend = IsHexSend ? SendText : ExpandVariables(SendText);
+        // Trim leading/trailing whitespace so a stray space-bar press doesn't
+        // send a meaningless payload (or, in HEX mode, leave trailing spaces
+        // that the user almost certainly didn't mean to transmit).
+        var trimmed = IsHexSend ? SendText.TrimEnd() : SendText.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return;
+        var toSend = IsHexSend ? trimmed : ExpandVariables(trimmed);
 
         bool sent;
         if (_networkBridge.IsConnected)
