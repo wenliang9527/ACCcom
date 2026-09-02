@@ -170,15 +170,21 @@
                         BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}"
                         MaxHeight="200"
                         Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
-                    <DataGrid Style="{StaticResource FieldDataGrid}"
+                    <DataGrid x:Name="FieldGrid" Style="{StaticResource FieldDataGrid}"
                               ItemsSource="{Binding SelectedEntry.Fields}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset}" Width="55" />
-                            <DataGridTextColumn Header="{Binding [Column.Name], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" MinWidth="80" Width="Auto" />
-                            <DataGridTextColumn Header="{Binding [Column.Length], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Length}" Width="40" />
-                            <DataGridTextColumn Header="{Binding [Column.RawHex], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RawHex}" MinWidth="80" Width="Auto" />
-                            <DataGridTextColumn Header="{Binding [Column.Value], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding DisplayValue}" MinWidth="80" Width="*" />
-                            <DataGridTextColumn Header="{Binding [Column.Severity], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Severity}" Width="65">
+                            <DataGridTextColumn x:Name="FieldColOffset"
+                                Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset}" Width="55" />
+                            <DataGridTextColumn x:Name="FieldColName"
+                                Header="{Binding [Column.Name], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" MinWidth="80" Width="Auto" />
+                            <DataGridTextColumn x:Name="FieldColLength"
+                                Header="{Binding [Column.Length], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Length}" Width="40" />
+                            <DataGridTextColumn x:Name="FieldColRawHex"
+                                Header="{Binding [Column.RawHex], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RawHex}" MinWidth="80" Width="Auto" />
+                            <DataGridTextColumn x:Name="FieldColValue"
+                                Header="{Binding [Column.Value], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding DisplayValue}" MinWidth="80" Width="*" />
+                            <DataGridTextColumn x:Name="FieldColSeverity"
+                                Header="{Binding [Column.Severity], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Severity}" Width="65">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold" />

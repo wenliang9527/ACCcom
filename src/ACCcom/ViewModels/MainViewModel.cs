@@ -532,6 +532,21 @@ public class MainViewModel : ObservableObject, IDisposable
         _settingsService.Save(_settings);
     }
 
+    /// <summary>Called by <see cref="Controls.DataPanel"/> when the user finishes
+    /// resizing a column. Replaces the in-memory map; persistence happens on
+    /// <see cref="SaveSettings"/> during window close.</summary>
+    public void UpdateFieldGridColumnWidths(Dictionary<int, double> widths)
+    {
+        _settings.FieldGridColumnWidths = new Dictionary<int, double>(widths);
+    }
+
+    /// <summary>Returns the saved field-grid column widths (or null when none).
+    /// The view calls this once after the DataGrid is loaded.</summary>
+    public IReadOnlyDictionary<int, double>? GetFieldGridColumnWidths()
+        => _settings.FieldGridColumnWidths is { Count: > 0 }
+            ? _settings.FieldGridColumnWidths
+            : null;
+
     public void Dispose()
     {
         if (_disposed) return;

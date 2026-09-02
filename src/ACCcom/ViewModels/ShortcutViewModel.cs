@@ -208,6 +208,38 @@ public class ShortcutViewModel : ObservableObject
 
     public void DeleteShortcut(ShortcutItem item) => CurrentCommands?.Remove(item);
 
+    /// <summary>Copies the command text to the clipboard. Useful when the user wants
+    /// to paste the command into an external terminal or other app without first
+    /// loading it into the send box.</summary>
+    public void CopyCommand(ShortcutItem item)
+    {
+        if (item == null) return;
+        try
+        {
+            System.Windows.Clipboard.SetText(item.Command ?? "");
+            _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutCopied"], item.Name));
+        }
+        catch (System.Runtime.InteropServices.COMException) { /* clipboard busy */ }
+    }
+
+    /// <summary>Toggles the HEX/TXT mode of a single shortcut without opening the
+    /// edit dialog. Lets users quickly probe "would this command work as HEX?"
+    /// without going through two clicks.</summary>
+    public void ToggleIsHex(ShortcutItem item)
+    {
+        if (item == null || CurrentCommands == null) return;
+        var index = CurrentCommands.IndexOf(item);
+        if (index < 0) return;
+        CurrentCommands[index] = new ShortcutItem
+        {
+            Name = item.Name,
+            Command = item.Command,
+            IsHex = !item.IsHex
+        };
+        _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutToggledHex"],
+            item.Name, CurrentCommands[index].IsHex ? "HEX" : "TXT"));
+    }
+
     // ===== Page operations =====
 
     private void GoToPage(int delta)

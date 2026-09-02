@@ -54,6 +54,16 @@ public partial class QuickSendSidebar : UserControl
         if (GetItem(sender) is { } item) Vm?.DeleteShortcut(item);
     }
 
+    private void QuickSendCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetItem(sender) is { } item) Vm?.CopyCommand(item);
+    }
+
+    private void QuickSendToggleHex_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetItem(sender) is { } item) Vm?.ToggleIsHex(item);
+    }
+
     private void RenamePage_Click(object sender, RoutedEventArgs e) => Vm?.RenameCurrentPage();
 
     private void ClearFilter_Click(object sender, RoutedEventArgs e)

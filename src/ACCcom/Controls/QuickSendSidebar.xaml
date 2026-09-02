@@ -157,7 +157,11 @@
                                               Tag="{Binding}" Click="QuickSendSend_Click" />
                                     <MenuItem Header="{Binding [QuickSend.LoadToSendBox], Source={x:Static local:LanguageManager.Instance}}"
                                               Tag="{Binding}" Click="QuickSendLoad_Click" />
+                                    <MenuItem Header="{Binding [QuickSend.CopyCommand], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendCopy_Click" />
                                     <Separator />
+                                    <MenuItem Header="{Binding [QuickSend.ToggleHex], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendToggleHex_Click" />
                                     <MenuItem Header="{Binding [QuickSend.Edit], Source={x:Static local:LanguageManager.Instance}}"
                                               Tag="{Binding}" Click="QuickSendEdit_Click" InputGestureText="DblClick" />
                                     <MenuItem Header="{Binding [QuickSend.Delete], Source={x:Static local:LanguageManager.Instance}}"

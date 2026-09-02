@@ -594,17 +594,18 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         if (sent)
         {
-            RecordSendHistory(SendText);
-            // Also record into DataStatistics so the TX throughput indicator in the
-            // status bar reflects the user's manual sends (not just parser-driven
-            // loopback traffic).
             var sentBytes = System.Text.Encoding.UTF8.GetByteCount(toSend);
             if (IsHexSend)
             {
                 try { sentBytes = HexHelper.HexStringToBytes(toSend).Length; }
                 catch { /* validate above would have caught; fall back to utf8 length */ }
             }
+            RecordSendHistory(SendText);
+            // Mirror the manual-send bytes into DataStatistics so the TX throughput
+            // indicator in the status bar reflects user activity (not just parser-
+            // driven loopback traffic).
             _stats?.RecordTx(sentBytes);
+            _setStatus(string.Format(LanguageManager.Instance["Status.Sent"], sentBytes));
         }
     }
 

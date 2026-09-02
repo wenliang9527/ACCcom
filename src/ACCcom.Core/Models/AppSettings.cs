@@ -51,4 +51,9 @@ public class AppSettings
     // Capped at MaxSendHistory entries (oldest dropped).
     public List<string> SendHistory { get; set; } = new();
     public int MaxSendHistory { get; set; } = 50;
+
+    // Per-column widths (pixels) for the parsed-field DataGrid in DataPanel, keyed by
+    // the column's zero-based index in the XAML column list. DataGridTextColumn has
+    // no Tag property, so we use the index instead. Missing / out-of-range = default.
+    public Dictionary<int, double> FieldGridColumnWidths { get; set; } = new();
 }

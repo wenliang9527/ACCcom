@@ -154,6 +154,13 @@ public partial class MainWindow : Window
             _vm.ClearTxCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+H: Toggle HEX send mode. Lets users flip between ASCII and
+        // hex without taking their hands off the keyboard.
+        else if (e.Key == Key.H && mods == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _vm.DataFlow.IsHexSend = !_vm.DataFlow.IsHexSend;
+            e.Handled = true;
+        }
         // Ctrl+F: Focus RX search box
         else if (e.Key == Key.F && mods == ModifierKeys.Control)
         {
