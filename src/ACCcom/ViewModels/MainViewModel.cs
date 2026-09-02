@@ -519,6 +519,8 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.IsHexDisplayTx = _dataFlow.IsHexDisplayTx;
         _settings.EnableRxTimestamp = _dataFlow.EnableRxTimestamp;
         _settings.EnableTxTimestamp = _dataFlow.EnableTxTimestamp;
+        // Persist the in-memory send history (newest last) back to settings.
+        _dataFlow.PersistSendHistory();
         _settingsService.Save(_settings);
     }
 

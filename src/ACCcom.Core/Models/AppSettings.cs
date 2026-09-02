@@ -46,4 +46,9 @@ public class AppSettings
     // HTTP API security: when set, /api and /ws require the X-ACCcom-Token header
     // (or ?token= query parameter). Empty = token check disabled.
     public string HttpApiToken { get; set; } = "";
+
+    // Send history: recent texts entered in the send box, newest last.
+    // Capped at MaxSendHistory entries (oldest dropped).
+    public List<string> SendHistory { get; set; } = new();
+    public int MaxSendHistory { get; set; } = 50;
 }

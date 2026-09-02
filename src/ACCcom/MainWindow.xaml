@@ -315,12 +315,33 @@
                 <Rectangle Grid.Column="1" Width="1" Height="18" Fill="{DynamicResource DividerBrush}"
                            VerticalAlignment="Center" Margin="0,0,10,0" />
 
-                <TextBox x:Name="SendTextBox" Grid.Column="2"
-                         Text="{Binding SendText, UpdateSourceTrigger=PropertyChanged}"
-                         Height="30" AcceptsReturn="False" TextWrapping="NoWrap"
-                         FontFamily="Consolas" FontSize="13"
-                         Padding="10,0" VerticalContentAlignment="Center"
-                         VerticalScrollBarVisibility="Disabled" />
+                <Grid Grid.Column="2">
+                    <TextBox x:Name="SendTextBox"
+                             Text="{Binding SendText, UpdateSourceTrigger=PropertyChanged}"
+                             Height="30" AcceptsReturn="False" TextWrapping="NoWrap"
+                             FontFamily="Consolas" FontSize="13"
+                             Padding="10,0,30,0" VerticalContentAlignment="Center"
+                             VerticalScrollBarVisibility="Disabled" />
+                    <Button x:Name="HistoryDropDownBtn" Content="&#x25BE;" Width="24" Height="30"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="0,0,2,0" Padding="0" FontSize="10" Cursor="Hand"
+                            Style="{StaticResource HeaderButton}"
+                            ToolTip="最近发送历史（点击展开，单击条目填入发送框；右键清空）"
+                            Click="HistoryDropDownBtn_Click">
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="HistoryContextMenu"
+                                         ItemsSource="{Binding SendHistory}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding}" />
+                                        <Setter Property="ToolTip" Value="{Binding}" />
+                                        <EventSetter Event="Click" Handler="HistoryItem_Click" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </Grid>
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0">
                     <Button Content="{Binding [Button.Stop], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding StopLoopCommand}"

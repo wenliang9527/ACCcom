@@ -53,6 +53,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private bool _isHexSend;
     public bool IsHexSend { get => _isHexSend; set => SetField(ref _isHexSend, value); }
 
+    /// <summary>Recent send-box entries, oldest first. Backing field for UI binding (dropdown of history).</summary>
+    public System.Collections.ObjectModel.ObservableCollection<string> SendHistory { get; } = new();
+
     private bool _isHexDisplayRx;
     public bool IsHexDisplayRx { get => _isHexDisplayRx; set => SetField(ref _isHexDisplayRx, value); }
 
@@ -168,6 +171,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public ICommand OpenParserDirCommand { get; }
     public ICommand CompareFramesCommand { get; }
     public ICommand ResetCountersCommand { get; }
+    public ICommand ClearSendHistoryCommand { get; }
 
     public DataFlowViewModel(
         ISerialService serial,
@@ -254,7 +258,15 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             ErrorFrameCount = 0;
             _stats?.Reset();
         });
+        ClearSendHistoryCommand = new RelayCommand(_ => { _sendHistory.Clear(); SendHistory.Clear(); PersistSendHistory(); });
         ToggleHexDisplayCommand = new RelayCommand(_ => { IsHexDisplayRx = !IsHexDisplayRx; IsHexDisplayTx = !IsHexDisplayTx; });
+
+        // Hydrate persistent send history into the in-memory list and the UI collection.
+        if (_settings.SendHistory is { Count: > 0 })
+        {
+            _sendHistory.AddRange(_settings.SendHistory);
+            foreach (var item in _sendHistory) SendHistory.Add(item);
+        }
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
         FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx);
@@ -521,10 +533,41 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         if (sent)
         {
-            if (_sendHistory.Count == 0 || _sendHistory[^1] != SendText)
-                _sendHistory.Add(SendText);
-            _historyIndex = _sendHistory.Count;
+            RecordSendHistory(SendText);
         }
+    }
+
+    private void RecordSendHistory(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        // Dedupe: move an existing entry to the end rather than creating a duplicate.
+        var existing = _sendHistory.IndexOf(text);
+        if (existing >= 0) _sendHistory.RemoveAt(existing);
+        _sendHistory.Add(text);
+
+        var cap = Math.Max(1, _settings?.MaxSendHistory ?? 50);
+        while (_sendHistory.Count > cap)
+        {
+            var dropped = _sendHistory[0];
+            _sendHistory.RemoveAt(0);
+            if (SendHistory.Count > 0 && SendHistory[0] == dropped) SendHistory.RemoveAt(0);
+        }
+
+        // Mirror the in-memory list into the observable collection for UI binding.
+        // This is a small bounded list (cap=50), so a full re-sync is cheap and
+        // simpler than tracking incremental move-to-end semantics.
+        SendHistory.Clear();
+        foreach (var item in _sendHistory) SendHistory.Add(item);
+
+        _historyIndex = _sendHistory.Count;
+        PersistSendHistory();
+    }
+
+    /// <summary>Snapshot the in-memory history back to <see cref="AppSettings"/> so the next launch can load it.</summary>
+    public void PersistSendHistory()
+    {
+        if (_settings == null) return;
+        _settings.SendHistory = new List<string>(_sendHistory);
     }
 
     public void NavigateHistory(int direction)

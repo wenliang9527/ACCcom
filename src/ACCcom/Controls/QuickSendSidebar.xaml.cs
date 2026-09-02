@@ -55,4 +55,9 @@ public partial class QuickSendSidebar : UserControl
     }
 
     private void RenamePage_Click(object sender, RoutedEventArgs e) => Vm?.RenameCurrentPage();
+
+    private void ClearFilter_Click(object sender, RoutedEventArgs e)
+    {
+        if (Vm != null) Vm.FilterText = "";
+    }
 }

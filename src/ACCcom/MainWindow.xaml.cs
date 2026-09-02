@@ -256,4 +256,23 @@ public partial class MainWindow : Window
     {
         Close();
     }
+
+    private void HistoryDropDownBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || btn.ContextMenu is null) return;
+        // Position the context menu below the button and open it.
+        btn.ContextMenu.PlacementTarget = btn;
+        btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        btn.ContextMenu.IsOpen = true;
+    }
+
+    private void HistoryItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.DataContext is string text)
+        {
+            _vm.SendText = text;
+            SendTextBox.Focus();
+            SendTextBox.CaretIndex = text.Length;
+        }
+    }
 }

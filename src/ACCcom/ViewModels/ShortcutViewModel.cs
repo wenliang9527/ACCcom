@@ -29,11 +29,46 @@ public class ShortcutViewModel : ObservableObject
                 OnPropertyChanged(nameof(PageIndicator));
                 OnPropertyChanged(nameof(CanGoPrev));
                 OnPropertyChanged(nameof(CanGoNext));
+                RebuildVisibleCommands();
             }
         }
     }
 
     public ObservableCollection<ShortcutItem>? CurrentCommands => CurrentPage?.Commands;
+
+    private string _filterText = "";
+    /// <summary>Search filter applied to command names (case-insensitive substring). Empty = show all.</summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (SetField(ref _filterText, value ?? ""))
+            {
+                RebuildVisibleCommands();
+            }
+        }
+    }
+
+    /// <summary>Filtered view of <see cref="CurrentCommands"/>. Rebuilt when filter or page changes.</summary>
+    public ObservableCollection<ShortcutItem> VisibleCommands { get; } = new();
+
+    private void RebuildVisibleCommands()
+    {
+        VisibleCommands.Clear();
+        var source = CurrentCommands;
+        if (source == null) return;
+        if (string.IsNullOrEmpty(_filterText))
+        {
+            foreach (var cmd in source) VisibleCommands.Add(cmd);
+            return;
+        }
+        foreach (var cmd in source)
+        {
+            if (cmd.Name != null && cmd.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase))
+                VisibleCommands.Add(cmd);
+        }
+    }
 
     public string PageIndicator
     {
@@ -316,6 +351,7 @@ public class ShortcutViewModel : ObservableObject
 
     private void OnCommandsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RebuildVisibleCommands();
         SaveShortcuts();
     }
 
