@@ -98,6 +98,8 @@
   "Status.PortArrived": "New serial device detected: {0}",
   "Status.PortRemoved": "Serial device removed: {0}",
   "Status.WaitingForDevice": "Port {0} not present, waiting for device…",
+  "Status.HexInvalid": "Invalid HEX input",
+  "SendBox.HexErrorTooltip": "HEX input is invalid: {0}",
   "Column.Offset": "Offset",
   "Column.Name": "Name",
   "Column.Length": "Len",

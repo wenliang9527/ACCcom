@@ -321,7 +321,21 @@
                              Height="30" AcceptsReturn="False" TextWrapping="NoWrap"
                              FontFamily="Consolas" FontSize="13"
                              Padding="10,0,30,0" VerticalContentAlignment="Center"
-                             VerticalScrollBarVisibility="Disabled" />
+                             VerticalScrollBarVisibility="Disabled">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSendInputValid}" Value="False">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}" />
+                                        <Setter Property="BorderThickness" Value="1.5" />
+                                        <Setter Property="ToolTip"
+                                                Value="{Binding HexValidationError}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                     <Button x:Name="HistoryDropDownBtn" Content="&#x25BE;" Width="24" Height="30"
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Margin="0,0,2,0" Padding="0" FontSize="10" Cursor="Hand"

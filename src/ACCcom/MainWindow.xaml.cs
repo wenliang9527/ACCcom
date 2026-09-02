@@ -70,18 +70,22 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // History navigation (Up/Down in SendTextBox)
-        if (e.Key == Key.Up && Keyboard.FocusedElement is TextBox tb && tb == SendTextBox)
+        // History navigation (Up/Down in SendTextBox): use the Try* variant so we can
+        // place the caret at the end of the restored text in one shot, avoiding the
+        // caret-jump-to-start that happens when we round-trip through the binding.
+        if (Keyboard.FocusedElement is TextBox focusedTb && focusedTb == SendTextBox)
         {
-            _vm.NavigateHistory(-1);
-            e.Handled = true;
-            return;
-        }
-        if (e.Key == Key.Down && Keyboard.FocusedElement is TextBox tb2 && tb2 == SendTextBox)
-        {
-            _vm.NavigateHistory(1);
-            e.Handled = true;
-            return;
+            int dir = e.Key == Key.Up ? -1 : e.Key == Key.Down ? 1 : 0;
+            if (dir != 0 && _vm.TryNavigateHistory(dir, out var text, out var caret))
+            {
+                _vm.SendText = text ?? "";
+                // Re-focus the box (in case the binding update stole focus) and put
+                // the caret at the end so the user can hit Enter to re-send immediately.
+                SendTextBox.Focus();
+                SendTextBox.CaretIndex = caret;
+                e.Handled = true;
+                return;
+            }
         }
 
         var mods = Keyboard.Modifiers;
@@ -127,15 +131,12 @@ public partial class MainWindow : Window
             }
         }
 
-        // Ctrl+Enter: Send data
-        if (e.Key == Key.Enter && mods == ModifierKeys.Control)
-        {
-            if (_vm.SendCommand.CanExecute(null))
-                _vm.SendCommand.Execute(null);
-            e.Handled = true;
-        }
-        // Enter (no Ctrl): also send
-        else if (e.Key == Key.Enter && mods == ModifierKeys.None)
+        // Enter (with or without Ctrl) sends — but ONLY when the SendTextBox has focus.
+        // Other TextBoxes (filter boxes, shortcut name editor, etc.) keep their default
+        // Enter behaviour so they don't accidentally trigger a send.
+        if (e.Key == Key.Enter &&
+            (mods == ModifierKeys.None || mods == ModifierKeys.Control) &&
+            Keyboard.FocusedElement is TextBox sendFocused && sendFocused == SendTextBox)
         {
             if (_vm.SendCommand.CanExecute(null))
                 _vm.SendCommand.Execute(null);

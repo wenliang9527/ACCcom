@@ -98,6 +98,8 @@
   "Status.PortArrived": "检测到新串口设备：{0}",
   "Status.PortRemoved": "串口设备已移除：{0}",
   "Status.WaitingForDevice": "端口 {0} 未接入，等待设备重新插入…",
+  "Status.HexInvalid": "HEX 输入无效",
+  "SendBox.HexErrorTooltip": "HEX 输入有误：{0}",
   "Column.Offset": "偏移",
   "Column.Name": "名称",
   "Column.Length": "长度",

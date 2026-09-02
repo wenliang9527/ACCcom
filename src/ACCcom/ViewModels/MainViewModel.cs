@@ -257,6 +257,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _statsTimer.Tick += (_, _) =>
         {
             RxRate = $"{_stats.RxBytesPerSecond:F1} B/s | {_stats.RxFramesPerSecond:F1} fps";
+            TxRate = $"{_stats.TxBytesPerSecond:F1} B/s | {_stats.TxFramesPerSecond:F1} fps";
             ErrorRate = $"{_stats.ErrorRate:F1}%";
             FrameInterval = $"{_stats.AvgFrameIntervalMs:F1} ms";
             _tool.StatsViewModel?.Update(_stats, RxByteCount, TxByteCount, RxCount, TxCount, ConnectionDuration);
@@ -273,6 +274,12 @@ public class MainViewModel : ObservableObject, IDisposable
     }
 
     public void NavigateHistory(int direction) => _dataFlow.NavigateHistory(direction);
+
+    /// <summary>Non-mutating history navigation used by the view to restore text and
+    /// place the caret at the end of the restored entry. The legacy <see cref="NavigateHistory"/>
+    /// remains for any external callers (MCP tools, etc.).</summary>
+    public bool TryNavigateHistory(int direction, out string? text, out int caretIndex)
+        => _dataFlow.TryNavigateHistory(direction, out text, out caretIndex);
 
     public void SendShortcutByIndex(int index) => _tool.Shortcuts.SendByIndex(index);
 
@@ -314,6 +321,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public int TxByteCount { get => _dataFlow.TxByteCount; set => _dataFlow.TxByteCount = value; }
     public int ErrorFrameCount { get => _dataFlow.ErrorFrameCount; set => _dataFlow.ErrorFrameCount = value; }
     public string RxRate { get => _dataFlow.RxRate; set => _dataFlow.RxRate = value; }
+    public string TxRate { get => _dataFlow.TxRate; set => _dataFlow.TxRate = value; }
     public string ErrorRate { get => _dataFlow.ErrorRate; set => _dataFlow.ErrorRate = value; }
     public string FrameInterval { get => _dataFlow.FrameInterval; set => _dataFlow.FrameInterval = value; }
     public string RxFilterText { get => _dataFlow.RxFilterText; set => _dataFlow.RxFilterText = value; }

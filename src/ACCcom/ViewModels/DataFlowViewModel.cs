@@ -48,10 +48,62 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public ObservableRangeCollection<LogEntry> TxEntries { get; } = new();
 
     private string _sendText = "";
-    public string SendText { get => _sendText; set => SetField(ref _sendText, value); }
+    public string SendText
+    {
+        get => _sendText;
+        set
+        {
+            if (SetField(ref _sendText, value ?? ""))
+            {
+                UpdateHexValidation();
+            }
+        }
+    }
 
     private bool _isHexSend;
-    public bool IsHexSend { get => _isHexSend; set => SetField(ref _isHexSend, value); }
+    public bool IsHexSend
+    {
+        get => _isHexSend;
+        set
+        {
+            if (SetField(ref _isHexSend, value))
+            {
+                UpdateHexValidation();
+            }
+        }
+    }
+
+    /// <summary>True when the current send input is acceptable to transmit (text or valid hex).</summary>
+    public bool IsSendInputValid => !IsHexSend || _hexValidation.IsValid;
+
+    /// <summary>User-facing message describing why the hex input is invalid; empty when valid.</summary>
+    public string HexValidationError
+    {
+        get => _hexValidation.IsValid ? "" : DescribeHexError(_hexValidation);
+    }
+
+    private HexHelper.HexValidationResult _hexValidation = new(isValid: true, invalidIndex: -1, byteCount: 0);
+
+    private void UpdateHexValidation()
+    {
+        var next = IsHexSend
+            ? HexHelper.ValidateHexInput(_sendText)
+            : new HexHelper.HexValidationResult(isValid: true, invalidIndex: -1, byteCount: 0);
+        if (next.IsValid != _hexValidation.IsValid ||
+            next.InvalidIndex != _hexValidation.InvalidIndex ||
+            next.ByteCount != _hexValidation.ByteCount)
+        {
+            _hexValidation = next;
+            OnPropertyChanged(nameof(IsSendInputValid));
+            OnPropertyChanged(nameof(HexValidationError));
+        }
+    }
+
+    private static string DescribeHexError(HexHelper.HexValidationResult r)
+    {
+        if (r.InvalidIndex >= 0) return $"HEX 非法字符(位置 {r.InvalidIndex + 1})";
+        return "HEX 必须成对(偶数位)";
+    }
 
     /// <summary>Recent send-box entries, oldest first. Backing field for UI binding (dropdown of history).</summary>
     public System.Collections.ObjectModel.ObservableCollection<string> SendHistory { get; } = new();
@@ -87,6 +139,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     private string _rxRate = "";
     public string RxRate { get => _rxRate; set => SetField(ref _rxRate, value); }
+
+    private string _txRate = "";
+    public string TxRate { get => _txRate; set => SetField(ref _txRate, value); }
 
     private string _errorRate = "";
     public string ErrorRate { get => _errorRate; set => SetField(ref _errorRate, value); }
@@ -501,6 +556,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public void RecordTxBytes(int byteCount)
     {
         TxByteCount += byteCount;
+        _stats?.RecordTx(byteCount);
     }
 
     public async Task RunParserAsync(LogEntry entry)
@@ -523,6 +579,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public void SendData()
     {
         if (string.IsNullOrEmpty(SendText)) return;
+        if (IsHexSend && !_hexValidation.IsValid)
+        {
+            _setStatus(LanguageManager.Instance["Status.HexInvalid"] + ": " + HexValidationError);
+            return;
+        }
         var toSend = IsHexSend ? SendText : ExpandVariables(SendText);
 
         bool sent;
@@ -534,6 +595,16 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (sent)
         {
             RecordSendHistory(SendText);
+            // Also record into DataStatistics so the TX throughput indicator in the
+            // status bar reflects the user's manual sends (not just parser-driven
+            // loopback traffic).
+            var sentBytes = System.Text.Encoding.UTF8.GetByteCount(toSend);
+            if (IsHexSend)
+            {
+                try { sentBytes = HexHelper.HexStringToBytes(toSend).Length; }
+                catch { /* validate above would have caught; fall back to utf8 length */ }
+            }
+            _stats?.RecordTx(sentBytes);
         }
     }
 
@@ -572,13 +643,45 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     public void NavigateHistory(int direction)
     {
-        if (_sendHistory.Count == 0) return;
+        // Legacy wrapper used by MainViewModel; defers to the Try* variant and applies
+        // the result via the SendText setter. The XAML code-behind uses TryNavigateHistory
+        // directly so it can place the caret at the end of the restored text.
+        if (TryNavigateHistory(direction, out var text, out _))
+        {
+            SendText = text ?? "";
+        }
+    }
+
+    /// <summary>
+    /// Resolves the text the Up/Down history key should load without mutating
+    /// <see cref="SendText"/>. Returns false when there is no history to navigate.
+    /// On a true return, <paramref name="caretIndex"/> is the position the view
+    /// should place the caret at (end of restored text, mirroring shell behaviour
+    /// so users can immediately press Enter to re-send).
+    /// </summary>
+    public bool TryNavigateHistory(int direction, out string? text, out int caretIndex)
+    {
+        if (_sendHistory.Count == 0)
+        {
+            text = null;
+            caretIndex = 0;
+            return false;
+        }
         _historyIndex += direction;
         if (_historyIndex < 0) _historyIndex = 0;
         if (_historyIndex >= _sendHistory.Count) _historyIndex = _sendHistory.Count;
-        SendText = _historyIndex < _sendHistory.Count
-            ? _sendHistory[_historyIndex]
-            : "";
+        if (_historyIndex < _sendHistory.Count)
+        {
+            text = _sendHistory[_historyIndex];
+            caretIndex = text.Length;
+        }
+        else
+        {
+            // Past the newest entry: return to "draft" state.
+            text = "";
+            caretIndex = 0;
+        }
+        return true;
     }
 
     public string ExpandVariables(string input)

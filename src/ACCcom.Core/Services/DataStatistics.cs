@@ -5,19 +5,26 @@ namespace ACCcom.Core.Services;
 public class DataStatistics
 {
     private readonly ConcurrentQueue<TimestampedSample> _rxSamples = new();
+    private readonly ConcurrentQueue<TimestampedSample> _txSamples = new();
     private readonly ConcurrentQueue<TimestampedSample> _errorSamples = new();
     private readonly ConcurrentQueue<double> _intervals = new();
     private long _lastFrameTimeTicks;
     private long _totalRxBytes;
+    private long _totalTxBytes;
     private long _totalRxFrames;
+    private long _totalTxFrames;
     private long _totalErrorFrames;
 
     public double RxBytesPerSecond => CalculateRate(_rxSamples);
     public double RxFramesPerSecond => CalculateFrameRate(_rxSamples);
+    public double TxBytesPerSecond => CalculateRate(_txSamples);
+    public double TxFramesPerSecond => CalculateFrameRate(_txSamples);
     public double ErrorRate => _totalRxFrames > 0 ? (double)_totalErrorFrames / _totalRxFrames * 100 : 0;
     public double AvgFrameIntervalMs => CalculateAvgInterval();
     public long TotalRxBytes => _totalRxBytes;
+    public long TotalTxBytes => _totalTxBytes;
     public long TotalRxFrames => _totalRxFrames;
+    public long TotalTxFrames => _totalTxFrames;
     public long TotalErrorFrames => _totalErrorFrames;
 
     public void RecordRx(int byteCount)
@@ -43,6 +50,18 @@ public class DataStatistics
         Interlocked.Increment(ref _totalErrorFrames);
         _errorSamples.Enqueue(new TimestampedSample(DateTime.Now, 1));
         CleanupOldSamples(_errorSamples, TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>Mirror of <see cref="RecordRx"/> for outbound traffic. Used to drive the
+    /// TX throughput read-out in the status bar so the user can see if the device is
+    /// actually consuming what the host is sending.</summary>
+    public void RecordTx(int byteCount)
+    {
+        var now = DateTime.Now;
+        Interlocked.Add(ref _totalTxBytes, byteCount);
+        Interlocked.Increment(ref _totalTxFrames);
+        _txSamples.Enqueue(new TimestampedSample(now, byteCount));
+        CleanupOldSamples(_txSamples, TimeSpan.FromSeconds(10));
     }
 
     private double CalculateRate(ConcurrentQueue<TimestampedSample> samples)
@@ -108,10 +127,13 @@ public class DataStatistics
     public void Reset()
     {
         while (_rxSamples.TryDequeue(out _)) { }
+        while (_txSamples.TryDequeue(out _)) { }
         while (_errorSamples.TryDequeue(out _)) { }
         while (_intervals.TryDequeue(out _)) { }
         Interlocked.Exchange(ref _totalRxBytes, 0);
+        Interlocked.Exchange(ref _totalTxBytes, 0);
         Interlocked.Exchange(ref _totalRxFrames, 0);
+        Interlocked.Exchange(ref _totalTxFrames, 0);
         Interlocked.Exchange(ref _totalErrorFrames, 0);
         Interlocked.Exchange(ref _lastFrameTimeTicks, 0);
     }

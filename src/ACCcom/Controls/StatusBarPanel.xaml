@@ -30,24 +30,29 @@
 
         <!-- RX 计数块（点击重置） -->
         <StatusBarItem>
-            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
-                       ToolTip="点击重置全部计数器（RX/TX/Errors/统计）"
-                       MouseLeftButtonUp="OnCounterClick"
-                       TextDecorations="Underline">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-                <Run Text="RX " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
-                <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
-            </TextBlock>
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                           ToolTip="点击重置全部计数器（RX/TX/Errors/统计）"
+                           MouseLeftButtonUp="OnCounterClick"
+                           TextDecorations="Underline">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                    <Run Text="RX " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                    <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
+                    <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
+                </TextBlock>
+                <TextBlock Text="{Binding RxRate}" FontSize="9" FontFamily="Consolas"
+                           Foreground="{DynamicResource InkTertiaryBrush}"
+                           ToolTip="近 5 秒 RX 吞吐（字节/秒 | 帧/秒）" />
+            </StackPanel>
         </StatusBarItem>
 
         <!-- 分隔符 2 -->
@@ -56,24 +61,29 @@
 
         <!-- TX 计数块（点击重置） -->
         <StatusBarItem>
-            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
-                       ToolTip="点击重置全部计数器"
-                       MouseLeftButtonUp="OnCounterClick"
-                       TextDecorations="Underline">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-                <Run Text="TX " Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
-                <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
-            </TextBlock>
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                           ToolTip="点击重置全部计数器"
+                           MouseLeftButtonUp="OnCounterClick"
+                           TextDecorations="Underline">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                    <Run Text="TX " Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
+                    <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
+                    <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
+                </TextBlock>
+                <TextBlock Text="{Binding TxRate}" FontSize="9" FontFamily="Consolas"
+                           Foreground="{DynamicResource InkTertiaryBrush}"
+                           ToolTip="近 5 秒 TX 吞吐（字节/秒 | 帧/秒）" />
+            </StackPanel>
         </StatusBarItem>
 
         <!-- 分隔符 3 -->

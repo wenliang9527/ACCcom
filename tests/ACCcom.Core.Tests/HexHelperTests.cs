@@ -156,4 +156,57 @@ public class HexHelperTests
         };
         Assert.True(HexHelper.HasErrorSeverity(fields));
     }
+
+    // ========== ValidateHexInput ==========
+
+    [Fact]
+    public void ValidateHexInput_NullOrEmpty_IsValid()
+    {
+        Assert.True(HexHelper.ValidateHexInput(null).IsValid);
+        Assert.True(HexHelper.ValidateHexInput("").IsValid);
+    }
+
+    [Fact]
+    public void ValidateHexInput_PairedHexDigits_IsValid()
+    {
+        var r = HexHelper.ValidateHexInput("AA 55 03 01 19");
+        Assert.True(r.IsValid);
+        Assert.Equal(5, r.ByteCount);
+        Assert.Equal(-1, r.InvalidIndex);
+    }
+
+    [Fact]
+    public void ValidateHexInput_Lowercase_IsValid()
+    {
+        var r = HexHelper.ValidateHexInput("aabbcc");
+        Assert.True(r.IsValid);
+        Assert.Equal(3, r.ByteCount);
+    }
+
+    [Fact]
+    public void ValidateHexInput_OddDigitCount_Invalid()
+    {
+        // Three hex digits — cannot form whole bytes. The marker index is end-of-string.
+        var r = HexHelper.ValidateHexInput("AAB");
+        Assert.False(r.IsValid);
+        Assert.Equal(3, r.InvalidIndex);
+        Assert.Equal(1, r.ByteCount);    // floor(3/2) = 1 byte attempted
+    }
+
+    [Fact]
+    public void ValidateHexInput_InvalidCharacter_ReportsIndex()
+    {
+        // "AA 55Z CC" -> indices: 0=A 1=A 2=' ' 3=5 4=5 5=Z (the bad one) ...
+        var r = HexHelper.ValidateHexInput("AA 55Z CC");
+        Assert.False(r.IsValid);
+        Assert.Equal(5, r.InvalidIndex);
+    }
+
+    [Fact]
+    public void ValidateHexInput_NewlineAndTab_AreTreatedAsWhitespace()
+    {
+        var r = HexHelper.ValidateHexInput("AA\n55\t03");
+        Assert.True(r.IsValid);
+        Assert.Equal(3, r.ByteCount);
+    }
 }
