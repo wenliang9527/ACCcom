@@ -67,7 +67,8 @@ public class ToolContext
         if (string.IsNullOrEmpty(parserName) || parserName == ParserManager.ActiveParserName)
             return (ParserManager.Engine, null);
 
-        var path = Path.Combine(ParserManager.GetParserDir(), parserName + ".csx");
+        if (!ParserManager.TryResolveParserFile(parserName, ".csx", out var path))
+            return (ParserManager.Engine, $"Invalid parser name: '{parserName}'");
         if (!File.Exists(path))
             return (ParserManager.Engine, $"Parser '{parserName}' not found");
 

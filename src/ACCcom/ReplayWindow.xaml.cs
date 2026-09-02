@@ -75,13 +75,25 @@ public partial class ReplayWindow : Window
 
     private void StartReplay()
     {
-        var oldCts = _cts;
-        _cts = new CancellationTokenSource();
-        oldCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _cts = cts;
         _isPlaying = true;
         PlayPauseButton.Content = LanguageManager.Instance["Replay.Pause"];
         _recorder.IsPaused = false;
-        var token = _cts.Token;
+        var token = cts.Token;
+
+        // Cleanup helper: dispose the source only after its task has finished with it.
+        void FinishReplay(string statusKey)
+        {
+            _ = Dispatcher.BeginInvoke(() =>
+            {
+                StatusText.Text = LanguageManager.Instance[statusKey];
+                _isPlaying = false;
+                PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
+                if (ReferenceEquals(_cts, cts)) _cts = null;
+                cts.Dispose();
+            });
+        }
 
         _ = Task.Run(async () =>
         {
@@ -101,19 +113,14 @@ public partial class ReplayWindow : Window
                     await ReplayTextFileAsync(token);
                 }
 
-                _ = Dispatcher.BeginInvoke(() =>
-                {
-                    ReplayCompleted = true;
-                    StatusText.Text = LanguageManager.Instance["Replay.Complete"];
-                    _isPlaying = false;
-                    PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
-                    _cts?.Dispose();
-                    _cts = null;
-                });
+                ReplayCompleted = true;
+                FinishReplay("Replay.Complete");
             }
             catch (OperationCanceledException)
             {
                 // Expected on stop/cancel
+                if (ReferenceEquals(_cts, cts)) _cts = null;
+                cts.Dispose();
             }
             catch (Exception ex)
             {
@@ -122,9 +129,9 @@ public partial class ReplayWindow : Window
                     StatusText.Text = string.Format(LanguageManager.Instance["Replay.Error"], ex.Message);
                     _isPlaying = false;
                     PlayPauseButton.Content = LanguageManager.Instance["Replay.Play"];
-                    _cts?.Dispose();
-                    _cts = null;
                 });
+                if (ReferenceEquals(_cts, cts)) _cts = null;
+                cts.Dispose();
             }
         }, token);
     }
@@ -184,8 +191,9 @@ public partial class ReplayWindow : Window
     private void CancelReplay()
     {
         _recorder.IsPaused = false;
+        // Cancel only: the replay task still holds this source's token, so it
+        // must stay alive until the task finishes (it disposes it itself).
         _cts?.Cancel();
-        _cts?.Dispose();
         _cts = null;
         _isPlaying = false;
     }

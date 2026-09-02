@@ -151,13 +151,13 @@ public sealed class Histogram
         lock (_lock)
         {
             _sum += value;
-            Interlocked.Increment(ref _count);
+            _count++;
 
             int idx = Array.BinarySearch(BucketBounds, value);
             if (idx < 0) idx = ~idx;
             else idx++;
             for (int i = idx; i < _bucketCounts.Length; i++)
-                Interlocked.Increment(ref _bucketCounts[i]);
+                _bucketCounts[i]++;
         }
     }
 

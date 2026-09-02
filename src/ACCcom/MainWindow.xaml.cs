@@ -34,8 +34,17 @@ public partial class MainWindow : Window
             Height = s.WindowHeight;
         }
 
-        // Apply persisted theme
-        App.ApplyTheme(_vm.IsDarkTheme);
+        // Theme is applied inside MainViewModel's constructor from persisted settings;
+        // no re-apply here to avoid overriding non-light/dark themes.
+
+        // Restore quick send sidebar width + visibility
+        SidebarColumn.Width = new GridLength(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260);
+        ApplySidebarVisibility();
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.ShowQuickSendSidebar))
+                ApplySidebarVisibility();
+        };
 
         _ = Task.Run(async () =>
         {
@@ -45,12 +54,16 @@ public partial class MainWindow : Window
 
         _vm.RxEntries.CollectionChanged += (_, e) =>
         {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && _vm.AutoScrollRx)
+            var action = e.Action;
+            if (_vm.AutoScrollRx && (action == System.Collections.Specialized.NotifyCollectionChangedAction.Add
+                || action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove))
                 DataPanelControl.ScrollRxToEnd();
         };
         _vm.TxEntries.CollectionChanged += (_, e) =>
         {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && _vm.AutoScrollTx)
+            var action = e.Action;
+            if (_vm.AutoScrollTx && (action == System.Collections.Specialized.NotifyCollectionChangedAction.Add
+                || action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove))
                 DataPanelControl.ScrollTxToEnd();
         };
     }
@@ -73,18 +86,42 @@ public partial class MainWindow : Window
 
         var mods = Keyboard.Modifiers;
 
+        // Alt+1~9: Send quick command by index
+        if (mods == ModifierKeys.Alt)
+        {
+            int idx = e.Key switch
+            {
+                Key.D1 or Key.NumPad1 => 0,
+                Key.D2 or Key.NumPad2 => 1,
+                Key.D3 or Key.NumPad3 => 2,
+                Key.D4 or Key.NumPad4 => 3,
+                Key.D5 or Key.NumPad5 => 4,
+                Key.D6 or Key.NumPad6 => 5,
+                Key.D7 or Key.NumPad7 => 6,
+                Key.D8 or Key.NumPad8 => 7,
+                Key.D9 or Key.NumPad9 => 8,
+                _ => -1
+            };
+            if (idx >= 0)
+            {
+                _vm.SendShortcutByIndex(idx);
+                e.Handled = true;
+                return;
+            }
+        }
+
         // Ctrl+C: Copy selected entries
         if (e.Key == Key.C && mods == ModifierKeys.Control)
         {
             if (DataPanelControl.RxListBoxControl.IsKeyboardFocusWithin && DataPanelControl.RxListBoxControl.SelectedItems.Count > 0)
             {
-                DataPanelControl.ScrollRxToEnd();
+                DataPanelControl.CopyRxSelected();
                 e.Handled = true;
                 return;
             }
             if (DataPanelControl.TxListBoxControl.IsKeyboardFocusWithin && DataPanelControl.TxListBoxControl.SelectedItems.Count > 0)
             {
-                DataPanelControl.ScrollTxToEnd();
+                DataPanelControl.CopyTxSelected();
                 e.Handled = true;
                 return;
             }
@@ -182,9 +219,25 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplySidebarVisibility()
+    {
+        if (!_vm.ShowQuickSendSidebar)
+        {
+            // Remember the dragged width before collapsing.
+            if (!double.IsNaN(SidebarColumn.ActualWidth) && SidebarColumn.ActualWidth > 0)
+                _vm.Settings.QuickSendSidebarWidth = SidebarColumn.ActualWidth;
+            SidebarColumn.Width = new GridLength(0);
+        }
+        else
+        {
+            SidebarColumn.Width = new GridLength(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260);
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
-        _vm.SaveSettings(Left, Top, Width, Height);
+        _vm.SaveSettings(Left, Top, Width, Height,
+            _vm.ShowQuickSendSidebar && !double.IsNaN(SidebarColumn.ActualWidth) ? SidebarColumn.ActualWidth : 0);
         _vm.Dispose();
         base.OnClosed(e);
     }

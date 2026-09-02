@@ -39,7 +39,7 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 | Ctrl+S / Ctrl+Shift+S | 保存 RX / TX 数据 |
 | Ctrl+L / Ctrl+Shift+L | 清空 RX / TX 面板 |
 | Ctrl+F | 聚焦 RX 搜索框 |
-| Ctrl+D | 切换深色/浅色主题 |
+| Ctrl+D | 切换主题（7 款主题循环，也可在标题栏下拉选择） |
 | Ctrl+H | 切换 HEX 显示 |
 | Ctrl+B | 添加书签 |
 | Ctrl+Left/Right | 书签前后导航 |

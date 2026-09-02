@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ACCcom.Core.Services;
 using ModelContextProtocol.Server;
 
 namespace ACCcom.McpServer.Tools;
@@ -21,6 +22,9 @@ public class RecordingTools
 
         if (_ctx.Recorder.IsRecording)
             return _ctx.RawJson(new { success = false, error = "Already recording", file = _ctx.Recorder.CurrentFile, recordedCount = _ctx.Recorder.RecordedCount });
+
+        if (!string.IsNullOrWhiteSpace(filename) && !SafePath.TryResolveRecordingPath(filename, out _))
+            return _ctx.RawJson(new { success = false, error = $"Invalid recording filename: '{filename}'. Use a plain file name without path separators." });
 
         if (_ctx.Recorder.StartRecording(filename))
             return _ctx.RawJson(new { success = true, data = new { message = "Recording started", file = _ctx.Recorder.CurrentFile } });
@@ -51,7 +55,10 @@ public class RecordingTools
         if (string.IsNullOrEmpty(filename))
             return _ctx.RawJson(new { success = false, error = "Filename is required" });
 
-        var entries = _ctx.Recorder.ReplayFile(filename);
+        if (!SafePath.TryResolveRecordingPath(filename, out var path))
+            return _ctx.RawJson(new { success = false, error = $"Invalid recording filename: '{filename}'. Use a plain file name without path separators." });
+
+        var entries = _ctx.Recorder.ReplayFile(path);
         return _ctx.RawJson(new { success = true, data = new { file = filename, entries, count = entries.Count } });
     }
 

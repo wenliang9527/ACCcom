@@ -28,7 +28,8 @@ public class ParserTools
     public Task<string> ReadParser([Description("Parser name (without .csx extension)")] string name)
     {
         if (_ctx.UseProxy) return _proxy!.GetAsync($"/api/parser/read?name={Uri.EscapeDataString(name)}");
-        var path = Path.Combine(_parserManager.GetParserDir(), name + ".csx");
+        if (!_parserManager.TryResolveParserFile(name, ".csx", out var path))
+            return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid parser name: '{name}'" }));
         if (!File.Exists(path))
             return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Parser '{name}' not found" }));
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { name, code = File.ReadAllText(path) } }));
@@ -42,7 +43,8 @@ public class ParserTools
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(code))
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Both name and code are required" }));
         if (_ctx.UseProxy) return _proxy!.PostAsync("/api/parser/write", new { name, code });
-        var path = Path.Combine(_parserManager.GetParserDir(), name + ".csx");
+        if (!_parserManager.TryResolveParserFile(name, ".csx", out var path))
+            return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid parser name: '{name}'" }));
         File.WriteAllText(path, code);
         _parserManager.Refresh();
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = $"Parser '{name}' written", path } }));
@@ -72,7 +74,8 @@ public class ParserTools
         if (!string.IsNullOrEmpty(parserName) && parserName != _parserManager.ActiveParserName)
         {
             var tempEngine = new ParserEngine();
-            var path = Path.Combine(_parserManager.GetParserDir(), parserName + ".csx");
+            if (!_parserManager.TryResolveParserFile(parserName, ".csx", out var path))
+                return _ctx.RawJson(new { success = false, error = $"Invalid parser name: '{parserName}'" });
             if (!File.Exists(path)) return _ctx.RawJson(new { success = false, error = $"Parser '{parserName}' not found" });
             if (!tempEngine.Load(File.ReadAllText(path))) return _ctx.RawJson(new { success = false, error = $"Parser load failed: {tempEngine.LastError}" });
             engine = tempEngine;
@@ -106,7 +109,8 @@ public class ParserTools
         if (!success)
             return Task.FromResult(_ctx.RawJson(new { success = false, error }));
 
-        var path = Path.Combine(_parserManager.GetParserDir(), name + ".csx");
+        if (!_parserManager.TryResolveParserFile(name, ".csx", out var path))
+            return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid parser name: '{name}'" }));
         var code = File.ReadAllText(path);
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = $"Parser '{name}' generated", path, code } }));
     }

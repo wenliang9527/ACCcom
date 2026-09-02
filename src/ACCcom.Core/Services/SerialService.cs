@@ -14,6 +14,7 @@ public class SerialService : ISerialService, IDisposable
     private int _reconnectAttempt;
     private CancellationTokenSource? _reconnectCts;
     private SerialConfig? _lastConfig;
+    private bool _waitingForDevice;
     private bool _disposed;
     private readonly MetricsCollector _metrics = MetricsCollector.Instance;
 
@@ -24,8 +25,24 @@ public class SerialService : ISerialService, IDisposable
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
     public event Action? OnDisconnected;
+    /// <summary>Raised once when auto-reconnect pauses because the port is not present on the system.</summary>
+    public event Action<string>? OnDeviceWait;
 
     public static string[] GetAvailablePorts() => SerialPort.GetPortNames();
+
+    /// <summary>True when the port name is currently present on the system.</summary>
+    private static bool PortExists(string portName)
+    {
+        try
+        {
+            return Array.Exists(SerialPort.GetPortNames(),
+                p => string.Equals(p, portName, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return true; // cannot tell — let the open attempt report the failure
+        }
+    }
 
     public bool Open(SerialConfig config)
     {
@@ -128,22 +145,23 @@ public class SerialService : ISerialService, IDisposable
             try
             {
                 long sentBytes;
+                string hexStr;
                 if (isHex)
                 {
-                    var bytes = Convert.FromHexString(data.Replace(" ", ""));
+                    hexStr = data.Replace(" ", "");
+                    var bytes = Convert.FromHexString(hexStr);
                     _port.Write(bytes, 0, bytes.Length);
                     sentBytes = bytes.Length;
                 }
                 else
                 {
+                    var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
                     _port.Write(data);
-                    sentBytes = System.Text.Encoding.UTF8.GetByteCount(data);
+                    sentBytes = textBytes.Length;
+                    hexStr = HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
                 }
                 _metrics.RecordBytesSent(sentBytes);
 
-                var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
-                var hexStr = isHex ? data.Replace(" ", "") :
-                    HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
                 var entry = new LogEntry
                 {
                     Id = Interlocked.Increment(ref _txEntryId),
@@ -248,7 +266,7 @@ public class SerialService : ISerialService, IDisposable
         if (!_reconnectSettings.AutoReconnect || _lastConfig == null) return;
         var oldCts = _reconnectCts;
         _reconnectCts = new CancellationTokenSource();
-        oldCts?.Dispose();
+        oldCts?.Cancel();
         var token = _reconnectCts.Token;
 
         try
@@ -263,6 +281,20 @@ public class SerialService : ISerialService, IDisposable
                 await Task.Delay(delay, token).ConfigureAwait(false);
                 if (token.IsCancellationRequested) break;
                 if (_port?.IsOpen == true) break;
+
+                // 断联复检: when the device is unplugged the port disappears from
+                // the system. Wait for it to reappear instead of burning
+                // reconnect attempts on a port that cannot open.
+                if (!PortExists(_lastConfig.PortName))
+                {
+                    if (!_waitingForDevice)
+                    {
+                        _waitingForDevice = true;
+                        OnDeviceWait?.Invoke(_lastConfig.PortName);
+                    }
+                    continue;
+                }
+                _waitingForDevice = false;
 
                 _reconnectAttempt++;
                 try

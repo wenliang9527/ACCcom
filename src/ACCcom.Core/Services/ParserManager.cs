@@ -133,6 +133,20 @@ public class ParserManager : IDisposable
             Activate(null);
     }
 
+    /// <summary>
+    /// Resolves a parser name to a file path inside the parser directory.
+    /// Returns false for names that would escape the directory (path traversal).
+    /// </summary>
+    public bool TryResolveParserFile(string? parserName, string extension, out string path)
+    {
+        path = string.Empty;
+        parserName = parserName?.Trim();
+        if (string.IsNullOrEmpty(parserName) || parserName == NoParserName)
+            return false;
+
+        return SafePath.TryCombineUnder(_parserDir, parserName + extension, out path);
+    }
+
     public bool Activate(string? parserName)
     {
         parserName = parserName?.Trim();
@@ -144,7 +158,7 @@ public class ParserManager : IDisposable
             return true;
         }
 
-        var path = Path.Combine(_parserDir, parserName + ".csx");
+        if (!TryResolveParserFile(parserName, ".csx", out var path)) return false;
         if (!File.Exists(path)) return false;
 
         var code = File.ReadAllText(path);
@@ -170,7 +184,8 @@ public class ParserManager : IDisposable
         try
         {
             var code = generator.Generate(schema);
-            var path = Path.Combine(_parserDir, schema.Name + ".csx");
+            if (!TryResolveParserFile(schema.Name, ".csx", out var path))
+                return (false, $"Invalid parser name: '{schema.Name}'");
             File.WriteAllText(path, code);
             Refresh();
             return (true, null);
@@ -196,7 +211,7 @@ public class ParserManager : IDisposable
 
     public ProtocolSchema? GetSchema(string parserName)
     {
-        var schemaPath = Path.Combine(_parserDir, parserName + ".schema.json");
+        if (!TryResolveParserFile(parserName, ".schema.json", out var schemaPath)) return null;
         if (!File.Exists(schemaPath)) return null;
 
         try

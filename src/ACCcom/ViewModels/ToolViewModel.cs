@@ -21,7 +21,7 @@ public class ToolViewModel : ObservableObject, IDisposable
     public MacroViewModel MacrosVm { get; }
     public ReplayViewModel Replay { get; }
 
-    public ObservableCollection<ShortcutItem> ShortcutCommands => Shortcuts.ShortcutCommands;
+    public ShortcutPage? CurrentShortcutPage => Shortcuts.CurrentPage;
     public ObservableCollection<SerialPreset> Presets => PresetsVm.Presets;
     public SerialPreset? SelectedPreset { get => PresetsVm.SelectedPreset; set => PresetsVm.SelectedPreset = value; }
     public ObservableCollection<MacroTemplate> Macros => MacrosVm.Macros;

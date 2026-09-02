@@ -51,7 +51,7 @@
                     <Button Content="{Binding [CompareWindow.Browse], Source={x:Static local:LanguageManager.Instance}}" Click="BrowseFileA_Click" Margin="6,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
-                <Button Grid.Column="1" Content="{Binding [CompareWindow.Compare], Source={x:Static local:LanguageManager.Instance}}" Click="Compare_Click" Margin="16,0"
+                <Button Grid.Column="1" x:Name="CompareButton" Content="{Binding [CompareWindow.Compare], Source={x:Static local:LanguageManager.Instance}}" Click="Compare_Click" Margin="16,0"
                         Style="{StaticResource PrimaryButton}" Padding="20,4" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding [CompareWindow.FileB], Source={x:Static local:LanguageManager.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -82,7 +82,26 @@
                                Foreground="{DynamicResource StatusBlueBrush}" />
                     <ListBox x:Name="ListBoxA" Grid.Row="1"
                              FontFamily="Consolas" FontSize="12"
-                             Background="Transparent" BorderThickness="0" />
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDiff}" Value="True">
+                                                    <Setter Property="Background" Value="#28FFC800" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
 
@@ -99,7 +118,26 @@
                                Foreground="{DynamicResource StatusGreenBrush}" />
                     <ListBox x:Name="ListBoxB" Grid.Row="1"
                              FontFamily="Consolas" FontSize="12"
-                             Background="Transparent" BorderThickness="0" />
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsDiff}" Value="True">
+                                                    <Setter Property="Background" Value="#28FFC800" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
         </Grid>

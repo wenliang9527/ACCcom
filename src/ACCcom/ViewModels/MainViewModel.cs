@@ -26,6 +26,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly SerialConnectionManager _connectionManager = new();
     private readonly SessionRecorder _sessionRecorder = new();
     private readonly TriggerService _triggerService = new();
+    private readonly PortMonitorService _portMonitor = new();
     private readonly FrameAssemblerConfig _frameAssemblerConfig = new();
     private readonly PlotViewModel _plotViewModel = new();
     private readonly SettingsService _settingsService = new();
@@ -49,6 +50,9 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly Action<string> _networkErrorHandler;
     private readonly Action _networkDisconnectedHandler;
     private readonly Action<TriggerRule, LogEntry> _triggerFiredHandler;
+    private readonly Action<string> _serialDeviceWaitHandler;
+    private readonly Action<LogEntry> _multiPortDataHandler;
+    private readonly System.Windows.Threading.DispatcherTimer? _statsTimer;
 
     public ConnectionViewModel Connection => _connection;
     public DataFlowViewModel DataFlow => _dataFlow;
@@ -57,8 +61,71 @@ public class MainViewModel : ObservableObject, IDisposable
     private string _statusText = "";
     public string StatusText { get => _statusText; set => SetField(ref _statusText, value); }
 
+    /// <summary>Advanced serial params row visibility (gear toggle in toolbar).</summary>
+    private bool _showAdvanced;
+    public bool ShowAdvanced
+    {
+        get => _showAdvanced;
+        set => SetField(ref _showAdvanced, value);
+    }
+
+    private bool _showQuickSendSidebar = true;
+    public bool ShowQuickSendSidebar
+    {
+        get => _showQuickSendSidebar;
+        set
+        {
+            if (SetField(ref _showQuickSendSidebar, value))
+            {
+                _settings.ShowQuickSendSidebar = value;
+                _settingsService.Save(_settings);
+            }
+        }
+    }
+
     private bool _isDarkTheme;
     public bool IsDarkTheme { get => _isDarkTheme; set => SetField(ref _isDarkTheme, value); }
+
+    // ===== Theme selection =====
+    public sealed record ThemeOption(string Id, string Name);
+
+    private ObservableCollection<ThemeOption> _themes = new();
+    public ObservableCollection<ThemeOption> Themes => _themes;
+
+    private string _selectedTheme = "Dark";
+    public string SelectedTheme
+    {
+        get => _selectedTheme;
+        set
+        {
+            if (!Helpers.ThemeManager.Exists(value)) value = "Dark";
+            if (SetField(ref _selectedTheme, value))
+                ApplySelectedTheme();
+        }
+    }
+
+    private void ApplySelectedTheme()
+    {
+        App.ApplyTheme(_selectedTheme);
+        IsDarkTheme = _selectedTheme != "Light";
+        _settings.Theme = _selectedTheme;
+        _settings.IsDarkTheme = IsDarkTheme;
+        _settingsService.Save(_settings);
+    }
+
+    private void BuildThemeOptions()
+    {
+        var selected = _selectedTheme;
+        _themes = new ObservableCollection<ThemeOption>(
+            Helpers.ThemeManager.ThemeIds.Select(id => new ThemeOption(id, Helpers.ThemeManager.GetDisplayName(id))));
+        OnPropertyChanged(nameof(Themes));
+        OnPropertyChanged(nameof(SelectedTheme));
+    }
+
+    private void ToggleTheme()
+    {
+        SelectedTheme = Helpers.ThemeManager.NextOf(_selectedTheme);
+    }
 
     private string _httpUrl = HttpService.DefaultUrl;
     public string HttpUrl { get => _httpUrl; set => SetField(ref _httpUrl, value); }
@@ -86,13 +153,14 @@ public class MainViewModel : ObservableObject, IDisposable
             AutoBaudDetector = new AutoBaudDetector(),
             SessionRecorder = _sessionRecorder,
             DataStatistics = _stats,
-            BufferCapacity = _settings.BufferCapacity
+            BufferCapacity = _settings.BufferCapacity,
+            ApiToken = string.IsNullOrWhiteSpace(_settings.HttpApiToken) ? null : _settings.HttpApiToken
         });
         _http.Start();
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
 
-        _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg);
+        _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg, _portMonitor);
         _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings);
         _tool = new ToolViewModel(
             _serial, _networkBridge, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
@@ -108,11 +176,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _dataFlow.PropertyChanged += (_, e) => RaisePropertyChanged(e);
         _tool.PropertyChanged += (_, e) => RaisePropertyChanged(e);
 
-        ToggleThemeCommand = new RelayCommand(_ =>
-        {
-            IsDarkTheme = !IsDarkTheme;
-            App.ApplyTheme(IsDarkTheme);
-        });
+        ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -124,6 +188,8 @@ public class MainViewModel : ObservableObject, IDisposable
         _serialDataHandler = _dataFlow.OnSerialData;
         _serialErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
         _serialDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = LanguageManager.Instance["Status.PortDisconnected"]; });
+        _serialDeviceWaitHandler = port => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            StatusText = string.Format(LanguageManager.Instance["Status.WaitingForDevice"], port));
         _networkDataHandler = _dataFlow.OnSerialData;
         _networkErrorHandler = msg => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = msg);
         _networkDisconnectedHandler = () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _connection.IsOpen = false; StatusText = LanguageManager.Instance["Status.NetworkDisconnected"]; });
@@ -132,6 +198,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _serial.OnDataReceived += _serialDataHandler;
         _serial.OnError += _serialErrorHandler;
         _serial.OnDisconnected += _serialDisconnectedHandler;
+        _serial.OnDeviceWait += _serialDeviceWaitHandler;
 
         _networkBridge.OnDataReceived += _networkDataHandler;
         _networkBridge.OnError += _networkErrorHandler;
@@ -141,7 +208,8 @@ public class MainViewModel : ObservableObject, IDisposable
 
         OpenSchemaEditorCommand = new RelayCommand(_ => OpenSchemaEditor());
 
-        _multiPort.OnDataReceived += entry => _dataFlow.OnSerialData(entry);
+        _multiPortDataHandler = _dataFlow.OnSerialData;
+        _multiPort.OnDataReceived += _multiPortDataHandler;
 
         _dataFlow.OnRxProcessed = entry =>
         {
@@ -169,20 +237,31 @@ public class MainViewModel : ObservableObject, IDisposable
         EnableRxTimestamp = _settings.EnableRxTimestamp;
         EnableTxTimestamp = _settings.EnableTxTimestamp;
         IsDarkTheme = _settings.IsDarkTheme;
+        // Restore theme: new string setting wins; fall back to legacy bool.
+        _selectedTheme = !string.IsNullOrEmpty(_settings.Theme) && Helpers.ThemeManager.Exists(_settings.Theme)
+            ? _settings.Theme
+            : (_settings.IsDarkTheme ? "Dark" : "Light");
+        App.ApplyTheme(_selectedTheme);
+        BuildThemeOptions();
+        LanguageManager.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is "Item[]" or "Item") BuildThemeOptions();
+        };
+        _showQuickSendSidebar = _settings.ShowQuickSendSidebar;
         _connection.SelectedLanguage = _settings.Language;
         LanguageManager.Instance.LoadLanguage(_settings.Language);
         if (!string.IsNullOrEmpty(_settings.LastPort) && _connection.AvailablePorts.Contains(_settings.LastPort))
             _connection.SelectedPort = _settings.LastPort;
 
-        var statsTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        statsTimer.Tick += (_, _) =>
+        _statsTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _statsTimer.Tick += (_, _) =>
         {
             RxRate = $"{_stats.RxBytesPerSecond:F1} B/s | {_stats.RxFramesPerSecond:F1} fps";
             ErrorRate = $"{_stats.ErrorRate:F1}%";
             FrameInterval = $"{_stats.AvgFrameIntervalMs:F1} ms";
             _tool.StatsViewModel?.Update(_stats, RxByteCount, TxByteCount, RxCount, TxCount, ConnectionDuration);
         };
-        statsTimer.Start();
+        _statsTimer.Start();
     }
 
     public async Task InitializeAsync()
@@ -194,6 +273,8 @@ public class MainViewModel : ObservableObject, IDisposable
     }
 
     public void NavigateHistory(int direction) => _dataFlow.NavigateHistory(direction);
+
+    public void SendShortcutByIndex(int index) => _tool.Shortcuts.SendByIndex(index);
 
     public ObservableRangeCollection<LogEntry> RxEntries => _dataFlow.RxEntries;
     public ObservableRangeCollection<LogEntry> TxEntries => _dataFlow.TxEntries;
@@ -249,7 +330,8 @@ public class MainViewModel : ObservableObject, IDisposable
     public LogEntry? SelectedEntry { get => _dataFlow.SelectedEntry; set => _dataFlow.SelectedEntry = value; }
     public bool HasFields => _dataFlow.HasFields;
 
-    public ObservableCollection<ShortcutItem> ShortcutCommands => _tool.ShortcutCommands;
+    public ShortcutPage? CurrentShortcutPage => _tool.CurrentShortcutPage;
+    public ViewModels.ShortcutViewModel Shortcuts => _tool.Shortcuts;
     public ObservableCollection<SerialPreset> Presets => _tool.Presets;
     public SerialPreset? SelectedPreset { get => _tool.SelectedPreset; set => _tool.SelectedPreset = value; }
     public ObservableCollection<MacroTemplate> Macros => _tool.Macros;
@@ -419,12 +501,14 @@ public class MainViewModel : ObservableObject, IDisposable
         return results;
     }
 
-    public void SaveSettings(double windowX, double windowY, double windowWidth, double windowHeight)
+    public void SaveSettings(double windowX, double windowY, double windowWidth, double windowHeight, double sidebarWidth)
     {
         _settings.WindowX = windowX;
         _settings.WindowY = windowY;
         _settings.WindowWidth = windowWidth;
         _settings.WindowHeight = windowHeight;
+        _settings.QuickSendSidebarWidth = sidebarWidth > 0 ? sidebarWidth : _settings.QuickSendSidebarWidth;
+        _settings.Theme = _selectedTheme;
         _settings.IsDarkTheme = IsDarkTheme;
         _settings.Language = _connection.SelectedLanguage;
         _settings.LastPort = _connection.SelectedPort;
@@ -443,13 +527,16 @@ public class MainViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
 
+        _statsTimer?.Stop();
         _serial.OnDataReceived -= _serialDataHandler;
         _serial.OnError -= _serialErrorHandler;
         _serial.OnDisconnected -= _serialDisconnectedHandler;
+        _serial.OnDeviceWait -= _serialDeviceWaitHandler;
         _networkBridge.OnDataReceived -= _networkDataHandler;
         _networkBridge.OnError -= _networkErrorHandler;
         _networkBridge.OnDisconnected -= _networkDisconnectedHandler;
         _triggerService.OnTriggerFired -= _triggerFiredHandler;
+        _multiPort.OnDataReceived -= _multiPortDataHandler;
 
         _tool.Dispose();
         _connection.Dispose();
@@ -464,5 +551,6 @@ public class MainViewModel : ObservableObject, IDisposable
         _modbusViewModel?.Dispose();
         _modbusConnectionManager.Dispose();
         _modbusSlaveService.Dispose();
+        _portMonitor.Dispose();
     }
 }

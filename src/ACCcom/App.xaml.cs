@@ -6,6 +6,8 @@ namespace ACCcom;
 
 public partial class App : Application
 {
+    public static string[]? Args { get; private set; }
+
     private static readonly string LogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ACCcom", "crash.log");
@@ -15,6 +17,12 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainException;
         TaskScheduler.UnobservedTaskException += OnTaskException;
+    }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        Args = e.Args;
+        base.OnStartup(e);
     }
 
     private static void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
@@ -63,30 +71,79 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Tracks the theme dictionary inserted by ApplyTheme so it can be
+    /// swapped by reference — Source string matching is unreliable because a
+    /// dictionary loaded from a relative Source may report it without the
+    /// leading slash.</summary>
+    private static ResourceDictionary? _activeTheme;
+    private static string? _activeThemeId;
+
     public static void ApplyTheme(bool isDark)
+        => ApplyTheme(isDark ? "Dark" : "Light");
+
+    /// <summary>
+    /// Switches the active theme dictionary. themeId must be one of
+    /// ThemeManager.ThemeIds (e.g. "Dark", "MonetSunrise", "HokusaiWave").
+    /// Falls back to the default theme if the dictionary cannot be loaded,
+    /// so a bad persisted id can never crash startup.
+    /// </summary>
+    public static void ApplyTheme(string themeId)
     {
         var app = Current;
         if (app == null) return;
+
+        // Same theme already active: nothing to swap.
+        if (_activeTheme != null && _activeThemeId == themeId) return;
+
         var dicts = app.Resources.MergedDictionaries;
 
-        // Remove any existing theme dictionary
+        // Purge every existing theme dictionary. Match "Themes/" anywhere so
+        // both absolute pack URIs and the relative Source form used by
+        // App.xaml ("Themes/LightTheme.xaml") are caught — leaving a stale
+        // theme behind shadows the new one because WPF searches later-added
+        // merged dictionaries first.
         for (int i = dicts.Count - 1; i >= 0; i--)
         {
             var src = dicts[i].Source?.ToString() ?? "";
-            if (src.Contains("LightTheme") || src.Contains("DarkTheme"))
-            {
+            if (src.IndexOf("Themes/", StringComparison.OrdinalIgnoreCase) >= 0)
                 dicts.RemoveAt(i);
-            }
         }
+        _activeTheme = null;
 
-        // Add the requested theme
-        var themeUri = isDark
-            ? "pack://application:,,,/ACCcom;component/Themes/DarkTheme.xaml"
-            : "pack://application:,,,/ACCcom;component/Themes/LightTheme.xaml";
-
-        dicts.Insert(0, new ResourceDictionary
+        // Theme ids are stable public identifiers; two legacy ids map to
+        // file names that differ from the id.
+        var fileName = themeId switch
         {
-            Source = new Uri(themeUri, UriKind.Absolute)
-        });
+            "Light" => "LightTheme",
+            "Dark" => "DarkTheme",
+            _ => themeId
+        };
+        var themeUri = $"pack://application:,,,/ACCcom;component/Themes/{fileName}.xaml";
+        if (!System.Uri.TryCreate(themeUri, UriKind.Absolute, out var uri)) return;
+
+        try
+        {
+            var loaded = new ResourceDictionary { Source = uri };
+            dicts.Insert(0, loaded);
+            _activeTheme = loaded;
+            _activeThemeId = themeId;
+        }
+        catch (Exception)
+        {
+            // Unknown/corrupt theme id: restore the default light theme.
+            _activeThemeId = null;
+            if (!System.Uri.TryCreate(
+                "pack://application:,,,/ACCcom;component/Themes/LightTheme.xaml",
+                UriKind.Absolute, out var fallbackUri))
+                return;
+            try
+            {
+                var loaded = new ResourceDictionary { Source = fallbackUri };
+                dicts.Insert(0, loaded);
+                _activeTheme = loaded;
+                _activeThemeId = "Light";
+            }
+            catch { /* even fallback failed; keep whatever is loaded */ }
+        }
     }
 }

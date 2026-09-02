@@ -21,6 +21,9 @@ public class VirtualSerialService : ISerialService, IDisposable
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
     public event Action? OnDisconnected;
+#pragma warning disable CS0067 // required by ISerialService; virtual ports never wait for hardware
+    public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
 
     public bool Open(SerialConfig config)
     {

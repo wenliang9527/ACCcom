@@ -86,4 +86,23 @@
     <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#4F4F58" />
     <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#5F5F6A" />
 
+    <!-- Signature texture: canvas weave (default) -->
+    <DrawingBrush x:Key="CardTextureBrush" TileMode="Tile" Viewport="0,0,4,4"
+                  ViewportUnits="Absolute" Opacity="0.07">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Geometry="M0,0 H4 V1 H0 Z">
+                    <GeometryDrawing.Brush>
+                        <SolidColorBrush Color="#FFFFFF" />
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M0,2 H2 V3 H0 Z">
+                    <GeometryDrawing.Brush>
+                        <SolidColorBrush Color="#000000" />
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
 </ResourceDictionary>

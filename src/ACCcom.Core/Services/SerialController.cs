@@ -260,10 +260,11 @@ public class SerialController : WebApiController
             if (req == null || string.IsNullOrEmpty(req.Name) || string.IsNullOrEmpty(req.Code))
                 return ApiResponse.Fail("需要 name 和 code 参数");
 
-            if (_service.WriteParserCode(req.Name, req.Code))
+            var (ok, error) = _service.WriteParserCode(req.Name, req.Code);
+            if (ok)
                 return ApiResponse.Ok(new { message = $"解析器 '{req.Name}' 已写入" });
 
-            return ApiResponse.Fail("写入解析器失败");
+            return ApiResponse.Fail(error ?? "写入解析器失败");
         }
         catch (Exception ex)
         {
@@ -626,9 +627,11 @@ public class SerialController : WebApiController
             var req = await ReadBodyAsync<RecordingStartRequest>();
             var filename = req?.Filename;
 
-            var (ok, file) = _service.RecordingStart(filename);
+            var (ok, file, error) = _service.RecordingStart(filename);
             if (ok)
                 return ApiResponse.Ok(new { message = "录制已开始", file });
+            if (error != null)
+                return ApiResponse.Fail(error);
             return ApiResponse.Fail(file != null ? $"录制已在进行中: {file}" : "录制启动失败(服务未注入?)");
         }
         catch (Exception ex)
@@ -664,7 +667,9 @@ public class SerialController : WebApiController
             if (req == null || string.IsNullOrEmpty(req.Filename))
                 return ApiResponse.Fail("需要 filename 参数");
 
-            var entries = _service.RecordingReplay(req.Filename);
+            var (entries, error) = _service.RecordingReplay(req.Filename);
+            if (error != null)
+                return ApiResponse.Fail(error);
             return ApiResponse.Ok(new { file = req.Filename, entries, count = entries.Count });
         }
         catch (Exception ex)

@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -8,9 +7,14 @@ namespace ACCcom.Controls;
 
 public partial class DataPanel : UserControl
 {
+    private ScrollViewer? _rxScrollViewer;
+    private ScrollViewer? _txScrollViewer;
+
     public DataPanel()
     {
         InitializeComponent();
+        RxListBox.Loaded += (_, _) => _rxScrollViewer = FindVisualChild<ScrollViewer>(RxListBox);
+        TxListBox.Loaded += (_, _) => _txScrollViewer = FindVisualChild<ScrollViewer>(TxListBox);
     }
 
     public ListBox RxListBoxControl => RxListBox;
@@ -18,19 +22,16 @@ public partial class DataPanel : UserControl
 
     public void ScrollRxToEnd()
     {
-        ScrollToEnd(RxListBox);
+        var sv = _rxScrollViewer ??= FindVisualChild<ScrollViewer>(RxListBox);
+        if (sv == null) return;
+        if (RxListBox.Items.Count > 0) sv.ScrollToBottom();
     }
 
     public void ScrollTxToEnd()
     {
-        ScrollToEnd(TxListBox);
-    }
-
-    private static void ScrollToEnd(ListBox listBox)
-    {
-        if (listBox.Items.Count == 0) return;
-        var sv = FindVisualChild<ScrollViewer>(listBox);
-        if (sv != null) sv.ScrollToBottom();
+        var sv = _txScrollViewer ??= FindVisualChild<ScrollViewer>(TxListBox);
+        if (sv == null) return;
+        if (TxListBox.Items.Count > 0) sv.ScrollToBottom();
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
@@ -55,6 +56,18 @@ public partial class DataPanel : UserControl
         CopySelected(TxListBox, "TX");
     }
 
+    /// <summary>Copies the currently selected RX entries (keyboard shortcut entry point).</summary>
+    public void CopyRxSelected() => CopySelected(RxListBox, "RX");
+
+    /// <summary>Copies the currently selected TX entries (keyboard shortcut entry point).</summary>
+    public void CopyTxSelected() => CopySelected(TxListBox, "TX");
+
+    private static void CopySelected(ListBox listBox, string direction)
+    {
+        if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
+        CopyToClipboard(vm.DataFlow.GetFormattedCopyText(listBox.SelectedItems.OfType<LogEntry>(), direction));
+    }
+
     private void CopyRxAll_Click(object sender, RoutedEventArgs e)
     {
         CopyAll(RxListBox, "RX");
@@ -65,25 +78,15 @@ public partial class DataPanel : UserControl
         CopyAll(TxListBox, "TX");
     }
 
-    private void CopySelected(ListBox listBox, string direction)
+    private static void CopyAll(ListBox listBox, string direction)
     {
-        if (DataContext is not ViewModels.MainViewModel vm) return;
-        var entries = new ObservableCollection<LogEntry>();
-        foreach (var item in listBox.SelectedItems)
-            if (item is LogEntry entry)
-                entries.Add(entry);
-        if (entries.Count > 0)
-            Clipboard.SetText(vm.DataFlow.GetFormattedCopyText(entries, direction));
+        if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
+        CopyToClipboard(vm.DataFlow.GetFormattedCopyText(listBox.Items.OfType<LogEntry>(), direction));
     }
 
-    private void CopyAll(ListBox listBox, string direction)
+    private static void CopyToClipboard(string text)
     {
-        if (DataContext is not ViewModels.MainViewModel vm) return;
-        var entries = new ObservableCollection<LogEntry>();
-        foreach (var item in listBox.Items)
-            if (item is LogEntry entry)
-                entries.Add(entry);
-        if (entries.Count > 0)
-            Clipboard.SetText(vm.DataFlow.GetFormattedCopyText(entries, direction));
+        try { Clipboard.SetText(text); }
+        catch (System.Runtime.InteropServices.COMException) { /* clipboard busy in another process */ }
     }
 }

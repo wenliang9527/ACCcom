@@ -1,0 +1,187 @@
+<UserControl x:Class="ACCcom.Controls.QuickSendSidebar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ACCcom.Controls"
+             xmlns:local="clr-namespace:ACCcom">
+
+    <UserControl.Resources>
+        <!-- Icon button for page navigation -->
+        <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <!-- Command row: flat full-width button -->
+        <Style x:Key="CommandRowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="5"
+                                Padding="8,4">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+            Effect="{DynamicResource CardShadow}" Margin="0,6,2,4">
+        <Grid Margin="6,5,6,6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ===== Row 0: Title ===== -->
+            <DockPanel Grid.Row="0" Margin="4,0,2,6">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding [Label.QuickSend], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding [Tip.QuickSendArea], Source={x:Static local:LanguageManager.Instance}}" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding PageIndicator}" FontFamily="Consolas" FontSize="10"
+                           Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            </DockPanel>
+
+            <!-- ===== Row 1: Page navigation ===== -->
+            <DockPanel Grid.Row="1" Margin="2,0,2,6">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Content="&#x25C0;" Style="{StaticResource NavButton}"
+                            Command="{Binding PrevPageCommand}"
+                            ToolTip="{Binding [QuickSend.PrevPage], Source={x:Static local:LanguageManager.Instance}}" />
+                    <ComboBox x:Name="PageSelector" Width="90" Margin="4,0" FontSize="11"
+                              ItemsSource="{Binding Pages}"
+                              SelectedItem="{Binding CurrentPage}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="&#x25B6;" Style="{StaticResource NavButton}"
+                            Command="{Binding NextPageCommand}"
+                            ToolTip="{Binding [QuickSend.NextPage], Source={x:Static local:LanguageManager.Instance}}" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="+" Style="{StaticResource NavButton}"
+                            Command="{Binding AddPageCommand}"
+                            ToolTip="{Binding [QuickSend.AddPage], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="&#x22EF;" Style="{StaticResource NavButton}" Margin="3,0,0,0"
+                            ToolTip="{Binding [QuickSend.PageMenu], Source={x:Static local:LanguageManager.Instance}}">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{Binding [QuickSend.RenamePage], Source={x:Static local:LanguageManager.Instance}}"
+                                          Click="RenamePage_Click" />
+                                <MenuItem Header="{Binding [QuickSend.ExportCurrent], Source={x:Static local:LanguageManager.Instance}}"
+                                          Command="{Binding PlacementTarget.DataContext.ExportCurrentPageCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <Separator />
+                                <MenuItem Header="{Binding [QuickSend.DeletePage], Source={x:Static local:LanguageManager.Instance}}"
+                                          Command="{Binding PlacementTarget.DataContext.DeletePageCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ===== Row 2: Command list ===== -->
+            <ListBox Grid.Row="2" x:Name="CommandsList"
+                     ItemsSource="{Binding CurrentCommands}"
+                     AlternationCount="1000000"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
+                     VirtualizingPanel.ScrollUnit="Pixel"
+                     Background="Transparent" BorderThickness="0"
+                     SelectionMode="Single">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource CommandRowButton}"
+                                Command="{Binding DataContext.SendShortcutCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"
+                                MouseLeftButtonDown="CommandRow_MouseDown">
+                            <Button.ToolTip>
+                                <ToolTip>
+                                    <TextBlock Text="{Binding Command}" />
+                                </ToolTip>
+                            </Button.ToolTip>
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{Binding [QuickSend.Send], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendSend_Click" />
+                                    <MenuItem Header="{Binding [QuickSend.LoadToSendBox], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendLoad_Click" />
+                                    <Separator />
+                                    <MenuItem Header="{Binding [QuickSend.Edit], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendEdit_Click" InputGestureText="DblClick" />
+                                    <MenuItem Header="{Binding [QuickSend.Delete], Source={x:Static local:LanguageManager.Instance}}"
+                                              Tag="{Binding}" Click="QuickSendDelete_Click" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- HEX/TXT indicator dot -->
+                                <Rectangle Grid.Column="0" Width="7" Height="7" RadiusX="3.5" RadiusY="3.5"
+                                           VerticalAlignment="Center" Margin="0,0,7,0">
+                                    <Rectangle.Style>
+                                        <Style TargetType="Rectangle">
+                                            <Setter Property="Fill" Value="{DynamicResource StatusBlueBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHex}" Value="True">
+                                                    <Setter Property="Fill" Value="{DynamicResource StatusWarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Rectangle.Style>
+                                </Rectangle>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11.5"
+                                           Foreground="{DynamicResource InkPrimaryBrush}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource HotkeyIndex}}"
+                                           FontSize="9" FontFamily="Consolas"
+                                           Foreground="{DynamicResource InkTertiaryBrush}"
+                                           VerticalAlignment="Center" Margin="6,0,0,0" />
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- ===== Row 3: Footer actions ===== -->
+            <DockPanel Grid.Row="3" Margin="2,6,2,0">
+                <Button DockPanel.Dock="Left" Content="{Binding [QuickSend.AddCommand], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24"
+                        Command="{Binding AddShortcutCommand}"
+                        ToolTip="{Binding [Tip.AddQuickCommand], Source={x:Static local:LanguageManager.Instance}}" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="{Binding [QuickSend.Import], Source={x:Static local:LanguageManager.Instance}}"
+                            Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24"
+                            Command="{Binding ImportCommand}" />
+                    <Button Content="{Binding [QuickSend.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
+                            Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24" Margin="4,0,0,0"
+                            Command="{Binding ExportAllCommand}" />
+                </StackPanel>
+            </DockPanel>
+        </Grid>
+    </controls:PaintedCard>
+</UserControl>

@@ -19,7 +19,7 @@
         <!-- Custom Title Bar (Close only for dialogs) -->
         <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Left"
+                <TextBlock DockPanel.Dock="Left" x:Name="TitleText"
                            Text="{Binding [AddShortcut.Title], Source={x:Static local:LanguageManager.Instance}}"
                            Foreground="{DynamicResource InkSecondaryBrush}"
                            FontSize="12" FontWeight="Medium"
@@ -59,7 +59,7 @@
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource OutlineButton}" Width="60" Margin="0,0,8,0"
                     Click="Cancel_Click" />
-            <Button Content="{Binding [AddShortcut.Add], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource PrimaryButton}" Width="60"
+            <Button x:Name="OkButton" Content="{Binding [AddShortcut.Add], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource PrimaryButton}" Width="60"
                     Click="Add_Click" />
         </StackPanel>
         </Grid>

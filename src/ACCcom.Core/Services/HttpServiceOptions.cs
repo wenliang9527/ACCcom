@@ -38,4 +38,10 @@ public class HttpServiceOptions
 
     /// <summary>数据缓冲区容量，默认 10000</summary>
     public int BufferCapacity { get; set; } = 10000;
+
+    /// <summary>
+    /// API 访问令牌。非空时，/api 与 /ws 请求必须携带 X-ACCcom-Token 请求头
+    /// （或 token 查询参数）。为空表示不启用令牌校验（默认）。
+    /// </summary>
+    public string? ApiToken { get; set; }
 }

@@ -25,6 +25,8 @@ err.txt
 out.txt
 acccom_err.txt
 acccom_out.txt
+*.log
+debug.log
 
 # Runtime PID file
 .acccom_gui.pid
@@ -58,6 +60,8 @@ triggers.json
 .mimocode/
 .playwright-mcp/
 .codegraph/
+.opencode/
+.uploads/
 
 # Binary protocol specs
 Agreement/

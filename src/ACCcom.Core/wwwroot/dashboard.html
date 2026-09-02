@@ -88,7 +88,17 @@ function addStreamEntry(dir, time, data) {
   const el = document.getElementById('streamBody');
   const div = document.createElement('div');
   div.className = 'stream-item';
-  div.innerHTML = `<span class="tag-${dir.toLowerCase()}">[${dir}]</span><span class="stream-time">${time}</span><span class="stream-data">${data}</span>`;
+  // Serial data is attacker-controllable: build DOM nodes instead of innerHTML.
+  const tag = document.createElement('span');
+  tag.className = 'tag-' + (dir === 'TX' ? 'tx' : 'rx');
+  tag.textContent = `[${dir}]`;
+  const timeEl = document.createElement('span');
+  timeEl.className = 'stream-time';
+  timeEl.textContent = time;
+  const dataEl = document.createElement('span');
+  dataEl.className = 'stream-data';
+  dataEl.textContent = data;
+  div.append(tag, timeEl, dataEl);
   el.insertBefore(div, el.firstChild);
   while (el.children.length > 100) el.removeChild(el.lastChild);
 }
@@ -126,7 +136,13 @@ function renderRegisters(regs, slaves) {
   const list = regs[selectedSlave];
   list.slice(0, 32).forEach(r => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>0x${r.address.toString(16).padStart(4,'0')}</td><td>${r.value}</td><td>0x${r.value.toString(16).padStart(4,'0').toUpperCase()}</td>`;
+    const tdAddr = document.createElement('td');
+    tdAddr.textContent = `0x${r.address.toString(16).padStart(4,'0')}`;
+    const tdDec = document.createElement('td');
+    tdDec.textContent = r.value;
+    const tdHex = document.createElement('td');
+    tdHex.textContent = `0x${r.value.toString(16).padStart(4,'0').toUpperCase()}`;
+    tr.append(tdAddr, tdDec, tdHex);
     tbody.appendChild(tr);
   });
   document.querySelectorAll('.slave-chip').forEach((chip, i) => {

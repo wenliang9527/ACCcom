@@ -1,14 +1,14 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ACCcom.Helpers;
 
 namespace ACCcom;
 
 public partial class CompareWindow : Window
 {
-    private static readonly SolidColorBrush DiffHighlightBrush = new(Color.FromArgb(40, 255, 200, 0));
+    /// <summary>One rendered line of a compared file.</summary>
+    public sealed record DiffRow(string Display, bool IsDiff);
 
     public CompareWindow()
     {
@@ -28,7 +28,7 @@ public partial class CompareWindow : Window
         if (dlg.ShowDialog() == true) FileBPath.Text = dlg.FileName;
     }
 
-    private void Compare_Click(object sender, RoutedEventArgs e)
+    private async void Compare_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(FileAPath.Text) || string.IsNullOrEmpty(FileBPath.Text))
         {
@@ -36,46 +36,52 @@ public partial class CompareWindow : Window
             return;
         }
 
-        string[] linesA, linesB;
+        CompareButton.IsEnabled = false;
         try
         {
-            linesA = File.ReadAllLines(FileAPath.Text);
-            linesB = File.ReadAllLines(FileBPath.Text);
-        }
-        catch (IOException ex)
-        {
-            SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.ReadFileError"], ex.Message);
-            return;
-        }
+            var pathA = FileAPath.Text;
+            var pathB = FileBPath.Text;
 
-        ListBoxA.Items.Clear();
-        ListBoxB.Items.Clear();
-
-        int maxCount = Math.Max(linesA.Length, linesB.Length);
-        int matching = 0, different = 0;
-
-        for (int i = 0; i < maxCount; i++)
-        {
-            var a = i < linesA.Length ? linesA[i] : "";
-            var b = i < linesB.Length ? linesB[i] : "";
-
-            bool same = string.Equals(a, b, StringComparison.Ordinal);
-            if (same) matching++; else different++;
-
-            var itemA = new ListBoxItem { Content = $"[{i + 1}] {a}", Padding = new Thickness(4, 1, 4, 1) };
-            var itemB = new ListBoxItem { Content = $"[{i + 1}] {b}", Padding = new Thickness(4, 1, 4, 1) };
-
-            if (!same)
+            string[] linesA, linesB;
+            try
             {
-                itemA.Background = DiffHighlightBrush;
-                itemB.Background = DiffHighlightBrush;
+                // Large log files: keep the UI responsive by reading off-thread.
+                linesA = await Task.Run(() => File.ReadAllLines(pathA));
+                linesB = await Task.Run(() => File.ReadAllLines(pathB));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.ReadFileError"], ex.Message);
+                return;
             }
 
-            ListBoxA.Items.Add(itemA);
-            ListBoxB.Items.Add(itemB);
-        }
+            int maxCount = Math.Max(linesA.Length, linesB.Length);
+            var rowsA = new List<DiffRow>(maxCount);
+            var rowsB = new List<DiffRow>(maxCount);
+            int matching = 0, different = 0;
 
-        SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.SummaryFormat"], maxCount, matching, different);
+            for (int i = 0; i < maxCount; i++)
+            {
+                var a = i < linesA.Length ? linesA[i] : "";
+                var b = i < linesB.Length ? linesB[i] : "";
+
+                bool same = string.Equals(a, b, StringComparison.Ordinal);
+                if (same) matching++; else different++;
+
+                rowsA.Add(new DiffRow($"[{i + 1}] {a}", !same));
+                rowsB.Add(new DiffRow($"[{i + 1}] {b}", !same));
+            }
+
+            // Single ItemsSource assignment; the ListBox virtualizes containers.
+            ListBoxA.ItemsSource = rowsA;
+            ListBoxB.ItemsSource = rowsB;
+
+            SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.SummaryFormat"], maxCount, matching, different);
+        }
+        finally
+        {
+            CompareButton.IsEnabled = true;
+        }
     }
 
     private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);

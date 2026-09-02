@@ -36,6 +36,7 @@ public class HttpService : IDisposable
         _recorder = options.SessionRecorder;
         _stats = options.DataStatistics;
         _server = new WebServer(o => o.WithUrlPrefix(options.Url).WithMode(HttpListenerMode.EmbedIO))
+            .WithModule(new LocalAccessGuardModule(options.Url, options.ApiToken))
             .WithWebApi("/api", m => m.WithController(() => new SerialController(this)))
             .WithModule(new SerialWebSocketHandler("/ws", this));
         var asmDir = Path.GetDirectoryName(typeof(HttpService).Assembly.Location)!;
@@ -146,21 +147,20 @@ public class HttpService : IDisposable
 
     public string? ReadParserCode(string name)
     {
-        var dir = _parserManager?.GetParserDir();
-        if (dir == null) return null;
-        var path = Path.Combine(dir, name + ".csx");
+        if (_parserManager == null) return null;
+        if (!_parserManager.TryResolveParserFile(name, ".csx", out var path)) return null;
         if (!File.Exists(path)) return null;
         return File.ReadAllText(path);
     }
 
-    public bool WriteParserCode(string name, string code)
+    public (bool ok, string? error) WriteParserCode(string name, string code)
     {
-        var dir = _parserManager?.GetParserDir();
-        if (dir == null) return false;
-        var path = Path.Combine(dir, name + ".csx");
+        if (_parserManager == null) return (false, "ParserManager not available");
+        if (!_parserManager.TryResolveParserFile(name, ".csx", out var path))
+            return (false, $"Invalid parser name: '{name}'");
         File.WriteAllText(path, code);
-        _parserManager?.Refresh();
-        return true;
+        _parserManager.Refresh();
+        return (true, null);
     }
 
     public async Task<(List<FieldAnnotation>? fields, string? error)> ParseRawHexAsync(string hex, string? parserName = null)
@@ -178,8 +178,8 @@ public class HttpService : IDisposable
             if (!string.IsNullOrEmpty(parserName) && parserName != _parserManager.ActiveParserName)
             {
                 tempEngine = new ParserEngine();
-                var dir = _parserManager.GetParserDir();
-                var path = Path.Combine(dir, parserName + ".csx");
+                if (!_parserManager.TryResolveParserFile(parserName, ".csx", out var path))
+                    return (null, $"Invalid parser name: '{parserName}'");
                 if (!File.Exists(path)) return (null, $"Parser '{parserName}' not found");
                 if (!tempEngine.Load(File.ReadAllText(path))) return (null, $"Parser load failed: {tempEngine.LastError}");
                 engine = tempEngine;
@@ -348,12 +348,17 @@ public class HttpService : IDisposable
 
     // ========== Recording ==========
 
-    public (bool ok, string? file) RecordingStart(string? filename)
+    public (bool ok, string? file, string? error) RecordingStart(string? filename)
     {
-        if (_recorder == null) return (false, null);
+        if (_recorder == null) return (false, null, "Recorder not available");
+        if (!string.IsNullOrWhiteSpace(filename))
+        {
+            if (!SafePath.TryResolveRecordingPath(filename, out _))
+                return (false, null, $"Invalid recording filename: '{filename}'. Use a plain file name without path separators.");
+        }
         if (_recorder.StartRecording(filename))
-            return (true, _recorder.CurrentFile);
-        return (false, _recorder.CurrentFile);
+            return (true, _recorder.CurrentFile, null);
+        return (false, _recorder.CurrentFile, null);
     }
 
     public (bool ok, string? file, int count) RecordingStop()
@@ -365,10 +370,12 @@ public class HttpService : IDisposable
         return (ok, file, count);
     }
 
-    public List<LogEntry> RecordingReplay(string filename)
+    public (List<LogEntry> entries, string? error) RecordingReplay(string filename)
     {
-        if (_recorder == null) return new List<LogEntry>();
-        return _recorder.ReplayFile(filename);
+        if (_recorder == null) return (new List<LogEntry>(), "Recorder not available");
+        if (!SafePath.TryResolveRecordingPath(filename, out var path))
+            return (new List<LogEntry>(), $"Invalid recording filename: '{filename}'. Use a plain file name without path separators.");
+        return (_recorder.ReplayFile(path), null);
     }
 
     public (bool isRecording, string? file, int count) GetRecordingStatus()

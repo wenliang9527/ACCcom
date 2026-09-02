@@ -66,9 +66,9 @@ public class RecordingToolsTests
         try
         {
             var tools = new RecordingTools(ctx);
-            // 显式指定临时目录,避免 LocalApplicationData 权限问题
-            var tempFile = Path.Combine(Path.GetTempPath(), $"ACCCOM_test_{Guid.NewGuid():N}.jsonl");
-            var start = await tools.StartRecording(tempFile);
+            // 只传纯文件名：录制文件固定写入 %LOCALAPPDATA%\ACCcom\recordings 目录
+            var filename = $"ACCCOM_test_{Guid.NewGuid():N}.jsonl";
+            var start = await tools.StartRecording(filename);
             Assert.True(ToolContextFactory.ExtractSuccess(start), $"start failed: {start}");
 
             var status = await tools.RecordingStatus();
@@ -77,6 +77,38 @@ public class RecordingToolsTests
             var stop = await tools.StopRecording();
             Assert.True(ToolContextFactory.ExtractSuccess(stop));
             Assert.Contains("stopped", stop);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task StartRecording_PathTraversal_Rejected()
+    {
+        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        try
+        {
+            var tools = new RecordingTools(ctx);
+            var result = await tools.StartRecording(@"..\..\evil.jsonl");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Contains("Invalid recording filename", result);
+
+            var absolute = Path.Combine(Path.GetTempPath(), "ACCCOM_evil.jsonl");
+            var result2 = await tools.StartRecording(absolute);
+            Assert.False(ToolContextFactory.ExtractSuccess(result2));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReplaySession_PathTraversal_Rejected()
+    {
+        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        try
+        {
+            var tools = new RecordingTools(ctx);
+            var result = await tools.ReplaySession(@"C:\Windows\win.ini");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Contains("Invalid recording filename", result);
         }
         finally { sp.Dispose(); }
     }

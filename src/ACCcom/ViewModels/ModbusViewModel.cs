@@ -260,8 +260,15 @@ public class ModbusViewModel : ObservableObject, IDisposable
                 ResponseHex = tx.ResponseHex ?? "(timeout)",
                 Status = tx.IsSuccess ? "OK" : $"ERR: {tx.ErrorMessage}"
             });
+
+            // Cap the log so long-running polls don't grow without bound.
+            // Remove from the tail (oldest entries are at the end).
+            while (TransactionLog.Count > MaxTransactionLogEntries)
+                TransactionLog.RemoveAt(TransactionLog.Count - 1);
         });
     }
+
+    private const int MaxTransactionLogEntries = 1000;
 
     private void StartPoll()
     {

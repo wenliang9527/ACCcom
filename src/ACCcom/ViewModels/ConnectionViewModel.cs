@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -10,6 +11,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge;
     private readonly SerialConnectionManager _connectionManager;
+    private readonly PortMonitorService? _portMonitor;
     private readonly Action<string> _setStatus;
     private readonly Action<string> _durationChangedHandler;
     private bool _disposed;
@@ -85,19 +87,16 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     public ICommand ConnectNetworkCommand { get; }
     public ICommand RefreshPortsCommand { get; }
 
-    public ConnectionViewModel(ISerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus)
+    public ConnectionViewModel(ISerialService serial, NetworkBridgeService networkBridge, SerialConnectionManager connectionManager, Action<string> setStatus, PortMonitorService? portMonitor = null)
     {
         _serial = serial;
         _networkBridge = networkBridge;
         _connectionManager = connectionManager;
         _setStatus = setStatus;
+        _portMonitor = portMonitor;
 
         OpenCloseCommand = new RelayCommand(_ => ToggleOpenClose());
-        ConnectNetworkCommand = new RelayCommand(_ => _ = Task.Run(async () =>
-        {
-            try { await ToggleNetworkConnectionAsync().ConfigureAwait(false); }
-            catch (Exception ex) { _setStatus($"Network error: {ex.Message}"); }
-        }));
+        ConnectNetworkCommand = new RelayCommand(_ => _ = ConnectNetworkAsync());
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
 
         _durationChangedHandler = duration =>
@@ -105,13 +104,61 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         _connectionManager.DurationChanged += _durationChangedHandler;
 
         RefreshPorts();
+
+        // Auto-detect serial devices plugged in / unplugged at runtime.
+        if (_portMonitor != null)
+        {
+            _portMonitor.PortsChanged += OnPortsChanged;
+            _portMonitor.Start(2000);
+        }
+    }
+
+    private void OnPortsChanged(List<string> arrived, List<string> removed)
+    {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                foreach (var p in arrived)
+                {
+                    if (!AvailablePorts.Contains(p)) AvailablePorts.Add(p);
+                    _setStatus(string.Format(LanguageManager.Instance["Status.PortArrived"], p));
+                }
+
+                // Auto-select the first port that appears while nothing is chosen.
+                if (arrived.Count > 0 && string.IsNullOrEmpty(SelectedPort))
+                    SelectedPort = arrived[0];
+
+                foreach (var p in removed)
+                {
+                    AvailablePorts.Remove(p);
+                    if (string.Equals(SelectedPort, p, StringComparison.OrdinalIgnoreCase))
+                        _setStatus(string.Format(LanguageManager.Instance["Status.PortRemoved"], p));
+                }
+            }
+            catch (Exception ex)
+            {
+                _setStatus($"[PortMonitor] {ex.Message}");
+            }
+        });
     }
 
     public void RefreshPorts()
     {
+        var ports = SerialService.GetAvailablePorts();
+        var selected = SelectedPort;
+
         AvailablePorts.Clear();
-        foreach (var p in SerialService.GetAvailablePorts())
+        foreach (var p in ports)
             AvailablePorts.Add(p);
+
+        // Keep the previous selection when it still exists so a manual
+        // refresh does not drop the user's choice.
+        if (!string.IsNullOrEmpty(selected) &&
+            ports.Any(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase)))
+        {
+            SelectedPort = ports.First(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     private void ToggleOpenClose()
@@ -151,40 +198,43 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task ToggleNetworkConnectionAsync()
+    /// <summary>
+    /// Connects/disconnects the TCP/UDP bridge. Blocking socket work runs on a
+    /// background thread; all VM state changes stay on the UI thread.
+    /// </summary>
+    private async Task ConnectNetworkAsync()
     {
         try
         {
             if (IsOpen)
             {
-                _networkBridge.Close();
+                await Task.Run(_networkBridge.Close);
                 IsOpen = false;
                 _setStatus(LanguageManager.Instance["Status.NetworkClosed"]);
+                return;
             }
-            else
+
+            if (string.IsNullOrEmpty(NetworkHost))
             {
-                if (string.IsNullOrEmpty(NetworkHost))
-                {
-                    _setStatus(LanguageManager.Instance["Status.PleaseEnterHost"]);
-                    return;
-                }
-                if (NetworkPort <= 0)
-                {
-                    _setStatus(LanguageManager.Instance["Status.PleaseEnterValidPort"]);
-                    return;
-                }
-
-                bool connected;
-                if (SelectedConnectionType == "TCP")
-                    connected = await _networkBridge.ConnectTcp(NetworkHost, NetworkPort);
-                else
-                    connected = _networkBridge.ConnectUdp(NetworkHost, NetworkPort);
-
-                IsOpen = connected;
-                _setStatus(connected
-                    ? string.Format(LanguageManager.Instance["Status.ConnectedNetwork"], SelectedConnectionType, NetworkHost, NetworkPort)
-                    : string.Format(LanguageManager.Instance["Status.ConnectionFailed"], SelectedConnectionType));
+                _setStatus(LanguageManager.Instance["Status.PleaseEnterHost"]);
+                return;
             }
+            if (NetworkPort <= 0)
+            {
+                _setStatus(LanguageManager.Instance["Status.PleaseEnterValidPort"]);
+                return;
+            }
+
+            bool connected;
+            if (SelectedConnectionType == "TCP")
+                connected = await Task.Run(async () => await _networkBridge.ConnectTcp(NetworkHost, NetworkPort));
+            else
+                connected = _networkBridge.ConnectUdp(NetworkHost, NetworkPort);
+
+            IsOpen = connected;
+            _setStatus(connected
+                ? string.Format(LanguageManager.Instance["Status.ConnectedNetwork"], SelectedConnectionType, NetworkHost, NetworkPort)
+                : string.Format(LanguageManager.Instance["Status.ConnectionFailed"], SelectedConnectionType));
         }
         catch (Exception ex)
         {
@@ -196,6 +246,11 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_portMonitor != null)
+        {
+            _portMonitor.PortsChanged -= OnPortsChanged;
+            _portMonitor.Stop();
+        }
         _connectionManager.DurationChanged -= _durationChangedHandler;
         _connectionManager.Dispose();
     }

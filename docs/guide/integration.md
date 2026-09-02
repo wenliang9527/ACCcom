@@ -18,6 +18,28 @@ ACCCOM 提供多种集成方式：内嵌 HTTP REST API、WebSocket 实时推送�
 - `error`：失败时的错误描述
 - `data`：成功时的返回数据
 
+### 安全与鉴权
+
+HTTP 服务默认仅监听 `127.0.0.1`（回环地址），并内置以下防护：
+
+- **Host 校验**：拒绝 Host 头非回环地址的请求，缓解 DNS Rebinding 攻击。
+- **Origin/Referer 校验**：拒绝来自非本机网页的跨站请求（CSRF 防护）。
+- **路径约束**：解析器脚本与录制文件只能位于专用目录内，拒绝 `..` 等路径穿越。
+
+如需进一步加固（例如本机存在多用户场景），可在 `%LOCALAPPDATA%\ACCcom\settings.json` 中配置访问令牌：
+
+```json
+{ "HttpApiToken": "你的随机长令牌" }
+```
+
+启用后，所有 `/api` 与 `/ws` 请求必须携带令牌：
+
+```bash
+curl -H "X-ACCcom-Token: 你的随机长令牌" http://127.0.0.1:8899/api/status
+# 或使用查询参数
+curl "http://127.0.0.1:8899/api/status?token=你的随机长令牌"
+```
+
 ### 串口管理
 
 | 方法 | 路径 | 说明 |
@@ -218,21 +240,30 @@ curl http://127.0.0.1:8899/api/slaves
 - 所有 UI 文本通过资源键引用
 - Modbus 功能本地化支持
 
-## 深色/浅色主题
+## 主题系统
 
-基于 WPF ResourceDictionary 的主题切换：
+基于 WPF ResourceDictionary 的主题切换，共 7 款（`Ctrl+D` 循环切换，或标题栏下拉选择）：
 
-- `DarkTheme.xaml`：深色主题
-- `LightTheme.xaml`：浅色主题
-- 资源文件存放于 `src/ACCcom/Themes/` 目录
-- 运行时无缝切换，无需重启
+| 主题 | 灵感 | 风格 |
+|------|------|------|
+| `LightTheme` | — | 浅色 |
+| `DarkTheme` | — | 深色极简 |
+| `MonetSunrise` | 莫奈《日出·印象》 | 雾蓝灰 + 橙日倒影，冷暖对撞的晨雾感 |
+| `VanGoghWheat` | 梵高《麦田群鸦》 | 风暴蓝绿 + 麦金 + 乌鸦黑，戏剧张力 |
+| `KlimtKiss` | 克里姆特《吻》 | 拜占庭金箔 + 深绿黑，奢华装饰风 |
+| `HokusaiWave` | 葛饰北斋《神奈川冲浪》 | 普鲁士蓝 + 浪花白 + 赭黄，浮世绘版画感 |
+| `VermeerPearl` | 维米尔《戴珍珠耳环的少女》 | 青金头巾 + 柠檬黄 + 深墨背景，古典油画 |
+
+- 资源文件存放于 `src/ACCcom/Themes/` 目录，每个主题定义同一套资源键
+- 卡片表面使用微渐变 + 画布纹理叠加（`CanvasWeaveBrush`），呈现油画质感
+- 运行时无缝切换，无需重启；选择持久化到 `settings.json` 的 `Theme` 字段
 - Modbus 窗口主题适配
 
 ## AI 集成
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 38 个工具，无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 39 个工具，无需 HTTP 配置。
 
 **默认运行模式：**
 
@@ -267,7 +298,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
   → slave_read(slaveId="slave_1", type="holding", address=0)                  # 读取从站寄存器
 ```
 
-**可用 MCP Tools（38 个）：**
+**可用 MCP Tools（39 个）：**
 
 | Tool | 说明 |
 |------|------|
@@ -306,6 +337,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `slave_create` | 创建虚拟 Modbus 从站设备 |
 | `slave_remove` | 移除 Modbus 从站设备 |
 | `slave_list` | 列出所有活跃的 Modbus 从站设备 |
+| `get_slaves` | 列出活跃从站及其保持寄存器快照（前 32 个地址，含十六进制值） |
 | `slave_write` | 向从站设备写入寄存器值 |
 | `slave_read` | 从从站设备读取寄存器值 |
 | `scan_devices` | 扫描 Modbus 网络上的从站设备 |

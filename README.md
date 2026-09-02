@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-492_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-498_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 
@@ -101,12 +101,12 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 | 类别 | 功能 |
 |------|------|
-| 🔌 串口 | 300~921600 波特率、DTR/RTS 流控、自动扫描、断线重连、多端口并发 |
+| 🔌 串口 | 300~921600 波特率、DTR/RTS 流控、自动扫描、**设备插拔自动检测**、断线重连（含设备等待）、多端口并发 |
 | 📡 网络 | TCP/UDP 客户端、自动桥接、零拷贝接收 |
 | 📝 协议 | Roslyn C# Script 引擎、热加载、LRU 缓存、自动代码生成、自动解析器匹配、高亮规则 |
 | 🔧 Modbus | RTU/TCP/ASCII 主站、10 种功能码、自动分片、轮询、从站模拟 |
-| 🎨 界面 | 深色/浅色主题、中英文切换（运行时即时生效）、发送历史 |
-| 🤖 AI | MCP Server（38 个工具）、HTTP REST API、WebSocket 实时推送 |
+| 🎨 界面 | 7 款主题（浅色/深色 + 五幅名画配色：日出·印象、麦田群鸦、吻、神奈川冲浪、珍珠少女）、画布纹理质感、中英文切换（运行时即时生效）、发送历史 |
+| 🤖 AI | MCP Server（39 个工具）、HTTP REST API、WebSocket 实时推送 |
 | 📊 数据 | Channel+RingBuffer 缓冲、实时统计、TXT/JSON/CSV/PCAP 导出 |
 | ⚡ 自动化 | 会话录制回放、多步骤宏、条件触发器、协议测试运行器 |
 | 🧩 工具 | 协议可视化编辑器、数据对比/差异分析、实时波形绘图、包过滤引擎 |
@@ -123,11 +123,12 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 | `Ctrl+Shift+L` | 清空 TX 面板 |
 | `Ctrl+L` | 清空 RX 面板 |
 | `Ctrl+F` | 聚焦 RX 搜索框 |
-| `Ctrl+D` | 切换深色/浅色主题 |
+| `Ctrl+D` | 切换主题（在 7 款主题间循环） |
 | `Ctrl+H` | 切换 HEX 显示 |
 | `Ctrl+B` | 添加书签 |
 | `Ctrl+Left/Right` | 书签前后导航 |
 | `ESC` | 停止循环发送 |
+| `Alt+1`~`Alt+9` | 快捷发送当前页第 1~9 条指令 |
 | `F5` | 刷新可用串口列表 |
 
 ---

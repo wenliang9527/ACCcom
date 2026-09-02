@@ -1,0 +1,120 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================== -->
+    <!-- 莫奈《日出·印象》1872                            -->
+    <!-- 雾蓝灰底 + 橙日倒影，冷暖对撞的晨雾感             -->
+    <!-- ============================================== -->
+
+    <DropShadowEffect x:Key="CardShadow" BlurRadius="18" ShadowDepth="3"
+                      Opacity="0.35" Color="#0A1220" Direction="270" />
+    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
+                      Opacity="0.22" Color="#0A1220" Direction="270" />
+
+    <!-- Neutral base: Le Havre harbor fog -->
+    <Color x:Key="BgBase">#333F52</Color>
+    <Color x:Key="BgSurface">#3B485E</Color>
+    <Color x:Key="BgElevated">#44536B</Color>
+    <Color x:Key="BgHover">#4E5F7A</Color>
+    <Color x:Key="BgActive">#596C88</Color>
+    <Color x:Key="BorderColor">#46556D</Color>
+    <Color x:Key="BorderLight">#5A6B85</Color>
+
+    <!-- Text hierarchy: warm mist -->
+    <Color x:Key="InkPrimary">#EDEAE2</Color>
+    <Color x:Key="InkSecondary">#B8BCC4</Color>
+    <Color x:Key="InkTertiary">#8E97A6</Color>
+
+    <!-- Accent: the rising sun through mist -->
+    <Color x:Key="Accent">#E8794A</Color>
+    <Color x:Key="AccentHover">#F2916A</Color>
+    <Color x:Key="AccentPressed">#D06235</Color>
+
+    <!-- Status semantics -->
+    <Color x:Key="StatusBlue">#7FA8C9</Color>
+    <Color x:Key="StatusGray">#8E97A6</Color>
+    <Color x:Key="StatusGreen">#86B58B</Color>
+    <Color x:Key="StatusWarning">#E8B84A</Color>
+    <Color x:Key="StatusError">#D97064</Color>
+
+    <Color x:Key="StatusWarningBg">#18E8B84A</Color>
+    <Color x:Key="StatusErrorBg">#18D97064</Color>
+
+    <Color x:Key="ConnBadgeBg">#0D86B58B</Color>
+    <Color x:Key="ConnBadgeBorder">#3386B58B</Color>
+
+    <Color x:Key="DiffMatchBg">#3386B58B</Color>
+    <Color x:Key="DiffDiffBg">#33D97064</Color>
+
+    <!-- Sun glow on water -->
+    <Color x:Key="SearchHighlight">#38E89A50</Color>
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}" />
+    <!-- Surface carries a faint vertical drift, like fog settling on water -->
+    <LinearGradientBrush x:Key="BgSurfaceBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#3E4C63" Offset="0" />
+        <GradientStop Color="#394659" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BgElevatedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#485872" Offset="0" />
+        <GradientStop Color="#42506A" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="BgHoverBrush" Color="{StaticResource BgHover}" />
+    <SolidColorBrush x:Key="BgActiveBrush" Color="{StaticResource BgActive}" />
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+    <SolidColorBrush x:Key="BorderLightBrush" Color="{StaticResource BorderLight}" />
+    <SolidColorBrush x:Key="InkPrimaryBrush" Color="{StaticResource InkPrimary}" />
+    <SolidColorBrush x:Key="InkSecondaryBrush" Color="{StaticResource InkSecondary}" />
+    <SolidColorBrush x:Key="InkTertiaryBrush" Color="{StaticResource InkTertiary}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
+    <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
+    <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
+    <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
+    <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />
+
+    <SolidColorBrush x:Key="DividerBrush" Color="#46556D" />
+
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#5A6B85" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#6A7B95" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#7A8BA5" />
+
+    <!-- ============================================== -->
+    <!-- Signature texture: 水波纹 (harbor water ripples) -->
+    <!-- Large-scale misty swells + faint orange glint   -->
+    <!-- ============================================== -->
+    <DrawingBrush x:Key="CardTextureBrush" TileMode="Tile" Viewport="0,0,64,36"
+                  ViewportUnits="Absolute" Opacity="0.045">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Geometry="M0,12 C10,4 22,4 32,12 C42,20 54,20 64,12">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#AFC9DE" Thickness="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M0,27 C10,20.5 22,20.5 32,27 C42,33.5 54,33.5 64,27">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#8FB0CC" Thickness="0.8" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="52,7" RadiusX="4.6" RadiusY="1.9" />
+                    </GeometryDrawing.Geometry>
+                    <GeometryDrawing.Brush>
+                        <SolidColorBrush Color="#E89A50" />
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+</ResourceDictionary>
