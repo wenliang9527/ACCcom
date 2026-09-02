@@ -27,6 +27,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly FileExportService _fileExportService;
     private readonly Action<string> _setStatus;
     private readonly AppSettings _settings;
+    private readonly HighlightService? _highlightService;
     private readonly DispatcherTimer? _filterDebounce;
 
     private readonly List<string> _sendHistory = new();
@@ -265,7 +266,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         DataStatistics stats,
         FileExportService fileExportService,
         Action<string> setStatus,
-        AppSettings settings)
+        AppSettings settings,
+        HighlightService? highlightService = null)
     {
         _serial = serial;
         _networkBridge = networkBridge;
@@ -273,6 +275,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _http = http;
         _triggerService = triggerService;
         _parserManager = parserManager;
+        _highlightService = highlightService;
         _frameAssembler = new FrameAssembler(frameAssemblerConfig, parserManager);
         _frameAssembler.OnFrameAssembled += OnAssembledFrame;
         _stats = stats;
@@ -537,6 +540,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// <summary>Queues an RX entry; the UI collection is updated in batches by the flush timer.</summary>
     public void AddRxEntry(LogEntry entry, int byteCount)
     {
+        ApplyHighlight(entry);
         _pendingRx.Add(entry);
         RxCount++;
         RxByteCount += byteCount;
@@ -545,10 +549,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// <summary>Queues a TX entry; the UI collection is updated in batches by the flush timer.</summary>
     public void AddTxEntry(LogEntry entry, int byteCount)
     {
+        ApplyHighlight(entry);
         _pendingTx.Add(entry);
         TxCount++;
         TxByteCount += byteCount;
     }
+
+    private void ApplyHighlight(LogEntry entry)
+        => entry.HighlightColor = _highlightService?.GetHighlightColor(entry);
 
     /// <summary>Moves queued entries into the observable collections (UI thread only).</summary>
     private void FlushPendingEntries()

@@ -19,6 +19,11 @@
                 Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
                 ToolTip="{Binding [Tip.ModbusMaster], Source={x:Static local:LanguageManager.Instance}}" />
 
+        <Button Command="{Binding OpenHighlightCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.OpenHighlights], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#x2605;" FontSize="13" />
+        </Button>
+
         <Rectangle Style="{StaticResource ToolSeparator}" />
 
         <!-- Bookmarks: mark a moment in the RX stream and jump back to it later.

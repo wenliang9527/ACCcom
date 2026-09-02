@@ -31,6 +31,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly FrameAssemblerConfig _frameAssemblerConfig = new();
     private readonly PlotViewModel _plotViewModel = new();
     private readonly SettingsService _settingsService = new();
+    private readonly HighlightService _highlightService = new();
     private AppSettings _settings;
     private PlotWindow? _plotWindow;
     private bool _disposed;
@@ -38,6 +39,8 @@ public class MainViewModel : ObservableObject, IDisposable
     private readonly ConnectionViewModel _connection;
     private readonly DataFlowViewModel _dataFlow;
     private readonly ToolViewModel _tool;
+    private readonly HighlightViewModel _highlights;
+    private HighlightWindow? _highlightWindow;
 
     private readonly ModbusConnectionManager _modbusConnectionManager = new();
     private readonly ModbusSlaveService _modbusSlaveService = new();
@@ -169,6 +172,10 @@ public class MainViewModel : ObservableObject, IDisposable
 
     public ICommand ToggleThemeCommand { get; }
     public ICommand ToggleRecordingCommand { get; }
+    public ICommand OpenHighlightCommand { get; }
+    public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
+    public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
+    public HighlightViewModel Highlights => _highlights;
 
     public MainViewModel() : this(new SerialService()) { }
 
@@ -197,7 +204,9 @@ public class MainViewModel : ObservableObject, IDisposable
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
 
         _connection = new ConnectionViewModel(_serial, _networkBridge, _connectionManager, msg => StatusText = msg, _portMonitor);
-        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings);
+        _dataFlow = new DataFlowViewModel(_serial, _networkBridge, _logger, _http, _triggerService, _parserManager, _frameAssemblerConfig, _stats, _fileExportService, msg => StatusText = msg, _settings, _highlightService);
+        _highlights = new HighlightViewModel(_highlightService, () => _dataFlow, msg => StatusText = msg);
+        _highlights.Load();
         _tool = new ToolViewModel(
             _serial, _networkBridge, _shortcutManager, _presetManager, _macroManager, _bookmarkManager,
             _multiPort, _triggerService, _sessionRecorder, _logger,
@@ -214,6 +223,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
         ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
         ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
+        OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -327,6 +337,22 @@ public class MainViewModel : ObservableObject, IDisposable
         await _tool.LoadPresetsAsync();
         await _tool.LoadMacrosAsync();
         _tool.LoadTriggers();
+    }
+
+    private void OpenHighlightWindow()
+    {
+        if (_highlightWindow != null)
+        {
+            _highlightWindow.Activate();
+            return;
+        }
+        _highlightWindow = new HighlightWindow(_highlights)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _highlightWindow.Closed += (_, _) => _highlightWindow = null;
+        _highlightWindow.Show();
+        StatusText = LanguageManager.Instance["Status.HighlightWindowOpened"];
     }
 
     public void NavigateHistory(int direction) => _dataFlow.NavigateHistory(direction);

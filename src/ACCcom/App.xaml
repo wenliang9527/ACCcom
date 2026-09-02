@@ -19,6 +19,7 @@
             <converters:BoolToThemeIconConverter x:Key="BoolToThemeIcon" />
             <converters:BoolInverterConverter x:Key="BoolInverter" />
             <converters:HotkeyIndexConverter x:Key="HotkeyIndex" />
+            <converters:HexToBrushConverter x:Key="HexToBrush" />
 
             <!-- ============================================== -->
             <!-- Canvas grain texture (theme-independent)       -->

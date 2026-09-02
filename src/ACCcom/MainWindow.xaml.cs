@@ -265,6 +265,12 @@ public partial class MainWindow : Window
                 _vm.ToggleRecordingCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+K: Open highlight-rule editor (visual color rules for RX/TX).
+        else if (e.Key == Key.K && mods == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _vm.OpenHighlightCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void ApplySidebarVisibility()

@@ -263,4 +263,45 @@ public class HighlightServiceTests : IDisposable
 
         Assert.Equal("#AA0000", color);
     }
+
+    /// <summary>Garbage in the Color field is the consumer's problem — the service
+    // returns the raw value and lets the XAML converter handle parse failures.
+    // We just confirm we don't throw on an invalid color string.</summary>
+    [Fact]
+    public void GetHighlightColor_invalid_color_string_does_not_throw()
+    {
+        _sut.AddRule(new HighlightRule { Name = "Bad", Pattern = "x", Color = "not-a-color" });
+        var entry = MakeEntry(1, text: "x");
+
+        var color = _sut.GetHighlightColor(entry);
+
+        Assert.Equal("not-a-color", color);
+    }
+
+    /// <summary>Equal priorities fall back to insertion order via OrderByDescending
+    // stability, but the contract is "higher wins" — zero should beat a negative.</summary>
+    [Fact]
+    public void GetHighlightColor_zero_priority_beats_negative()
+    {
+        _sut.AddRule(new HighlightRule { Name = "Neg", Pattern = "x", Color = "#111111", Priority = -5 });
+        _sut.AddRule(new HighlightRule { Name = "Zero", Pattern = "x", Color = "#222222", Priority = 0 });
+        var entry = MakeEntry(1, text: "x");
+
+        var color = _sut.GetHighlightColor(entry);
+
+        Assert.Equal("#222222", color);
+    }
+
+    /// <summary>The pipeline guarantees HighlightColor never carries stale data
+    // when rules are removed — once a rule is gone, its color must not reappear.</summary>
+    [Fact]
+    public void RemoveRule_takes_effect_immediately()
+    {
+        _sut.AddRule(new HighlightRule { Name = "Ephemeral", Pattern = "hi", Color = "#333333" });
+        Assert.Equal("#333333", _sut.GetHighlightColor(MakeEntry(1, text: "hi")));
+
+        _sut.RemoveRule("Ephemeral");
+
+        Assert.Null(_sut.GetHighlightColor(MakeEntry(1, text: "hi")));
+    }
 }
