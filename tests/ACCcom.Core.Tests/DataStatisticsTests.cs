@@ -225,4 +225,34 @@ public class DataStatisticsTests
         // RX side should also be cleared (symmetric reset)
         Assert.Equal(0, stats.TotalRxBytes);
     }
+
+    [Fact]
+    public void HighFrequencyRecording_KeepsCountersAndRateAccurate()
+    {
+        // Ring storage must not drop accumulated totals at high frame rates.
+        var stats = new DataStatistics();
+        for (int i = 0; i < 100_000; i++)
+            stats.RecordRx(4);
+
+        Assert.Equal(400_000, stats.TotalRxBytes);
+        Assert.Equal(100_000, stats.TotalRxFrames);
+        // The 5s window covers all recent samples, so the instantaneous rate
+        // should be a large positive number (roughly 400k bytes over elapsed time).
+        Assert.True(stats.RxBytesPerSecond > 0,
+            $"Expected positive rate but got {stats.RxBytesPerSecond}");
+    }
+
+    [Fact]
+    public void Reset_AfterHighFrequency_ClearsRing()
+    {
+        var stats = new DataStatistics();
+        for (int i = 0; i < 50_000; i++)
+            stats.RecordRx(1);
+        stats.Reset();
+
+        Assert.Equal(0, stats.TotalRxBytes);
+        Assert.Equal(0, stats.TotalRxFrames);
+        Assert.Equal(0, stats.RxBytesPerSecond);
+        Assert.Equal(0, stats.RxFramesPerSecond);
+    }
 }

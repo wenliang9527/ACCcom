@@ -38,10 +38,15 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private int _sendCounter;
 
     // Batched UI updates: serial/network events arrive on background threads and
-    // at high rates; entries are queued here and flushed to the observable
-    // collections in one ranged Add per tick (see FlushPendingEntries).
+    // at high rates; entries are queued here (background-safe, lock-protected)
+    // and flushed to the observable collections in one ranged Add per tick
+    // (see FlushPendingEntries).
     private const int TrimChunkSize = 100;
-    private readonly List<LogEntry> _pendingRx = new();
+    private readonly object _pendingLock = new();
+    private readonly List<(LogEntry Entry, int Bytes)> _pendingRx = new();
+    private int _pendingRxBytes;
+    private readonly List<(LogEntry Entry, int Bytes)> _pendingTx = new();
+    private int _pendingTxBytes;
 
     // Recent RX text used by the macro engine's WaitFor/Condition matching.
     // Locked so the macro runner (background polling) can read safely while RX
@@ -50,7 +55,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly object _recentRxLock = new();
     private readonly List<string> _recentRxTexts = new();
     private const int RecentRxTextCap = 512;
-    private readonly List<LogEntry> _pendingTx = new();
     private readonly DispatcherTimer? _flushTimer;
     private readonly Action<LogEntry> _frameBufferFrameHandler;
     private readonly Action<string> _frameBufferErrorHandler;
@@ -351,8 +355,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _flushTimer.Tick += (_, _) => FlushPendingEntries();
 
         SendCommand = new RelayCommand(_ => SendData());
-        ClearRxCommand = new RelayCommand(_ => { FlushPendingEntries(); RxEntries.Clear(); _pendingRx.Clear(); RxCount = 0; RxByteCount = 0; });
-        ClearTxCommand = new RelayCommand(_ => { FlushPendingEntries(); TxEntries.Clear(); _pendingTx.Clear(); TxCount = 0; TxByteCount = 0; });
+        ClearRxCommand = new RelayCommand(_ => { FlushPendingEntries(); RxEntries.Clear(); RxCount = 0; RxByteCount = 0; });
+        ClearTxCommand = new RelayCommand(_ => { FlushPendingEntries(); TxEntries.Clear(); TxCount = 0; TxByteCount = 0; });
         SaveRxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(RxEntries, "RX"); });
         SaveTxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(TxEntries, "TX"); });
         SaveRxJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(RxEntries, "RX"); });
@@ -416,30 +420,19 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 catch { }
             }
 
-            // Serial events arrive on a background thread; collection updates
-            // must be marshaled to the UI thread.
-            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            // Serial/network events arrive on a background thread. Enqueue is
+            // lock-protected and statistics are atomics/ring buffers, so no UI
+            // marshaling is needed here; the 30ms flush timer batches the rest
+            // (highlight, counters, callbacks) on the UI thread.
+            if (entry.Direction == "RX")
             {
-                try
-                {
-                    if (entry.Direction == "RX")
-                    {
-                        _stats.RecordRx(byteCount);
-                        AddRxEntry(entry, byteCount);
-                        OnRxProcessed?.Invoke(entry);
-                    }
-                    else
-                    {
-                        AddTxEntry(entry, byteCount);
-                    }
-
-                    OnEntryProcessed?.Invoke(entry, byteCount);
-                }
-                catch (Exception ex)
-                {
-                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
-                }
-            });
+                _stats.RecordRx(byteCount);
+                AddRxEntry(entry, byteCount);
+            }
+            else
+            {
+                AddTxEntry(entry, byteCount);
+            }
         }
         catch (Exception ex)
         {
@@ -486,32 +479,22 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(entry.RawHex))
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
-            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            // Frame-buffer callbacks arrive on the receive thread; enqueue is
+            // lock-protected and the logger is internally synchronized, so no UI
+            // marshaling is needed here either.
+            _logger.Write(entry);
+
+            if (entry.Direction == "RX")
             {
-                try
-                {
-                    _logger.Write(entry);
-
-                    if (entry.Direction == "RX")
-                    {
-                        _stats.RecordRx(byteCount);
-                        if (HexHelper.HasErrorSeverity(entry.Fields))
-                            _stats.RecordError();
-                        AddRxEntry(entry, byteCount);
-                        OnRxProcessed?.Invoke(entry);
-                    }
-                    else
-                    {
-                        AddTxEntry(entry, byteCount);
-                    }
-
-                    OnEntryProcessed?.Invoke(entry, byteCount);
-                }
-                catch (Exception ex)
-                {
-                    _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
-                }
-            });
+                _stats.RecordRx(byteCount);
+                if (HexHelper.HasErrorSeverity(entry.Fields))
+                    _stats.RecordError();
+                AddRxEntry(entry, byteCount);
+            }
+            else
+            {
+                AddTxEntry(entry, byteCount);
+            }
         }
         catch (Exception ex)
         {
@@ -532,32 +515,22 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (isRx && _parserManager.ActiveParserName != null)
                 await RunParserAsync(entry).ConfigureAwait(false);
 
-            _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
+            // Continuations may land on a thread-pool thread after await; the
+            // enqueue path here is lock-protected and the logger is internally
+            // synchronized, so we can operate without UI marshaling.
+            _logger.Write(entry);
+
+            if (isRx)
             {
-                try
-                {
-                    _logger.Write(entry);
-
-                    if (isRx)
-                    {
-                        _stats.RecordRx(byteCount);
-                        if (HexHelper.HasErrorSeverity(entry.Fields))
-                            _stats.RecordError();
-                        AddRxEntry(entry, byteCount);
-                        OnRxProcessed?.Invoke(entry);
-                    }
-                    else
-                    {
-                        AddTxEntry(entry, byteCount);
-                    }
-
-                    OnEntryProcessed?.Invoke(entry, byteCount);
-                }
-                catch (Exception ex)
-                {
-                    _setStatus(string.Format(LanguageManager.Instance[errorContext], ex.Message));
-                }
-            });
+                _stats.RecordRx(byteCount);
+                if (HexHelper.HasErrorSeverity(entry.Fields))
+                    _stats.RecordError();
+                AddRxEntry(entry, byteCount);
+            }
+            else
+            {
+                AddTxEntry(entry, byteCount);
+            }
         }
         catch (Exception ex)
         {
@@ -565,23 +538,28 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Queues an RX entry; the UI collection is updated in batches by the flush timer.</summary>
+    /// <summary>
+    /// Queues an RX entry from the receiving thread (lock-protected). Highlight
+    /// matching and observable updates are deferred to the UI-thread flush timer.
+    /// </summary>
     public void AddRxEntry(LogEntry entry, int byteCount)
     {
-        ApplyHighlight(entry);
-        _pendingRx.Add(entry);
-        RxCount++;
-        RxByteCount += byteCount;
         AddRecentRxText(entry.Text);
+        lock (_pendingLock)
+        {
+            _pendingRx.Add((entry, byteCount));
+            _pendingRxBytes += byteCount;
+        }
     }
 
-    /// <summary>Queues a TX entry; the UI collection is updated in batches by the flush timer.</summary>
+    /// <summary>Queues a TX entry from the receiving thread (lock-protected).</summary>
     public void AddTxEntry(LogEntry entry, int byteCount)
     {
-        ApplyHighlight(entry);
-        _pendingTx.Add(entry);
-        TxCount++;
-        TxByteCount += byteCount;
+        lock (_pendingLock)
+        {
+            _pendingTx.Add((entry, byteCount));
+            _pendingTxBytes += byteCount;
+        }
     }
 
     private void AddRecentRxText(string? text)
@@ -624,19 +602,54 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private void ApplyHighlight(LogEntry entry)
         => entry.HighlightColor = _highlightService?.GetHighlightColor(entry);
 
-    /// <summary>Moves queued entries into the observable collections (UI thread only).</summary>
+    /// <summary>Moves queued entries into the observable collections (UI thread only).
+    /// Counters and highlight are applied once per batch so per-packet UI updates
+    /// never trigger a binding storm.</summary>
     private void FlushPendingEntries()
     {
-        if (_pendingRx.Count > 0)
+        List<(LogEntry Entry, int Bytes)> rxBatch = null!;
+        int rxBytes = 0;
+        List<(LogEntry Entry, int Bytes)> txBatch = null!;
+        int txBytes = 0;
+        lock (_pendingLock)
         {
-            RxEntries.AddRange(_pendingRx);
-            _pendingRx.Clear();
+            if (_pendingRx.Count > 0)
+            {
+                rxBatch = new List<(LogEntry, int)>(_pendingRx);
+                _pendingRx.Clear();
+                rxBytes = _pendingRxBytes;
+                _pendingRxBytes = 0;
+            }
+            if (_pendingTx.Count > 0)
+            {
+                txBatch = new List<(LogEntry, int)>(_pendingTx);
+                _pendingTx.Clear();
+                txBytes = _pendingTxBytes;
+                _pendingTxBytes = 0;
+            }
+        }
+
+        if (rxBatch != null)
+        {
+            foreach (var (entry, _) in rxBatch) ApplyHighlight(entry);
+            RxEntries.AddRange(rxBatch.Select(p => p.Entry));
+            RxCount += rxBatch.Count;
+            RxByteCount += rxBytes;
+            foreach (var (entry, byteCount) in rxBatch)
+            {
+                OnRxProcessed?.Invoke(entry);
+                OnEntryProcessed?.Invoke(entry, byteCount);
+            }
             TrimBuffer(RxEntries);
         }
-        if (_pendingTx.Count > 0)
+        if (txBatch != null)
         {
-            TxEntries.AddRange(_pendingTx);
-            _pendingTx.Clear();
+            foreach (var (entry, _) in txBatch) ApplyHighlight(entry);
+            TxEntries.AddRange(txBatch.Select(p => p.Entry));
+            TxCount += txBatch.Count;
+            TxByteCount += txBytes;
+            foreach (var (entry, byteCount) in txBatch)
+                OnEntryProcessed?.Invoke(entry, byteCount);
             TrimBuffer(TxEntries);
         }
     }

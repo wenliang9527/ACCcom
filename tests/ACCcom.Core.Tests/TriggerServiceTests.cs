@@ -199,4 +199,38 @@ public class TriggerServiceTests : IDisposable
 
         Assert.False(fired);
     }
+
+    [Fact]
+    public void RemoveRule_StopsFiringImmediately()
+    {
+        var rule = new TriggerRule { Name = "del", Pattern = "hello", MatchMode = "contains", Enabled = true };
+        _sut.AddRule(rule);
+
+        int fired = 0;
+        _sut.OnTriggerFired += (_, _) => fired++;
+
+        _sut.Evaluate(MakeEntry());
+        _sut.RemoveRule("del");
+        _sut.Evaluate(MakeEntry());
+
+        Assert.Equal(1, fired);
+    }
+
+    [Fact]
+    public void EnableToggle_TakesEffectWithoutReAdding()
+    {
+        var rule = new TriggerRule { Name = "tg", Pattern = "hello", MatchMode = "contains", Enabled = true };
+        _sut.AddRule(rule);
+
+        int fired = 0;
+        _sut.OnTriggerFired += (_, _) => fired++;
+
+        _sut.Evaluate(MakeEntry());
+        rule.Enabled = false; // toggled in place, like the trigger window checkbox
+        _sut.Evaluate(MakeEntry());
+        rule.Enabled = true;
+        _sut.Evaluate(MakeEntry());
+
+        Assert.Equal(2, fired);
+    }
 }

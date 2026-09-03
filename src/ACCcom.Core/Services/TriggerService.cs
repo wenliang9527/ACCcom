@@ -7,17 +7,26 @@ public class TriggerService
 {
     private readonly List<TriggerRule> _rules = new();
     private readonly object _lock = new();
+    private volatile TriggerRule[] _snapshot = Array.Empty<TriggerRule>();
 
     public event Action<TriggerRule, LogEntry>? OnTriggerFired;
 
     public void AddRule(TriggerRule rule)
     {
-        lock (_lock) { _rules.Add(rule); }
+        lock (_lock)
+        {
+            _rules.Add(rule);
+            _snapshot = _rules.ToArray();
+        }
     }
 
     public void RemoveRule(string name)
     {
-        lock (_lock) { _rules.RemoveAll(r => r.Name == name); }
+        lock (_lock)
+        {
+            _rules.RemoveAll(r => r.Name == name);
+            _snapshot = _rules.ToArray();
+        }
     }
 
     public IReadOnlyList<TriggerRule> Rules
@@ -25,13 +34,18 @@ public class TriggerService
         get { lock (_lock) { return _rules.ToList(); } }
     }
 
+    /// <summary>
+    /// Evaluates rules against <paramref name="entry"/> without any allocation:
+    /// reads the volatile rule-reference snapshot (rebuilt only on add/remove),
+    /// filtering by <see cref="TriggerRule.Enabled"/> inline so enable toggles
+    /// still take effect immediately.
+    /// </summary>
     public void Evaluate(LogEntry entry)
     {
-        List<TriggerRule> snapshot;
-        lock (_lock) { snapshot = _rules.Where(r => r.Enabled).ToList(); }
-
+        var snapshot = _snapshot;
         foreach (var rule in snapshot)
         {
+            if (!rule.Enabled) continue;
             if (MatchesRule(rule, entry))
             {
                 OnTriggerFired?.Invoke(rule, entry);
