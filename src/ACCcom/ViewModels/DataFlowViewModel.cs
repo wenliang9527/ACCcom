@@ -43,9 +43,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     // (see FlushPendingEntries).
     private const int TrimChunkSize = 100;
     private readonly object _pendingLock = new();
-    private readonly List<(LogEntry Entry, int Bytes)> _pendingRx = new();
+    // Not readonly: FlushPendingEntries swaps the batch list out under the lock
+    // so the UI thread drains it without copying; all access is lock-protected.
+    private List<(LogEntry Entry, int Bytes)> _pendingRx = new();
     private int _pendingRxBytes;
-    private readonly List<(LogEntry Entry, int Bytes)> _pendingTx = new();
+    private List<(LogEntry Entry, int Bytes)> _pendingTx = new();
     private int _pendingTxBytes;
 
     // Recent RX text used by the macro engine's WaitFor/Condition matching.
@@ -55,6 +57,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly object _recentRxLock = new();
     private readonly List<string> _recentRxTexts = new();
     private const int RecentRxTextCap = 512;
+    // List.RemoveRange from index 0 shifts every remaining element, so trimming
+    // on every RX frame would memmove ~cap items per packet on the receive
+    // thread. Trim only once the backlog grows a full chunk past the cap.
+    private const int RecentRxTextTrimChunk = 128;
     private readonly DispatcherTimer? _flushTimer;
     private readonly Action<LogEntry> _frameBufferFrameHandler;
     private readonly Action<string> _frameBufferErrorHandler;
@@ -568,7 +574,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         lock (_recentRxLock)
         {
             _recentRxTexts.Add(text);
-            if (_recentRxTexts.Count > RecentRxTextCap)
+            if (_recentRxTexts.Count > RecentRxTextCap + RecentRxTextTrimChunk)
                 _recentRxTexts.RemoveRange(0, _recentRxTexts.Count - RecentRxTextCap);
         }
     }
@@ -604,7 +610,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     /// <summary>Moves queued entries into the observable collections (UI thread only).
     /// Counters and highlight are applied once per batch so per-packet UI updates
-    /// never trigger a binding storm.</summary>
+    /// never trigger a binding storm. The pending lists are swap-exchanged under
+    /// the lock (old list out, fresh list in) so no per-tick snapshot copy is
+    /// needed, and the entries are handed to AddRange as an array to hit its
+    /// bulk IList path instead of a LINQ iterator.</summary>
     private void FlushPendingEntries()
     {
         List<(LogEntry Entry, int Bytes)> rxBatch = null!;
@@ -615,15 +624,15 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             if (_pendingRx.Count > 0)
             {
-                rxBatch = new List<(LogEntry, int)>(_pendingRx);
-                _pendingRx.Clear();
+                rxBatch = _pendingRx;
+                _pendingRx = new List<(LogEntry, int)>();
                 rxBytes = _pendingRxBytes;
                 _pendingRxBytes = 0;
             }
             if (_pendingTx.Count > 0)
             {
-                txBatch = new List<(LogEntry, int)>(_pendingTx);
-                _pendingTx.Clear();
+                txBatch = _pendingTx;
+                _pendingTx = new List<(LogEntry, int)>();
                 txBytes = _pendingTxBytes;
                 _pendingTxBytes = 0;
             }
@@ -632,7 +641,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (rxBatch != null)
         {
             foreach (var (entry, _) in rxBatch) ApplyHighlight(entry);
-            RxEntries.AddRange(rxBatch.Select(p => p.Entry));
+            var rxEntries = new LogEntry[rxBatch.Count];
+            for (int i = 0; i < rxBatch.Count; i++) rxEntries[i] = rxBatch[i].Entry;
+            RxEntries.AddRange(rxEntries);
             RxCount += rxBatch.Count;
             RxByteCount += rxBytes;
             foreach (var (entry, byteCount) in rxBatch)
@@ -645,7 +656,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (txBatch != null)
         {
             foreach (var (entry, _) in txBatch) ApplyHighlight(entry);
-            TxEntries.AddRange(txBatch.Select(p => p.Entry));
+            var txEntries = new LogEntry[txBatch.Count];
+            for (int i = 0; i < txBatch.Count; i++) txEntries[i] = txBatch[i].Entry;
+            TxEntries.AddRange(txEntries);
             TxCount += txBatch.Count;
             TxByteCount += txBytes;
             foreach (var (entry, byteCount) in txBatch)

@@ -15,10 +15,11 @@ namespace ACCcom.Core.Collections;
 /// </summary>
 public class ObservableRangeCollection<T> : ObservableCollection<T>
 {
-    /// <summary>Adds a range. The internal list is extended in one pass; the
-    /// PropertyChanged notifications (Count/Item[]) fire once; the
-    /// CollectionChanged events fire one per item so ListCollectionView can
-    /// process them individually.</summary>
+    /// <summary>Adds a range. The internal list is extended in one bulk pass
+    /// (<see cref="List{T}.AddRange"/> instead of N per-item adds, so there is a
+    /// single capacity check/grow and one memcpy); the PropertyChanged
+    /// notifications (Count/Item[]) fire once; the CollectionChanged events fire
+    /// one per item so ListCollectionView can process them individually.</summary>
     public void AddRange(IEnumerable<T> collection)
     {
         if (collection == null) throw new ArgumentNullException(nameof(collection));
@@ -26,8 +27,11 @@ public class ObservableRangeCollection<T> : ObservableCollection<T>
         if (list.Count == 0) return;
 
         var startIndex = Items.Count;
-        foreach (var item in list)
-            Items.Add(item);
+        if (Items is List<T> inner)
+            inner.AddRange(list);
+        else
+            foreach (var item in list)
+                Items.Add(item);
 
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
         OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));

@@ -161,4 +161,36 @@ public class ObservableRangeCollectionTests
         Assert.All(_events, e => Assert.Equal(NotifyCollectionChangedAction.Remove, e.Action));
         Assert.Equal(Enumerable.Range(4, 6), coll);
     }
+
+    [Fact]
+    public void AddRange_LargeBatch_PreservesOrderAndContract()
+    {
+        var coll = Create();
+        var batch = Enumerable.Range(0, 2000).ToArray(); // high-frame-rate flush size
+
+        coll.AddRange(batch);
+
+        Assert.Equal(batch, coll);
+        Assert.Equal(2000, _events.Count);
+        Assert.All(_events, e =>
+        {
+            Assert.Equal(NotifyCollectionChangedAction.Add, e.Action);
+            Assert.Single(e.NewItems!); // ListCollectionView contract
+        });
+    }
+
+    [Fact]
+    public void AddRange_LargeBatch_AppendMaintainsStartIndices()
+    {
+        var coll = Create();
+        coll.AddRange(new[] { 1, 2, 3 });
+
+        _events.Clear();
+        coll.AddRange(Enumerable.Range(0, 1000).ToArray());
+
+        Assert.Equal(3, _events[0].NewStartingIndex);
+        Assert.Equal(1000, _events.Count);
+        Assert.Equal(1002, _events[999].NewStartingIndex);
+        Assert.Equal(1003, coll.Count);
+    }
 }
