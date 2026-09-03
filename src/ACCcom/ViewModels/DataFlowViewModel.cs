@@ -469,11 +469,22 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(entry.RawHex))
                 byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
-            _ = Task.Run(async () =>
+            // Script execution (active parser) can block for the timeout, so it
+            // must stay off the receive thread. With no parser the whole
+            // downstream path (enqueue + logger) is synchronous and lock-safe —
+            // a per-frame Task.Run would only add a Task + closure allocation.
+            if (_parserManager.ActiveParserName != null)
             {
-                try { await ProcessAssembledFrameAsync(entry, byteCount).ConfigureAwait(false); }
-                catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message)); }
-            });
+                _ = Task.Run(async () =>
+                {
+                    try { await ProcessAssembledFrameAsync(entry, byteCount).ConfigureAwait(false); }
+                    catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message)); }
+                });
+            }
+            else
+            {
+                _ = ProcessAssembledFrameAsync(entry, byteCount);
+            }
         }
         catch (Exception ex)
         {
@@ -528,8 +539,17 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         try
         {
             bool isRx = forceRx || entry.Direction == "RX";
+            // Assembled frames (forceRx via OnAssembledFrame) already ran the
+            // parser inside FrameAssembler.EmitCompleteAsync when a parser was
+            // active, so entry.Fields is populated there. Re-running the script
+            // here would duplicate execution (and re-parse hex) for every frame.
             if (isRx && _parserManager.ActiveParserName != null)
-                await RunParserAsync(entry).ConfigureAwait(false);
+            {
+                if (entry.Fields == null)
+                    await RunParserAsync(entry).ConfigureAwait(false); // counts error frames itself
+                else if (HexHelper.HasErrorSeverity(entry.Fields))
+                    ErrorFrameCount++; // assembler already parsed; mirror its error count
+            }
 
             // Continuations may land on a thread-pool thread after await; the
             // enqueue path here is lock-protected and the logger is internally

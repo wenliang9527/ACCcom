@@ -9,7 +9,11 @@ public class FrameAssembler : IDisposable
     private readonly ParserManager? _parserManager;
     private readonly object _lock = new();
     private LogEntry? _partialEntry;
-    private string _partialHexNoSpace = "";
+    // Hex fragments accumulate into a growable char[] instead of a string +=
+    // per fragment: multi-fragment frames were O(n²) on the concatenation and
+    // allocated an intermediate string per Feed.
+    private char[] _hexBuf = new char[256];
+    private int _hexLen;
     private string? _cachedHeaderSource;
     private string? _cachedHeaderNoSpace;
     private DateTime _lastReceiveTime;
@@ -50,29 +54,37 @@ public class FrameAssembler : IDisposable
                 if (!MatchesHeader(hexNoSpace))
                     return;
 
-                _partialHexNoSpace = hexNoSpace;
+                AppendHex(hexNoSpace);
                 _partialEntry = entry;
                 _lastReceiveTime = DateTime.UtcNow;
                 TryComplete();
                 return;
             }
 
-            _partialHexNoSpace += hexNoSpace;
+            AppendHex(hexNoSpace);
             _lastReceiveTime = DateTime.UtcNow;
             TryComplete();
         }
     }
 
+    private void AppendHex(string hexNoSpace)
+    {
+        if (_hexLen + hexNoSpace.Length > _hexBuf.Length)
+            Array.Resize(ref _hexBuf, Math.Max(_hexLen + hexNoSpace.Length, _hexBuf.Length * 2));
+        hexNoSpace.CopyTo(0, _hexBuf, _hexLen, hexNoSpace.Length);
+        _hexLen += hexNoSpace.Length;
+    }
+
     private void TryComplete()
     {
-        if (_partialEntry == null || string.IsNullOrEmpty(_partialHexNoSpace))
+        if (_partialEntry == null || _hexLen == 0)
             return;
 
-        var hexLen = _partialHexNoSpace.Length / 2;
+        var hexLen = _hexLen / 2;
 
         if (_config.LengthFieldOffset >= 0 && hexLen > _config.LengthFieldOffset + _config.LengthFieldSize)
         {
-            var bytes = HexToBytes(_partialHexNoSpace);
+            var bytes = HexToBytes();
             var frameLen = ReadLengthField(bytes, _config.LengthFieldOffset, _config.LengthFieldSize);
 
             if (hexLen >= frameLen)
@@ -88,7 +100,7 @@ public class FrameAssembler : IDisposable
         }
         else if (_config.LengthFieldOffset < 0)
         {
-            var bytes = HexToBytes(_partialHexNoSpace);
+            var bytes = HexToBytes();
             _ = EmitCompleteAsync(bytes);
         }
     }
@@ -179,7 +191,7 @@ public class FrameAssembler : IDisposable
     {
         lock (_lock)
         {
-            _partialHexNoSpace = "";
+            _hexLen = 0;
             _partialEntry = null;
             _lastReceiveTime = DateTime.MinValue;
         }
@@ -215,9 +227,9 @@ public class FrameAssembler : IDisposable
         return HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length);
     }
 
-    private static byte[] HexToBytes(string hexNoSpace)
+    private byte[] HexToBytes()
     {
-        return Convert.FromHexString(hexNoSpace);
+        return Convert.FromHexString(_hexBuf.AsSpan(0, _hexLen));
     }
 
     public void Dispose()

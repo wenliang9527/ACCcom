@@ -201,4 +201,52 @@ public class FrameAssemblerTests
         assembler.Feed(MakeEntry("AA 55 04 01 02 03"));
         Assert.NotNull(assembled);
     }
+
+    [Fact]
+    public void Many_fragments_beyond_initial_buffer_assemble_correctly()
+    {
+        // The assembler accumulates hex in a growable char[] (initial 256);
+        // feed enough fragments to span several growth steps. Length field
+        // counts the whole frame (2 header + 1 length + payload), so choose a
+        // payload that fills it exactly and aligns to the 7-byte feed chunks.
+        var config = DefaultConfig();
+        var assembler = new FrameAssembler(config);
+
+        LogEntry? assembled = null;
+        assembler.OnFrameAssembled += e => assembled = e;
+
+        int payloadBytes = 147; // frame = 2 + 1 + 147 = 150 bytes; 147 = 7 * 21 chunks
+        assembler.Feed(MakeEntry("AA 55"));
+        assembler.Feed(MakeEntry(payloadBytes.ToString("X2"))); // length field 0x96 = 150
+        for (int i = 0; i < payloadBytes; i += 7)
+        {
+            var frag = string.Join(" ",
+                Enumerable.Range(i, Math.Min(7, payloadBytes - i))
+                    .Select(b => b.ToString("X2")));
+            assembler.Feed(MakeEntry(frag));
+        }
+
+        Assert.NotNull(assembled);
+        var expected = "AA 55 " + payloadBytes.ToString("X2") + " " +
+            string.Join(" ", Enumerable.Range(0, payloadBytes).Select(b => b.ToString("X2")));
+        Assert.Equal(expected, assembled!.RawHex);
+    }
+
+    [Fact]
+    public void Fragment_after_complete_starts_new_frame()
+    {
+        // A completed frame resets the accumulation buffer; the next frame must
+        // not inherit stale bytes from the previous one.
+        var config = DefaultConfig();
+        var assembler = new FrameAssembler(config);
+        var frames = new List<LogEntry>();
+        assembler.OnFrameAssembled += e => frames.Add(e);
+
+        assembler.Feed(MakeEntry("AA 55 02 01")); // frame 1 completes immediately
+        assembler.Feed(MakeEntry("AA 55 02 02")); // frame 2: must start fresh
+
+        Assert.Equal(2, frames.Count);
+        Assert.Equal("AA 55 02 01", frames[0].RawHex);
+        Assert.Equal("AA 55 02 02", frames[1].RawHex);
+    }
 }
