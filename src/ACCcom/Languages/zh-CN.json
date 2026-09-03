@@ -556,6 +556,11 @@
   "StatusBar.HttpUrl": "HTTP API 监听地址（用于外部程序/AI 集成）",
   "QuickSend.ClearFilter": "清空搜索过滤",
   "QuickSend.FilterByName": "按名称过滤快速发送指令（不区分大小写）",
+  "QuickSend.DefaultPageName": "页{0}",
   "DataPanel.AutoScroll": "自动滚动",
+  "StatusBar.Copied": "已复制: {0}",
+  "HexValidation.InvalidChar": "HEX 非法字符(位置 {0})",
+  "HexValidation.OddLength": "HEX 必须成对(偶数位)",
+  "Column.Type": "类型",
   "Tip.ExpressionFilter": "表达式过滤：text contains \"OK\" and direction==RX\n字段：text/hex/direction/port/modbus.func/modbus.slave/time\n运算符：== != > < >= <= contains\n逻辑：and or not ( )"
 }

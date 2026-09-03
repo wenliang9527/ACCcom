@@ -27,7 +27,7 @@ public partial class StatusBarPanel : UserControl
             try
             {
                 Clipboard.SetText(vm.HttpUrl);
-                vm.StatusText = $"已复制: {vm.HttpUrl}";
+                vm.StatusText = string.Format(LanguageManager.Instance["StatusBar.Copied"], vm.HttpUrl);
             }
             catch
             {

@@ -115,10 +115,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string DescribeHexError(HexHelper.HexValidationResult r)
+    private string DescribeHexError(HexHelper.HexValidationResult r)
     {
-        if (r.InvalidIndex >= 0) return $"HEX 非法字符(位置 {r.InvalidIndex + 1})";
-        return "HEX 必须成对(偶数位)";
+        if (r.InvalidIndex >= 0) return string.Format(LanguageManager.Instance["HexValidation.InvalidChar"], r.InvalidIndex + 1);
+        return LanguageManager.Instance["HexValidation.OddLength"];
     }
 
     /// <summary>Recent send-box entries, oldest first. Backing field for UI binding (dropdown of history).</summary>

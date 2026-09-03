@@ -397,8 +397,8 @@ public class ShortcutViewModel : ObservableObject
     private string NewPageName()
     {
         int n = Pages.Count + 1;
-        while (Pages.Any(p => p.Name == $"页{n}")) n++;
-        return $"页{n}";
+        while (Pages.Any(p => p.Name == string.Format(LanguageManager.Instance["QuickSend.DefaultPageName"], n))) n++;
+        return string.Format(LanguageManager.Instance["QuickSend.DefaultPageName"], n);
     }
 
     private string UniquePageName(string baseName)

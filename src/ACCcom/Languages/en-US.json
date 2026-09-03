@@ -556,6 +556,11 @@
   "StatusBar.HttpUrl": "HTTP API listen address (for external tools / AI integration)",
   "QuickSend.ClearFilter": "Clear search filter",
   "QuickSend.FilterByName": "Filter quick commands by name (case-insensitive)",
+  "QuickSend.DefaultPageName": "Page {0}",
   "DataPanel.AutoScroll": "Auto scroll",
+  "StatusBar.Copied": "Copied: {0}",
+  "HexValidation.InvalidChar": "Invalid HEX character (position {0})",
+  "HexValidation.OddLength": "HEX must have an even number of digits",
+  "Column.Type": "Type",
   "Tip.ExpressionFilter": "Expression filter: text contains \"OK\" and direction==RX\nFields: text/hex/direction/port/modbus.func/modbus.slave/time\nOperators: == != > < >= <= contains\nLogic: and or not ( )"
 }
