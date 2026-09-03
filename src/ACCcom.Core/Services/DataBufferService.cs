@@ -1,13 +1,10 @@
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
 public class DataBufferService : IDisposable
 {
-    private readonly Channel<LogEntry> _channel;
-    private readonly ChannelWriter<LogEntry> _writer;
     private readonly LogEntry?[] _ringBuffer;
     private int _head;
     private int _count;
@@ -23,12 +20,6 @@ public class DataBufferService : IDisposable
     {
         _capacity = capacity;
         _ringBuffer = new LogEntry?[capacity];
-        _channel = Channel.CreateUnbounded<LogEntry>(new UnboundedChannelOptions
-        {
-            SingleReader = false,
-            SingleWriter = false
-        });
-        _writer = _channel.Writer;
     }
 
     private void RingAdd(LogEntry entry)
@@ -61,8 +52,6 @@ public class DataBufferService : IDisposable
     public void AddEntry(LogEntry entry)
     {
         lock (_lock) { RingAdd(entry); }
-
-        _writer.TryWrite(entry);
 
         // Fast path: no active waiters, skip the waiter lock + scan entirely.
         if (Volatile.Read(ref _waiterCount) == 0)
@@ -263,7 +252,6 @@ public class DataBufferService : IDisposable
 
     public void Dispose()
     {
-        _writer.TryComplete();
         CancelWaiters();
     }
 }
