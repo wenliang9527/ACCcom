@@ -8,9 +8,10 @@ public class FrameAssembler : IDisposable
     private readonly FrameAssemblerConfig _config;
     private readonly ParserManager? _parserManager;
     private readonly object _lock = new();
-    private string? _partialHex;
     private LogEntry? _partialEntry;
     private string _partialHexNoSpace = "";
+    private string? _cachedHeaderSource;
+    private string? _cachedHeaderNoSpace;
     private DateTime _lastReceiveTime;
     private Timer? _timer;
     private bool _disposed;
@@ -49,7 +50,6 @@ public class FrameAssembler : IDisposable
                 if (!MatchesHeader(hexNoSpace))
                     return;
 
-                _partialHex = hex;
                 _partialHexNoSpace = hexNoSpace;
                 _partialEntry = entry;
                 _lastReceiveTime = DateTime.UtcNow;
@@ -57,7 +57,6 @@ public class FrameAssembler : IDisposable
                 return;
             }
 
-            _partialHex = _partialHex + " " + hex;
             _partialHexNoSpace += hexNoSpace;
             _lastReceiveTime = DateTime.UtcNow;
             TryComplete();
@@ -139,14 +138,28 @@ public class FrameAssembler : IDisposable
 
     private bool MatchesHeader(string hexNoSpace)
     {
-        if (string.IsNullOrEmpty(_config.Header))
+        var headerNoSpace = GetHeaderNoSpace();
+        if (headerNoSpace == null)
             return true;
 
-        var headerNoSpace = StripSpaces(_config.Header);
         if (hexNoSpace.Length < headerNoSpace.Length)
             return false;
 
         return hexNoSpace.StartsWith(headerNoSpace, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // The header never changes during the assembler's lifetime; stripping it on
+    // every Feed allocated a string per packet. Cache the stripped form, keyed
+    // on the config instance so a swapped config object is picked up lazily.
+    private string? GetHeaderNoSpace()
+    {
+        var header = _config.Header;
+        if (!ReferenceEquals(_cachedHeaderSource, header))
+        {
+            _cachedHeaderSource = header;
+            _cachedHeaderNoSpace = string.IsNullOrEmpty(header) ? null : StripSpaces(header);
+        }
+        return _cachedHeaderNoSpace;
     }
 
     private static int ReadLengthField(byte[] bytes, int offset, int size)
@@ -166,7 +179,6 @@ public class FrameAssembler : IDisposable
     {
         lock (_lock)
         {
-            _partialHex = null;
             _partialHexNoSpace = "";
             _partialEntry = null;
             _lastReceiveTime = DateTime.MinValue;

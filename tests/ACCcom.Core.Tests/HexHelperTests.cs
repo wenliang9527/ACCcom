@@ -121,6 +121,32 @@ public class HexHelperTests
         Assert.Equal([0x00, 0x00], result);
     }
 
+    [Fact]
+    public void HexStringToBytes_IntoBuffer_MatchesAllocatingVariant()
+    {
+        // The pooled-buffer overload used by OnSerialData must agree with the
+        // allocating variant byte-for-byte (lenient zero substitution included).
+        foreach (var hex in new[] { "", "AA BB CC", "AABBCC", "aA bB cC", "A", "XZ YY", "01 02 03 04 05" })
+        {
+            var expected = HexHelper.HexStringToBytes(hex);
+            var buffer = new byte[Math.Max(1, expected.Length)];
+            int written = HexHelper.HexStringToBytes(hex, buffer);
+            Assert.Equal(expected.Length, written);
+            Assert.Equal(expected, buffer.AsSpan(0, written).ToArray());
+        }
+    }
+
+    [Fact]
+    public void HexStringToBytes_IntoBuffer_TruncatesWhenTooSmall()
+    {
+        // Caller rents rawHex.Length/2 + 1, so real call sites never truncate;
+        // still pin the defensive clamp so a shorter buffer can't overflow.
+        var buffer = new byte[2];
+        int written = HexHelper.HexStringToBytes("AA BB CC", buffer);
+        Assert.Equal(2, written);
+        Assert.Equal([0xAA, 0xBB], buffer);
+    }
+
     // ========== HasErrorSeverity ==========
 
     [Fact]

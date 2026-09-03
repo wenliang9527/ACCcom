@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -417,11 +418,20 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             {
                 try
                 {
-                    // Single hex pass: reuse the parsed bytes for both count and feed.
-                    var bytes = HexHelper.HexStringToBytes(entry.RawHex);
-                    byteCount = bytes.Length;
-                    if (byteCount > 0)
-                        _frameBuffer.Write(bytes);
+                    // Single hex pass into a pooled buffer: FrameBuffer.Write copies
+                    // synchronously into its ring, so the array can be returned
+                    // immediately. Avoids a byte[] allocation per packet.
+                    var buffer = ArrayPool<byte>.Shared.Rent(entry.RawHex.Length / 2 + 1);
+                    try
+                    {
+                        byteCount = HexHelper.HexStringToBytes(entry.RawHex, buffer);
+                        if (byteCount > 0)
+                            _frameBuffer.Write(buffer, 0, byteCount);
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
+                    }
                 }
                 catch { }
             }

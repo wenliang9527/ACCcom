@@ -26,6 +26,19 @@ public static class HexHelper
         foreach (var c in hex.AsSpan())
             if (c != ' ') nonSpaceLen++;
         var bytes = new byte[nonSpaceLen / 2];
+        HexStringToBytes(hex, bytes);
+        return bytes;
+    }
+
+    /// <summary>
+    /// Lenient variant of <see cref="HexStringToBytes(string)"/> that parses into a
+    /// caller-provided buffer (e.g. an ArrayPool-rented array) instead of allocating.
+    /// Returns the number of bytes written; the trailing high nibble of an odd digit
+    /// count is dropped, matching the allocating variant. Input larger than
+    /// <paramref name="destination"/> is truncated to the buffer capacity.
+    /// </summary>
+    public static int HexStringToBytes(string hex, Span<byte> destination)
+    {
         int byteIdx = 0;
         int hi = -1;
         foreach (var c in hex.AsSpan())
@@ -39,9 +52,15 @@ public static class HexHelper
                 _ => 0
             };
             if (hi < 0) hi = val;
-            else { bytes[byteIdx++] = (byte)(hi << 4 | val); hi = -1; }
+            else
+            {
+                if (byteIdx < destination.Length)
+                    destination[byteIdx] = (byte)(hi << 4 | val);
+                byteIdx++;
+                hi = -1;
+            }
         }
-        return bytes;
+        return Math.Min(byteIdx, destination.Length);
     }
 
     /// <summary>
