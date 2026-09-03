@@ -58,7 +58,7 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" />
                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="自动滚动" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
+                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- export group -->
@@ -264,7 +264,7 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" />
                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="自动滚动" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
+                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- export group -->

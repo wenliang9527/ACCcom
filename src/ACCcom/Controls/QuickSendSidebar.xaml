@@ -106,7 +106,7 @@
                            Foreground="{DynamicResource InkTertiaryBrush}" Margin="0,0,4,0" />
                 <Button DockPanel.Dock="Right" Content="&#x2715;" Margin="2,0,0,0"
                         Click="ClearFilter_Click"
-                        ToolTip="清空搜索过滤">
+                        ToolTip="{Binding [QuickSend.ClearFilter], Source={x:Static local:LanguageManager.Instance}}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource HeaderButton}">
                             <Setter Property="Width" Value="20" />
@@ -126,7 +126,7 @@
                          FontSize="11" Padding="6,2" VerticalContentAlignment="Center"
                          Background="{DynamicResource BgElevatedBrush}"
                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                         ToolTip="按名称过滤快速发送指令（不区分大小写）" />
+                         ToolTip="{Binding [QuickSend.FilterByName], Source={x:Static local:LanguageManager.Instance}}" />
             </DockPanel>
 
             <!-- ===== Row 3: Command list ===== -->

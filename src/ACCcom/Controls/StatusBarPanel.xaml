@@ -6,7 +6,7 @@
     <StatusBar Padding="10,2">
         <StatusBarItem>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Ellipse Width="6" Height="6" Margin="0,0,6,0" ToolTip="连接状态指示灯（绿=已连接，灰=未连接）">
+                <Ellipse Width="6" Height="6" Margin="0,0,6,0" ToolTip="{Binding [StatusBar.ConnectionIndicator], Source={x:Static local:LanguageManager.Instance}}">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
                             <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
@@ -20,7 +20,7 @@
                 </Ellipse>
                 <TextBlock Text="{Binding StatusText}" FontSize="11"
                           Foreground="{DynamicResource InkSecondaryBrush}"
-                          ToolTip="操作状态/最近消息（双击清空）"
+                          ToolTip="{Binding [StatusBar.StatusText], Source={x:Static local:LanguageManager.Instance}}"
                           MouseLeftButtonUp="OnStatusClearClick" />
             </StackPanel>
         </StatusBarItem>
@@ -33,7 +33,7 @@
         <StatusBarItem>
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
-                           ToolTip="点击重置全部计数器（RX/TX/Errors/统计）"
+                           ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonUp="OnCounterClick"
                            TextDecorations="Underline">
                     <TextBlock.Style>
@@ -52,7 +52,7 @@
                 </TextBlock>
                 <TextBlock Text="{Binding RxRate}" FontSize="9" FontFamily="Consolas"
                            Foreground="{DynamicResource InkTertiaryBrush}"
-                           ToolTip="近 5 秒 RX 吞吐（字节/秒 | 帧/秒）" />
+                           ToolTip="{Binding [StatusBar.RxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
         </StatusBarItem>
 
@@ -64,7 +64,7 @@
         <StatusBarItem>
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
-                           ToolTip="点击重置全部计数器"
+                           ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonUp="OnCounterClick"
                            TextDecorations="Underline">
                     <TextBlock.Style>
@@ -83,7 +83,7 @@
                 </TextBlock>
                 <TextBlock Text="{Binding TxRate}" FontSize="9" FontFamily="Consolas"
                            Foreground="{DynamicResource InkTertiaryBrush}"
-                           ToolTip="近 5 秒 TX 吞吐（字节/秒 | 帧/秒）" />
+                           ToolTip="{Binding [StatusBar.TxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
         </StatusBarItem>
 
@@ -94,7 +94,7 @@
         <!-- 错误帧计数（点击重置） -->
         <StatusBarItem>
             <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
-                       ToolTip="错误帧数。点击重置全部计数器"
+                       ToolTip="{Binding [StatusBar.Errors], Source={x:Static local:LanguageManager.Instance}}"
                        MouseLeftButtonUp="OnCounterClick"
                        TextDecorations="Underline">
                 <TextBlock.Style>
@@ -119,7 +119,7 @@
 <!-- 连接时长（无点击行为，纯显示） -->
         <StatusBarItem>
             <TextBlock Text="{Binding ConnectionDuration}" FontSize="10" FontFamily="Consolas"
-                       ToolTip="连接持续时长"
+                       ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}"
                        Foreground="{DynamicResource InkSecondaryBrush}">
                 <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
                 <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
@@ -198,7 +198,7 @@
                 </TextBlock>
                 <TextBlock Text="{Binding HttpUrl}" FontSize="10" Cursor="Hand"
                            Foreground="{DynamicResource InkTertiaryBrush}"
-                           ToolTip="HTTP API 监听地址（用于外部程序/AI 集成）"
+                           ToolTip="{Binding [StatusBar.HttpUrl], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonDown="OnHttpUrlClick" />
             </StackPanel>
         </StatusBarItem>

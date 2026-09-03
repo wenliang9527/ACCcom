@@ -25,7 +25,7 @@
                            FontSize="12" FontWeight="Medium"
                            VerticalAlignment="Center" Margin="12,0,0,0" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="关闭" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
                 </StackPanel>
             </DockPanel>
         </Border>
