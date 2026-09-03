@@ -61,17 +61,31 @@ public class FrameBuffer : IDisposable
 
         lock (_lock)
         {
-            for (int i = 0; i < count; i++)
+            if (count >= _ringBuf.Length)
             {
-                if (_count >= _ringBuf.Length)
-                {
-                    _head = (_head + 1) % _ringBuf.Length;
-                    _count--;
-                }
-                _ringBuf[_tail] = data[offset + i];
-                _tail = (_tail + 1) % _ringBuf.Length;
-                _count++;
+                // Bulk input larger than the ring: keep only the newest bytes.
+                offset += count - _ringBuf.Length;
+                count = _ringBuf.Length;
+                _head = 0;
+                _tail = 0;
+                _count = 0;
             }
+
+            if (_count + count > _ringBuf.Length)
+            {
+                // Overflow: drop oldest bytes so the newest stay.
+                int discard = _count + count - _ringBuf.Length;
+                _head = (_head + discard) % _ringBuf.Length;
+                _count -= discard;
+            }
+
+            int first = Math.Min(count, _ringBuf.Length - _tail);
+            Buffer.BlockCopy(data, offset, _ringBuf, _tail, first);
+            if (first < count)
+                Buffer.BlockCopy(data, offset + first, _ringBuf, 0, count - first);
+
+            _tail = (_tail + count) % _ringBuf.Length;
+            _count += count;
             _lastDataTime = DateTime.UtcNow;
         }
 
@@ -201,11 +215,11 @@ public class FrameBuffer : IDisposable
     private byte[] ConsumeBytes(int count)
     {
         var result = new byte[count];
-        for (int i = 0; i < count; i++)
-        {
-            result[i] = _ringBuf[_head];
-            _head = (_head + 1) % _ringBuf.Length;
-        }
+        int first = Math.Min(count, _ringBuf.Length - _head);
+        Buffer.BlockCopy(_ringBuf, _head, result, 0, first);
+        if (first < count)
+            Buffer.BlockCopy(_ringBuf, 0, result, first, count - first);
+        _head = (_head + count) % _ringBuf.Length;
         _count -= count;
         return result;
     }
