@@ -42,6 +42,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     // collections in one ranged Add per tick (see FlushPendingEntries).
     private const int TrimChunkSize = 100;
     private readonly List<LogEntry> _pendingRx = new();
+
+    // Recent RX text used by the macro engine's WaitFor/Condition matching.
+    // Locked so the macro runner (background polling) can read safely while RX
+    // entries keep arriving. Cleared when a macro starts so waits only see data
+    // received during that run.
+    private readonly object _recentRxLock = new();
+    private readonly List<string> _recentRxTexts = new();
+    private const int RecentRxTextCap = 512;
     private readonly List<LogEntry> _pendingTx = new();
     private readonly DispatcherTimer? _flushTimer;
     private readonly Action<LogEntry> _frameBufferFrameHandler;
@@ -538,6 +546,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _pendingRx.Add(entry);
         RxCount++;
         RxByteCount += byteCount;
+        AddRecentRxText(entry.Text);
     }
 
     /// <summary>Queues a TX entry; the UI collection is updated in batches by the flush timer.</summary>
@@ -547,6 +556,43 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _pendingTx.Add(entry);
         TxCount++;
         TxByteCount += byteCount;
+    }
+
+    private void AddRecentRxText(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        lock (_recentRxLock)
+        {
+            _recentRxTexts.Add(text);
+            if (_recentRxTexts.Count > RecentRxTextCap)
+                _recentRxTexts.RemoveRange(0, _recentRxTexts.Count - RecentRxTextCap);
+        }
+    }
+
+    /// <summary>Clears the recent-RX snapshot; call before starting a macro run.</summary>
+    public void ClearRecentRxTexts()
+    {
+        lock (_recentRxLock)
+            _recentRxTexts.Clear();
+    }
+
+    /// <summary>
+    /// Returns the most recent RX text containing <paramref name="pattern"/>
+    /// (case-insensitive), or null. Used by MacroManager's WaitFor/Condition,
+    /// which polls this from a background task while RX entries accumulate.
+    /// </summary>
+    public string? FindRecentRxText(string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern)) return null;
+        lock (_recentRxLock)
+        {
+            for (int i = _recentRxTexts.Count - 1; i >= 0; i--)
+            {
+                if (_recentRxTexts[i].Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                    return _recentRxTexts[i];
+            }
+        }
+        return null;
     }
 
     private void ApplyHighlight(LogEntry entry)

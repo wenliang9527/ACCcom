@@ -104,11 +104,13 @@ public class MacroViewModel : ObservableObject
         try
         {
             var df = _getDataFlow();
+            df.ClearRecentRxTexts(); // waits only see responses received during this run
             var completed = await _macroManager.RunAsync(
                 macro,
                 send: (cmd, isHex) => _serial.Send(cmd, isHex),
                 expandVariables: df.ExpandVariables,
-                updateStatus: status => System.Windows.Application.Current.Dispatcher.BeginInvoke(() => MacroStatus = status));
+                updateStatus: status => System.Windows.Application.Current.Dispatcher.BeginInvoke(() => MacroStatus = status),
+                findResponse: df.FindRecentRxText);
 
             _setStatus(completed ? LanguageManager.Instance["Status.MacroCompleted"] : LanguageManager.Instance["Status.MacroStopped"]);
         }

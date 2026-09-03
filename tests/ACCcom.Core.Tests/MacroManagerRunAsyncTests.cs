@@ -9,6 +9,120 @@ public class MacroManagerRunAsyncTests : IDisposable
     public void Dispose() { }
 
     [Fact]
+    public void ConditionMet_Contains_RequiresLastResponse()
+    {
+        Assert.True(MacroManager.ConditionMet("contains:OK", "AT+OK"));
+        Assert.False(MacroManager.ConditionMet("contains:OK", "ERR"));
+        Assert.False(MacroManager.ConditionMet("contains:OK", null));
+        Assert.True(MacroManager.ConditionMet("contains:ok", "AT+OK"), "match is case-insensitive");
+    }
+
+    [Fact]
+    public void ConditionMet_NotContains_RequiresAbsenceOrNull()
+    {
+        Assert.True(MacroManager.ConditionMet("notcontains:ERR", "OK"));
+        Assert.False(MacroManager.ConditionMet("notcontains:ERR", "ERR 42"));
+        Assert.True(MacroManager.ConditionMet("notcontains:ERR", null));
+    }
+
+    [Fact]
+    public void ConditionMet_UnknownFormat_NeverSkips()
+    {
+        Assert.True(MacroManager.ConditionMet("custom:thing", "whatever"));
+    }
+
+    [Fact]
+    public async Task WaitFor_Matches_AdvancesWithoutTimeout()
+    {
+        using var manager = new MacroManager();
+        var macro = new MacroTemplate
+        {
+            Name = "Wait",
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new() { Command = "ATE0", DelayMs = 0, WaitFor = "OK", WaitTimeoutMs = 30000 }
+            }
+        };
+
+        var sent = new List<string>();
+        var result = await manager.RunAsync(macro, (c, _) => sent.Add(c), s => s, _ => { },
+            findResponse: _ => "ATE0\r\nOK");
+
+        Assert.True(result);
+        Assert.Single(sent);
+    }
+
+    [Fact]
+    public async Task WaitFor_NoMatch_TimesOut_ThenContainsConditionSkipsNextStep()
+    {
+        using var manager = new MacroManager();
+        var macro = new MacroTemplate
+        {
+            Name = "CondSkip",
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new() { Command = "AT+CMGR", DelayMs = 0, WaitFor = "OK", WaitTimeoutMs = 120 },
+                new() { Command = "AT+DEL", DelayMs = 0, Condition = "contains:OK" }
+            }
+        };
+
+        var sent = new List<string>();
+        var result = await manager.RunAsync(macro, (c, _) => sent.Add(c), s => s, _ => { },
+            findResponse: _ => "ERROR");
+
+        Assert.True(result);
+        // First step sent, second step skipped because "ERROR" lacks OK.
+        Assert.Single(sent);
+        Assert.Equal("AT+CMGR", sent[0]);
+    }
+
+    [Fact]
+    public async Task WaitFor_Match_ThenConditionPasses_SendsNextStep()
+    {
+        using var manager = new MacroManager();
+        var macro = new MacroTemplate
+        {
+            Name = "CondPass",
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new() { Command = "AT+CMGR", DelayMs = 0, WaitFor = "OK", WaitTimeoutMs = 30000 },
+                new() { Command = "AT+DEL", DelayMs = 0, Condition = "contains:OK" }
+            }
+        };
+
+        var sent = new List<string>();
+        var result = await manager.RunAsync(macro, (c, _) => sent.Add(c), s => s, _ => { },
+            findResponse: _ => "CMGR: 1\r\nOK");
+
+        Assert.True(result);
+        Assert.Equal(2, sent.Count);
+    }
+
+    [Fact]
+    public async Task WaitFor_NoResponseSource_FallsBackToPause()
+    {
+        using var manager = new MacroManager();
+        var macro = new MacroTemplate
+        {
+            Name = "Fallback",
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new() { Command = "AT", DelayMs = 0, WaitFor = "OK", WaitTimeoutMs = 3000 }
+            }
+        };
+
+        var sent = new List<string>();
+        var result = await manager.RunAsync(macro, (c, _) => sent.Add(c), s => s, _ => { });
+
+        Assert.True(result);
+        Assert.Single(sent);
+    }
+
+    [Fact]
     public async Task TestRunMacro()
     {
         using var manager = new MacroManager();
