@@ -536,5 +536,8 @@
   "Status.MacrosOpened": "Macro manager opened",
   "Status.MacroCreated": "Macro created: {0}",
   "Status.MacroDeleted": "Macro deleted: {0}",
+  "Tip.OpenDashboard": "Open the live dashboard in your browser",
+  "Status.DashboardOpened": "Dashboard opened: {0}/dashboard/",
+  "Status.DashboardFailed": "Failed to open dashboard: {0}",
   "Tip.ExpressionFilter": "Expression filter: text contains \"OK\" and direction==RX\nFields: text/hex/direction/port/modbus.func/modbus.slave/time\nOperators: == != > < >= <= contains\nLogic: and or not ( )"
 }

@@ -536,5 +536,8 @@
   "Status.MacrosOpened": "宏管理器已打开",
   "Status.MacroCreated": "宏已创建：{0}",
   "Status.MacroDeleted": "宏已删除：{0}",
+  "Tip.OpenDashboard": "在浏览器中打开实时仪表盘",
+  "Status.DashboardOpened": "仪表盘已打开：{0}/dashboard/",
+  "Status.DashboardFailed": "打开仪表盘失败：{0}",
   "Tip.ExpressionFilter": "表达式过滤：text contains \"OK\" and direction==RX\n字段：text/hex/direction/port/modbus.func/modbus.slave/time\n运算符：== != > < >= <= contains\n逻辑：and or not ( )"
 }

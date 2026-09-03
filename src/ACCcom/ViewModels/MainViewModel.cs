@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
@@ -243,6 +244,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenRecordingsFolderCommand = new RelayCommand(_ => OpenRecordingsFolder());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
+        OpenDashboardCommand = new RelayCommand(_ => OpenDashboard());
         OpenModbusCommand = new RelayCommand(_ =>
         {
             try { OpenModbusWindow(); }
@@ -603,6 +605,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenStatsCommand => _tool.OpenStatsCommand;
     public ICommand OpenSchemaEditorCommand { get; }
     public ICommand OpenModbusCommand { get; }
+    public ICommand OpenDashboardCommand { get; }
 
     private void OpenPlotWindow()
     {
@@ -687,6 +690,22 @@ public class MainViewModel : ObservableObject, IDisposable
             StatusText = _frameAssemblerConfig.Enabled
                 ? string.Format(LanguageManager.Instance["Status.FrameAssemblyEnabled"], _frameAssemblerConfig.Header)
                 : LanguageManager.Instance["Status.FrameAssemblyDisabled"];
+        }
+    }
+
+    /// <summary>Opens the embedded web dashboard in the system default browser.
+    /// The HTTP server runs on the loopback address with an API token, so this
+    /// only ever targets the local machine.</summary>
+    private void OpenDashboard()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(HttpUrl + "/dashboard/") { UseShellExecute = true });
+            StatusText = string.Format(LanguageManager.Instance["Status.DashboardOpened"], HttpUrl);
+        }
+        catch (Exception ex)
+        {
+            StatusText = string.Format(LanguageManager.Instance["Status.DashboardFailed"], ex.Message);
         }
     }
 
