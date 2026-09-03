@@ -54,16 +54,15 @@ public partial class MainWindow : Window
 
         _vm.RxEntries.CollectionChanged += (_, e) =>
         {
-            var action = e.Action;
-            if (_vm.AutoScrollRx && (action == System.Collections.Specialized.NotifyCollectionChangedAction.Add
-                || action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove))
+            // Auto-follow only on insertions. TrimBuffer removals (oldest entries
+            // falling off the 10000 cap) shift the contents but leave the visual
+            // bottom in place, so scrolling again would just fight the layout.
+            if (_vm.AutoScrollRx && e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
                 DataPanelControl.ScrollRxToEnd();
         };
         _vm.TxEntries.CollectionChanged += (_, e) =>
         {
-            var action = e.Action;
-            if (_vm.AutoScrollTx && (action == System.Collections.Specialized.NotifyCollectionChangedAction.Add
-                || action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove))
+            if (_vm.AutoScrollTx && e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
                 DataPanelControl.ScrollTxToEnd();
         };
     }

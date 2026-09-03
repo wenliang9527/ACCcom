@@ -68,29 +68,45 @@ public class HighlightService
     {
         if (entry == null) return null;
 
-        var matchingRules = Rules
-            .Where(r => r.IsEnabled && MatchesRule(r, entry))
-            .OrderByDescending(r => r.Priority);
+        // Hand-rolled scan instead of LINQ Where+OrderByDescending: this runs on
+        // the UI thread for every frame received (via DataFlowViewModel.ApplyHighlight),
+        // and the LINQ pipeline allocated an enumerable + sort per call. We track the
+        // highest-priority match in one pass with no per-call allocation. OrderByDescending
+        // is stable, so equal priorities keep insertion order — we mirror that by only
+        // replacing a tie when there is no current best.
+        string? best = null;
+        var bestPriority = int.MinValue;
+        foreach (var rule in Rules)
+        {
+            if (!rule.IsEnabled) continue;
+            if (rule.Direction.HasValue)
+            {
+                var ruleDir = rule.Direction.Value == HighlightDirection.RX ? "RX" : "TX";
+                if (entry.Direction != ruleDir) continue; // cheap filter before text work
+            }
+            // Cannot beat the current best (strictly lower, or tied-but-earlier-wins).
+            if (best != null && rule.Priority <= bestPriority) continue;
 
-        return matchingRules.FirstOrDefault()?.Color;
+            var targetText = rule.MatchHex ? entry.RawHex : entry.Text;
+            if (string.IsNullOrEmpty(targetText)) continue;
+
+            if (MatchesPattern(targetText, rule.Pattern, rule.MatchType))
+            {
+                best = rule.Color;
+                bestPriority = rule.Priority;
+            }
+        }
+        return best;
     }
 
-    private bool MatchesRule(HighlightRule rule, LogEntry entry)
+    private static bool MatchesPattern(string target, string pattern, HighlightMatchType matchType)
     {
-        if (rule.Direction.HasValue)
+        if (string.IsNullOrEmpty(pattern)) return false;
+        return matchType switch
         {
-            var ruleDir = rule.Direction.Value == HighlightDirection.RX ? "RX" : "TX";
-            if (entry.Direction != ruleDir) return false;
-        }
-
-        var targetText = rule.MatchHex ? entry.RawHex : entry.Text;
-        if (string.IsNullOrEmpty(targetText)) return false;
-
-        return rule.MatchType switch
-        {
-            HighlightMatchType.Contains => targetText.Contains(rule.Pattern, StringComparison.OrdinalIgnoreCase),
-            HighlightMatchType.Exact => targetText.Equals(rule.Pattern, StringComparison.OrdinalIgnoreCase),
-            HighlightMatchType.Regex => Regex.IsMatch(targetText, rule.Pattern),
+            HighlightMatchType.Contains => target.Contains(pattern, StringComparison.OrdinalIgnoreCase),
+            HighlightMatchType.Exact => target.Equals(pattern, StringComparison.OrdinalIgnoreCase),
+            HighlightMatchType.Regex => Regex.IsMatch(target, pattern),
             _ => false
         };
     }

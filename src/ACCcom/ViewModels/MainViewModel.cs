@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
+using ACCcom.Core.Collections;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 

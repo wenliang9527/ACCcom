@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using ACCcom.Core.Collections;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 

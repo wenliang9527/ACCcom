@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using ACCcom.Core.Collections;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Controls;
@@ -56,14 +57,22 @@ public partial class DataPanel : UserControl
     {
         var sv = _rxScrollViewer ??= FindVisualChild<ScrollViewer>(RxListBox);
         if (sv == null) return;
-        if (RxListBox.Items.Count > 0) sv.ScrollToBottom();
+        if (RxListBox.Items.Count == 0) return;
+        // Only follow when the user hasn't scrolled up to inspect history;
+        // otherwise new data would yank the viewport away from them.
+        if (!ScrollPendulum.ShouldAutoScroll(sv.VerticalOffset, sv.ViewportHeight, sv.ExtentHeight))
+            return;
+        sv.ScrollToBottom();
     }
 
     public void ScrollTxToEnd()
     {
         var sv = _txScrollViewer ??= FindVisualChild<ScrollViewer>(TxListBox);
         if (sv == null) return;
-        if (TxListBox.Items.Count > 0) sv.ScrollToBottom();
+        if (TxListBox.Items.Count == 0) return;
+        if (!ScrollPendulum.ShouldAutoScroll(sv.VerticalOffset, sv.ViewportHeight, sv.ExtentHeight))
+            return;
+        sv.ScrollToBottom();
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
