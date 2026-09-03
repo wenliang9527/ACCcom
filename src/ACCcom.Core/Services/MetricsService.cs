@@ -7,11 +7,25 @@ namespace ACCcom.Core.Services;
 /// <summary>
 /// 性能指标收集器，线程安全的计数器和直方图。
 /// 使用 MetricsCollector.Instance 单例访问。
+/// 已知名称的计数器使用预分配字段 + Interlocked，避免接收热路径上的字典哈希与争用。
 /// </summary>
 public sealed class MetricsCollector
 {
     private static readonly Lazy<MetricsCollector> _instance = new(() => new MetricsCollector());
     public static MetricsCollector Instance => _instance.Value;
+
+    // 已知热路径计数器的预分配字段（每包/每次事件调用，避免 ConcurrentDictionary 开销）。
+    private long _bytesReceived;
+    private long _bytesSent;
+    private long _portOpened;
+    private long _portClosed;
+    private long _errors;
+    private long _parseSuccess;
+    private long _parseFailure;
+    private long _bufferOverruns;
+
+    // 缓冲占用率：每包写入 volatile 字段，Prometheus 输出时结转，避免每包字典写入。
+    private double _bufferUsage;
 
     private readonly ConcurrentDictionary<string, long> _counters = new();
     private readonly ConcurrentDictionary<string, double> _gauges = new();
@@ -24,10 +38,35 @@ public sealed class MetricsCollector
 
     public void IncrementCounter(string name, long value = 1)
     {
+        switch (name)
+        {
+            case "acccom_serial_bytes_received_total": Interlocked.Add(ref _bytesReceived, value); return;
+            case "acccom_serial_bytes_sent_total": Interlocked.Add(ref _bytesSent, value); return;
+            case "acccom_serial_port_opened_total": Interlocked.Add(ref _portOpened, value); return;
+            case "acccom_serial_port_closed_total": Interlocked.Add(ref _portClosed, value); return;
+            case "acccom_serial_errors_total": Interlocked.Add(ref _errors, value); return;
+            case "acccom_parser_parse_success_total": Interlocked.Add(ref _parseSuccess, value); return;
+            case "acccom_parser_parse_failure_total": Interlocked.Add(ref _parseFailure, value); return;
+            case "acccom_buffer_overrun_total": Interlocked.Add(ref _bufferOverruns, value); return;
+        }
         _counters.AddOrUpdate(name, value, (_, old) => old + value);
     }
 
-    public long GetCounter(string name) => _counters.GetValueOrDefault(name, 0);
+    public long GetCounter(string name)
+    {
+        switch (name)
+        {
+            case "acccom_serial_bytes_received_total": return Interlocked.Read(ref _bytesReceived);
+            case "acccom_serial_bytes_sent_total": return Interlocked.Read(ref _bytesSent);
+            case "acccom_serial_port_opened_total": return Interlocked.Read(ref _portOpened);
+            case "acccom_serial_port_closed_total": return Interlocked.Read(ref _portClosed);
+            case "acccom_serial_errors_total": return Interlocked.Read(ref _errors);
+            case "acccom_parser_parse_success_total": return Interlocked.Read(ref _parseSuccess);
+            case "acccom_parser_parse_failure_total": return Interlocked.Read(ref _parseFailure);
+            case "acccom_buffer_overrun_total": return Interlocked.Read(ref _bufferOverruns);
+        }
+        return _counters.GetValueOrDefault(name, 0);
+    }
 
     // ── Gauge 操作 ──
 
@@ -36,7 +75,11 @@ public sealed class MetricsCollector
         _gauges[name] = value;
     }
 
-    public double GetGauge(string name) => _gauges.GetValueOrDefault(name, 0);
+    public double GetGauge(string name)
+    {
+        if (name == "acccom_buffer_usage_ratio") return Volatile.Read(ref _bufferUsage);
+        return _gauges.GetValueOrDefault(name, 0);
+    }
 
     // ── Histogram 操作 ──
 
@@ -59,7 +102,7 @@ public sealed class MetricsCollector
         RecordHistogram("acccom_parser_parse_duration_ms", elapsedMs);
     }
     public void RecordBufferOverrun() => IncrementCounter("acccom_buffer_overrun_total");
-    public void SetBufferUsage(double ratio) => SetGauge("acccom_buffer_usage_ratio", ratio);
+    public void SetBufferUsage(double ratio) => Volatile.Write(ref _bufferUsage, ratio);
 
     // ── Prometheus 格式输出 ──
 
@@ -72,11 +115,22 @@ public sealed class MetricsCollector
         sb.AppendLine("# TYPE acccom_uptime_seconds gauge");
         sb.AppendLine($"acccom_uptime_seconds {uptime.TotalSeconds:F1}");
 
+        AppendCounter(sb, "acccom_buffer_overrun_total", Interlocked.Read(ref _bufferOverruns));
+        AppendCounter(sb, "acccom_parser_parse_failure_total", Interlocked.Read(ref _parseFailure));
+        AppendCounter(sb, "acccom_parser_parse_success_total", Interlocked.Read(ref _parseSuccess));
+        AppendCounter(sb, "acccom_serial_bytes_received_total", Interlocked.Read(ref _bytesReceived));
+        AppendCounter(sb, "acccom_serial_bytes_sent_total", Interlocked.Read(ref _bytesSent));
+        AppendCounter(sb, "acccom_serial_errors_total", Interlocked.Read(ref _errors));
+        AppendCounter(sb, "acccom_serial_port_closed_total", Interlocked.Read(ref _portClosed));
+        AppendCounter(sb, "acccom_serial_port_opened_total", Interlocked.Read(ref _portOpened));
+
         foreach (var kv in _counters.OrderBy(x => x.Key))
         {
-            sb.AppendLine($"# TYPE {kv.Key} counter");
-            sb.AppendLine($"{kv.Key} {kv.Value}");
+            AppendCounter(sb, kv.Key, kv.Value);
         }
+
+        sb.AppendLine("# TYPE acccom_buffer_usage_ratio gauge");
+        sb.AppendLine($"acccom_buffer_usage_ratio {Volatile.Read(ref _bufferUsage):F4}");
 
         foreach (var kv in _gauges.OrderBy(x => x.Key))
         {
@@ -97,6 +151,12 @@ public sealed class MetricsCollector
         }
 
         return sb.ToString();
+    }
+
+    private static void AppendCounter(StringBuilder sb, string name, long value)
+    {
+        sb.AppendLine($"# TYPE {name} counter");
+        sb.AppendLine($"{name} {value}");
     }
 }
 
