@@ -1,67 +1,55 @@
-## 第 11 轮:ProtocolTestRunner UI(自动化协议回归测试)
+## 第 13 轮:Trigger 规则 UI(自动化触发器 — 最后一个「VM 完整、UI 缺失」的大功能)
 
 ### 现状(已通过代码探测确认)
 
-- `src/ACCcom.Core/Services/ProtocolTestRunner.cs` 后端完整:`RunAsync(script, send, waitForResponse, ct)` 逐步骤执行、断言、重试、取消,产出 `TestReport`
-- `src/ACCcom.Core/Models/TestScript.cs` 模型完整:TestScript(步骤列表/重复次数)/ TestStep(命令/期望模式/匹配方式/超时/重试)/ TestStepResult / TestReport
-- `tests/ACCcom.Core.Tests/ProtocolTestRunnerTests.cs` **22 个测试**覆盖 send-only、contains/exact/regex/hex_contains、mismatch、timeout、retry、delay、cancellation、persist
-- **UI 完全缺失**:grep 确认 src/ACCcom(VM/View/Controls)零引用 — 这是最后一个"后端完整但无 UI"的大功能
-- 可复用的发送 API:`ISerialService.Send(string data, bool isHex)`(串口)
-- 可复用的匹配器:`PatternMatcher.MatchesPattern(target, pattern, matchMode)` — 但缺 `hex_contains` 分支 + 缺 LogEntry 便捷入口
-- MainViewModel 已有 `OnEntryProcessed` 挂钩(用于 recorder),是注入 RX 流的现成点
+- `src/ACCcom/ViewModels/TriggerViewModel.cs` **完整**:Add/Save/Load/Delete + `OnTriggerFired` 执行 4 种动作(SendCommand / SaveToFile / PlaySound / LogMessage),`TriggerService` 已在 DataFlowViewModel 的 entry 流里求值,`TriggerPathResolver` 已处理相对路径
+- `src/ACCcom.Core/Models/TriggerRule.cs` 模型完整(5 字段 + Direction/MatchHex/ActionParameter/Enabled)
+- **UI 完全缺失**:grep 确认无 TriggerWindow、无编辑对话框、ToolBar 无入口 — 只能写 JSON 文件手动配规则
+- 不一致点:VM 的 `LoadTriggers()`/`SaveTriggers()` 用相对路径 `"triggers.json"`(落 CWD),而 resolver 用 `%LOCALAPPDATA%/ACCcom/triggers` — 补 UI 时统一到 resolver
+- i18n 已有 `Status.TriggersSaved` / `Status.TriggerFired` 等键,缺窗口/对话框键
+- 可复用模式:HighlightWindow / ProtocolTestWindow(规则列表 DataGrid + 编辑对话框 + 单例窗口 + 工具栏按钮 + 热键)
 
-### 实施方案(窗口 + VM + Core 补丁 + 测试)
+### 实施方案
 
-#### 1. Core:ProtocolTestRunner 补静态匹配入口(可测)
-- 加 `public static bool TryMatchEntry(LogEntry entry, string pattern, string matchMode, bool matchHex, out string? matchedText)`
-  - target = matchHex ? entry.RawHex : entry.Text
-  - 内部走 `PatternMatcher.MatchesPattern`,并补 `hex_contains` 分支(已有 contains 语义,显式映射)
-  - matchedText = target(供 TestStepResult.ActualResponse 展示)
-- 补 2 个测试:`TryMatchEntry_hex_contains`、`TryMatchEntry_regex`(放入现有 ProtocolTestRunnerTests.cs)
+#### 1. 新增 TriggerRuleDialog.xaml(.cs)
+- 参照 HighlightRuleDialog:chromeless 标题栏 + Name / Pattern / MatchMode(contains/exact/regex)/ Direction(RX/TX/Both)/ MatchHex CheckBox / Action ComboBox(4 种)/ ActionParameter TextBox(依 Action 切换提示:SendCommand→"要发送的命令",SaveToFile→"文件路径(相对路径存到 %LOCALAPPDATA%/ACCcom/triggers)",PlaySound→禁用,LogMessage→"日志内容")/ Enabled CheckBox
+- 校验:Name/Pattern 必填;SaveToFile 或 SendCommand 时 ActionParameter 必填
 
-#### 2. 新增 ProtocolTestViewModel
-- 字段:`ProtocolTestRunner _runner`、`ISerialService _serial`、`ConcurrentQueue<LogEntry> _rxQueue`、`CancellationTokenSource? _cts`、`Func<bool> _getIsOpen`、`Action<string> _setStatus`
-- 脚本编辑属性:`ScriptName` / `Description` / `RepeatCount` / `RepeatDelayMs` / `Steps`(ObservableCollection<TestStep>)
-- 结果集合:`ObservableCollection<TestStepResult> Results` + `IsRunning` + `PassedCount`/`FailedCount`
-- 命令:`AddStepCommand` / `RemoveStepCommand` / `RunTestsCommand` / `StopTestsCommand` / `NewScriptCommand` / `SaveScriptCommand` / `LoadScriptCommand`(JSON 存到 %LOCALAPPDATA%/ACCcom/scripts/)
-- `OnRxEntry(LogEntry)`:入队(平时零开销,单次入队)
-- `RunAsync`:清空 Results → `_runner.RunAsync(script, send, waitForResponse)`;每步结果追加到 Results 并刷新计数;IsRunning 翻转;状态栏反馈
-- `waitForResponse`:轮询 _rxQueue,用 `ProtocolTestRunner.TryMatchEntry` 匹配,命中返回文本,超时返回 null
+#### 2. 新增 TriggerWindow.xaml(.cs)
+- 参照 HighlightWindow:标题栏 + 规则 DataGrid(Name/Pattern/MatchMode/Direction/HEX/Action/参数/开关)+ 底部按钮(添加/编辑/删除/保存/加载)
+- 双击行 = 编辑;StatusText 显示当前触发状态
 
-#### 3. 新增 ProtocolTestWindow
-- chromeless 标题栏(复用 StatsWindow 模式)
-- 上部:脚本元信息(Name/Description/RepeatCount/RepeatDelayMs)+ 按钮行(新建/加载/保存/运行/停止)
-- 中部:Steps DataGrid(可编辑列:Name/Command/IsHex/DelayMs/ExpectedPattern/MatchMode/ResponseTimeoutMs/RetryCount/RetryDelayMs)+ 添加/删除步骤按钮
-- 下部:Results DataGrid(StepName/Passed✔✘/Attempts/Duration/FailureReason)+ 汇总(Passed/Failed 计数)
-- code-behind 走 `WindowHelper.SetupTitleBar` 模式
+#### 3. TriggerViewModel 补丁
+- 暴露 `OpenEditDialog(TriggerRule)` 供 code-behind 双击调用(现有 `AddTrigger` 已是打开对话框形态,补 Edit 入口)
+- `LoadTriggers()`/`SaveTriggers()` 默认路径统一到 `TriggerPathResolver.DataDirectory`(修旧不一致)
+- `TriggerWindow` 复用现有 `AddTriggerCommand` / `DeleteTriggerCommand` / `SaveTriggersCommand` / `LoadTriggersCommand`
 
 #### 4. MainViewModel 接线
-- 字段 `ProtocolTestViewModel? _protocolTest`
-- `OpenProtocolTestWindow()` 单例(参照 ModbusWindow 模式):lazy 初始化 VM(需 `_serial`、`_tool.IsOpen`、StatusText)
-- 在 `OnEntryProcessed` 加一行 `_protocolTest?.OnRxEntry(entry)`(null 检查,平时零开销)
-- 透传命令 `OpenProtocolTestCommand` + 属性 `ProtocolTest`
+- `OpenTriggerWindow()` 单例(参照 HighlightWindow)
+- 透传命令 `OpenTriggerCommand` + 属性 `Triggers`
+- `_tool.LoadTriggers()` 已存在(InitializeAsync 里),无需改
 
-#### 5. ToolBarPanel 加按钮 + 热键
-- 在 HighLight 星标旁加 `&#x2714;`(对勾)按钮绑定 `OpenProtocolTestCommand`,Tip 提示 Ctrl+Shift+T
-- MainWindow PreviewKeyDown 加 `Ctrl+Shift+T` → OpenProtocolTestCommand
+#### 5. ToolBarPanel 按钮 + 热键
+- 在 ProtocolTest 按钮旁加 ⚡ `&#x26A1;` 按钮,绑定 `OpenTriggerCommand`,Tip 提示 Ctrl+Shift+E
+- MainWindow PreviewKeyDown 加 `Ctrl+Shift+E` → OpenTriggerCommand
 
 #### 6. i18n — zh-CN.json + en-US.json
-- `Tip.OpenProtocolTest` / `Button.ProtocolTest` / `Status.ProtocolTestOpened` / `ProtocolTest.Title` / `ProtocolTest.Run` / `ProtocolTest.Stop` / `ProtocolTest.NewScript` / `ProtocolTest.LoadScript` / `ProtocolTest.SaveScript` / `ProtocolTest.AddStep` / `ProtocolTest.RemoveStep` / 列头 ~10 条 / `ProtocolTest.Running` / `ProtocolTest.Completed` / `ProtocolTest.NoScriptsDir` 等 ~25 条
+- `Tip.OpenTriggers` / `Button.Triggers` / `Status.TriggersOpened` / `TriggerWindow.*`(Title/Add/Edit/Delete/Save/Load/列头 ~10 条)/ `TriggerDialog.*`(Title/Name/Pattern/MatchMode/Direction/Action/ActionParameter/Enabled/MatchHex/校验 ~12 条)
 
 #### 7. 测试
-- ProtocolTestRunnerTests 补 2 个(TryMatchEntry hex_contains + regex)
-- 不改其他测试;UI 层逻辑全部下沉到 Core 可测
+- 补 `TriggerServiceTests` 或新测试:默认保存路径统一后 `SaveRules/LoadRules` roundtrip 走 resolver 目录(1-2 个)
+- 不改现有 24 个 TriggerServiceTests(若有)—— 先确认现有测试是否覆盖
 
 ### 不做(避免越界)
 
-- **不做**脚本语法高亮 / 步骤拖拽排序(DataGrid 行序已够)
-- **不做**报告导出 CSV/HTML(现有 SaveReport JSON 已够)
-- **不做**解析器联动断言(仅文本/hex 匹配,与后端语义一致)
-- **不做**从录制回放驱动测试(留待后续)
+- **不做**触发历史/统计窗(TriggerService 无此后端,先做最小可用)
+- **不做**拖拽排序(DataGrid 行序够)
+- **不做**规则导入/导出(用 Save/Load 已够)
+- **不做**正则语法预览
 
 ### 验收标准
 
 1. `dotnet build -c Release`:**0 警告 0 错误**
-2. `dotnet test`:Core 480 + MCP 47 = **527 全绿**
-3. 手动验证:连串口 → 打开协议测试窗口 → 新建脚本 → 加步骤(Send `AT` + Expected `OK`)→ 运行 → 状态栏反馈、Results 显示 pass/fail
+2. `dotnet test`:Core ≥ 489 + MCP 47 = ≥ 536 全绿
+3. 手动验证:打开 Trigger 窗口 → 添加规则(Pattern="ERROR" + Action=PlaySound)→ 收到含 ERROR 的 RX 帧 → 播放提示音
 4. 工作树干净,1 个 commit

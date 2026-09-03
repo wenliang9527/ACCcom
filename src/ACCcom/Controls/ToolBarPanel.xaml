@@ -29,6 +29,10 @@
                 ToolTip="{Binding [Tip.OpenProtocolTest], Source={x:Static local:LanguageManager.Instance}}">
             <TextBlock Text="&#x2714;" FontSize="13" />
         </Button>
+        <Button Command="{Binding OpenTriggerCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.OpenTriggers], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#x26A1;" FontSize="13" />
+        </Button>
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
 

@@ -40,16 +40,22 @@ public class TriggerViewModel : ObservableObject
         DeleteTriggerCommand = new RelayCommand(p => { if (p is TriggerRule r) DeleteTrigger(r); });
     }
 
+    /// <summary>Where the rule list is persisted. Relative paths in SaveToFile
+    /// actions resolve against this same directory (see TriggerPathResolver).</summary>
+    private static string RulesFilePath =>
+        Path.Combine(TriggerPathResolver.DataDirectory, "triggers.json");
+
     public void LoadTriggers()
     {
         try
         {
-            var rules = TriggerService.LoadRules("triggers.json");
+            var rules = TriggerService.LoadRules(RulesFilePath);
             foreach (var r in rules)
             {
                 _triggerService.AddRule(r);
                 TriggerRules.Add(r);
             }
+            _setStatus(string.Format(LanguageManager.Instance["Status.TriggersLoaded"], rules.Count));
         }
         catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.LoadTriggersFailed"], ex.Message)); }
     }
@@ -58,10 +64,11 @@ public class TriggerViewModel : ObservableObject
     {
         try
         {
-            TriggerService.SaveRules(TriggerRules, "triggers.json");
+            Directory.CreateDirectory(TriggerPathResolver.DataDirectory);
+            TriggerService.SaveRules(TriggerRules, RulesFilePath);
             _setStatus(string.Format(LanguageManager.Instance["Status.TriggersSaved"], TriggerRules.Count));
         }
-        catch (Exception ex) { _setStatus($"Failed to save triggers: {ex.Message}"); }
+        catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.SaveTriggersFailed"], ex.Message)); }
     }
 
     private void AddTrigger()
@@ -73,8 +80,22 @@ public class TriggerViewModel : ObservableObject
             MatchMode = "contains",
             Action = TriggerAction.None
         };
-        _triggerService.AddRule(rule);
-        TriggerRules.Add(rule);
+        if (OpenEditDialog(rule))
+        {
+            _triggerService.AddRule(rule);
+            TriggerRules.Add(rule);
+        }
+    }
+
+    /// <summary>Opens the edit dialog for an existing rule; returns true when the
+    /// user saved (the rule object is mutated in place).</summary>
+    public bool OpenEditDialog(TriggerRule rule)
+    {
+        var dialog = new TriggerRuleDialog(rule)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+        return dialog.ShowDialog() == true;
     }
 
     private void DeleteTrigger(TriggerRule rule)

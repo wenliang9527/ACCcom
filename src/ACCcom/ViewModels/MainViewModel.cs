@@ -44,6 +44,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private HighlightWindow? _highlightWindow;
     private ProtocolTestViewModel? _protocolTest;
     private ProtocolTestWindow? _protocolTestWindow;
+    private TriggerWindow? _triggerWindow;
 
     private readonly ModbusConnectionManager _modbusConnectionManager = new();
     private readonly ModbusSlaveService _modbusSlaveService = new();
@@ -177,6 +178,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleRecordingCommand { get; }
     public ICommand OpenHighlightCommand { get; }
     public ICommand OpenProtocolTestCommand { get; }
+    public ICommand OpenTriggerCommand { get; }
     public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
     public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
     public HighlightViewModel Highlights => _highlights;
@@ -230,6 +232,7 @@ public class MainViewModel : ObservableObject, IDisposable
         ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
+        OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -346,6 +349,22 @@ public class MainViewModel : ObservableObject, IDisposable
         await _tool.LoadPresetsAsync();
         await _tool.LoadMacrosAsync();
         _tool.LoadTriggers();
+    }
+
+    private void OpenTriggerWindow()
+    {
+        if (_triggerWindow != null)
+        {
+            _triggerWindow.Activate();
+            return;
+        }
+        _triggerWindow = new TriggerWindow(_tool.Triggers)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _triggerWindow.Closed += (_, _) => _triggerWindow = null;
+        _triggerWindow.Show();
+        StatusText = LanguageManager.Instance["Status.TriggersOpened"];
     }
 
     private void OpenProtocolTestWindow()

@@ -277,6 +277,12 @@ public partial class MainWindow : Window
             _vm.OpenProtocolTestCommand.Execute(null);
             e.Handled = true;
         }
+        // Ctrl+Shift+E: Open trigger-rule editor (automated RX/TX actions).
+        else if (e.Key == Key.E && mods == (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            _vm.OpenTriggerCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void ApplySidebarVisibility()

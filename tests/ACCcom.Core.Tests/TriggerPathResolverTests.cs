@@ -70,4 +70,53 @@ public class TriggerPathResolverTests : IDisposable
         var resolved = TriggerPathResolver.Resolve(Path.Combine("nested", "out.log"));
         Assert.Equal(Path.Combine(TriggerPathResolver.DataDirectory, "nested", "out.log"), resolved);
     }
+
+    /// <summary>SaveRules/LoadRules round-trip through a resolver-style path
+    /// (DataDirectory/triggers.json is what the ViewModel now persists to).</summary>
+    [Fact]
+    public void SaveLoad_Roundtrip_WithResolverStylePath()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"trg_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        _tempPaths.Add(Path.Combine(tempDir, "triggers.json"));
+
+        try
+        {
+            var rules = new List<TriggerRule>
+            {
+                new()
+                {
+                    Name = "OnError",
+                    Pattern = "ERROR",
+                    Action = TriggerAction.PlaySound,
+                    Enabled = true
+                },
+                new()
+                {
+                    Name = "LogRx",
+                    Pattern = "0x55",
+                    MatchHex = true,
+                    Direction = "RX",
+                    Action = TriggerAction.LogMessage,
+                    ActionParameter = "received 0x55"
+                }
+            };
+            var filePath = Path.Combine(tempDir, "triggers.json");
+
+            TriggerService.SaveRules(rules, filePath);
+            var loaded = TriggerService.LoadRules(filePath);
+
+            Assert.Equal(2, loaded.Count);
+            Assert.Equal("OnError", loaded[0].Name);
+            Assert.Equal(TriggerAction.PlaySound, loaded[0].Action);
+            Assert.Equal("LogRx", loaded[1].Name);
+            Assert.True(loaded[1].MatchHex);
+            Assert.Equal("RX", loaded[1].Direction);
+            Assert.Equal("received 0x55", loaded[1].ActionParameter);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { /* cleanup */ }
+        }
+    }
 }

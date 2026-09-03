@@ -1,0 +1,86 @@
+<Window x:Class="ACCcom.TriggerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ACCcom"
+        xmlns:models="clr-namespace:ACCcom.Core.Models;assembly=ACCcom.Core"
+        Title="{Binding [TriggerWindow.Title], Source={x:Static local:LanguageManager.Instance}}"
+        Height="460" Width="760"
+        MinHeight="360" MinWidth="600"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Background="{DynamicResource BgBaseBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding [TriggerWindow.Title], Source={x:Static local:LanguageManager.Instance}}"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="12" FontWeight="Medium"
+                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <DataGrid Grid.Row="1" x:Name="RulesGrid"
+                  ItemsSource="{Binding TriggerRules}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  CanUserReorderColumns="False" CanUserResizeRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{DynamicResource DividerBrush}"
+                  Background="Transparent"
+                  RowBackground="Transparent"
+                  AlternatingRowBackground="Transparent"
+                  Foreground="{DynamicResource InkPrimaryBrush}"
+                  BorderThickness="0"
+                  Margin="10,10,10,0"
+                  RowHeight="26"
+                  FontSize="12">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColName], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColPattern], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Pattern}" Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColMatchMode], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding MatchMode}" Width="80" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColDirection], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Direction}" Width="60" IsReadOnly="True" />
+                <DataGridTextColumn Header="HEX" Binding="{Binding MatchHex}" Width="45" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColAction], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Action}" Width="110" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [TriggerWindow.ColParameter], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding ActionParameter}" Width="*" IsReadOnly="True" />
+                <DataGridCheckBoxColumn Header="{Binding [TriggerWindow.ColEnabled], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Enabled}" Width="50" />
+            </DataGrid.Columns>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <EventSetter Event="MouseDoubleClick" Handler="Row_DoubleClick" />
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+
+        <DockPanel Grid.Row="2" Margin="10,8,10,10">
+            <Button DockPanel.Dock="Left" Content="{Binding [TriggerWindow.Add], Source={x:Static local:LanguageManager.Instance}}"
+                    Style="{StaticResource OutlineButton}" Command="{Binding AddTriggerCommand}" />
+            <Button DockPanel.Dock="Left" Content="{Binding [TriggerWindow.Edit], Source={x:Static local:LanguageManager.Instance}}"
+                    Style="{StaticResource OutlineButton}" Margin="6,0,0,0" Click="Edit_Click" />
+            <Button DockPanel.Dock="Left" Content="{Binding [TriggerWindow.Delete], Source={x:Static local:LanguageManager.Instance}}"
+                    Style="{StaticResource OutlineButton}" Margin="6,0,0,0"
+                    Command="{Binding DeleteTriggerCommand}"
+                    CommandParameter="{Binding SelectedItem, ElementName=RulesGrid}" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{Binding [TriggerWindow.Load], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource OutlineButton}" Command="{Binding LoadTriggersCommand}" Margin="0,0,6,0" />
+                <Button Content="{Binding [TriggerWindow.Save], Source={x:Static local:LanguageManager.Instance}}"
+                        Style="{StaticResource PrimaryButton}" Command="{Binding SaveTriggersCommand}" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>
