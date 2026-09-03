@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -219,22 +220,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public bool JumpToMatch(bool forward)
     {
         if (FilteredRxEntries == null) return false;
-        var entries = FilteredRxEntries.Cast<LogEntry>().ToList();
-        if (entries.Count == 0) return false;
-
-        // Only entries the filter accepted (IsSearchMatch already set by FilterEntry).
-        var matches = entries.Where(e => e.IsSearchMatch).ToList();
-        if (matches.Count == 0) return false;
-
-        var currentIdx = SelectedEntry == null ? -1 : matches.IndexOf(SelectedEntry);
-        int nextIdx;
-        if (forward)
-            nextIdx = currentIdx < 0 ? 0 : Math.Min(currentIdx + 1, matches.Count - 1);
-        else
-            nextIdx = currentIdx <= 0 ? 0 : currentIdx - 1;
-
-        if (matches[nextIdx] == SelectedEntry) return false;
-        SelectedEntry = matches[nextIdx];
+        var target = MatchIndexNavigator.Step(FilteredRxEntries.Cast<LogEntry>(), e => e.IsSearchMatch, SelectedEntry, forward);
+        if (target == null) return false;
+        SelectedEntry = target;
         return true;
     }
 

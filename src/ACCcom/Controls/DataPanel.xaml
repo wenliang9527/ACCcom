@@ -130,23 +130,19 @@
                                                 Foreground="{DynamicResource InkSecondaryBrush}"
                                                 Margin="0,0,14,0" VerticalAlignment="Center"
                                                 Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBox Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
+                                      <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
                                                 FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                 Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
                                                 VerticalAlignment="Center"
                                                 Margin="0,3,10,3"
-                                                IsReadOnly="True" IsTabStop="False"
-                                                BorderThickness="0" Background="Transparent"
-                                                Padding="0"
+                                                ToolTip="{Binding RawHex}"
                                                 Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBox Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
+                                      <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
                                                 FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                 Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
                                                 VerticalAlignment="Center"
                                                 Margin="0,3,10,3"
-                                                IsReadOnly="True" IsTabStop="False"
-                                                BorderThickness="0" Background="Transparent"
-                                                Padding="0"
+                                                ToolTip="{Binding Text}"
                                                 Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
                                   </Grid>
                               </Border>
@@ -337,23 +333,19 @@
                                                Foreground="{DynamicResource InkSecondaryBrush}"
                                                Margin="0,0,14,0" VerticalAlignment="Center"
                                                Visibility="{Binding DataContext.EnableTxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBox Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
+                                      <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextWrapping="Wrap"
                                                 FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                 Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
                                                 VerticalAlignment="Center"
                                                 Margin="0,3,10,3"
-                                                IsReadOnly="True" IsTabStop="False"
-                                                BorderThickness="0" Background="Transparent"
-                                                Padding="0"
-                                                 Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                       <TextBox Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
+                                                ToolTip="{Binding RawHex}"
+                                                Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                       <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap"
                                                  FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
                                                  Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
                                                  VerticalAlignment="Center"
                                                  Margin="0,3,10,3"
-                                                 IsReadOnly="True" IsTabStop="False"
-                                                 BorderThickness="0" Background="Transparent"
-                                                 Padding="0"
+                                                 ToolTip="{Binding Text}"
                                                  Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
                                    </Grid>
                                </Border>
