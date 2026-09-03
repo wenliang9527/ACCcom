@@ -28,9 +28,16 @@ public class ReplayViewModel : ObservableObject
 
     private void ReplayFile()
     {
+        var recordingsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom", "recordings");
+
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Filter = "JSONL recordings (*.jsonl)|*.jsonl|Text logs (*.txt)|*.txt|All files (*.*)|*.*"
+            Filter = "JSONL recordings (*.jsonl)|*.jsonl|Text logs (*.txt)|*.txt|All files (*.*)|*.*",
+            // Land the dialog in the recordings folder right away; that's where
+            // SessionRecorder writes, so replaying a fresh capture is a single click.
+            InitialDirectory = Directory.Exists(recordingsDir) ? recordingsDir : null
         };
         if (dialog.ShowDialog() != true) return;
 

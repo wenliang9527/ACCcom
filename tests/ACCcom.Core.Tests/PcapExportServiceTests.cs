@@ -162,4 +162,26 @@ public class PcapExportServiceTests : IDisposable
         var result = PcapExportService.HexToBytes("0A");
         Assert.Equal(new byte[] { 0x0A }, result);
     }
+
+    /// <summary>A malformed entry (invalid hex) must not abort the whole export —
+    /// it is skipped and the remaining valid entries are still written.</summary>
+    [Fact]
+    public void ExportToPcap_MalformedEntry_IsSkippedWithoutAborting()
+    {
+        var service = new PcapExportService();
+        var path = Path.Combine(_tempDir, "mixed.pcap");
+        var entries = new List<LogEntry>
+        {
+            new() { Id = 1, Timestamp = DateTime.UtcNow, Direction = "TX", RawHex = "AA" },
+            new() { Id = 2, Timestamp = DateTime.UtcNow, Direction = "RX", RawHex = "ZZ XX" }, // invalid hex
+            new() { Id = 3, Timestamp = DateTime.UtcNow, Direction = "TX", RawHex = "BB" }
+        };
+
+        var exception = Record.Exception(() => service.ExportToPcap(entries, path));
+
+        Assert.Null(exception);
+        var bytes = File.ReadAllBytes(path);
+        // header + 2 valid packet records, malformed one skipped
+        Assert.Equal(24 + (16 + 2) + (16 + 2), bytes.Length);
+    }
 }

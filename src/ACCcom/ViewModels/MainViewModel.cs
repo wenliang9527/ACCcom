@@ -508,6 +508,8 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand SaveTxJsonCommand => _dataFlow.SaveTxJsonCommand;
     public ICommand SaveRxCsvCommand => _dataFlow.SaveRxCsvCommand;
     public ICommand SaveTxCsvCommand => _dataFlow.SaveTxCsvCommand;
+    public ICommand SaveRxPcapCommand => _dataFlow.SaveRxPcapCommand;
+    public ICommand SaveTxPcapCommand => _dataFlow.SaveTxPcapCommand;
     public ICommand OpenParserDirCommand => _dataFlow.OpenParserDirCommand;
     public ICommand CompareFramesCommand => _dataFlow.CompareFramesCommand;
     public ICommand OpenFrameAssemblerConfigCommand { get; }

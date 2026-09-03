@@ -22,7 +22,20 @@ public class PcapExportService
 
         foreach (var entry in entries)
         {
-            WritePacketRecord(writer, entry);
+            // One malformed entry (e.g. from a hand-edited replay file) must not
+            // abort the whole export — skip it and keep writing the rest.
+            try
+            {
+                WritePacketRecord(writer, entry);
+            }
+            catch (FormatException)
+            {
+                // Skip: entry's RawHex is not parsable hex.
+            }
+            catch (ArgumentException)
+            {
+                // Skip: same, defensive against odd-length/edge strings.
+            }
         }
     }
 

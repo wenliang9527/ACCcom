@@ -25,6 +25,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly AutoParserMatcher _autoMatcher;
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
+    private readonly PcapExportService _pcapExportService = new();
     private readonly Action<string> _setStatus;
     private readonly AppSettings _settings;
     private readonly HighlightService? _highlightService;
@@ -250,6 +251,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public ICommand SaveTxJsonCommand { get; }
     public ICommand SaveRxCsvCommand { get; }
     public ICommand SaveTxCsvCommand { get; }
+    public ICommand SaveRxPcapCommand { get; }
+    public ICommand SaveTxPcapCommand { get; }
     public ICommand OpenParserDirCommand { get; }
     public ICommand CompareFramesCommand { get; }
     public ICommand ResetCountersCommand { get; }
@@ -333,6 +336,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         SaveTxJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(TxEntries, "TX"); });
         SaveRxCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(RxEntries, "RX"); });
         SaveTxCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(TxEntries, "TX"); });
+        SaveRxPcapCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToPcap(RxEntries, "RX"); });
+        SaveTxPcapCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToPcap(TxEntries, "TX"); });
         OpenParserDirCommand = new RelayCommand(_ => OpenParserDir());
         CompareFramesCommand = new RelayCommand(_ => OpenDiffWindow());
         ResetCountersCommand = new RelayCommand(_ =>
@@ -770,6 +775,29 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         };
         if (dialog.ShowDialog() == true)
             FileExportService.ExportToCsv(entries, dialog.FileName);
+    }
+
+    /// <summary>Exports entries to a Wireshark-readable .pcap file. Each packet
+    /// carries a direction prefix byte (0x01 TX / 0x02 RX) so the capture can be
+    /// split back out later.</summary>
+    private void SaveToPcap(ObservableCollection<LogEntry> entries, string tag)
+    {
+        if (entries.Count == 0) return;
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"ACCCOM_{tag}_{DateTime.Now:yyyyMMdd_HHmmss}.pcap",
+            Filter = "PCAP files (*.pcap)|*.pcap|All files (*.*)|*.*"
+        };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            _pcapExportService.ExportToPcap(entries, dialog.FileName);
+            _setStatus(string.Format(LanguageManager.Instance["Status.PcapExported"], entries.Count, Path.GetFileName(dialog.FileName)));
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
     }
 
     private void OpenParserDir()

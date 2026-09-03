@@ -64,6 +64,7 @@
                                 <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxJsonCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportRx], Source={x:Static local:LanguageManager.Instance}}" />
                                 <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
                             </StackPanel>
                         </WrapPanel>
@@ -270,6 +271,7 @@
                                 <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxJsonCommand}" Style="{StaticResource HeaderButton}" />
                                 <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportTx], Source={x:Static local:LanguageManager.Instance}}" />
                                 <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
                             </StackPanel>
                         </WrapPanel>
