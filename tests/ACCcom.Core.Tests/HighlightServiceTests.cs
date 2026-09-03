@@ -132,6 +132,30 @@ public class HighlightServiceTests : IDisposable
     }
 
     [Fact]
+    public void GetHighlightColor_regex_cache_distinct_patterns_do_not_interfere()
+    {
+        _sut.AddRule(new HighlightRule { Name = "R1", Pattern = @"\d{3}", Color = "#111111", MatchType = HighlightMatchType.Regex });
+        _sut.AddRule(new HighlightRule { Name = "R2", Pattern = @"error\d", Color = "#222222", MatchType = HighlightMatchType.Regex, Priority = 10 });
+
+        // Each pattern must be matched against its own compiled expression.
+        Assert.Equal("#111111", _sut.GetHighlightColor(MakeEntry(1, text: "abc 456")));
+        Assert.Equal("#222222", _sut.GetHighlightColor(MakeEntry(2, text: "error3")));
+        Assert.Null(_sut.GetHighlightColor(MakeEntry(3, text: "none")));
+    }
+
+    [Fact]
+    public void GetHighlightColor_regex_cache_repeated_evaluation_stable()
+    {
+        _sut.AddRule(new HighlightRule { Name = "R", Pattern = @"^OK$", Color = "#00FF00", MatchType = HighlightMatchType.Regex });
+        var entry = MakeEntry(1, text: "OK");
+
+        // Repeated passes over the same text return the same color.
+        Assert.Equal("#00FF00", _sut.GetHighlightColor(entry));
+        Assert.Equal("#00FF00", _sut.GetHighlightColor(entry));
+        Assert.Equal("#00FF00", _sut.GetHighlightColor(entry));
+    }
+
+    [Fact]
     public void GetHighlightColor_hex_match()
     {
         _sut.AddRule(new HighlightRule { Name = "HexRule", Pattern = "AA BB", Color = "#FFFF00", MatchHex = true });

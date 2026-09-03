@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -106,9 +107,26 @@ public class HighlightService
         {
             HighlightMatchType.Contains => target.Contains(pattern, StringComparison.OrdinalIgnoreCase),
             HighlightMatchType.Exact => target.Equals(pattern, StringComparison.OrdinalIgnoreCase),
-            HighlightMatchType.Regex => Regex.IsMatch(target, pattern),
+            HighlightMatchType.Regex => GetOrAddRegex(pattern).IsMatch(target),
             _ => false
         };
+    }
+
+    // Regex.IsMatch(target, pattern) falls back to a process-wide 15-entry
+    // non-compiled cache; with many rules it recompiles constantly. Cache the
+    // patterns explicitly as compiled expressions and drop the whole set when
+    // the cap is hit (rule lists are tiny, so a full reset is cheaper than LRU).
+    private const int MaxRegexCacheEntries = 64;
+    private static readonly ConcurrentDictionary<string, Regex> RegexCache = new();
+
+    private static Regex GetOrAddRegex(string pattern)
+    {
+        if (RegexCache.TryGetValue(pattern, out var cached)) return cached;
+        var regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        if (RegexCache.Count >= MaxRegexCacheEntries)
+            RegexCache.Clear();
+        RegexCache[pattern] = regex;
+        return regex;
     }
 
     public void Load()
