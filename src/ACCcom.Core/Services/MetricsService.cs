@@ -5,23 +5,6 @@ using System.Text;
 namespace ACCcom.Core.Services;
 
 /// <summary>
-/// 性能监控指标采集服务，使用 DiagnosticListener 暴露性能事件。
-/// 提供 MetricsCollector 单例供各服务注入，支持 Prometheus 格式输出。
-/// </summary>
-public sealed class MetricsService : IDisposable
-{
-    public const string SourceName = "ACCcom.Metrics";
-    private static readonly Lazy<MetricsService> _instance = new(() => new MetricsService());
-    public static MetricsService Instance => _instance.Value;
-
-    public DiagnosticListener Listener { get; } = new(SourceName);
-
-    private MetricsService() { }
-
-    public void Dispose() => Listener.Dispose();
-}
-
-/// <summary>
 /// 性能指标收集器，线程安全的计数器和直方图。
 /// 使用 MetricsCollector.Instance 单例访问。
 /// </summary>
@@ -42,7 +25,6 @@ public sealed class MetricsCollector
     public void IncrementCounter(string name, long value = 1)
     {
         _counters.AddOrUpdate(name, value, (_, old) => old + value);
-        EmitEvent(name, value);
     }
 
     public long GetCounter(string name) => _counters.GetValueOrDefault(name, 0);
@@ -78,17 +60,6 @@ public sealed class MetricsCollector
     }
     public void RecordBufferOverrun() => IncrementCounter("acccom_buffer_overrun_total");
     public void SetBufferUsage(double ratio) => SetGauge("acccom_buffer_usage_ratio", ratio);
-
-    // ── DiagnosticSource 事件发射 ──
-
-    private void EmitEvent(string name, object value)
-    {
-        var listener = MetricsService.Instance.Listener;
-        if (listener.IsEnabled())
-        {
-            listener.Write(name, new { Value = value, Timestamp = DateTime.UtcNow });
-        }
-    }
 
     // ── Prometheus 格式输出 ──
 
