@@ -181,6 +181,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenProtocolTestCommand { get; }
     public ICommand OpenTriggerCommand { get; }
     public ICommand OpenShortcutsCommand { get; }
+    public ICommand OpenRecordingsFolderCommand { get; }
     public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
     public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
     public HighlightViewModel Highlights => _highlights;
@@ -236,6 +237,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
         OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
+        OpenRecordingsFolderCommand = new RelayCommand(_ => OpenRecordingsFolder());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -368,6 +370,23 @@ public class MainViewModel : ObservableObject, IDisposable
         _shortcutsWindow.Closed += (_, _) => _shortcutsWindow = null;
         _shortcutsWindow.Show();
         StatusText = LanguageManager.Instance["Status.ShortcutsOpened"];
+    }
+
+    /// <summary>Reveals the recordings folder in Explorer. Called from the REC
+    /// indicator's context menu so a finished session can be inspected without
+    /// navigating the file system by hand.</summary>
+    private void OpenRecordingsFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(SessionRecorder.RecordingsDirectory);
+            System.Diagnostics.Process.Start("explorer.exe", SessionRecorder.RecordingsDirectory);
+            StatusText = LanguageManager.Instance["Status.OpenRecordingsFolder"];
+        }
+        catch (Exception ex)
+        {
+            StatusText = string.Format(LanguageManager.Instance["Status.RecordingsDirFailed"], ex.Message);
+        }
     }
 
     private void OpenTriggerWindow()

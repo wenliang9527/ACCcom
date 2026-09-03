@@ -28,9 +28,7 @@ public class ReplayViewModel : ObservableObject
 
     private void ReplayFile()
     {
-        var recordingsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ACCcom", "recordings");
+        var recordingsDir = SessionRecorder.RecordingsDirectory;
 
         var dialog = new Microsoft.Win32.OpenFileDialog
         {

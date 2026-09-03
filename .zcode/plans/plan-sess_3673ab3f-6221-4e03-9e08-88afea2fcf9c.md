@@ -1,48 +1,49 @@
-## 第 15 轮:快捷键总览面板 + 修复 Ctrl+F 死代码(体验死角补完)
+## 第 16 轮:状态栏交互补完(双击清空 StatusText + 录制目录打开)
 
 ### 现状(已通过代码探测确认)
 
-- **Ctrl+F 是死代码**:`MainWindow.xaml.cs:198-202` 拦截 Ctrl+F 后只 `e.Handled = true`,注释写着 "Search box is now in DataPanel - need to expose it" — 但 `FocusDataPanelSearch(rx:)` 方法早已存在(Ctrl+1/2 在用),只是没接 Ctrl+F
-- **快捷键已积累 33 个**(Ctrl+1/2、Ctrl+R、Ctrl+B、Ctrl+Left/Right、Ctrl+Shift+H/K/T/E、F3/Shift+F3、Ctrl+L/Ctrl+Shift+L、Ctrl+D、Ctrl+S/Ctrl+Shift+S、F5、Esc、Enter、Alt+1-9、Up/Down 历史导航...),**但没有可查的总览** — 用户只能靠 tooltip 逐个发现
-- F1 未被占用;状态栏右侧有 HTTP URL 展示区(可加 ? 入口)
+两个明确的体验死角,都和状态栏相关:
 
-### 实施方案(一个小窗口 + 一行死代码修复)
+1. **状态栏 StatusText 的 ToolTip 承诺「双击清空」但从未实现**(`StatusBarPanel.xaml:23`)— 状态提示文本会一直停留,没有清空手段。ToolTip 承诺的行为不存在,用户双击无反应,是「功能承诺未兑现」
+2. **录制完成后没有「打开录制文件夹」的直达入口** — 回放对话框初始目录上轮已修,但录完想直接用资源管理器查看 .jsonl 文件仍要手动导航到 `%LOCALAPPDATA%/ACCcom/recordings`
 
-#### 1. 修复 Ctrl+F(死代码 → 真实行为)
-- `MainWindow.xaml.cs` Ctrl+F 分支改为 `FocusDataPanelSearch(rx: true)`(与 Ctrl+1 完全一致:聚焦 RX 搜索框 + 全选)
-- 顺带 Ctrl+F 不再需要 Ctrl+1 的独立分支重复 — 保持现状,只补 Ctrl+F 行为
+已确认的接线模式:
+- `MainViewModel.StatusText` 是普通属性(`SetField`),code-behind 可直接 `vm.StatusText = ""`
+- `DataFlowViewModel.OpenParserDir()` 已有 `Process.Start("explorer.exe", dir)` 模式,可参照
+- `SessionRecorder` 的录制目录常量: `%LOCALAPPDATA%/ACCcom/recordings`(两处重复,可提取共享)
 
-#### 2. 新增 ShortcutsWindow.xaml(.cs)
-- chromeless 标题栏(复用 StatsWindow 模式)+ 快捷键列表
-- 数据源:`MainViewModel` 暴露 `IReadOnlyList<ShortcutInfo>`(新 record `ShortcutInfo(string Keys, string Description)`)
-- 列表分组显示:发送/数据操作/导航/工具窗口/其他(用 ItemsControl + GroupStyle 或直接分类 StackPanel)
-- 每行:快捷键(等宽 Consolas,Accent 色)+ 描述
+### 实施方案(两处小改,无新窗口)
 
-#### 3. ShortcutInfo 数据源定义
-- 放在 MainViewModel 或独立静态类 `ShortcutCatalog`(静态只读列表,与 MainWindow 实际热键一一对应)
-- 描述走 i18n 键(`Shortcuts.Send`、`Shortcuts.CopySelected`...),避免硬编码
+#### 1. 状态栏 StatusText 双击清空(兑现 ToolTip 承诺)
+- `StatusBarPanel.xaml`:给 StatusText TextBlock 加 `MouseLeftButtonUp="OnStatusClearClick"`
+- `StatusBarPanel.xaml.cs`:加 `OnStatusClearClick` → `vm.StatusText = ""`(与现有 OnCounterClick/OnRecordingClick 同模式)
 
-#### 4. 入口
-- 状态栏右侧 HTTP URL 旁加「快捷键 ?」TextBlock(点击打开,复用 OnHttpUrlClick 的 code-behind 模式)
-- MainWindow `PreviewKeyDown` 加 **F1** → 打开快捷键窗口(与标准帮助键一致)
-- MainViewModel 加 `OpenShortcutsCommand` + 单例窗口
+#### 2. 录制完成后「打开文件夹」入口
+- `MainViewModel`:
+  - 加方法 `OpenRecordingsFolder()` — 打开 `%LOCALAPPDATA%/ACCcom/recordings`(目录不存在则创建后打开),状态栏反馈
+  - 加命令 `OpenRecordingsFolderCommand` + 透传属性
+- `StatusBarPanel.xaml`:
+  - REC 指示块旁加一个小「打开文件夹」按钮(仅录制时可见,复用 IsRecording DataTrigger 的可见性)
+  - 或:REC 块右键菜单加「打开录制文件夹」项 —— 选右键菜单,更干净不挤占状态栏
+- `SessionRecorder`:提取 `RecordingsDirectory` 静态属性,消除两处重复常量,`MainViewModel` 也引用它
 
-#### 5. i18n — zh-CN.json + en-US.json
-- `Shortcuts.Title` / `Status.ShortcutsOpened` / `Shortcuts.Send` / `Shortcuts.CopySelected` / `Shortcuts.ClearRx` / `Shortcuts.ClearTx` / `Shortcuts.ToggleHex` / `Shortcuts.ToggleHexSend` / `Shortcuts.SaveRx` / `Shortcuts.SaveTx` / `Shortcuts.RefreshPorts` / `Shortcuts.ToggleTheme` / `Shortcuts.AddBookmark` / `Shortcuts.PrevBookmark` / `Shortcuts.NextBookmark` / `Shortcuts.ToggleRecording` / `Shortcuts.OpenHighlights` / `Shortcuts.OpenProtocolTest` / `Shortcuts.OpenTriggers` / `Shortcuts.JumpRx` / `Shortcuts.JumpTx` / `Shortcuts.FindNext` / `Shortcuts.SendQuickCmd` / `Shortcuts.HistoryNav` / `Shortcuts.StopLoop` / `Shortcuts.OpenShortcuts` ~25 条
+#### 3. i18n — zh-CN.json + en-US.json
+- `Status.OpenRecordingsFolder` = "已打开录制文件夹" / "Opened recordings folder"
+- `Status.RecordingsDirMissing`(可选,目录创建失败时用)
+- 状态栏右键菜单项 `Tip.OpenRecordingsFolder` / `Menu.OpenRecordingsFolder`
 
-#### 6. 测试
-- 数据源是纯静态列表(无 WPF 依赖),补 1 个测试:`ShortcutCatalog_Descriptions_ResolveInBothLanguages` — 遍历所有 i18n 键确认 zh/en 都存在(防止漏翻译)
-- ShortcutCatalog 放 Core(纯数据 + 语言键),MainViewModel 引用它 → 可测
+#### 4. 测试
+- `SessionRecorder.RecordingsDirectory` 是纯静态路径属性,补 1 个测试:`RecordingsDirectory_IsUnderLocalAppData`(与 TriggerPathResolver.DataDirectory 测试同款)
 
 ### 不做(避免越界)
 
-- **不做**可自定义快捷键(超出本轮,只做查表)
-- **不做**快捷键冲突检测
-- **不做**把 Alt+1-9 等改成绑定式(只做文档化)
+- **不做**录制文件列表浏览(Replay 对话框已有)
+- **不做**状态栏历史/回滚(StatusText 只存最后一条,清空即可)
+- **不做**其他状态栏增强
 
 ### 验收标准
 
 1. `dotnet build -c Release`:**0 警告 0 错误**
-2. `dotnet test`:Core ≥ 491 + MCP 47 = ≥ 538 全绿
-3. 手动验证:按 F1 弹出快捷键总览;状态栏 ? 也可打开;Ctrl+F 聚焦 RX 搜索框
+2. `dotnet test`:Core ≥ 495 + MCP 47 = ≥ 542 全绿
+3. 手动验证:双击状态栏文本清空;录制中右键 REC 块 → 打开录制文件夹 → 资源管理器弹出
 4. 工作树干净,1 个 commit

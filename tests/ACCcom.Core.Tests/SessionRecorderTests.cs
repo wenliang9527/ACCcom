@@ -190,4 +190,45 @@ public class SessionRecorderTests : IDisposable
         // Assert
         Assert.Equal(0, recorder.RecordedCount);
     }
+
+    [Fact]
+    public void RecordingsDirectory_IsUnderLocalAppData()
+    {
+        // Sanity check: the shared constant must stay under LocalAppData so
+        // recordings survive reinstalls and don't scatter across the disk.
+        Assert.StartsWith(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            SessionRecorder.RecordingsDirectory);
+        Assert.EndsWith(Path.Combine("ACCcom", "recordings"), SessionRecorder.RecordingsDirectory);
+    }
+
+    [Fact]
+    public void StartRecording_WithoutPath_DefaultsToRecordingsDirectory()
+    {
+        // Arrange
+        using var recorder = new SessionRecorder();
+        string? recordedFile = null;
+
+        // Act
+        try
+        {
+            recorder.StartRecording();
+            recordedFile = recorder.CurrentFile;
+
+            // Assert
+            Assert.NotNull(recordedFile);
+            Assert.Equal(
+                SessionRecorder.RecordingsDirectory,
+                Path.GetDirectoryName(recordedFile));
+        }
+        finally
+        {
+            recorder.StopRecording();
+            // Clean up the auto-created file so the test is hermetic.
+            if (recordedFile is { } f && File.Exists(f))
+            {
+                try { File.Delete(f); } catch { }
+            }
+        }
+    }
 }

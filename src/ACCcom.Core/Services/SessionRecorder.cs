@@ -14,6 +14,13 @@ public class SessionRecorder : BufferedFileWriter
         WriteIndented = false
     };
 
+    /// <summary>Where recordings are written. Shared by the recorder, the
+    /// Replay dialog's initial directory, and the "open recordings folder"
+    /// command so the path is defined once.</summary>
+    public static readonly string RecordingsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ACCcom", "recordings");
+
     public bool IsRecording { get; private set; }
     public string? CurrentFile => CurrentFilePath;
     public int RecordedCount => _recordedCount;
@@ -26,11 +33,8 @@ public class SessionRecorder : BufferedFileWriter
 
             if (string.IsNullOrEmpty(filePath))
             {
-                var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "ACCcom", "recordings");
-                Directory.CreateDirectory(dir);
-                filePath = Path.Combine(dir, $"session_{DateTime.Now:yyyyMMdd_HHmmss}.jsonl");
+                Directory.CreateDirectory(RecordingsDirectory);
+                filePath = Path.Combine(RecordingsDirectory, $"session_{DateTime.Now:yyyyMMdd_HHmmss}.jsonl");
             }
             else
             {
@@ -152,9 +156,7 @@ public class SessionRecorder : BufferedFileWriter
 
     public static string[] ListRecordings(string? directory = null)
     {
-        directory ??= Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ACCcom", "recordings");
+        directory ??= RecordingsDirectory;
         if (!Directory.Exists(directory))
             return Array.Empty<string>();
 

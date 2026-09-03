@@ -20,7 +20,8 @@
                 </Ellipse>
                 <TextBlock Text="{Binding StatusText}" FontSize="11"
                           Foreground="{DynamicResource InkSecondaryBrush}"
-                          ToolTip="操作状态/最近消息（双击清空）" />
+                          ToolTip="操作状态/最近消息（双击清空）"
+                          MouseLeftButtonUp="OnStatusClearClick" />
             </StackPanel>
         </StatusBarItem>
 
@@ -144,6 +145,12 @@
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                         Background="Transparent" MouseLeftButtonUp="OnRecordingClick"
                         ToolTip="{Binding RecordingFile}">
+                <StackPanel.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{Binding [Menu.OpenRecordingsFolder], Source={x:Static local:LanguageManager.Instance}}"
+                                  Click="OnOpenRecordingsFolder_Click" />
+                    </ContextMenu>
+                </StackPanel.ContextMenu>
                 <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource RedErrorBrush}">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
