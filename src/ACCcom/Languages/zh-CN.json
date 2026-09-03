@@ -535,5 +535,6 @@
   "MacroWindow.ColWaitTimeout": "超时(ms)",
   "Status.MacrosOpened": "宏管理器已打开",
   "Status.MacroCreated": "宏已创建：{0}",
-  "Status.MacroDeleted": "宏已删除：{0}"
+  "Status.MacroDeleted": "宏已删除：{0}",
+  "Tip.ExpressionFilter": "表达式过滤：text contains \"OK\" and direction==RX\n字段：text/hex/direction/port/modbus.func/modbus.slave/time\n运算符：== != > < >= <= contains\n逻辑：and or not ( )"
 }

@@ -170,6 +170,31 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private bool _isRegexFilter;
     public bool IsRegexFilter { get => _isRegexFilter; set { if (SetField(ref _isRegexFilter, value)) { FilteredRxEntries?.Refresh(); FilteredTxEntries?.Refresh(); } } }
 
+    private bool _useExpressionFilter;
+    /// <summary>Filter matching via PacketFilter expression syntax ("text contains OK and direction==RX").</summary>
+    public bool UseExpressionFilter
+    {
+        get => _useExpressionFilter;
+        set
+        {
+            if (SetField(ref _useExpressionFilter, value))
+            {
+                RebuildFilterEngines();
+                FilteredRxEntries?.Refresh();
+                FilteredTxEntries?.Refresh();
+            }
+        }
+    }
+
+    private PacketFilterEngine? _rxExpressionEngine;
+    private PacketFilterEngine? _txExpressionEngine;
+
+    private void RebuildFilterEngines()
+    {
+        _rxExpressionEngine = _useExpressionFilter && !string.IsNullOrWhiteSpace(_rxFilterText) ? new PacketFilterEngine(_rxFilterText) : null;
+        _txExpressionEngine = _useExpressionFilter && !string.IsNullOrWhiteSpace(_txFilterText) ? new PacketFilterEngine(_txFilterText) : null;
+    }
+
     private bool _showRx = true;
     public bool ShowRx { get => _showRx; set { if (SetField(ref _showRx, value)) FilteredRxEntries?.Refresh(); } }
 
@@ -313,6 +338,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _filterDebounce.Tick += (_, _) =>
         {
             _filterDebounce.IsEnabled = false;
+            RebuildFilterEngines();
             FilteredRxEntries?.Refresh();
             FilteredTxEntries?.Refresh();
         };
@@ -355,9 +381,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
-        FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx);
+        FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx, _rxExpressionEngine);
         FilteredTxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(TxEntries);
-        FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx);
+        FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx, _txExpressionEngine);
     }
 
     public void OnSerialData(LogEntry entry)
@@ -884,9 +910,17 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection)
+    private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine)
     {
         if (!showDirection) return false;
+        if (expressionEngine != null)
+        {
+            // Expression filter mode: PacketFilter syntax handles everything,
+            // so the plain-text/regex path below is bypassed.
+            var exprMatch = expressionEngine.Matches(entry);
+            entry.IsSearchMatch = exprMatch;
+            return exprMatch;
+        }
         if (string.IsNullOrWhiteSpace(filter))
         {
             entry.IsSearchMatch = false;

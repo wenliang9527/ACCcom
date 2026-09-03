@@ -535,5 +535,6 @@
   "MacroWindow.ColWaitTimeout": "Timeout (ms)",
   "Status.MacrosOpened": "Macro manager opened",
   "Status.MacroCreated": "Macro created: {0}",
-  "Status.MacroDeleted": "Macro deleted: {0}"
+  "Status.MacroDeleted": "Macro deleted: {0}",
+  "Tip.ExpressionFilter": "Expression filter: text contains \"OK\" and direction==RX\nFields: text/hex/direction/port/modbus.func/modbus.slave/time\nOperators: == != > < >= <= contains\nLogic: and or not ( )"
 }

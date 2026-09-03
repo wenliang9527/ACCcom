@@ -49,6 +49,9 @@
                                          ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
+                                <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                              FontFamily="Consolas" FontSize="11" Padding="4,1"
+                                              ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- display group -->
@@ -252,6 +255,9 @@
                                          ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
+                                <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                              FontFamily="Consolas" FontSize="11" Padding="4,1"
+                                              ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- display group -->
