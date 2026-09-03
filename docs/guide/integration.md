@@ -324,7 +324,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `activate_parser` | 激活/停用解析器 |
 | `parse_raw` | 离线解析 Hex 数据（无需串口，用于验证解析器是否正确） |
 | `generate_parser` | 根据协议 schema JSON 自动生成 .csx 解析器脚本 |
-| `validate_parser` | 校验协议 schema JSON（不生成脚本） |
+| `validate_schema` | 校验协议 schema JSON（不生成脚本） |
 | `get_schema_template` | 获取协议 schema JSON 模板 |
 | `analyze_protocol` | 批量分析协议数据（字段统计、错误分布、解析结果） |
 | `compare_frames` | 逐帧对比两组 Hex 数据的字段差异 |
