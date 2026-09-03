@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -15,6 +16,13 @@ public class MacroViewModel : ObservableObject
 
     public ObservableCollection<MacroTemplate> Macros { get; } = new();
 
+    private MacroTemplate? _selectedMacro;
+    public MacroTemplate? SelectedMacro
+    {
+        get => _selectedMacro;
+        set => SetField(ref _selectedMacro, value);
+    }
+
     private bool _isMacroRunning;
     public bool IsMacroRunning { get => _isMacroRunning; set => SetField(ref _isMacroRunning, value); }
 
@@ -25,6 +33,10 @@ public class MacroViewModel : ObservableObject
     public ICommand StopMacroCommand { get; }
     public ICommand SaveMacroCommand { get; }
     public ICommand LoadMacroCommand { get; }
+    public ICommand AddMacroCommand { get; }
+    public ICommand DeleteMacroCommand { get; }
+    public ICommand AddStepCommand { get; }
+    public ICommand RemoveStepCommand { get; }
 
     public MacroViewModel(
         ISerialService serial,
@@ -43,6 +55,10 @@ public class MacroViewModel : ObservableObject
         StopMacroCommand = new RelayCommand(_ => StopMacro(), _ => IsMacroRunning);
         SaveMacroCommand = new RelayCommand(_ => SaveMacro());
         LoadMacroCommand = new RelayCommand(_ => LoadMacro());
+        AddMacroCommand = new RelayCommand(_ => AddMacro());
+        DeleteMacroCommand = new RelayCommand(_ => DeleteMacro(), _ => SelectedMacro != null);
+        AddStepCommand = new RelayCommand(_ => AddStep(), _ => SelectedMacro != null);
+        RemoveStepCommand = new RelayCommand(_ => RemoveStep(), _ => SelectedMacro?.Steps.Count > 0);
     }
 
     public async Task LoadMacrosAsync()
@@ -80,8 +96,8 @@ public class MacroViewModel : ObservableObject
 
     private async Task RunMacroAsync()
     {
-        if (Macros.Count == 0) { _setStatus(LanguageManager.Instance["Status.NoMacros"]); return; }
-        var macro = Macros[0];
+        var macro = SelectedMacro ?? Macros.FirstOrDefault();
+        if (macro == null) { _setStatus(LanguageManager.Instance["Status.NoMacros"]); return; }
         IsMacroRunning = true;
         MacroStatus = string.Format(LanguageManager.Instance["Status.MacroRunning"], macro.Name);
 
@@ -105,4 +121,44 @@ public class MacroViewModel : ObservableObject
     }
 
     private void StopMacro() => _macroManager.Stop();
+
+    private void AddMacro()
+    {
+        var name = NextMacroName();
+        var macro = new MacroTemplate
+        {
+            Name = name,
+            Description = "",
+            RepeatCount = 1,
+            Steps = new List<MacroStep> { new() { Command = "", DelayMs = 100 } }
+        };
+        Macros.Add(macro);
+        SelectedMacro = macro;
+        _setStatus(string.Format(LanguageManager.Instance["Status.MacroCreated"], name));
+    }
+
+    private string NextMacroName() => MacroNaming.NextName(Macros.Select(m => m.Name));
+
+    private void DeleteMacro()
+    {
+        if (SelectedMacro == null) return;
+        var name = SelectedMacro.Name;
+        Macros.Remove(SelectedMacro);
+        SelectedMacro = null;
+        try { _macroManager.Save(Macros); }
+        catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.MacrosSaveFailed"], ex.Message)); return; }
+        _setStatus(string.Format(LanguageManager.Instance["Status.MacroDeleted"], name));
+    }
+
+    private void AddStep()
+    {
+        if (SelectedMacro == null) return;
+        SelectedMacro.Steps.Add(new MacroStep { Command = "", DelayMs = 100 });
+    }
+
+    private void RemoveStep()
+    {
+        if (SelectedMacro?.Steps.Count > 0)
+            SelectedMacro.Steps.RemoveAt(SelectedMacro.Steps.Count - 1);
+    }
 }

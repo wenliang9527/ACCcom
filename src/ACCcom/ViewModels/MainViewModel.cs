@@ -46,6 +46,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private ProtocolTestViewModel? _protocolTest;
     private ProtocolTestWindow? _protocolTestWindow;
     private TriggerWindow? _triggerWindow;
+    private MacroWindow? _macroWindow;
     private ShortcutsWindow? _shortcutsWindow;
 
     private readonly ModbusConnectionManager _modbusConnectionManager = new();
@@ -237,6 +238,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
         OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
+        OpenMacroCommand = new RelayCommand(_ => OpenMacroWindow());
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
         OpenRecordingsFolderCommand = new RelayCommand(_ => OpenRecordingsFolder());
 
@@ -406,6 +408,22 @@ public class MainViewModel : ObservableObject, IDisposable
         StatusText = LanguageManager.Instance["Status.TriggersOpened"];
     }
 
+    private void OpenMacroWindow()
+    {
+        if (_macroWindow != null)
+        {
+            _macroWindow.Activate();
+            return;
+        }
+        _macroWindow = new MacroWindow(_tool.MacrosVm)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _macroWindow.Closed += (_, _) => _macroWindow = null;
+        _macroWindow.Show();
+        StatusText = LanguageManager.Instance["Status.MacrosOpened"];
+    }
+
     private void OpenProtocolTestWindow()
     {
         if (_protocolTestWindow != null)
@@ -521,6 +539,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<SerialPreset> Presets => _tool.Presets;
     public SerialPreset? SelectedPreset { get => _tool.SelectedPreset; set => _tool.SelectedPreset = value; }
     public ObservableCollection<MacroTemplate> Macros => _tool.Macros;
+    public MacroTemplate? SelectedMacro { get => _tool.SelectedMacro; set => _tool.SelectedMacro = value; }
     public bool IsMacroRunning { get => _tool.IsMacroRunning; set => _tool.IsMacroRunning = value; }
     public string MacroStatus { get => _tool.MacroStatus; set => _tool.MacroStatus = value; }
     public ObservableCollection<PortItemViewModel> ConnectedPorts => _tool.ConnectedPorts;
@@ -561,6 +580,11 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand StopMacroCommand => _tool.StopMacroCommand;
     public ICommand SaveMacroCommand => _tool.SaveMacroCommand;
     public ICommand LoadMacroCommand => _tool.LoadMacroCommand;
+    public ICommand AddMacroCommand => _tool.AddMacroCommand;
+    public ICommand DeleteMacroCommand => _tool.DeleteMacroCommand;
+    public ICommand AddMacroStepCommand => _tool.AddMacroStepCommand;
+    public ICommand RemoveMacroStepCommand => _tool.RemoveMacroStepCommand;
+    public ICommand OpenMacroCommand { get; }
     public ICommand OpenMultiPortCommand => _tool.OpenMultiPortCommand;
     public ICommand CloseMultiPortCommand => _tool.CloseMultiPortCommand;
     public ICommand CloseAllPortsCommand => _tool.CloseAllPortsCommand;

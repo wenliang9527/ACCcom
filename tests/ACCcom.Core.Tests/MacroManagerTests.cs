@@ -70,4 +70,15 @@ public class MacroManagerTests : IDisposable
         // Assert
         Assert.False(result);
     }
+
+    [Fact]
+    public void MacrosFile_IsUnderLocalAppData()
+    {
+        var baseDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom");
+        Assert.True(
+            MacroManager.MacrosFile.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase),
+            $"MacrosFile '{MacroManager.MacrosFile}' must live under LocalAppData so saves never hit a read-only install dir.");
+    }
 }

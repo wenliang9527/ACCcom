@@ -4,7 +4,8 @@ namespace ACCcom.Core.Services;
 
 public class MacroManager : JsonFilePersistenceManager<MacroTemplate>, IDisposable
 {
-    public static readonly string MacrosFile = Path.Combine(AppContext.BaseDirectory, "macros.json");
+    /// <summary>User macros live under LocalAppData so writes never hit a read-only install dir.</summary>
+    public static readonly string MacrosFile = Path.Combine(BaseDir, "macros.json");
     protected override string FileName => "macros.json";
 
     private CancellationTokenSource? _cts;

@@ -26,6 +26,7 @@ public class ToolViewModel : ObservableObject, IDisposable
     public ObservableCollection<SerialPreset> Presets => PresetsVm.Presets;
     public SerialPreset? SelectedPreset { get => PresetsVm.SelectedPreset; set => PresetsVm.SelectedPreset = value; }
     public ObservableCollection<MacroTemplate> Macros => MacrosVm.Macros;
+    public MacroTemplate? SelectedMacro { get => MacrosVm.SelectedMacro; set => MacrosVm.SelectedMacro = value; }
     public bool IsMacroRunning { get => MacrosVm.IsMacroRunning; set => MacrosVm.IsMacroRunning = value; }
     public string MacroStatus { get => MacrosVm.MacroStatus; set => MacrosVm.MacroStatus = value; }
     public ObservableCollection<PortItemViewModel> ConnectedPorts => MultiPort.ConnectedPorts;
@@ -48,6 +49,10 @@ public class ToolViewModel : ObservableObject, IDisposable
     public ICommand StopMacroCommand => MacrosVm.StopMacroCommand;
     public ICommand SaveMacroCommand => MacrosVm.SaveMacroCommand;
     public ICommand LoadMacroCommand => MacrosVm.LoadMacroCommand;
+    public ICommand AddMacroCommand => MacrosVm.AddMacroCommand;
+    public ICommand DeleteMacroCommand => MacrosVm.DeleteMacroCommand;
+    public ICommand AddMacroStepCommand => MacrosVm.AddStepCommand;
+    public ICommand RemoveMacroStepCommand => MacrosVm.RemoveStepCommand;
     public ICommand OpenMultiPortCommand => MultiPort.OpenMultiPortCommand;
     public ICommand CloseMultiPortCommand => MultiPort.CloseMultiPortCommand;
     public ICommand CloseAllPortsCommand => MultiPort.CloseAllPortsCommand;
