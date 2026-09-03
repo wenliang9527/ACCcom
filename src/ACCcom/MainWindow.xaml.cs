@@ -90,6 +90,15 @@ public partial class MainWindow : Window
 
         var mods = Keyboard.Modifiers;
 
+        // F1: Shortcut reference (standard help key). Works with or without
+        // modifiers so the overview is always one keystroke away.
+        if (e.Key == Key.F1)
+        {
+            _vm.OpenShortcutsCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Ctrl+1 / Ctrl+2: Jump to RX / TX panel and focus the search box. Saves the
         // user a click on the search field when they want to filter incoming data.
         if (mods == ModifierKeys.Control && (e.Key == Key.D1 || e.Key == Key.NumPad1))
@@ -194,10 +203,11 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }
         }
-        // Ctrl+F: Focus RX search box
+        // Ctrl+F: Focus RX search box (same as Ctrl+1; kept as the muscle-memory
+        // shortcut most people reach for first).
         else if (e.Key == Key.F && mods == ModifierKeys.Control)
         {
-            // Search box is now in DataPanel - need to expose it
+            FocusDataPanelSearch(rx: true);
             e.Handled = true;
         }
         // Ctrl+S: Save RX log

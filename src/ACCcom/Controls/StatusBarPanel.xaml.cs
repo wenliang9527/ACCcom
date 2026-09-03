@@ -45,4 +45,12 @@ public partial class StatusBarPanel : UserControl
             vm.ToggleRecordingCommand.Execute(null);
         }
     }
+
+    private void OnShortcutsClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.OpenShortcutsCommand.Execute(null);
+        }
+    }
 }

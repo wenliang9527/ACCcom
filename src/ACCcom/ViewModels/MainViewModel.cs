@@ -45,6 +45,7 @@ public class MainViewModel : ObservableObject, IDisposable
     private ProtocolTestViewModel? _protocolTest;
     private ProtocolTestWindow? _protocolTestWindow;
     private TriggerWindow? _triggerWindow;
+    private ShortcutsWindow? _shortcutsWindow;
 
     private readonly ModbusConnectionManager _modbusConnectionManager = new();
     private readonly ModbusSlaveService _modbusSlaveService = new();
@@ -179,6 +180,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenHighlightCommand { get; }
     public ICommand OpenProtocolTestCommand { get; }
     public ICommand OpenTriggerCommand { get; }
+    public ICommand OpenShortcutsCommand { get; }
     public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
     public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
     public HighlightViewModel Highlights => _highlights;
@@ -233,6 +235,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
         OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
+        OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenModbusCommand = new RelayCommand(_ =>
@@ -349,6 +352,22 @@ public class MainViewModel : ObservableObject, IDisposable
         await _tool.LoadPresetsAsync();
         await _tool.LoadMacrosAsync();
         _tool.LoadTriggers();
+    }
+
+    private void OpenShortcutsWindow()
+    {
+        if (_shortcutsWindow != null)
+        {
+            _shortcutsWindow.Activate();
+            return;
+        }
+        _shortcutsWindow = new ShortcutsWindow
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _shortcutsWindow.Closed += (_, _) => _shortcutsWindow = null;
+        _shortcutsWindow.Show();
+        StatusText = LanguageManager.Instance["Status.ShortcutsOpened"];
     }
 
     private void OpenTriggerWindow()
