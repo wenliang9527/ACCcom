@@ -28,7 +28,8 @@
     <!-- Accent: ultramarine-teal turban -->
     <Color x:Key="Accent">#3E8E9E</Color>
     <Color x:Key="AccentHover">#55A6B5</Color>
-    <Color x:Key="AccentPressed">#2F7684</Color>
+    <Color x:Key="AccentPressed">#48919E</Color>
+    <Color x:Key="OnAccent">#1B1B1B</Color>
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#6FA8B8</Color>
@@ -36,7 +37,7 @@
     <Color x:Key="StatusGreen">#8FAF7E</Color>
     <!-- Lemon yellow of the draped cloth -->
     <Color x:Key="StatusWarning">#E3C95F</Color>
-    <Color x:Key="StatusError">#C96A5E</Color>
+    <Color x:Key="StatusError">#D17362</Color>
 
     <Color x:Key="StatusWarningBg">#18E3C95F</Color>
     <Color x:Key="StatusErrorBg">#18C96A5E</Color>
@@ -71,6 +72,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccent}" />
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />

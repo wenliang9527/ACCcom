@@ -29,13 +29,14 @@
     <Color x:Key="Accent">#D9B44A</Color>
     <Color x:Key="AccentHover">#E8C968</Color>
     <Color x:Key="AccentPressed">#BF9A32</Color>
+    <Color x:Key="OnAccent">#1B1B1B</Color>
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#8FA67E</Color>
     <Color x:Key="StatusGray">#98957C</Color>
     <Color x:Key="StatusGreen">#A3B36B</Color>
     <Color x:Key="StatusWarning">#D9B44A</Color>
-    <Color x:Key="StatusError">#C4685A</Color>
+    <Color x:Key="StatusError">#CE6E5E</Color>
 
     <Color x:Key="StatusWarningBg">#18D9B44A</Color>
     <Color x:Key="StatusErrorBg">#18C4685A</Color>
@@ -69,6 +70,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccent}" />
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />

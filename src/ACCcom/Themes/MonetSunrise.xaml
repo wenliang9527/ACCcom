@@ -23,19 +23,20 @@
     <!-- Text hierarchy: warm mist -->
     <Color x:Key="InkPrimary">#EDEAE2</Color>
     <Color x:Key="InkSecondary">#B8BCC4</Color>
-    <Color x:Key="InkTertiary">#8E97A6</Color>
+    <Color x:Key="InkTertiary">#A6AFBE</Color>
 
     <!-- Accent: the rising sun through mist -->
     <Color x:Key="Accent">#E8794A</Color>
     <Color x:Key="AccentHover">#F2916A</Color>
     <Color x:Key="AccentPressed">#D06235</Color>
+    <Color x:Key="OnAccent">#111827</Color>
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#7FA8C9</Color>
     <Color x:Key="StatusGray">#8E97A6</Color>
     <Color x:Key="StatusGreen">#86B58B</Color>
     <Color x:Key="StatusWarning">#E8B84A</Color>
-    <Color x:Key="StatusError">#D97064</Color>
+    <Color x:Key="StatusError">#EFA090</Color>
 
     <Color x:Key="StatusWarningBg">#18E8B84A</Color>
     <Color x:Key="StatusErrorBg">#18D97064</Color>
@@ -70,6 +71,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccent}" />
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />

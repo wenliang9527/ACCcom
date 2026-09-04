@@ -25,19 +25,20 @@
     <!-- Text hierarchy (cool dark) -->
     <Color x:Key="InkPrimary">#1A1D24</Color>
     <Color x:Key="InkSecondary">#5A6070</Color>
-    <Color x:Key="InkTertiary">#9CA3AF</Color>
+    <Color x:Key="InkTertiary">#6B7280</Color>
 
-    <!-- Accent: violet -->
-    <Color x:Key="Accent">#8B5CF6</Color>
-    <Color x:Key="AccentHover">#A78BFA</Color>
-    <Color x:Key="AccentPressed">#7C3AED</Color>
+    <!-- Accent: violet (darkened ramp so white button text meets AA) -->
+    <Color x:Key="Accent">#7C3AED</Color>
+    <Color x:Key="AccentHover">#6D28D9</Color>
+    <Color x:Key="AccentPressed">#5B21B6</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
 
-    <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#8B5CF6</Color>
-    <Color x:Key="StatusGray">#9CA3AF</Color>
-    <Color x:Key="StatusGreen">#22C55E</Color>
-    <Color x:Key="StatusWarning">#EAB308</Color>
-    <Color x:Key="StatusError">#EF4444</Color>
+    <!-- Status semantics (darkened for AA on white) -->
+    <Color x:Key="StatusBlue">#7C3AED</Color>
+    <Color x:Key="StatusGray">#6B7280</Color>
+    <Color x:Key="StatusGreen">#15803D</Color>
+    <Color x:Key="StatusWarning">#A16207</Color>
+    <Color x:Key="StatusError">#DC2626</Color>
 
     <!-- Status background tints -->
     <Color x:Key="StatusWarningBg">#15EAB308</Color>
@@ -68,6 +69,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccent}" />
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />

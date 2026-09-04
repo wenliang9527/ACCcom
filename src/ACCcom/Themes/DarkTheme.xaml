@@ -25,16 +25,17 @@
     <!-- Text hierarchy -->
     <Color x:Key="InkPrimary">#E4E4E9</Color>
     <Color x:Key="InkSecondary">#A0A0AB</Color>
-    <Color x:Key="InkTertiary">#7A7A88</Color>
+    <Color x:Key="InkTertiary">#84848F</Color>
 
-    <!-- Accent: violet -->
+    <!-- Accent: violet (OnAccent=dark so bright-violet buttons carry readable text) -->
     <Color x:Key="Accent">#A78BFA</Color>
     <Color x:Key="AccentHover">#C4B5FD</Color>
-    <Color x:Key="AccentPressed">#8B5CF6</Color>
+    <Color x:Key="AccentPressed">#9B7AFA</Color>
+    <Color x:Key="OnAccent">#1B1B1B</Color>
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#A78BFA</Color>
-    <Color x:Key="StatusGray">#7A7A88</Color>
+    <Color x:Key="StatusGray">#84848F</Color>
     <Color x:Key="StatusGreen">#4ADE80</Color>
     <Color x:Key="StatusWarning">#FACC15</Color>
     <Color x:Key="StatusError">#F87171</Color>
@@ -68,6 +69,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccent}" />
     <SolidColorBrush x:Key="StatusBlueBrush" Color="{StaticResource StatusBlue}" />
     <SolidColorBrush x:Key="StatusGrayBrush" Color="{StaticResource StatusGray}" />
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
