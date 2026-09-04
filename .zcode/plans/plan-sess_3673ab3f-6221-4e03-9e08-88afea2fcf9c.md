@@ -1,28 +1,39 @@
-## 第 52 轮:数据通路分配与查找收敛
+## 第 53 轮:UI 响应性 — CompareWindow 冻结修复 + 启动路径测量先行
 
-聚焦三个已核实的优化点(CompareWindow 冻结与启动速度留待后续轮):
+### 背景
+上轮探索确认两个候选。本轮做主项 CompareWindow 冻结修复(高收益低风险);启动路径按探索建议"先测量再动刀"——本轮只加计时埋点 + 无风险并行化,`_http.Start()` 移出构造函数、ApplyTheme 异步加载这类中风险改动留到拿到实测数据后的下一轮。
 
-### 改动 1(零风险·热路径):PatternMatcher 去 ToLowerInvariant 分配
-**现状**:`PatternMatcher.MatchesPattern`(src/ACCcom.Core/Services/PatternMatcher.cs:39)每包×每规则调用 `matchMode.ToLowerInvariant()` → 每次分配新字符串。调用链:TriggerService.Evaluate(每包×每启用规则)+ DataBufferWaiter.Matches(有 waiter 时每包)。`ProtocolTestRunner.MatchesExpectation`(:180)同样模式。
-**改法**:`matchMode.ToLowerInvariant() switch` → 三个 `Equals(..., StringComparison.OrdinalIgnoreCase)` 分支(contains/exact/regex),零分配。ProtocolTestRunner 同步改(其 exact 分支用 `Ordinal` 区分大小写——语义保留,只换比较方式)。现有 PatternMatcherTests(大小写不敏感用例)守护。
+### 改动 1:CompareWindow 对比循环移出 UI 线程 + 逻辑抽入 Core 可测
+**现状**:`CompareWindow.xaml.cs:58-73` 逐行对比循环(2 次插值 + 2 次 `new DiffRow` + 2 次 Add × 10 万行)全在 UI 线程 → 秒级冻结。DiffRow 是嵌套在窗口里的 record,零测试。
+**改法**:
+- 新建 `src/ACCcom.Core/Models/DiffRow.cs`:`public sealed record DiffRow(string Display, bool IsDiff);`(字段不变,XAML 的 `{Binding Display}`/`IsDiff` DataTrigger 无需动)
+- 新建 `src/ACCcom.Core/Services/DiffEngine.cs`:`public static (List<DiffRow> RowsA, List<DiffRow> RowsB, int Matching, int Different) BuildDiff(string[] linesA, string[] linesB)`——把 63-73 行逻辑原样搬入(逐行等位对比、空串补位、Ordinal 判等、预分配容量)
+- `CompareWindow.Compare_Click`:`await Task.Run(() => DiffEngine.BuildDiff(linesA, linesB))`,解构结果,ItemsSource 赋值与 SummaryText 仍留在 UI 线程(await 后默认回 UI 上下文);新增 catch 兜底 Task.Run 内异常(超大输入等),finally 恢复按钮不变
+- `DiffRow` 移入 Core.Models 后 CompareWindow 加 `using ACCcom.Core.Models;`
 
-### 改动 2(中风险·读取路径):DataBufferService.GetEntriesSince 全环扫描 → 尾部定位
-**现状**:`:91-109` 每次调用从头扫全部 10k 条目过滤 `Id > id`,满环时 10k 次迭代/次调用(MCP read_data、HTTP /api/data 轮询)。
-**前提已核实**:LogEntry.Id 由 SerialService/NetworkBridgeService `Interlocked.Increment` 严格单调赋值,新条目总是落在 ring 尾部,`Id > id` 的条目构成连续尾部段。
-**改法**:在 `_head` 环形上对 Id 做二分查找下界(线性化索引标准二分,结果模 `_capacity` 映射回环),只拷贝尾部连续段;方向过滤与 limit 合并进单次拷贝。`id >= _maxId` 早退保留。
-**测试**:现有 DataBufferServiceTests/ConcurrencyTests 全绿,新增 1 个换行(wrap)场景测试 + 1 个方向过滤测试。
+### 改动 2:新增 DiffEngineTests(5 个)
+- 等长全同 / 等长有差异(IsDiff 标记与 matching/different 计数)
+- 不等长补位(短文件空串补位,计数正确)
+- 空文件对空文件 / 单侧空文件
+- 行号前缀格式(`[{i+1}] `)断言
+- 大批量输入(如 50k 行)快速完成(冒烟,不卡)
 
-### 改动 3(零风险·热路径):FrameAssembler.Feed 每包 2 次字符串分配 → 单遍追加
-**现状**:`:44` `entry.RawHex.Trim()`(分配)+ `:50` `StripSpaces(hex)`(StringBuilder+ToString,分配)→ 每 fragment 包 2 分配 3 遍扫描,才拷入 `_hexBuf`。
-**改法**:新增 `AppendHexStripped(string rawHex)` 单遍跳过空白字符直接写 `_hexBuf`(返回有效字符数用于空判断),替换 Trim+StripSpaces+AppendHex 三连;`StripSpaces` 仅保留给 `GetHeaderNoSpace`(低频,缓存后不变)。TryComplete 的 `HexToBytes()` 每完成帧一次 `new byte[]`(最大 4096,非每包)不动。
+### 改动 3:启动路径计时埋点(零风险,为下一轮提供数据)
+- `MainViewModel` 构造函数各阶段加 `Stopwatch` 分段计时:SettingsService.Load / ParserManager / HttpService.Start / 各 ViewModel 构造 / ApplyTheme+BuildThemeOptions / LanguageManager.LoadLanguage,结束时 `Debug.WriteLine("[startup] ctor stages: ...")` 输出各段 ms
+- `MainWindow` 构造函数对 `new MainViewModel(...)` 单独计时输出
+- 仅添加 Debug 输出,不改任何执行顺序与行为
 
-### 不做
-- CompareWindow 大文件 UI 冻结:下一轮做,涉及 Task.Run 重构
-- 启动路径首帧延迟:需实测收益,单独一轮
-- FrameBuffer.EmitFrame async void / TriggerViewModel 写文件:低频或已可控
+### 改动 4:InitializeAsync 无风险并行化
+- `MainViewModel.InitializeAsync`(L362-368):`LoadShortcutsAsync/LoadPresetsAsync/LoadMacrosAsync` 三连 await → `Task.WhenAll`(互无数据依赖,各自填独立 ObservableCollection);`LoadTriggers` 同步文件读包 `Task.Run`
+- 已在 UI 线程外的 fire-and-forget 中执行,并行只省墙钟,无绑定风险
+
+### 不做(留待测量后)
+- `_http.Start()` 移出构造函数 / 失败降级:中风险(API/仪表盘就绪时序),下一轮按埋点数据决定
+- ApplyTheme 字典异步加载 / BuildThemeOptions 缓存:中风险(主题就位时序),同上
+- CompareWindow 行号前缀共享等内存优化:收益中低,冻结修复后无必要
 
 ### 验收标准
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(567 Core + 10 McpServer,含新增 2 个)
-3. 逻辑验证:PatternMatcher 零分配、GetEntriesSince 满环 O(log N+k)、FrameAssembler 单遍追加
+2. `dotnet test`:全绿(569 Core + 新增 5 = 574,10 McpServer)
+3. 逻辑验证:大文件对比 UI 不冻结;启动埋点输出各阶段耗时;InitializeAsync 并行无行为变化
 4. 工作树干净,commit + push 到 GitHub

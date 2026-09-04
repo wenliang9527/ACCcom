@@ -1,15 +1,14 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using ACCcom.Core.Models;
+using ACCcom.Core.Services;
 using ACCcom.Helpers;
 
 namespace ACCcom;
 
 public partial class CompareWindow : Window
 {
-    /// <summary>One rendered line of a compared file.</summary>
-    public sealed record DiffRow(string Display, bool IsDiff);
-
     public CompareWindow()
     {
         InitializeComponent();
@@ -56,20 +55,21 @@ public partial class CompareWindow : Window
             }
 
             int maxCount = Math.Max(linesA.Length, linesB.Length);
-            var rowsA = new List<DiffRow>(maxCount);
-            var rowsB = new List<DiffRow>(maxCount);
-            int matching = 0, different = 0;
 
-            for (int i = 0; i < maxCount; i++)
+            // The row construction (string interpolation + DiffRow allocation per
+            // line) is pure computation; run it off the UI thread so comparing
+            // 100k-line files doesn't freeze the window. DiffEngine is in Core
+            // and unit-tested.
+            List<DiffRow> rowsA, rowsB;
+            int matching, different;
+            try
             {
-                var a = i < linesA.Length ? linesA[i] : "";
-                var b = i < linesB.Length ? linesB[i] : "";
-
-                bool same = string.Equals(a, b, StringComparison.Ordinal);
-                if (same) matching++; else different++;
-
-                rowsA.Add(new DiffRow($"[{i + 1}] {a}", !same));
-                rowsB.Add(new DiffRow($"[{i + 1}] {b}", !same));
+                (rowsA, rowsB, matching, different) = await Task.Run(() => DiffEngine.BuildDiff(linesA, linesB));
+            }
+            catch (Exception ex)
+            {
+                SummaryText.Text = string.Format(LanguageManager.Instance["CompareWindow.ReadFileError"], ex.Message);
+                return;
             }
 
             // Single ItemsSource assignment; the ListBox virtualizes containers.

@@ -198,8 +198,17 @@ public class MainViewModel : ObservableObject, IDisposable
     public MainViewModel(ISerialService serial)
     {
         _serial = serial;
+        // Startup profile: the ctor runs synchronously before the first frame is
+        // shown, so each stage's cost is visible here to guide deferral work.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        void Stage(string name)
+        {
+            System.Diagnostics.Debug.WriteLine($"[startup] ctor: {name} = {sw.ElapsedMilliseconds}ms");
+        }
+
         _settings = _settingsService.Load();
         _parserManager = new ParserManager(dispatch: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action), parserCacheSize: _settings.ParserCacheSize);
+        Stage("settings+parser");
 
         _http = new HttpService(new HttpServiceOptions
         {
@@ -216,6 +225,7 @@ public class MainViewModel : ObservableObject, IDisposable
             ApiToken = string.IsNullOrWhiteSpace(_settings.HttpApiToken) ? null : _settings.HttpApiToken
         });
         _http.Start();
+        Stage("http start");
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
 
@@ -232,6 +242,7 @@ public class MainViewModel : ObservableObject, IDisposable
             () => _connection,
             () => OpenPlotWindow(),
             () => OpenStatsWindow());
+        Stage("viewmodels");
 
         _connection.PropertyChanged += (_, e) => RaisePropertyChanged(e);
         _dataFlow.PropertyChanged += (_, e) => RaisePropertyChanged(e);
@@ -334,6 +345,7 @@ public class MainViewModel : ObservableObject, IDisposable
             : (_settings.IsDarkTheme ? "Dark" : "Light");
         App.ApplyTheme(_selectedTheme);
         BuildThemeOptions();
+        Stage("theme");
         LanguageManager.Instance.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is "Item[]" or "Item") BuildThemeOptions();
@@ -341,6 +353,7 @@ public class MainViewModel : ObservableObject, IDisposable
         _showQuickSendSidebar = _settings.ShowQuickSendSidebar;
         _connection.SelectedLanguage = _settings.Language;
         LanguageManager.Instance.LoadLanguage(_settings.Language);
+        Stage("language");
         if (!string.IsNullOrEmpty(_settings.LastPort) && _connection.AvailablePorts.Contains(_settings.LastPort))
             _connection.SelectedPort = _settings.LastPort;
 
@@ -357,14 +370,19 @@ public class MainViewModel : ObservableObject, IDisposable
             _tool.StatsViewModel?.Update(_stats, RxByteCount, TxByteCount, RxCount, TxCount, ConnectionDuration);
         };
         _statsTimer.Start();
+        Stage("ctor total");
     }
 
     public async Task InitializeAsync()
     {
-        await _tool.LoadShortcutsAsync();
-        await _tool.LoadPresetsAsync();
-        await _tool.LoadMacrosAsync();
-        _tool.LoadTriggers();
+        // Shortcuts/presets/macros read separate files with no data dependency;
+        // run them in parallel, then load triggers (synchronous file read) off
+        // the calling thread.
+        await Task.WhenAll(
+            _tool.LoadShortcutsAsync(),
+            _tool.LoadPresetsAsync(),
+            _tool.LoadMacrosAsync());
+        await Task.Run(() => _tool.LoadTriggers());
     }
 
     private void OpenShortcutsWindow()
