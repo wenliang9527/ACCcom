@@ -325,6 +325,8 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 
 `launch_acccom.ps1` 优先启动编译好的 Release exe（秒级启动），未构建时才回退到 `dotnet run`。修改配置后重启 ZCode 会话即生效，调用 `health_check` 可验证连接。
 
+**ZCode 内使用：** 无需手动打开任何东西，工具以 `mcp__acccom__*` 形式在会话内直接可用，用自然语言提出需求即可（如"列出可用串口"→ `list_ports`）。输入 `/acccom-help` 查看 39 个工具的分类速查表与典型工作流；`/acccom-gui` 启动 WPF 桌面端做可视化监控。
+
 **代理模式（需要 WPF 桌面端在 :8899 监听）：**
 
 ```json
