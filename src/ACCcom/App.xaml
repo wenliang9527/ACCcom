@@ -80,6 +80,21 @@
             <!-- resources)                                     -->
             <!-- ============================================== -->
 
+            <!-- Keyboard focus ring: custom ControlTemplates drop the default
+                 focus visual, so keyboard users had no cue where Tab landed.
+                 Applied via FocusVisualStyle on every interactive control. -->
+            <Style x:Key="FocusRing" TargetType="Control">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Control">
+                            <Border BorderThickness="1.5" CornerRadius="6"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    Margin="-2" Opacity="0.9" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- Toolbar vertical separator -->
             <Style x:Key="ToolSeparator" TargetType="Rectangle">
                 <Setter Property="Width" Value="1" />
@@ -91,6 +106,7 @@
 
             <!-- Tool toggle (gear / sidebar buttons) -->
             <Style x:Key="ToolToggle" TargetType="ToggleButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
                 <Setter Property="FontSize" Value="14" />
@@ -228,6 +244,7 @@
             <!-- Primary Button                                 -->
             <!-- ============================================== -->
             <Style TargetType="Button" x:Key="PrimaryButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
                 <Setter Property="Height" Value="30" />
@@ -290,6 +307,7 @@
 
             <!-- Open/Close Button -->
             <Style TargetType="Button" x:Key="OpenCloseButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
                 <Setter Property="Height" Value="30" />
@@ -400,6 +418,7 @@
 
             <!-- Outline Button -->
             <Style TargetType="Button" x:Key="OutlineButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="Height" Value="28" />
@@ -466,6 +485,7 @@
 
             <!-- Header Button -->
             <Style TargetType="Button" x:Key="HeaderButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
                 <Setter Property="Height" Value="24" />
@@ -527,6 +547,7 @@
             <!-- ComboBox                                       -->
             <!-- ============================================== -->
             <Style TargetType="ComboBox">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Height" Value="26" />
@@ -608,6 +629,7 @@
 
             <!-- ComboBoxItem -->
             <Style TargetType="ComboBoxItem">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="Padding" Value="10,5" />
@@ -637,6 +659,7 @@
             <!-- CheckBox                                       -->
             <!-- ============================================== -->
             <Style TargetType="CheckBox">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="FontSize" Value="11" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
@@ -702,6 +725,7 @@
             <!-- TextBox                                        -->
             <!-- ============================================== -->
             <Style TargetType="TextBox">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="FontFamily" Value="Consolas" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
@@ -734,6 +758,7 @@
 
             <!-- Numeric TextBox -->
             <Style TargetType="TextBox" x:Key="NumericBox">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontSize" Value="11" />
                 <Setter Property="FontFamily" Value="Consolas" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
@@ -786,6 +811,7 @@
             <!-- ListBoxItem (clean, no highlight)              -->
             <!-- ============================================== -->
             <Style TargetType="ListBoxItem">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="BorderThickness" Value="0" />
@@ -894,6 +920,7 @@
                 <Setter Property="Padding" Value="0" />
             </Style>
             <Style TargetType="TabItem">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="FontSize" Value="12" />
@@ -978,6 +1005,7 @@
             <!-- Title Bar Button Styles (chromeless windows)   -->
             <!-- ============================================== -->
             <Style x:Key="TitleBarButton" TargetType="Button">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
                 <Setter Property="FontSize" Value="10" />

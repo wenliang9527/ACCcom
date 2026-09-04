@@ -55,6 +55,7 @@
     <!-- Diff badge backgrounds -->
     <Color x:Key="DiffMatchBg">#3322C55E</Color>
     <Color x:Key="DiffDiffBg">#33EF4444</Color>
+    <Color x:Key="CompareDiffBg">#33FFC800</Color>
 
     <!-- Search highlight -->
     <Color x:Key="SearchHighlight">#30FFE066</Color>
@@ -86,6 +87,9 @@
     <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
     <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
     <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />
+    <SolidColorBrush x:Key="DiffMatchBgBrush" Color="{StaticResource DiffMatchBg}" />
+    <SolidColorBrush x:Key="DiffDiffBgBrush" Color="{StaticResource DiffDiffBg}" />
+    <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
     <SolidColorBrush x:Key="DividerBrush" Color="#27272A" />
 

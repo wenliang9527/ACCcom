@@ -50,6 +50,7 @@
 
     <Color x:Key="DiffMatchBg">#3386B58B</Color>
     <Color x:Key="DiffDiffBg">#33D97064</Color>
+    <Color x:Key="CompareDiffBg">#33E8B84A</Color>
 
     <!-- Sun glow on water -->
     <Color x:Key="SearchHighlight">#38E89A50</Color>
@@ -88,6 +89,9 @@
     <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
     <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
     <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />
+    <SolidColorBrush x:Key="DiffMatchBgBrush" Color="{StaticResource DiffMatchBg}" />
+    <SolidColorBrush x:Key="DiffDiffBgBrush" Color="{StaticResource DiffDiffBg}" />
+    <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
     <SolidColorBrush x:Key="DividerBrush" Color="#46556D" />
 

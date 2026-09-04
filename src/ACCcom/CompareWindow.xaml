@@ -93,7 +93,7 @@
                                             <Setter Property="Background" Value="Transparent" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsDiff}" Value="True">
-                                                    <Setter Property="Background" Value="#28FFC800" />
+                                                    <Setter Property="Background" Value="{DynamicResource CompareDiffBgBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -129,7 +129,7 @@
                                             <Setter Property="Background" Value="Transparent" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsDiff}" Value="True">
-                                                    <Setter Property="Background" Value="#28FFC800" />
+                                                    <Setter Property="Background" Value="{DynamicResource CompareDiffBgBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

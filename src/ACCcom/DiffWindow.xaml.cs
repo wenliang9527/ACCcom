@@ -8,10 +8,12 @@ namespace ACCcom;
 
 public partial class DiffWindow : Window
 {
-    private static readonly SolidColorBrush MatchBrush = new(Color.FromArgb(0x33, 0x22, 0xC5, 0x5E));
-    private static readonly SolidColorBrush DiffBrush = new(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
-    private static readonly SolidColorBrush MatchFg = new(Color.FromRgb(0x22, 0xC5, 0x5E));
-    private static readonly SolidColorBrush DiffFg = new(Color.FromRgb(0xEF, 0x44, 0x44));
+    // Match/diff highlight brushes are resolved from the active theme on every
+    // compare so DiffWindow follows the current palette (light/dark/art themes).
+    private SolidColorBrush MatchBrush => (SolidColorBrush)FindResource("DiffMatchBgBrush");
+    private SolidColorBrush DiffBrush => (SolidColorBrush)FindResource("DiffDiffBgBrush");
+    private SolidColorBrush MatchFg => (SolidColorBrush)FindResource("StatusGreenBrush");
+    private SolidColorBrush DiffFg => (SolidColorBrush)FindResource("StatusErrorBrush");
 
     public DiffWindow()
     {

@@ -7,9 +7,9 @@
     <UserControl.Resources>
         <!-- Icon button for page navigation -->
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
-            <Setter Property="Width" Value="24" />
+            <Setter Property="Width" Value="26" />
             <Setter Property="Height" Value="24" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Padding" Value="0" />
         </Style>
         <!-- Command row: flat full-width button -->
@@ -17,6 +17,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
