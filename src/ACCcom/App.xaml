@@ -1349,6 +1349,7 @@
             <!-- Window                                         -->
             <!-- ============================================== -->
             <Style TargetType="Window">
+                <Setter Property="Icon" Value="/ACCcom;component/Assets/app.ico" />
                 <Setter Property="Background" Value="{DynamicResource BgBaseBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
@@ -1356,6 +1357,7 @@
             </Style>
 
             <Style x:Key="WindowStyle" TargetType="Window">
+                <Setter Property="Icon" Value="/ACCcom;component/Assets/app.ico" />
                 <Setter Property="Background" Value="{DynamicResource BgBaseBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />

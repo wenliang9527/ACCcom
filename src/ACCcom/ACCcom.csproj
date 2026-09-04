@@ -5,10 +5,12 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>ACCcom</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ACCcom.Core\ACCcom.Core.csproj" />
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
   <ItemGroup>
