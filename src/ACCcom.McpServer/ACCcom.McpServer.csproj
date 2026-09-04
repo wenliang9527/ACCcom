@@ -4,6 +4,9 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>ACCcom.McpServer</RootNamespace>
+    <!-- R2R precompiles core code paths: the stdio server starts in ~1s and
+         keeps JIT code pages out of the working set. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

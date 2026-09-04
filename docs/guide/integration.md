@@ -327,6 +327,8 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 
 **ZCode 内使用：** 无需手动打开任何东西，工具以 `mcp__acccom__*` 形式在会话内直接可用，用自然语言提出需求即可（如"列出可用串口"→ `list_ports`）。输入 `/acccom-help` 查看 39 个工具的分类速查表与典型工作流；`/acccom-gui` 启动 WPF 桌面端做可视化监控。
 
+> **性能提示：** 运行 `dotnet publish src/ACCcom.McpServer -c Release` 生成 R2R 预编译版本后，`launch_acccom.ps1` 会自动优先使用它——冷启动从 ~520ms 降至 ~310ms（工作集约 52MB，其中托管堆仅 ~3MB，其余为 .NET 运行时固定成本）。
+
 **代理模式（需要 WPF 桌面端在 :8899 监听）：**
 
 ```json

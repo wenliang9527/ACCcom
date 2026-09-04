@@ -2,13 +2,24 @@ $ErrorActionPreference = "Stop"
 $ProjectDir = $PSScriptRoot
 Set-Location $ProjectDir
 
-$ExePath = Join-Path $ProjectDir "src\ACCcom.McpServer\bin\Release\net8.0\ACCcom.McpServer.exe"
 $ParserDir = "src/ACCcom.Core/parsers"
+$PublishExe = Join-Path $ProjectDir "src\ACCcom.McpServer\bin\Release\net8.0\win-x64\publish\ACCcom.McpServer.exe"
+$BuildExe = Join-Path $ProjectDir "src\ACCcom.McpServer\bin\Release\net8.0\ACCcom.McpServer.exe"
+$Csproj = Join-Path $ProjectDir "src\ACCcom.McpServer\ACCcom.McpServer.csproj"
 
-# Prefer the compiled exe: ZCode spawns the MCP server at session start,
-# and `dotnet run` adds ~5-10s build/startup latency per connection.
-if (Test-Path $ExePath) {
-    & $ExePath --parsers-dir $ParserDir
+# Prefer the R2R-published exe (cold start ~310ms vs ~520ms) when it is
+# newer than the source; otherwise the plain build, else `dotnet run`.
+if (Test-Path $PublishExe) {
+    $publishTime = (Get-Item $PublishExe).LastWriteTime
+    $srcTime = (Get-Item $Csproj).LastWriteTime
+    if ($publishTime -ge $srcTime) {
+        & $PublishExe --parsers-dir $ParserDir
+        exit $LASTEXITCODE
+    }
+}
+
+if (Test-Path $BuildExe) {
+    & $BuildExe --parsers-dir $ParserDir
     exit $LASTEXITCODE
 }
 

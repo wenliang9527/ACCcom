@@ -77,6 +77,7 @@ public class SerialTools
                 toolCount,
                 uptime = uptime.ToString(@"d\.hh\:mm\:ss"),
                 memoryMb = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
+                managedHeapMb = Math.Round(GC.GetTotalMemory(false) / 1024.0 / 1024.0, 1),
                 threadCount = process.Threads.Count,
                 isOpen = _serial!.IsOpen,
                 currentPort = _serial.CurrentPort,
