@@ -114,9 +114,9 @@ public class HttpService : IDisposable
         };
     }
 
-    private int GetRxCount() => Buffer.CountWhere(e => e.Direction == "RX");
+    private int GetRxCount() => Buffer.CountDirection("RX");
 
-    private int GetTxCount() => Buffer.CountWhere(e => e.Direction == "TX");
+    private int GetTxCount() => Buffer.CountDirection("TX");
 
     private int GetBufferCount() => Buffer.Count();
 

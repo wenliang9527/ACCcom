@@ -31,8 +31,8 @@ public class SerialTools
     public Task<string> GetStatus()
     {
         if (_ctx.UseProxy) return _proxy!.GetAsync("/api/status");
-        int rxCount = _ctx.Buffer.CountWhere(e => e.Direction == "RX");
-        int txCount = _ctx.Buffer.CountWhere(e => e.Direction == "TX");
+        int rxCount = _ctx.Buffer.CountDirection("RX");
+        int txCount = _ctx.Buffer.CountDirection("TX");
         return Task.FromResult(_ctx.RawJson(new
         {
             success = true,

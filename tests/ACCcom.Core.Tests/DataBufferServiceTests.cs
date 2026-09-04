@@ -99,6 +99,53 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void CountDirection_tracks_incrementally()
+    {
+        // Arrange
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+
+        // Act & Assert — O(1) counts match what a full scan would report.
+        Assert.Equal(2, sut.CountDirection("RX"));
+        Assert.Equal(1, sut.CountDirection("TX"));
+        Assert.Equal(3, sut.Count());
+    }
+
+    [Fact]
+    public void CountDirection_survives_ring_overwrite()
+    {
+        // Arrange — capacity 3, write 6 entries so the first three are evicted.
+        var sut = new DataBufferService(capacity: 3);
+        for (int i = 1; i <= 6; i++)
+            sut.AddEntry(MakeEntry(i, direction: i % 2 == 0 ? "TX" : "RX"));
+
+        // Act & Assert — only entries 4..6 remain: TX(4), RX(5), TX(6).
+        Assert.Equal(3, sut.Count());
+        Assert.Equal(1, sut.CountDirection("RX"));
+        Assert.Equal(2, sut.CountDirection("TX"));
+    }
+
+    [Fact]
+    public void CountDirection_resets_on_directional_clear()
+    {
+        // Arrange
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+
+        // Act
+        sut.Clear("rx");
+
+        // Assert
+        Assert.Equal(1, sut.Count());
+        Assert.Equal(0, sut.CountDirection("RX"));
+        Assert.Equal(1, sut.CountDirection("TX"));
+    }
+
+    [Fact]
     public async Task WaitForMatchAsync_returns_matching_entry()
     {
         // Arrange

@@ -9,6 +9,8 @@ public class DataBufferService : IDisposable
     private int _head;
     private int _count;
     private int _maxId;
+    private int _rxCount;
+    private int _txCount;
     private int _waiterCount;
     private readonly int _capacity;
     private readonly object _lock = new();
@@ -25,14 +27,26 @@ public class DataBufferService : IDisposable
     private void RingAdd(LogEntry entry)
     {
         if (_count >= _capacity)
+        {
             _metrics.RecordBufferOverrun();
+            var evicted = _ringBuffer[_head];
+            if (evicted != null)
+                AdjustDirectionCount(evicted.Direction, -1);
+        }
 
         _ringBuffer[_head] = entry;
         _head = (_head + 1) % _capacity;
         if (_count < _capacity) _count++;
         if (entry.Id > _maxId) _maxId = entry.Id;
+        AdjustDirectionCount(entry.Direction, +1);
 
         _metrics.SetBufferUsage((double)_count / _capacity);
+    }
+
+    private void AdjustDirectionCount(string? direction, int delta)
+    {
+        if (direction == "RX") _rxCount += delta;
+        else if (direction == "TX") _txCount += delta;
     }
 
     private List<LogEntry> RingSnapshot()
@@ -102,6 +116,8 @@ public class DataBufferService : IDisposable
             _count = 0;
             _head = 0;
             _maxId = 0;
+            _rxCount = 0;
+            _txCount = 0;
         }
         _metrics.SetBufferUsage(0);
     }
@@ -117,6 +133,8 @@ public class DataBufferService : IDisposable
                 _head = 0;
                 _count = 0;
                 _maxId = 0;
+                _rxCount = 0;
+                _txCount = 0;
                 _metrics.SetBufferUsage(0);
                 return;
             }
@@ -137,6 +155,8 @@ public class DataBufferService : IDisposable
             _head = 0;
             _count = 0;
             _maxId = 0;
+            _rxCount = 0;
+            _txCount = 0;
             foreach (var e in keep) RingAdd(e);
         }
     }
@@ -144,6 +164,18 @@ public class DataBufferService : IDisposable
     public int Count()
     {
         lock (_lock) { return _count; }
+    }
+
+    /// <summary>O(1) count of entries with the given direction ("RX"/"TX"), maintained
+    /// incrementally in <see cref="RingAdd"/> instead of a full ring scan per poll.</summary>
+    public int CountDirection(string direction)
+    {
+        lock (_lock)
+        {
+            if (direction == "RX") return _rxCount;
+            if (direction == "TX") return _txCount;
+            return 0;
+        }
     }
 
     public void CancelWaiters()
