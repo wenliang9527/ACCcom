@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
@@ -10,8 +11,10 @@ public class SessionRecorder : BufferedFileWriter
     private int _recordedCount;
     // Read by Record() on the UI flush loop every entry. When recording is off
     // that's the overwhelmingly common case, so Record() fast-paths on this
-    // volatile flag before taking the SyncLock at all.
+    // volatile flag before taking the lock at all.
     private volatile bool _isRecording;
+    private Channel<LogEntry>? _channel;
+    private Task? _drainTask;
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -27,13 +30,13 @@ public class SessionRecorder : BufferedFileWriter
 
     public bool IsRecording => _isRecording;
     public string? CurrentFile => CurrentFilePath;
-    public int RecordedCount => _recordedCount;
+    public int RecordedCount => Volatile.Read(ref _recordedCount);
 
     public bool StartRecording(string? filePath = null)
     {
         lock (SyncLock)
         {
-            if (IsRecording) return false;
+            if (_isRecording) return false;
 
             if (string.IsNullOrEmpty(filePath))
             {
@@ -49,6 +52,14 @@ public class SessionRecorder : BufferedFileWriter
 
             OpenWriter(filePath);
             _recordedCount = 0;
+            _channel = Channel.CreateUnbounded<LogEntry>(new UnboundedChannelOptions
+            {
+                // Record() runs on the UI flush thread; the drain runs on one
+                // background task, so single-reader is enough.
+                SingleReader = true,
+                SingleWriter = false
+            });
+            _drainTask = Task.Run(DrainLoopAsync);
             _isRecording = true;
             return true;
         }
@@ -59,10 +70,19 @@ public class SessionRecorder : BufferedFileWriter
         lock (SyncLock)
         {
             if (!_isRecording) return false;
-            CloseWriter();
+            // Complete the queue first, then wait for the drain outside the
+            // lock so the drain task (which takes SyncLock to write) can finish.
             _isRecording = false;
-            return true;
+            _channel?.Writer.TryComplete();
         }
+
+        try { _drainTask?.GetAwaiter().GetResult(); } catch { }
+
+        lock (SyncLock)
+        {
+            CloseWriter();
+        }
+        return true;
     }
 
     public void Record(LogEntry entry)
@@ -71,21 +91,37 @@ public class SessionRecorder : BufferedFileWriter
         // that calls this per entry) — return without taking the lock.
         if (!_isRecording) return;
 
-        lock (SyncLock)
-        {
-            if (!_isRecording || Writer == null) return;
+        // Enqueue only; serialization + disk I/O happen on the drain task so a
+        // fast RX feed cannot stall the UI-thread flush loop.
+        if (_channel?.Writer.TryWrite(entry) == true)
+            Interlocked.Increment(ref _recordedCount);
+    }
 
-            var record = new
+    private async Task DrainLoopAsync()
+    {
+        var channel = _channel;
+        if (channel == null) return;
+
+        try
+        {
+            await foreach (var entry in channel.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                timestamp = entry.Timestamp.ToString("o"),
-                direction = entry.Direction,
-                portTag = entry.PortTag,
-                rawHex = entry.RawHex,
-                text = entry.Text,
-                fields = entry.Fields
-            };
-            WriteCore(JsonSerializer.Serialize(record, _jsonOpts));
-            _recordedCount++;
+                var record = new
+                {
+                    timestamp = entry.Timestamp.ToString("o"),
+                    direction = entry.Direction,
+                    portTag = entry.PortTag,
+                    rawHex = entry.RawHex,
+                    text = entry.Text,
+                    fields = entry.Fields
+                };
+                WriteCore(JsonSerializer.Serialize(record, _jsonOpts));
+            }
+        }
+        catch
+        {
+            // Swallow drain failures: recording should never take the app down;
+            // StopRecording still completes the writer.
         }
     }
 
@@ -161,6 +197,14 @@ public class SessionRecorder : BufferedFileWriter
     }
 
     public bool IsPaused { get; set; }
+
+    /// <summary>Ensures the drain task is stopped and the channel completed even
+    /// when disposed mid-recording; then hands off to the base writer close.</summary>
+    public new void Dispose()
+    {
+        StopRecording();
+        base.Dispose();
+    }
 
     public static string[] ListRecordings(string? directory = null)
     {
