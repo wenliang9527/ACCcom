@@ -486,6 +486,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ObservableRangeCollection<LogEntry> RxEntries => _dataFlow.RxEntries;
     public ObservableRangeCollection<LogEntry> TxEntries => _dataFlow.TxEntries;
     public ObservableCollection<string> AvailablePorts => _connection.AvailablePorts;
+    public ObservableCollection<ConnectionViewModel.PortOption> PortOptions => _connection.PortOptions;
     public ObservableCollection<int> BaudRates => _connection.BaudRates;
     public ObservableCollection<int> DataBitsList => _connection.DataBitsList;
     public ObservableCollection<string> StopBitsList => _connection.StopBitsList;

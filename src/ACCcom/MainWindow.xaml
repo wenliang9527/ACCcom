@@ -243,18 +243,6 @@
                 BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}"
                 Visibility="{Binding ShowAdvanced, Converter={StaticResource BoolToVisibility}}">
             <StackPanel Orientation="Horizontal">
-                <!-- serial line params -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding [Label.DataBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-                    <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="44" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding [Label.Parity], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-                    <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="60" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding [Label.StopBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-                    <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="60" />
-                </StackPanel>
-
-                <Rectangle Style="{StaticResource ToolSeparator}" />
-
                 <!-- flow control -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox Content="{Binding [Check.DTR], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding DtrEnable}" Margin="0,0,6,0" />

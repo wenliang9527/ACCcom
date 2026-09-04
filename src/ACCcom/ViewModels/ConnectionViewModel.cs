@@ -19,6 +19,17 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _detectCts;
 
     public ObservableCollection<string> AvailablePorts { get; } = new();
+
+    /// <summary>Port + friendly device description (CH340 / J-Link / FTDI ...),
+    /// for the port picker. Display = "COM3 — USB-SERIAL CH340".</summary>
+    public sealed record PortOption(string Name, string Description)
+    {
+        public string Display => string.IsNullOrEmpty(Description)
+            ? Name
+            : $"{Name} — {Description}";
+    }
+
+    public ObservableCollection<PortOption> PortOptions { get; } = new();
     public ObservableCollection<int> BaudRates { get; } = new() { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 };
     public ObservableCollection<int> DataBitsList { get; } = new() { 5, 6, 7, 8 };
     public ObservableCollection<string> StopBitsList { get; } = new() { "None", "One", "Two" };
@@ -153,6 +164,8 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 foreach (var p in arrived)
                 {
                     if (!AvailablePorts.Contains(p)) AvailablePorts.Add(p);
+                    if (!PortOptions.Any(o => string.Equals(o.Name, p, StringComparison.OrdinalIgnoreCase)))
+                        PortOptions.Add(MakePortOption(p));
                     _setStatus(string.Format(LanguageManager.Instance["Status.PortArrived"], p));
                 }
 
@@ -163,6 +176,8 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 foreach (var p in removed)
                 {
                     AvailablePorts.Remove(p);
+                    var option = PortOptions.FirstOrDefault(o => string.Equals(o.Name, p, StringComparison.OrdinalIgnoreCase));
+                    if (option != null) PortOptions.Remove(option);
                     if (string.Equals(SelectedPort, p, StringComparison.OrdinalIgnoreCase))
                         _setStatus(string.Format(LanguageManager.Instance["Status.PortRemoved"], p));
                 }
@@ -174,14 +189,21 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         });
     }
 
+    private static PortOption MakePortOption(string portName)
+        => new(portName, Helpers.PortDescriptionResolver.Describe(portName));
+
     public void RefreshPorts()
     {
         var ports = SerialService.GetAvailablePorts();
         var selected = SelectedPort;
 
         AvailablePorts.Clear();
+        PortOptions.Clear();
         foreach (var p in ports)
+        {
             AvailablePorts.Add(p);
+            PortOptions.Add(MakePortOption(p));
+        }
 
         // Keep the previous selection when it still exists so a manual
         // refresh does not drop the user's choice.

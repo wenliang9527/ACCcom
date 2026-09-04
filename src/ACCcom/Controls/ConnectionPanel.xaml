@@ -23,10 +23,26 @@
                 </Style>
             </StackPanel.Style>
             <TextBlock Text="{Binding [Label.Port], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding AvailablePorts}" Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
-                      Width="100" IsEditable="True" Margin="0,0,10,0" />
+            <ComboBox ItemsSource="{Binding PortOptions}"
+                      SelectedValuePath="Name" SelectedValue="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
+                      Width="170" IsEditable="False" Margin="0,0,10,0">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Display}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             <TextBlock Text="{Binding [Label.BaudRate], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="88" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="80" Margin="0,0,4,0" />
+            <!-- Data bits / stop bits / parity sit next to baud rate so the
+                 whole serial line setup is configured in one place. -->
+            <TextBlock Text="{Binding [Label.DataBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="42" Margin="0,0,4,0" />
+            <TextBlock Text="{Binding [Label.StopBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="58" Margin="0,0,4,0" />
+            <TextBlock Text="{Binding [Label.Parity], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="58" Margin="0,0,4,0" />
             <!-- Auto-detect baud rate by probing common rates against the
                  selected port. Disabled while a probe is running or when the
                  port is already open. Clicking again mid-probe cancels it. -->
