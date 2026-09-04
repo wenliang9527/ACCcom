@@ -44,12 +44,20 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     // (see FlushPendingEntries).
     private const int TrimChunkSize = 100;
     private readonly object _pendingLock = new();
-    // Not readonly: FlushPendingEntries swaps the batch list out under the lock
-    // so the UI thread drains it without copying; all access is lock-protected.
-    private List<(LogEntry Entry, int Bytes)> _pendingRx = new();
-    private int _pendingRxBytes;
-    private List<(LogEntry Entry, int Bytes)> _pendingTx = new();
-    private int _pendingTxBytes;
+    // Parallel lists (entries + byte counts) instead of a tuple list: the flush
+    // hands the entries list straight to AddRange (zero copy) and swaps the pair
+    // out under the lock, so a 30ms tick allocates no per-tick list/array.
+    private List<LogEntry> _pendingRx = new();
+    private List<int> _pendingRxBytes = new();
+    private int _pendingRxBytesTotal;
+    private List<LogEntry> _pendingTx = new();
+    private List<int> _pendingTxBytes = new();
+    private int _pendingTxBytesTotal;
+
+    /// <summary>Raised once per flush tick after all pending entries are
+    /// appended, so consumers (e.g. auto-scroll) run once instead of once per
+    /// item.</summary>
+    public event Action? BatchFlushed;
 
     // Recent RX text used by the macro engine's WaitFor/Condition matching.
     // Locked so the macro runner (background polling) can read safely while RX
@@ -583,8 +591,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         AddRecentRxText(entry.Text);
         lock (_pendingLock)
         {
-            _pendingRx.Add((entry, byteCount));
-            _pendingRxBytes += byteCount;
+            _pendingRx.Add(entry);
+            _pendingRxBytes.Add(byteCount);
+            _pendingRxBytesTotal += byteCount;
         }
     }
 
@@ -593,8 +602,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     {
         lock (_pendingLock)
         {
-            _pendingTx.Add((entry, byteCount));
-            _pendingTxBytes += byteCount;
+            _pendingTx.Add(entry);
+            _pendingTxBytes.Add(byteCount);
+            _pendingTxBytesTotal += byteCount;
         }
     }
 
@@ -639,62 +649,79 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         => entry.HighlightColor = _highlightService?.GetHighlightColor(entry);
 
     /// <summary>Moves queued entries into the observable collections (UI thread only).
-    /// Counters and highlight are applied once per batch so per-packet UI updates
-    /// never trigger a binding storm. The pending lists are swap-exchanged under
-    /// the lock (old list out, fresh list in) so no per-tick snapshot copy is
-    /// needed, and the entries are handed to AddRange as an array to hit its
-    /// bulk IList path instead of a LINQ iterator.</summary>
+    /// Highlight is applied once per batch so per-packet UI updates never trigger
+    /// a binding storm. The pending lists are swap-exchanged under the lock (old
+    /// lists out, fresh lists in) so no per-tick snapshot copy is needed, and the
+    /// entries list is handed to AddRange directly (List is IList, hits the bulk
+    /// path with zero copy). Counters accumulate silently here; the 1Hz stats tick
+    /// raises their PropertyChanged via <see cref="NotifyCountsChanged"/>.</summary>
     private void FlushPendingEntries()
     {
-        List<(LogEntry Entry, int Bytes)> rxBatch = null!;
-        int rxBytes = 0;
-        List<(LogEntry Entry, int Bytes)> txBatch = null!;
-        int txBytes = 0;
+        List<LogEntry>? rxBatch = null;
+        List<int>? rxBytes = null;
+        int rxBytesTotal = 0;
+        List<LogEntry>? txBatch = null;
+        List<int>? txBytes = null;
+        int txBytesTotal = 0;
         lock (_pendingLock)
         {
             if (_pendingRx.Count > 0)
             {
                 rxBatch = _pendingRx;
-                _pendingRx = new List<(LogEntry, int)>();
                 rxBytes = _pendingRxBytes;
-                _pendingRxBytes = 0;
+                rxBytesTotal = _pendingRxBytesTotal;
+                _pendingRx = new List<LogEntry>();
+                _pendingRxBytes = new List<int>();
+                _pendingRxBytesTotal = 0;
             }
             if (_pendingTx.Count > 0)
             {
                 txBatch = _pendingTx;
-                _pendingTx = new List<(LogEntry, int)>();
                 txBytes = _pendingTxBytes;
-                _pendingTxBytes = 0;
+                txBytesTotal = _pendingTxBytesTotal;
+                _pendingTx = new List<LogEntry>();
+                _pendingTxBytes = new List<int>();
+                _pendingTxBytesTotal = 0;
             }
         }
 
         if (rxBatch != null)
         {
-            foreach (var (entry, _) in rxBatch) ApplyHighlight(entry);
-            var rxEntries = new LogEntry[rxBatch.Count];
-            for (int i = 0; i < rxBatch.Count; i++) rxEntries[i] = rxBatch[i].Entry;
-            RxEntries.AddRange(rxEntries);
-            RxCount += rxBatch.Count;
-            RxByteCount += rxBytes;
-            foreach (var (entry, byteCount) in rxBatch)
+            foreach (var entry in rxBatch) ApplyHighlight(entry);
+            RxEntries.AddRange(rxBatch);
+            _rxCount += rxBatch.Count;
+            _rxByteCount += rxBytesTotal;
+            for (int i = 0; i < rxBatch.Count; i++)
             {
+                var entry = rxBatch[i];
                 OnRxProcessed?.Invoke(entry);
-                OnEntryProcessed?.Invoke(entry, byteCount);
+                OnEntryProcessed?.Invoke(entry, rxBytes![i]);
             }
             TrimBuffer(RxEntries);
         }
         if (txBatch != null)
         {
-            foreach (var (entry, _) in txBatch) ApplyHighlight(entry);
-            var txEntries = new LogEntry[txBatch.Count];
-            for (int i = 0; i < txBatch.Count; i++) txEntries[i] = txBatch[i].Entry;
-            TxEntries.AddRange(txEntries);
-            TxCount += txBatch.Count;
-            TxByteCount += txBytes;
-            foreach (var (entry, byteCount) in txBatch)
-                OnEntryProcessed?.Invoke(entry, byteCount);
+            foreach (var entry in txBatch) ApplyHighlight(entry);
+            TxEntries.AddRange(txBatch);
+            _txCount += txBatch.Count;
+            _txByteCount += txBytesTotal;
+            for (int i = 0; i < txBatch.Count; i++)
+                OnEntryProcessed?.Invoke(txBatch[i], txBytes![i]);
             TrimBuffer(TxEntries);
         }
+        BatchFlushed?.Invoke();
+    }
+
+    /// <summary>Raises PropertyChanged for the counter properties. Called once per
+    /// second by the stats tick (counters accumulate silently during flush) so the
+    /// status bar bindings update at 1Hz instead of 33Hz.</summary>
+    public void NotifyCountsChanged()
+    {
+        OnPropertyChanged(nameof(RxCount));
+        OnPropertyChanged(nameof(RxByteCount));
+        OnPropertyChanged(nameof(TxCount));
+        OnPropertyChanged(nameof(TxByteCount));
+        OnPropertyChanged(nameof(ErrorFrameCount));
     }
 
     /// <summary>

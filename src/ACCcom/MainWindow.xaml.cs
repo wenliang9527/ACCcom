@@ -52,17 +52,15 @@ public partial class MainWindow : Window
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Initialize failed: {ex.Message}"); }
         });
 
-        _vm.RxEntries.CollectionChanged += (_, e) =>
+        _vm.DataFlow.BatchFlushed += () =>
         {
-            // Auto-follow only on insertions. TrimBuffer removals (oldest entries
-            // falling off the 10000 cap) shift the contents but leave the visual
-            // bottom in place, so scrolling again would just fight the layout.
-            if (_vm.AutoScrollRx && e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            // FlushPendingEntries appends a whole batch per 30ms tick; scrolling
+            // once here instead of once per added item avoids N ScrollToBottom +
+            // layout passes per frame. Each side still respects its auto-follow
+            // switch and the sticky-bottom check inside ScrollRxToEnd.
+            if (_vm.AutoScrollRx)
                 DataPanelControl.ScrollRxToEnd();
-        };
-        _vm.TxEntries.CollectionChanged += (_, e) =>
-        {
-            if (_vm.AutoScrollTx && e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            if (_vm.AutoScrollTx)
                 DataPanelControl.ScrollTxToEnd();
         };
     }

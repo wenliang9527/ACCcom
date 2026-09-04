@@ -351,6 +351,9 @@ public class MainViewModel : ObservableObject, IDisposable
             TxRate = $"{_stats.TxBytesPerSecond:F1} B/s | {_stats.TxFramesPerSecond:F1} fps";
             ErrorRate = $"{_stats.ErrorRate:F1}%";
             FrameInterval = $"{_stats.AvgFrameIntervalMs:F1} ms";
+            // Counters accumulate silently on 30ms flushes; surface them here at
+            // 1Hz so the status bar bindings don't re-layout on every flush tick.
+            _dataFlow.NotifyCountsChanged();
             _tool.StatsViewModel?.Update(_stats, RxByteCount, TxByteCount, RxCount, TxCount, ConnectionDuration);
         };
         _statsTimer.Start();

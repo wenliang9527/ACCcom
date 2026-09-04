@@ -1,50 +1,36 @@
-## 第 18 轮:MCP Server 裁剪为纯串口基础接口
+## 第 50 轮:UI flush 路径收敛 — 每帧重复工作三连消
 
-### 目标
+### 背景
+前几轮已完成 P0-P3(逐条事件集合、钉底判断、转换器缓存、HighlightService 去 LINQ)。本轮针对探索 agent 报告的剩余热点,全部**无视觉变化**:
 
-把 ACCcom.McpServer 从 39 个工具(5 个工具类)裁剪为 **8 个基础串口工具**(1 个工具类),删除解析器、录制、分析、Modbus、多端口、统计、状态查询及 proxy 代理模式,只保留直连模式的开关串口与收发数据能力。
+### 改动 1(最高收益):AutoScroll 每帧 N 次滚动 → 合并为 1 次
+**现状**:`ObservableRangeCollection.AddRange` 逐条抛 Add 事件,`MainWindow.xaml.cs:55-67` 的 CollectionChanged 处理器对**每条** entry 调一次 `ScrollRxToEnd()` → 每 tick flush N 条就执行 N 次 `ScrollToBottom`+布局失效(默认钉底时每次都真正滚动)。已核实 `RxEntries/TxEntries` 的 AddRange **只在** `FlushPendingEntries` 内部调用,无其他写入路径。
+**改法**:
+- `DataFlowViewModel` 加 `public event Action? BatchFlushed;`,`FlushPendingEntries` 在 Rx/Tx 两个分支处理完后触发一次
+- `MainWindow.xaml.cs` 删除两个 CollectionChanged 滚动处理器,改订阅 `BatchFlushed` → 一次 `ScrollRxToEnd()`(仍受 `AutoScrollRx` 开关和钉底判断约束)
 
-### 保留的 8 个工具(SerialTools.cs)
+### 改动 2:状态栏计数 33Hz 绑定 → 1Hz 统计 tick
+**现状**:`RxCount/RxByteCount/TxCount/TxByteCount/ErrorFrameCount` 在每次 flush(33Hz)里 `SetField` → 状态栏 3+ 个 Run 绑定每帧更新。`MainViewModel` 已有 1Hz `_statsTimer`。
+**改法**:
+- `DataFlowViewModel` 把 flush 循环里的计数累加改为**静默字段累加**(不触发 INPC),新增 `public void NotifyCountsChanged()` 一次性通知 5 个属性
+- `MainViewModel._statsTimer.Tick`(已 1Hz)里调用 `_dataFlow.NotifyCountsChanged()`
+- Clear 命令(365-366 行)的 `RxCount = 0` 仍走 SetField 立即通知,不受影响
 
-| 工具 | 说明 |
-|------|------|
-| `list_ports` | 列出可用串口 |
-| `open_port` | 打开串口(波特率/数据位/停止位/校验位/DTR/RTS) |
-| `close_port` | 关闭串口 |
-| `send` | 发送数据(ASCII 或 HEX) |
-| `read_data` | 增量读取缓冲数据(sinceId / limit / direction) |
-| `wait_for_response` | 阻塞等待匹配数据(contains / regex / exact) |
-| `send_and_wait` | 发送并等待响应(组合,调试刚需) |
-| `clear_buffer` | 清空缓冲区 |
+### 改动 3:FlushPendingEntries 每 tick 4 次小分配 → 双并行列表零拷贝
+**现状**:`_pendingRx/_pendingTx` 是 `List<(LogEntry,int)>`,swap 时每 tick `new List` ×2 + `new LogEntry[]` ×2,且 AddRange 前要提取数组。
+**改法**:
+- `_pendingRx/_pendingTx` 改为双并行列表 `List<LogEntry> + List<int>(bytes)`
+- flush 时直接把 `List<LogEntry>` 传给 `AddRange`(List 是 IList,命中批量路径,零拷贝),bytes 并行列表仅用于回调循环
+- `AddRxEntry/AddTxEntry`(581-599 行)同步改造;公开签名不变
+- `ApplyHighlight` 循环改用索引遍历
 
-**删除的 31 个工具**:`get_status`、`health_check`、`open_port_tagged`、`close_port_tagged`、`send_to_port_tagged`、`get_statistics`、`detect_baud_rate`、`send_batch`、解析器 8 个(`list_parsers`/`read_parser`/`write_parser`/`activate_parser`/`parse_raw`/`generate_parser`/`validate_schema`/`get_schema_template`)、录制 4 个、分析 2 个、Modbus 9 个。
-
-### 文件改动
-
-**删除(McpServer 侧)**:
-- `Tools/ParserTools.cs`、`Tools/RecordingTools.cs`、`Tools/AnalysisTools.cs`、`Tools/ModbusTools.cs`
-- `ProxyClient.cs`
-- 测试:`ParserToolsTests.cs`、`RecordingToolsTests.cs`、`ModbusToolsTests.cs`、`ProxyClientTests.cs`、`AnalysisToolsTests.cs`
-
-**修改**:
-- `Tools/SerialTools.cs` — 删除 8 个被裁工具方法 + 所有 `if (_ctx.UseProxy)` 分支 + MultiPort/AutoBaud/Stats 相关代码;保留 8 个核心工具
-- `Tools/ToolContext.cs` — 保留 `Serial`、`Buffer`、`ParserManager`(构造函数必填参数,保留但不用于工具)、`UseProxy=false`;删除 `Proxy`、`Logger`、`Stats`、`MultiPort`、`AutoBaud`、`Recorder`、`Modbus`、`SlaveService`、`ConnectionManager` 属性及 `OnDataReceived` 订阅中的 Logger/Recorder/Stats 调用;删除 `JsonOpts` 中仅被删工具使用的部分(保留 RawJson 供 read_data 等用)
-- `Program.cs` — 删除 proxy 分支(66-68 行)及自动启动 WPF 逻辑、删除 LoggerService/MultiPortService/AutoBaudDetector/Modbus 三件套/SessionRecorder 注册;`WithTools` 只留 `SerialTools`
-- `TestHelpers/ToolContextFactory.cs` — 删除代理模式构建、删除被裁服务的 DI 注册
-- `SerialToolsTests.cs`、`ToolContextTests.cs` — 删除针对被裁工具的测试
-
-**注意**:Core 项目(WPF 共用)的 SerialService、LoggerService、MultiPortService、ModbusService 等**全部不动**,McpServer 侧只是不注册不引用。
-
-### 文档同步
-
-- `README.md` — 工具数 "39 个" → "8 个",删除代理模式/解析器相关描述
-- `docs/guide/integration.md` — 删除 39 行工具速查表(373-413 行),改为 8 行;删除代理模式表格、AI 工作流中的 write_parser/activate_parser 步骤(保留串口工作流);"可用 MCP Tools(39 个)" → "(8 个)"
-- `docs/guide/architecture.md` — 按文件标注工具数的段落(204-208 行)改为只列 SerialTools 8 个
-- `docs/mcp-gap-analysis.md` — 归档文档,更新工具数引用(或保留,标注历史)
+### 不做(列为后续候选)
+- **PaintedCard 阴影重构**(候选 2):DropShadowEffect 包住 ListBox 导致每帧整卡重渲染,但涉及视觉改动需验收,单独一轮做
+- **ApplyHighlight 移入队线程**(候选 5):仅当用户配置大量高亮规则时有收益,需快照改造,条件性收益
+- 行模板/TextBox 改 TextBlock 等:已核实行内无 Wrap/阴影/TextBox,虚拟化全开,无需动
 
 ### 验收标准
-
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(删 5 个测试类后总数下降,剩余全部通过)
-3. `dotnet run --project src/ACCcom.McpServer` 启动成功,`health_check` 外的 8 个工具可用(用 list_ports 验证)
+2. `dotnet test`:全绿(现有 566 Core + 10 McpServer,行为等价无新测试需求;ScrollPendulum/集合测试已覆盖)
+3. 逻辑验证:高帧率 flush 下滚动每帧仅 1 次、计数 1Hz 刷新、flush 零临时分配
 4. 工作树干净,commit + push 到 GitHub
