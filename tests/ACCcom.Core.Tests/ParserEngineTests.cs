@@ -69,6 +69,22 @@ return result;
     }
 
     [Fact]
+    public async Task Execute_SlowScript_TimesOutAndReturnsNull()
+    {
+        var engine = new ParserEngine();
+        Assert.True(engine.Load(@"
+await System.Threading.Tasks.Task.Delay(5000);
+var result = new List<FieldAnnotation>();
+result.Add(new FieldAnnotation { Name = ""Late"", Offset = 0, Length = 1 });
+return result;
+"));
+
+        var fields = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now, timeoutMs: 100);
+        Assert.Null(fields);
+        Assert.Contains("timed out", engine.LastError);
+    }
+
+    [Fact]
     public async Task Execute_ScriptWithCrc_ChecksCorrectly()
     {
         var engine = new ParserEngine();

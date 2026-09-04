@@ -107,19 +107,22 @@ public class ParserEngine : IDisposable
         {
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
             var task = script.RunAsync(globals, cts.Token);
-            var completed = await Task.WhenAny(task, Task.Delay(timeoutMs)).ConfigureAwait(false);
 
-            if (completed != task)
-            {
-                _lastError = $"Script execution timed out after {timeoutMs}ms";
-                OnError?.Invoke($"[ParserEngine] Execution timed out after {timeoutMs}ms");
-                _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
-                return null;
-            }
-
-            var result = await task.ConfigureAwait(false);
+            // WaitAsync registers a cancellation callback on the existing CTS
+            // timer (created above with timeoutMs). The old Task.WhenAny + a
+            // second Task.Delay allocated a fresh timer per execution that
+            // stayed alive for the full timeout even when the script finished
+            // instantly — at parser frame rates that stacked up live timers.
+            var result = await task.WaitAsync(cts.Token).ConfigureAwait(false);
             _metrics.RecordParseCompleted(true, sw.Elapsed.TotalMilliseconds);
             return result.ReturnValue;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            _lastError = $"Script execution timed out after {timeoutMs}ms";
+            OnError?.Invoke($"[ParserEngine] Execution timed out after {timeoutMs}ms");
+            _metrics.RecordParseCompleted(false, sw.Elapsed.TotalMilliseconds);
+            return null;
         }
         catch (OperationCanceledException)
         {
