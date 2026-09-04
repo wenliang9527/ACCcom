@@ -41,11 +41,13 @@ for i, (x, y_top) in enumerate(pulses):
 # baseline
 d.line([(x0, y_base), (x1, y_base)], fill=(255, 255, 255, 255), width=14)
 
-# subtle gloss: top sheen
+# subtle gloss: top sheen. IMPORTANT: keep the 26/255 alpha — calling
+# putalpha(mask) replaces the tint with an opaque mask and turns the whole
+# icon solid white, hiding the violet gradient underneath.
 gloss = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 gd = ImageDraw.Draw(gloss)
 gd.rounded_rectangle([0, 0, S - 1, S - 1], radius=R, fill=(255, 255, 255, 26))
-gloss.putalpha(mask)
+gloss.putalpha(Image.composite(gloss.getchannel("A"), Image.new("L", (S, S), 0), mask))
 img = Image.alpha_composite(img, gloss)
 
 img.save("src/ACCcom/Assets/app.png")
