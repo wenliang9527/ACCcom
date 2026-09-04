@@ -52,6 +52,10 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                             HorizontalAlignment="Left" Margin="12,0,0,0">
                     <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Ellipse.Effect>
+                            <DropShadowEffect BlurRadius="5" ShadowDepth="0"
+                                              Color="{DynamicResource Accent}" Opacity="0.55" />
+                        </Ellipse.Effect>
                         <Ellipse.Fill>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                 <GradientStop Color="{DynamicResource Accent}" Offset="0" />
@@ -366,10 +370,10 @@
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="8,0,0,0">
                     <Button Content="{Binding [Button.Stop], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding StopLoopCommand}"
-                            Style="{StaticResource OutlineButton}" Width="44"
+                            Style="{StaticResource OutlineButton}" Width="44" Height="30"
                             Margin="0,0,5,0" IsEnabled="{Binding IsLooping}" />
                     <Button Content="{Binding [Button.Send], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SendCommand}"
-                            Style="{StaticResource PrimaryButton}" MinWidth="70" />
+                            Style="{StaticResource PrimaryButton}" MinWidth="70" Height="30" />
                 </StackPanel>
             </Grid>
         </controls:PaintedCard>

@@ -41,7 +41,7 @@
     </UserControl.Resources>
 
     <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-            Effect="{DynamicResource CardShadow}" Margin="0,6,2,4">
+            Effect="{DynamicResource CardShadow}" Margin="0,6,8,4">
         <Grid Margin="6,5,6,6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
