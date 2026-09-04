@@ -212,7 +212,7 @@
                     <DockPanel VerticalAlignment="Center">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
-                                      Width="72" Margin="0,0,4,0" />
+                                      Width="76" Margin="0,0,4,0" />
                             <ComboBox ItemsSource="{Binding Themes}" SelectedValuePath="Id" SelectedValue="{Binding SelectedTheme}"
                                       Width="120" Margin="0,0,2,0">
                                 <ComboBox.ItemTemplate>

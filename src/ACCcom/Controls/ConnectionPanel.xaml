@@ -34,15 +34,15 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
             <TextBlock Text="{Binding [Label.BaudRate], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="80" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding BaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="88" Margin="0,0,4,0" />
             <!-- Data bits / stop bits / parity sit next to baud rate so the
                  whole serial line setup is configured in one place. -->
             <TextBlock Text="{Binding [Label.DataBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="42" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding DataBitsList}" SelectedItem="{Binding SelectedDataBits}" Width="48" Margin="0,0,4,0" />
             <TextBlock Text="{Binding [Label.StopBits], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="58" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding StopBitsList}" SelectedIndex="{Binding SelectedStopBits}" Width="72" Margin="0,0,4,0" />
             <TextBlock Text="{Binding [Label.Parity], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="58" Margin="0,0,4,0" />
+            <ComboBox ItemsSource="{Binding ParityList}" SelectedIndex="{Binding SelectedParity}" Width="72" Margin="0,0,4,0" />
             <!-- Auto-detect baud rate by probing common rates against the
                  selected port. Disabled while a probe is running or when the
                  port is already open. Clicking again mid-probe cancels it. -->
@@ -97,7 +97,7 @@
         <TextBlock Text="{Binding [Label.Parser], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
         <ComboBox ItemsSource="{Binding AvailableParsers}"
                   SelectedItem="{Binding SelectedParser, Mode=TwoWay}"
-                  Width="110" IsEditable="False" Margin="0,0,4,0" />
+                  Width="118" IsEditable="False" Margin="0,0,4,0" />
         <Button Content="&#xE838;" Command="{Binding OpenParserDirCommand}"
                 Style="{StaticResource HeaderButton}" FontFamily="Segoe MDL2 Assets" FontSize="14" Padding="3,1" VerticalAlignment="Center"
                 ToolTip="{Binding [Tip.OpenParserDir], Source={x:Static local:LanguageManager.Instance}}" />

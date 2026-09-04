@@ -723,7 +723,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="7,2" />
+                <Setter Property="Padding" Value="6,2" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBox">
@@ -736,7 +736,7 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="20" />
                                         </Grid.ColumnDefinitions>
                                         <ContentPresenter x:Name="ContentSite"
                                                           Grid.Column="0"
