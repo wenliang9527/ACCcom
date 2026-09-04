@@ -1,14 +1,26 @@
-"""Generate ACCcom app icon: rounded-square violet gradient (Light-theme Accent
-#7C3AED -> #5B21B6) with a white data-pulse waveform, at 256px master and
-downscaled to standard .ico sizes."""
+"""Generate ACCcom app icon: rounded-square violet gradient with a glowing
+green ECG heartbeat line (serial/comm theme), 256px master downscaled to
+standard .ico sizes.
+
+Design notes:
+- Violet gradient background (theme Accent family) keeps brand identity.
+- The waveform uses a bright signal-green (theme StatusGreen) — high
+  luminance contrast on the dark violet, so it stays legible at 16px.
+- The ECG trace: flat baseline, a sharp R-wave spike, a small T-wave,
+  then flat tail. Drawn with joint="curve" so the polyline corners blend
+  into a smooth heartbeat curve.
+
+IMPORTANT: the gloss layer must KEEP its 26/255 alpha — putalpha(mask)
+replaces the tint with an opaque mask and turns the whole icon white.
+"""
 from PIL import Image, ImageDraw
 
 S = 256
 R = 56  # corner radius
 
-# vertical gradient background
-top = (0x7C, 0x3A, 0xED)
-bot = (0x5B, 0x21, 0xB6)
+# ---- violet gradient background ----
+top = (0x7C, 0x3A, 0xED)   # Light-theme Accent
+bot = (0x4C, 0x1D, 0x95)   # deeper violet for contrast
 img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 px = img.load()
 for y in range(S):
@@ -17,7 +29,7 @@ for y in range(S):
     for x in range(S):
         px[x, y] = (*c, 255)
 
-# rounded-rect mask
+# ---- rounded-rect mask ----
 mask = Image.new("L", (S, S), 0)
 md = ImageDraw.Draw(mask)
 md.rounded_rectangle([0, 0, S - 1, S - 1], radius=R, fill=255)
@@ -25,25 +37,20 @@ img.putalpha(mask)
 
 d = ImageDraw.Draw(img)
 
-# white data-pulse waveform (RX/TX stream): three pulses riding a baseline
-W = 20   # stroke width
-gap = 26
-x0, x1 = 46, 210
-y_base = 168
-pulses = [(x0, 78), (x0 + gap, 78), (x0 + 2 * gap, 132)]
-for i, (x, y_top) in enumerate(pulses):
-    xl = x if i == 0 else x - W // 2
-    d.line([(xl, y_top), (x, y_top)], fill=(255, 255, 255, 255), width=W)
-    d.line([(x, y_top), (x, y_base)], fill=(255, 255, 255, 255), width=W)
-    # pulse cap (rounded top)
-    d.ellipse([x - W // 2, y_top - W // 2, x + W // 2, y_top + W // 2],
-              fill=(255, 255, 255, 255))
-# baseline
-d.line([(x0, y_base), (x1, y_base)], fill=(255, 255, 255, 255), width=14)
+# ---- ECG heartbeat trace (signal green) ----
+GREEN = (0x4A, 0xDE, 0x80)  # theme StatusGreen
+trace = [
+    (42, 152),              # start of baseline
+    (84, 152),              # flat run
+    (98, 58),               # R-wave peak
+    (112, 152),             # back to baseline
+    (134, 118),             # T-wave rise
+    (156, 152),             # T-wave settle
+    (214, 152),             # flat tail
+]
+d.line(trace, fill=GREEN, width=16, joint="curve")
 
-# subtle gloss: top sheen. IMPORTANT: keep the 26/255 alpha — calling
-# putalpha(mask) replaces the tint with an opaque mask and turns the whole
-# icon solid white, hiding the violet gradient underneath.
+# ---- subtle gloss (keep translucency!) ----
 gloss = Image.new("RGBA", (S, S), (0, 0, 0, 0))
 gd = ImageDraw.Draw(gloss)
 gd.rounded_rectangle([0, 0, S - 1, S - 1], radius=R, fill=(255, 255, 255, 26))
