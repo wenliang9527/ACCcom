@@ -8,6 +8,10 @@ namespace ACCcom.Core.Services;
 public class SessionRecorder : BufferedFileWriter
 {
     private int _recordedCount;
+    // Read by Record() on the UI flush loop every entry. When recording is off
+    // that's the overwhelmingly common case, so Record() fast-paths on this
+    // volatile flag before taking the SyncLock at all.
+    private volatile bool _isRecording;
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -21,7 +25,7 @@ public class SessionRecorder : BufferedFileWriter
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ACCcom", "recordings");
 
-    public bool IsRecording { get; private set; }
+    public bool IsRecording => _isRecording;
     public string? CurrentFile => CurrentFilePath;
     public int RecordedCount => _recordedCount;
 
@@ -45,7 +49,7 @@ public class SessionRecorder : BufferedFileWriter
 
             OpenWriter(filePath);
             _recordedCount = 0;
-            IsRecording = true;
+            _isRecording = true;
             return true;
         }
     }
@@ -54,18 +58,22 @@ public class SessionRecorder : BufferedFileWriter
     {
         lock (SyncLock)
         {
-            if (!IsRecording) return false;
+            if (!_isRecording) return false;
             CloseWriter();
-            IsRecording = false;
+            _isRecording = false;
             return true;
         }
     }
 
     public void Record(LogEntry entry)
     {
+        // Fast path: recording is off (the common case on the UI flush loop
+        // that calls this per entry) — return without taking the lock.
+        if (!_isRecording) return;
+
         lock (SyncLock)
         {
-            if (!IsRecording || Writer == null) return;
+            if (!_isRecording || Writer == null) return;
 
             var record = new
             {

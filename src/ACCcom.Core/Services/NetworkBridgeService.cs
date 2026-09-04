@@ -98,13 +98,16 @@ public class NetworkBridgeService : IDisposable
         try
         {
             byte[] bytes;
+            string hexForLog;
             if (isHex)
             {
-                bytes = Convert.FromHexString(data.Replace(" ", ""));
+                hexForLog = data.Replace(" ", "");
+                bytes = Convert.FromHexString(hexForLog);
             }
             else
             {
                 bytes = System.Text.Encoding.UTF8.GetBytes(data);
+                hexForLog = HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length);
             }
 
             lock (_lock)
@@ -124,7 +127,7 @@ public class NetworkBridgeService : IDisposable
                 Id = Interlocked.Increment(ref _txEntryId),
                 Timestamp = DateTime.Now,
                 Direction = "TX",
-                RawHex = isHex ? data.Replace(" ", "") : HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length),
+                RawHex = hexForLog,
                 Text = data
             };
             OnDataReceived?.Invoke(entry);
