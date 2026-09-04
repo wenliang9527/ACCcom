@@ -263,7 +263,7 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 39 个工具，无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 44 个工具，无需 HTTP 配置。
 
 **默认运行模式：**
 
