@@ -263,7 +263,7 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 44 个工具，无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 39 个工具，无需 HTTP 配置。
 
 **默认运行模式：**
 
@@ -273,6 +273,52 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | 代理（需桌面端） | `.\launch_acccom_gui.ps1` | 单独启动 WPF 桌面端用于可视化监控 |
 
 > MCP Server 默认以**直接模式**运行，串口工具始终可用且不会弹出 GUI。
+
+**连接编程工具（AI 客户端）：**
+
+所有支持 MCP 的编程工具都通过同一个 stdio 协议接入。推荐直接使用**编译后的 exe**（比 `dotnet run` 启动快 10 倍以上）：
+
+```json
+{
+  "mcpServers": {
+    "acccom": {
+      "command": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
+      "args": ["--parsers-dir", "src/ACCcom.Core/parsers"],
+      "cwd": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom"
+    }
+  }
+}
+```
+
+将上述 `mcpServers` 片段放入对应工具的配置文件：
+
+| 工具 | 配置文件位置 | 说明 |
+|------|-------------|------|
+| **Claude Desktop** | `%APPDATA%\Claude\claude_desktop_config.json` | 完整 `{ "mcpServers": {...} }` 对象，修改后需重启应用 |
+| **Cursor** | 项目根 `.cursor/mcp.json` 或全局 `~/.cursor/mcp.json` | 项目级配置需重新打开窗口生效 |
+| **VS Code（Cline / Roo 等插件）** | 插件各自的管理界面或 `.vscode/mcp.json` | Cline 在设置页粘贴同一片段 |
+| **opencode** | 项目根 `opencode.json` | `dotnet run` 或 exe 均可，推荐 exe |
+| **ZCode 等 CLI 助手** | 各自的 MCP 配置（一般为 `~/.zcode/...` 或项目级） | 同上，stdio + 绝对路径即可 |
+
+> 提示：`cwd` 必须指向仓库根目录，因为 `--parsers-dir` 是相对仓库根的路径。若工具的配置格式不支持 `cwd` 字段，把 `--parsers-dir` 换成绝对路径即可：
+> `"args": ["--parsers-dir", "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.Core\\parsers"]`
+
+**代理模式（需要 WPF 桌面端在 :8899 监听）：**
+
+```json
+{
+  "mcpServers": {
+    "acccom-proxy": {
+      "command": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
+      "args": ["--proxy"]
+    }
+  }
+}
+```
+
+代理模式会把串口操作转发给桌面端，适合需要同时在 UI 上可视化监控数据的场景；`--proxy` 会等待桌面端就绪（最多 30 秒，必要时自动启动）。
+
+**验证连接：** 在工具里调用 `health_check` 工具，返回 `运行时间 / 内存 / 解析器状态` 即表示连接成功；或直接调用 `list_ports` 列出本机串口。
 
 **AI 自动化串口调试完整工作流：**
 
@@ -317,7 +363,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `detect_baud_rate` | 自动探测设备波特率 |
 | `open_port_tagged` | 打开额外串口（多端口并发，按标签标识） |
 | `close_port_tagged` | 关闭指定标签的串口 |
-| `send_to_port_tagged` | 向指定标签的串口发送数据 |
+| `send_to_port` | 向指定标签的串口发送数据 |
 | `list_parsers` | 列出可用协议解析器 |
 | `read_parser` | 读取解析器源码 |
 | `write_parser` | 写入/更新 .csx 解析器脚本（AI 生成脚本的关键入口） |

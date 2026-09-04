@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Reflection;
 using System.Text.Json;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -59,6 +60,13 @@ public class SerialTools
 
         using var process = System.Diagnostics.Process.GetCurrentProcess();
         var uptime = DateTime.Now - process.StartTime;
+        // Authoritative registered-tool count: reflection over [McpServerTool]
+        // methods on all [McpServerToolType] classes, so docs never drift.
+        var toolCount = typeof(SerialTools).Assembly
+            .GetTypes()
+            .Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), inherit: false).Length > 0)
+            .Sum(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+                .Count(m => m.GetCustomAttributes(typeof(McpServerToolAttribute), inherit: false).Length > 0));
         return _ctx.RawJson(new
         {
             success = true,
@@ -66,6 +74,7 @@ public class SerialTools
             {
                 status = "ok",
                 version = typeof(SerialTools).Assembly.GetName()?.Version?.ToString(3) ?? "1.0.0",
+                toolCount,
                 uptime = uptime.ToString(@"d\.hh\:mm\:ss"),
                 memoryMb = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1),
                 threadCount = process.Threads.Count,
