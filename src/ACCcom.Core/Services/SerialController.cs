@@ -154,13 +154,9 @@ public class SerialController : WebApiController
         [QueryField] int limit = 500,
         [QueryField] string? direction = null)
     {
-        var entries = _service.GetEntriesSince(since);
-
-        if (!string.IsNullOrEmpty(direction))
-            entries = entries.Where(e => string.Equals(e.Direction, direction, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        if (limit > 0 && entries.Count > limit)
-            entries = entries.Take(limit).ToList();
+        // Filtering and limit are folded into the buffer's single tail copy
+        // (binary-searched start), avoiding per-poll list copies.
+        var entries = _service.GetEntriesSince(since, direction, limit);
 
         return ApiResponse.Ok(new
         {

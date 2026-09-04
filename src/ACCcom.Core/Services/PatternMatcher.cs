@@ -36,12 +36,14 @@ public static class PatternMatcher
     /// </summary>
     public static bool MatchesPattern(string target, string pattern, string matchMode)
     {
-        return matchMode.ToLowerInvariant() switch
-        {
-            "exact" => string.Equals(target, pattern, StringComparison.OrdinalIgnoreCase),
-            "regex" => TryRegexMatch(target, pattern),
-            _ => target.Contains(pattern, StringComparison.OrdinalIgnoreCase)
-        };
+        // OrdinalIgnoreCase comparisons instead of matchMode.ToLowerInvariant() switch:
+        // this runs per packet per rule (triggers, waiters) and ToLowerInvariant
+        // allocated a fresh string on every call.
+        if (matchMode.Equals("exact", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(target, pattern, StringComparison.OrdinalIgnoreCase);
+        if (matchMode.Equals("regex", StringComparison.OrdinalIgnoreCase))
+            return TryRegexMatch(target, pattern);
+        return target.Contains(pattern, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

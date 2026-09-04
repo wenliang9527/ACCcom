@@ -41,38 +41,59 @@ public class FrameAssembler : IDisposable
         if (string.IsNullOrEmpty(entry.RawHex))
             return;
 
-        var hex = entry.RawHex.Trim();
-        if (string.IsNullOrEmpty(hex))
-            return;
-
         lock (_lock)
         {
-            var hexNoSpace = StripSpaces(hex);
+            // Header check runs on the raw fragment (whitespace-skipping scan,
+            // no string allocation); only after it passes does the fragment get
+            // appended, matching the old Trim+StripSpaces+AppendHex control flow.
+            if (_partialEntry == null && !MatchesHeader(entry.RawHex))
+                return;
+
+            var appended = AppendHexStripped(entry.RawHex);
+            if (appended == 0)
+                return;
 
             if (_partialEntry == null)
             {
-                if (!MatchesHeader(hexNoSpace))
-                    return;
-
-                AppendHex(hexNoSpace);
                 _partialEntry = entry;
                 _lastReceiveTime = DateTime.UtcNow;
                 TryComplete();
                 return;
             }
 
-            AppendHex(hexNoSpace);
             _lastReceiveTime = DateTime.UtcNow;
             TryComplete();
         }
     }
 
-    private void AppendHex(string hexNoSpace)
+    /// <summary>Appends the hex characters of <paramref name="rawHex"/> into
+    /// <paramref name="_hexBuf"/>, skipping whitespace, in one pass. Returns the
+    /// number of characters appended (0 for an all-whitespace fragment).
+    /// Replaces the former Trim + StripSpaces + AppendHex chain, which allocated
+    /// two intermediate strings per fragment packet.</summary>
+    private int AppendHexStripped(string rawHex)
     {
-        if (_hexLen + hexNoSpace.Length > _hexBuf.Length)
-            Array.Resize(ref _hexBuf, Math.Max(_hexLen + hexNoSpace.Length, _hexBuf.Length * 2));
-        hexNoSpace.CopyTo(0, _hexBuf, _hexLen, hexNoSpace.Length);
-        _hexLen += hexNoSpace.Length;
+        int stripped = 0;
+        foreach (var c in rawHex)
+        {
+            if (c is not ' ' and not '\t' and not '\r' and not '\n')
+                stripped++;
+        }
+        if (stripped == 0)
+            return 0;
+
+        if (_hexLen + stripped > _hexBuf.Length)
+            Array.Resize(ref _hexBuf, Math.Max(_hexLen + stripped, _hexBuf.Length * 2));
+
+        int dst = _hexLen;
+        foreach (var c in rawHex)
+        {
+            if (c is ' ' or '\t' or '\r' or '\n')
+                continue;
+            _hexBuf[dst++] = c;
+        }
+        _hexLen += stripped;
+        return stripped;
     }
 
     private void TryComplete()
@@ -148,16 +169,28 @@ public class FrameAssembler : IDisposable
         }
     }
 
-    private bool MatchesHeader(string hexNoSpace)
+    /// <summary>Checks whether the raw (space-separated) fragment starts with
+    /// the configured header, skipping whitespace on the fly. Runs on the first
+    /// fragment of a frame only, so the per-char scan is not a hot path; it
+    /// avoids materializing a stripped copy just for the comparison.</summary>
+    private bool MatchesHeader(string rawHex)
     {
         var headerNoSpace = GetHeaderNoSpace();
         if (headerNoSpace == null)
             return true;
 
-        if (hexNoSpace.Length < headerNoSpace.Length)
-            return false;
-
-        return hexNoSpace.StartsWith(headerNoSpace, StringComparison.OrdinalIgnoreCase);
+        int hi = 0;
+        foreach (var c in rawHex)
+        {
+            if (c is ' ' or '\t' or '\r' or '\n')
+                continue;
+            if (hi >= headerNoSpace.Length)
+                return true; // header matched; remaining chars are payload
+            if (char.ToUpperInvariant(c) != char.ToUpperInvariant(headerNoSpace[hi]))
+                return false;
+            hi++;
+        }
+        return hi == headerNoSpace.Length; // fragment exhausted exactly after header
     }
 
     // The header never changes during the assembler's lifetime; stripping it on

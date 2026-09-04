@@ -88,21 +88,43 @@ public class DataBufferService : IDisposable
         }
     }
 
-    public List<LogEntry> GetEntriesSince(int id)
+    /// <summary>Returns entries with Id > id (arrival order). Entries are stored
+    /// in arrival order with strictly monotonic Ids (Interlocked.Increment in the
+    /// receive paths), so the matching entries form a contiguous tail of the ring —
+    /// a binary search locates the tail start in O(log N) instead of scanning all
+    /// 10k slots per poll. Direction and limit are folded into the single tail
+    /// copy.</summary>
+    public List<LogEntry> GetEntriesSince(int id, string? direction = null, int limit = 0)
     {
         lock (_lock)
         {
             if (_count == 0 || id >= _maxId) return new List<LogEntry>();
 
-            // Pre-size modestly; most polls return a small tail of new entries.
-            var result = new List<LogEntry>(Math.Min(_count, 64));
             var start = (_head - _count + _capacity) % _capacity;
-            for (int i = 0; i < _count; i++)
+
+            // Lower-bound search for the first linear index whose Id > id.
+            int lo = 0, hi = _count;
+            while (lo < hi)
             {
-                var idx = (start + i) % _capacity;
-                var entry = _ringBuffer[idx];
+                int mid = (lo + hi) / 2;
+                var entry = _ringBuffer[(start + mid) % _capacity];
                 if (entry != null && entry.Id > id)
-                    result.Add(entry);
+                    hi = mid;
+                else
+                    lo = mid + 1;
+            }
+
+            // Pre-size modestly; most polls return a small tail of new entries.
+            var result = new List<LogEntry>(Math.Min(_count - lo, limit > 0 ? limit : 64));
+            for (int i = lo; i < _count; i++)
+            {
+                var entry = _ringBuffer[(start + i) % _capacity];
+                if (entry == null) continue;
+                if (direction != null && !string.Equals(entry.Direction, direction, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                result.Add(entry);
+                if (limit > 0 && result.Count >= limit)
+                    break;
             }
             return result;
         }

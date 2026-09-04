@@ -70,10 +70,8 @@ public class SerialTools
         [Description("Maximum number of entries to return (default 100)")] int limit = 100,
         [Description("Filter by direction: RX or TX (null for all)")] string? direction = null)
     {
-        var entries = _ctx.Buffer.GetEntriesSince(sinceId);
-        if (!string.IsNullOrEmpty(direction))
-            entries = entries.Where(e => string.Equals(e.Direction, direction, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (limit > 0 && entries.Count > limit) entries = entries.Take(limit).ToList();
+        // Filtering and limit are folded into the buffer's single tail copy.
+        var entries = _ctx.Buffer.GetEntriesSince(sinceId, direction, limit);
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { entries, count = entries.Count, latestId = entries.Count > 0 ? entries[^1].Id : sinceId } }));
     }
 

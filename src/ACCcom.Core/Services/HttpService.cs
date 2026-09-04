@@ -69,7 +69,8 @@ public class HttpService : IDisposable
         OnDataEntry?.Invoke(entry);
     }
 
-    public List<LogEntry> GetEntriesSince(int id) => Buffer.GetEntriesSince(id);
+    public List<LogEntry> GetEntriesSince(int id, string? direction = null, int limit = 0) =>
+        Buffer.GetEntriesSince(id, direction, limit);
 
     public void ClearBuffer(string? target) => Buffer.Clear(target);
 

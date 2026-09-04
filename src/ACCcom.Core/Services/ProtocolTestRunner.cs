@@ -177,13 +177,15 @@ public class ProtocolTestRunner
     /// </summary>
     private static bool MatchesExpectation(string actual, string pattern, string matchMode)
     {
-        return matchMode.ToLowerInvariant() switch
-        {
-            "exact" => string.Equals(actual, pattern, StringComparison.Ordinal),
-            "regex" => TryRegexMatch(actual, pattern),
-            "hex_contains" => actual.Contains(pattern, StringComparison.OrdinalIgnoreCase),
-            _ => actual.Contains(pattern, StringComparison.OrdinalIgnoreCase)
-        };
+        // Equals-based dispatch (no ToLowerInvariant allocation); exact keeps the
+        // original case-sensitive Ordinal comparison.
+        if (matchMode.Equals("exact", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(actual, pattern, StringComparison.Ordinal);
+        if (matchMode.Equals("regex", StringComparison.OrdinalIgnoreCase))
+            return TryRegexMatch(actual, pattern);
+        if (matchMode.Equals("hex_contains", StringComparison.OrdinalIgnoreCase))
+            return actual.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+        return actual.Contains(pattern, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

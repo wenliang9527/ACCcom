@@ -53,6 +53,43 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void GetEntriesSince_after_ring_wrap_returns_only_newer_tail()
+    {
+        // Arrange: capacity 4 — adding 6 entries evicts the two oldest, so the
+        // ring's logical start is no longer index 0 (the binary-search tail
+        // lookup must handle the wrap).
+        var sut = new DataBufferService(capacity: 4);
+        for (int i = 1; i <= 6; i++)
+            sut.AddEntry(MakeEntry(i));
+
+        // Act
+        var result = sut.GetEntriesSince(3);
+
+        // Assert
+        Assert.Equal(new[] { 4, 5, 6 }, result.Select(e => e.Id));
+    }
+
+    [Fact]
+    public void GetEntriesSince_filters_direction_and_limit()
+    {
+        // Arrange
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+        sut.AddEntry(MakeEntry(4, direction: "TX"));
+
+        // Act
+        var rx = sut.GetEntriesSince(0, direction: "RX");
+        var limited = sut.GetEntriesSince(0, direction: "TX", limit: 1);
+
+        // Assert
+        Assert.Equal(new[] { 1, 3 }, rx.Select(e => e.Id));
+        Assert.Single(limited);
+        Assert.Equal(2, limited[0].Id);
+    }
+
+    [Fact]
     public void Clear_removes_all_entries()
     {
         // Arrange
