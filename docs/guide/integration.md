@@ -263,16 +263,11 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 39 个工具，无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 8 个基础串口工具，无需 HTTP 配置。
 
-**默认运行模式：**
+**运行模式：**
 
-| 模式 | 命令 | 说明 |
-|------|------|------|
-| 直连（默认） | `.\launch_acccom.ps1` 或 `dotnet run --project src/ACCcom.McpServer/ACCcom.McpServer.csproj` | 独立管理串口，无需桌面端，MCP 工具直接可用 |
-| 代理（需桌面端） | `.\launch_acccom_gui.ps1` | 单独启动 WPF 桌面端用于可视化监控 |
-
-> MCP Server 默认以**直接模式**运行，串口工具始终可用且不会弹出 GUI。
+> MCP Server 以**直连模式**运行，直接管理串口，串口工具始终可用且不会弹出 GUI。
 
 **连接编程工具（AI 客户端）：**
 
@@ -283,7 +278,6 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
   "mcpServers": {
     "acccom": {
       "command": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
-      "args": ["--parsers-dir", "src/ACCcom.Core/parsers"],
       "cwd": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom"
     }
   }
@@ -300,8 +294,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | **opencode** | 项目根 `opencode.json` | `dotnet run` 或 exe 均可，推荐 exe |
 | **ZCode** | `~/.zcode/cli/config.json`（全局）→ `mcp.servers` | 仓库内已提供 `launch_acccom.ps1` 启动器，见下方 ZCode 配置示例 |
 
-> 提示：`cwd` 必须指向仓库根目录，因为 `--parsers-dir` 是相对仓库根的路径。若工具的配置格式不支持 `cwd` 字段，把 `--parsers-dir` 换成绝对路径即可：
-> `"args": ["--parsers-dir", "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.Core\\parsers"]`
+> 提示：`cwd` 必须指向仓库根目录。若工具的配置格式不支持 `cwd` 字段，直接去掉该行即可。
 
 **ZCode 配置示例（本机已生效）：**
 
@@ -323,96 +316,36 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 }
 ```
 
-`launch_acccom.ps1` 优先启动编译好的 Release exe（秒级启动），未构建时才回退到 `dotnet run`。修改配置后重启 ZCode 会话即生效，调用 `health_check` 可验证连接。
+`launch_acccom.ps1` 优先启动编译好的 Release exe（秒级启动），未构建时才回退到 `dotnet run`。修改配置后重启 ZCode 会话即生效，调用 `list_ports` 可验证连接。
 
-**ZCode 内使用：** 无需手动打开任何东西，工具以 `mcp__acccom__*` 形式在会话内直接可用，用自然语言提出需求即可（如"列出可用串口"→ `list_ports`）。输入 `/acccom-help` 查看 39 个工具的分类速查表与典型工作流；`/acccom-gui` 启动 WPF 桌面端做可视化监控。
+**ZCode 内使用：** 无需手动打开任何东西，工具以 `mcp__acccom__*` 形式在会话内直接可用，用自然语言提出需求即可（如"列出可用串口"→ `list_ports`）。输入 `/acccom-gui` 启动 WPF 桌面端做可视化监控（桌面端与 MCP 互不影响，各自独立管理串口）。
 
 > **性能提示：** 运行 `dotnet publish src/ACCcom.McpServer -c Release` 生成 R2R 预编译版本后，`launch_acccom.ps1` 会自动优先使用它——冷启动从 ~520ms 降至 ~310ms（工作集约 52MB，其中托管堆仅 ~3MB，其余为 .NET 运行时固定成本）。
 
-**代理模式（需要 WPF 桌面端在 :8899 监听）：**
-
-```json
-{
-  "mcpServers": {
-    "acccom-proxy": {
-      "command": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
-      "args": ["--proxy"]
-    }
-  }
-}
-```
-
-代理模式会把串口操作转发给桌面端，适合需要同时在 UI 上可视化监控数据的场景；`--proxy` 会等待桌面端就绪（最多 30 秒，必要时自动启动）。
-
-**验证连接：** 在工具里调用 `health_check` 工具，返回 `运行时间 / 内存 / 解析器状态` 即表示连接成功；或直接调用 `list_ports` 列出本机串口。
+**验证连接：** 调用 `list_ports` 列出本机串口即表示连接成功。
 
 **AI 自动化串口调试完整工作流：**
 
 ```
 阅读设备协议文档
-  → write_parser("my-device", .csx脚本代码)     # AI 生成解析脚本
-  → activate_parser("my-device")                 # 激活
   → open_port(port="COM3", baudRate=115200)     # 打开串口
   → send(data="AT+GMR")                         # 发送指令
   → send_and_wait(data="AT+GMR", pattern="OK", timeoutMs=3000)  # 发送并等待响应
   → read_data(sinceId=0, direction="RX")        # 读取响应
-  → parse_raw(hex="AA 55 03 01 19 2E")          # 离线调试解析结果
 ```
 
-**AI 自动化 Modbus 调试工作流：**
-
-```
-读取 Modbus 设备文档
-  → read_registers(slaveId=1, functionCode="03", startAddress=0, quantity=10)  # 读取保持寄存器
-  → write_register(slaveId=1, functionCode="06", address=0, value=100)        # 写入单个寄存器
-  → slave_create(slaveId=1, transport="tcp", connectionParam="15000")         # 创建虚拟从站
-  → slave_write(slaveId="slave_1", type="holding", address=0, value=100)      # 写入从站寄存器
-  → slave_read(slaveId="slave_1", type="holding", address=0)                  # 读取从站寄存器
-```
-
-**可用 MCP Tools（39 个）：**
+**可用 MCP Tools（8 个）：**
 
 | Tool | 说明 |
 |------|------|
 | `list_ports` | 列出可用串口 |
-| `get_status` | 连接状态、配置、收发计数 |
-| `health_check` | MCP 服务器健康检查（运行时间、内存、解析器状态） |
 | `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |
 | `read_data` | 增量读取缓冲数据（支持 sinceId / limit / direction 过滤） |
 | `wait_for_response` | 阻塞等待匹配数据（支持 contains / regex / exact 匹配，可超时） |
 | `send_and_wait` | 发送数据并等待匹配响应（组合 send + wait_for_response，减少 AI 调用轮次） |
-| `send_batch` | 批量发送多个命令并收集响应 |
 | `clear_buffer` | 清空缓冲区（rx/tx/all） |
-| `get_statistics` | 获取接收速率、错误率、帧间隔等统计信息 |
-| `detect_baud_rate` | 自动探测设备波特率 |
-| `open_port_tagged` | 打开额外串口（多端口并发，按标签标识） |
-| `close_port_tagged` | 关闭指定标签的串口 |
-| `send_to_port` | 向指定标签的串口发送数据 |
-| `list_parsers` | 列出可用协议解析器 |
-| `read_parser` | 读取解析器源码 |
-| `write_parser` | 写入/更新 .csx 解析器脚本（AI 生成脚本的关键入口） |
-| `activate_parser` | 激活/停用解析器 |
-| `parse_raw` | 离线解析 Hex 数据（无需串口，用于验证解析器是否正确） |
-| `generate_parser` | 根据协议 schema JSON 自动生成 .csx 解析器脚本 |
-| `validate_schema` | 校验协议 schema JSON（不生成脚本） |
-| `get_schema_template` | 获取协议 schema JSON 模板 |
-| `analyze_protocol` | 批量分析协议数据（字段统计、错误分布、解析结果） |
-| `compare_frames` | 逐帧对比两组 Hex 数据的字段差异 |
-| `start_recording` | 开始录制串口通信到 JSONL 文件 |
-| `stop_recording` | 停止当前录制 |
-| `replay_session` | 回放历史录制的会话文件 |
-| `recording_status` | 查询当前录制状态（是否在录制、文件路径、已录制条数） |
-| `read_registers` | 读取 Modbus 寄存器（支持 01-04 功能码） |
-| `write_register` | 写入 Modbus 寄存器/线圈（支持 05-06、15-16、22-23 功能码） |
-| `slave_create` | 创建虚拟 Modbus 从站设备 |
-| `slave_remove` | 移除 Modbus 从站设备 |
-| `slave_list` | 列出所有活跃的 Modbus 从站设备 |
-| `get_slaves` | 列出活跃从站及其保持寄存器快照（前 32 个地址，含十六进制值） |
-| `slave_write` | 向从站设备写入寄存器值 |
-| `slave_read` | 从从站设备读取寄存器值 |
-| `scan_devices` | 扫描 Modbus 网络上的从站设备 |
 
 ### 方案二：HTTP API（备用）
 

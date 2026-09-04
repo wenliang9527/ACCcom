@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 
@@ -7,23 +6,12 @@ namespace ACCcom.McpServer.Tools;
 
 /// <summary>
 /// Shared context for all MCP tool classes.
-/// Holds service references, shared buffer, and common helpers.
+/// Holds the serial service, shared buffer, and common helpers.
 /// </summary>
 public class ToolContext
 {
-    public ISerialService? Serial { get; }
-    public ProxyClient? Proxy { get; }
-    public ParserManager ParserManager { get; }
-    public LoggerService? Logger { get; }
-    public bool UseProxy { get; }
+    public ISerialService Serial { get; }
     public DataBufferService Buffer { get; } = new();
-    public DataStatistics? Stats { get; }
-    public MultiPortService? MultiPort { get; }
-    public AutoBaudDetector? AutoBaud { get; }
-    public SessionRecorder Recorder { get; }
-    public ModbusService? Modbus { get; }
-    public ModbusSlaveService? SlaveService { get; set; }
-    public ModbusConnectionManager ConnectionManager { get; } = new();
 
     public static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -31,52 +19,10 @@ public class ToolContext
         WriteIndented = false
     };
 
-    public ToolContext(IServiceProvider sp, ParserManager parserManager)
+    public ToolContext(ISerialService serial)
     {
-        ParserManager = parserManager;
-        Proxy = sp.GetService<ProxyClient>();
-        UseProxy = Proxy != null;
-        Recorder = sp.GetRequiredService<SessionRecorder>();
-
-        if (!UseProxy)
-        {
-            Serial = sp.GetRequiredService<ISerialService>();
-            Logger = sp.GetRequiredService<LoggerService>();
-            Stats = new DataStatistics();
-            MultiPort = sp.GetService<MultiPortService>();
-            AutoBaud = sp.GetRequiredService<AutoBaudDetector>();
-            Modbus = sp.GetService<ModbusService>();
-            SlaveService = sp.GetService<ModbusSlaveService>();
-
-            Serial.OnDataReceived += entry =>
-            {
-                Buffer.AddEntry(entry);
-                Logger.Write(entry);
-                Recorder.Record(entry);
-                if (entry.Direction == "RX")
-                {
-                    var bytes = string.IsNullOrEmpty(entry.RawHex) ? 0 : entry.RawHex.Replace(" ", "").Length / 2;
-                    Stats.RecordRx(bytes);
-                }
-            };
-        }
-    }
-
-    public (ParserEngine engine, string? error) GetParserEngine(string? parserName)
-    {
-        if (string.IsNullOrEmpty(parserName) || parserName == ParserManager.ActiveParserName)
-            return (ParserManager.Engine, null);
-
-        if (!ParserManager.TryResolveParserFile(parserName, ".csx", out var path))
-            return (ParserManager.Engine, $"Invalid parser name: '{parserName}'");
-        if (!File.Exists(path))
-            return (ParserManager.Engine, $"Parser '{parserName}' not found");
-
-        var engine = new ParserEngine();
-        if (!engine.Load(File.ReadAllText(path)))
-            return (ParserManager.Engine, $"Parser load failed: {engine.LastError}");
-
-        return (engine, null);
+        Serial = serial;
+        Serial.OnDataReceived += entry => Buffer.AddEntry(entry);
     }
 
     public string RawJson(object obj) =>

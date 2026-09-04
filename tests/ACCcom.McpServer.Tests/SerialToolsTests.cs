@@ -8,7 +8,7 @@ public class SerialToolsTests
     [Fact]
     public async Task ListPorts_ReturnsSuccessJson()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
@@ -19,36 +19,9 @@ public class SerialToolsTests
     }
 
     [Fact]
-    public async Task HealthCheck_ReturnsOkStatus()
-    {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
-        try
-        {
-            var tools = new SerialTools(ctx);
-            var result = await tools.HealthCheck();
-            Assert.True(ToolContextFactory.ExtractSuccess(result));
-            Assert.Contains("\"status\":\"ok\"", result);
-        }
-        finally { sp.Dispose(); }
-    }
-
-    [Fact]
-    public async Task GetStatus_ReportsIsOpen()
-    {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
-        try
-        {
-            var tools = new SerialTools(ctx);
-            var result = await tools.GetStatus();
-            Assert.True(ToolContextFactory.ExtractSuccess(result));
-        }
-        finally { sp.Dispose(); }
-    }
-
-    [Fact]
     public async Task OpenPort_RequiresPortName()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
@@ -62,7 +35,7 @@ public class SerialToolsTests
     [Fact]
     public async Task Send_RejectsEmptyData()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
@@ -73,22 +46,9 @@ public class SerialToolsTests
     }
 
     [Fact]
-    public async Task OpenPortTagged_RequiresTagAndPort()
-    {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
-        try
-        {
-            var tools = new SerialTools(ctx);
-            var result = await tools.OpenPortTagged("", "");
-            Assert.False(ToolContextFactory.ExtractSuccess(result));
-        }
-        finally { sp.Dispose(); }
-    }
-
-    [Fact]
     public async Task ClearBuffer_ReturnsSuccess()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
@@ -99,35 +59,9 @@ public class SerialToolsTests
     }
 
     [Fact]
-    public async Task DetectBaudRate_RequiresPort()
-    {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
-        try
-        {
-            var tools = new SerialTools(ctx);
-            var result = await tools.DetectBaudRate("");
-            Assert.False(ToolContextFactory.ExtractSuccess(result));
-        }
-        finally { sp.Dispose(); }
-    }
-
-    [Fact]
-    public async Task GetStatistics_ReturnsSuccess()
-    {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
-        try
-        {
-            var tools = new SerialTools(ctx);
-            var result = await tools.GetStatistics();
-            Assert.True(ToolContextFactory.ExtractSuccess(result));
-        }
-        finally { sp.Dispose(); }
-    }
-
-    [Fact]
     public async Task ReadData_ReturnsEmptyArray_WhenBufferEmpty()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
@@ -140,11 +74,37 @@ public class SerialToolsTests
     [Fact]
     public async Task WaitForResponse_RequiresPattern()
     {
-        var (ctx, sp) = ToolContextFactory.CreateDirect();
+        var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
             var result = await tools.WaitForResponse("", 100, "contains");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ClosePort_ReturnsSuccess_WhenNotOpen()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ClosePort();
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_RejectsEmptyData()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.SendAndWait("", "OK");
             Assert.False(ToolContextFactory.ExtractSuccess(result));
         }
         finally { sp.Dispose(); }

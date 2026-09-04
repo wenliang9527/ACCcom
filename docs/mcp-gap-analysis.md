@@ -1,6 +1,6 @@
 ## ACCCOM MCP 服务器差距分析
 
-> **⚠️ 归档文档**：本文档为 MCP 服务器早期开发的差距分析记录，所列差距**均已解决**。当前 MCP 工具数 39 个，测试数 613 个。如需了解当前状态，请参阅 [README.md](../README.md) 和 [架构指南](guide/architecture.md)。
+> **⚠️ 归档文档**：本文档为 MCP 服务器早期开发的差距分析记录，所列差距**均已解决**。MCP 服务器已裁剪为 8 个基础串口工具（list_ports / open_port / close_port / send / read_data / wait_for_response / send_and_wait / clear_buffer），解析器、录制、Modbus 等工具已移除。如需了解当前状态，请参阅 [README.md](../README.md) 和 [架构指南](guide/architecture.md)。
 >
 > 上次更新: 2026-06-09（已改为直接模式）
 

@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-613_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-576_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 
@@ -106,7 +106,7 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 | 📝 协议 | Roslyn C# Script 引擎、热加载、LRU 缓存、自动代码生成、自动解析器匹配、高亮规则 |
 | 🔧 Modbus | RTU/TCP/ASCII 主站、10 种功能码、自动分片、轮询、从站模拟 |
 | 🎨 界面 | 7 款主题（浅色/深色 + 五幅名画配色：日出·印象、麦田群鸦、吻、神奈川冲浪、珍珠少女）、画布纹理质感、中英文切换（运行时即时生效）、发送历史 |
-| 🤖 AI | MCP Server（39 个工具）、HTTP REST API、WebSocket 实时推送 |
+| 🤖 AI | MCP Server（8 个基础串口工具）、HTTP REST API、WebSocket 实时推送 |
 | 📊 数据 | Channel+RingBuffer 缓冲、实时统计、TXT/JSON/CSV/PCAP 导出 |
 | ⚡ 自动化 | 会话录制回放、多步骤宏、条件触发器、协议测试运行器 |
 | 🧩 工具 | 协议可视化编辑器、数据对比/差异分析、实时波形绘图、包过滤引擎 |

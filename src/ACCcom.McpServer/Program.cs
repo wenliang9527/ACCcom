@@ -5,91 +5,17 @@ using ACCcom.McpServer.Tools;
 using ACCcom.Core.Services;
 
 // --- ACCCOM MCP Server ---
-// Serial port debugging tool for AI clients via Model Context Protocol (stdio).
-//   --proxy              : proxy all serial operations through ACCCOM WPF HTTP API (http://127.0.0.1:8899)
-//   --proxy-url <url>    : custom HTTP API URL (default http://127.0.0.1:8899)
+// Basic serial port debugging tool for AI clients via Model Context Protocol (stdio).
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var useProxy = args.Contains("--proxy");
-var proxyUrl = args.SkipWhile(a => a != "--proxy-url").Skip(1).FirstOrDefault() ?? HttpService.DefaultUrl;
-
-var parserDir = args.SkipWhile(a => a != "--parsers-dir").Skip(1).FirstOrDefault();
-
-if (useProxy)
-{
-    // Ensure WPF app is running before starting MCP server
-    const string healthEndpoint = "/api/health";
-    const int maxRetries = 30;
-    const int healthCheckTimeoutMs = 2000;
-    var healthUrl = proxyUrl.TrimEnd('/') + healthEndpoint;
-    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-    try
-    {
-        var healthResp = await http.GetAsync(healthUrl).ConfigureAwait(false);
-        if (!healthResp.IsSuccessStatusCode) throw new Exception("health check failed");
-    }
-    catch
-    {
-        Console.Error.WriteLine("[proxy] ACCCOM WPF not detected, launching...");
-        var solutionRoot = Directory.GetCurrentDirectory();
-        var wpfProject = Path.Combine(solutionRoot, "src", "ACCcom", "ACCcom.csproj");
-        var psi = new System.Diagnostics.ProcessStartInfo("dotnet", $"run --project \"{wpfProject}\"")
-        {
-            UseShellExecute = true,
-            WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
-            WorkingDirectory = solutionRoot
-        };
-        System.Diagnostics.Process.Start(psi);
-
-        // Wait for WPF to start up (up to 30s)
-        Console.Error.Write("[proxy] Waiting for WPF to start...");
-        var started = false;
-        for (int i = 0; i < maxRetries; i++)
-        {
-            await Task.Delay(1000).ConfigureAwait(false);
-            try
-            {
-                using var cts = new CancellationTokenSource(healthCheckTimeoutMs);
-                var resp = await http.GetAsync(healthUrl, cts.Token).ConfigureAwait(false);
-                if (resp.IsSuccessStatusCode) { started = true; break; }
-            }
-            catch
-            {
-                Console.Error.Write(".");
-            }
-        }
-        Console.Error.WriteLine(started ? " OK" : " FAILED - WPF may not have started");
-    }
-
-    builder.Services.AddSingleton<ProxyClient>(_ => new ProxyClient(proxyUrl));
-    builder.Services.AddSingleton<ParserManager>(_ => new ParserManager(parserDir));
-builder.Services.AddSingleton<SessionRecorder>();
-}
-else
-{
-    builder.Services.AddSingleton<ISerialService, SerialService>();
-    builder.Services.AddSingleton<ParserManager>(_ => new ParserManager(parserDir));
-    builder.Services.AddSingleton<LoggerService>();
-    builder.Services.AddSingleton<MultiPortService>();
-    builder.Services.AddSingleton<AutoBaudDetector>();
-    builder.Services.AddSingleton<ModbusConnectionManager>();
-    builder.Services.AddSingleton<ModbusService>();
-    builder.Services.AddSingleton<ModbusSlaveService>();
-    builder.Services.AddSingleton<SessionRecorder>();
-}
-
-// Shared context for all tool classes
+builder.Services.AddSingleton<ISerialService, SerialService>();
 builder.Services.AddSingleton<ToolContext>();
 
 // Register MCP tools
 builder.Services.AddMcpServer()
     .WithStdioServerTransport()
-    .WithTools<SerialTools>()
-    .WithTools<ParserTools>()
-    .WithTools<RecordingTools>()
-    .WithTools<AnalysisTools>()
-    .WithTools<ModbusTools>();
+    .WithTools<SerialTools>();
 
 var app = builder.Build();
 await app.RunAsync().ConfigureAwait(false);

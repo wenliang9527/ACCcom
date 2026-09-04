@@ -201,11 +201,7 @@ ACCcom/
 │   └── ACCcom.McpServer/          # MCP Server (stdio 传输)
 │       ├── Program.cs
 │       └── Tools/
-│           ├── SerialTools.cs      # 串口操作工具 (16 个)
-│           ├── ParserTools.cs      # 解析器工具 (8 个)
-│           ├── AnalysisTools.cs    # 分析工具 (2 个)
-│           ├── RecordingTools.cs   # 录制回放工具 (4 个)
-│           ├── ModbusTools.cs      # Modbus 工具 (8 个)
+│           ├── SerialTools.cs      # 基础串口工具 (8 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tests/
 │   ├── ACCcom.Core.Tests/          # 核心库单元测试 (54 个文件, ~566 个测试)
@@ -254,13 +250,11 @@ ACCcom/
 │   │   ├── ModbusMergingTests.cs
 │   │   ├── ModbusFunctionCodeExtensionTests.cs
 │   │   └── TestCollections.cs
-│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (7 个文件, ~47 个测试)
+│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (10 个测试)
 │       ├── SerialToolsTests.cs
-│       ├── ParserToolsTests.cs
-│       ├── ModbusToolsTests.cs
-│       ├── RecordingToolsTests.cs
-│       ├── AnalysisToolsTests.cs
-│       └── ProxyClientTests.cs
+│       ├── ToolContextTests.cs
+│       └── TestHelpers/
+│           └── ToolContextFactory.cs
 ├── docs/
 │   ├── design/
 │   └── plan/
