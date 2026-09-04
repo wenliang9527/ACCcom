@@ -722,6 +722,57 @@
             </Style>
 
             <!-- ============================================== -->
+            <!-- RadioButton (theme-aware circle + dot)          -->
+            <!-- ============================================== -->
+            <Style TargetType="RadioButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="RadioBorder"
+                                        Width="14" Height="14"
+                                        Background="Transparent"
+                                        BorderBrush="{DynamicResource BorderLightBrush}"
+                                        BorderThickness="1.5"
+                                        CornerRadius="7"
+                                        VerticalAlignment="Center">
+                                    <Ellipse x:Name="RadioDot"
+                                             Width="6" Height="6"
+                                             Fill="{DynamicResource AccentBrush}"
+                                             Visibility="Collapsed" />
+                                </Border>
+                                <ContentPresenter Grid.Column="1"
+                                                  Margin="6,0,0,0"
+                                                  VerticalAlignment="Center"
+                                                  Content="{TemplateBinding Content}" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="RadioDot" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="RadioBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="RadioBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
             <!-- TextBox                                        -->
             <!-- ============================================== -->
             <Style TargetType="TextBox">
@@ -899,6 +950,148 @@
                 <Setter Property="Background" Value="{DynamicResource DividerBrush}" />
                 <Setter Property="Height" Value="1" />
                 <Setter Property="Margin" Value="4,0" />
+            </Style>
+
+            <!-- ============================================== -->
+            <!-- ToolTip (theme-aware; default is system white) -->
+            <!-- ============================================== -->
+            <Style TargetType="ToolTip">
+                <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="HasDropShadow" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToolTip">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6"
+                                    Padding="{TemplateBinding Padding}"
+                                    Effect="{DynamicResource SubtleShadow}">
+                                <ContentPresenter />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
+            <!-- ContextMenu / MenuItem (theme-aware)           -->
+            <!-- ============================================== -->
+            <Style TargetType="ContextMenu">
+                <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="HasDropShadow" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContextMenu">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6"
+                                    Padding="{TemplateBinding Padding}"
+                                    Effect="{DynamicResource CardShadow}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="MenuItem">
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="MenuItem">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}" Margin="0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0" ContentSource="Header"
+                                                      VerticalAlignment="Center" Margin="0,0,12,0" />
+                                    <TextBlock Grid.Column="1" Text="{TemplateBinding InputGestureText}"
+                                               Foreground="{DynamicResource InkTertiaryBrush}"
+                                               FontSize="11" HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" Margin="16,0,0,0" />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
+            <!-- ProgressBar (theme-aware)                      -->
+            <!-- ============================================== -->
+            <Style TargetType="ProgressBar">
+                <Setter Property="Height" Value="20" />
+                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ProgressBar">
+                            <Grid>
+                                <Border x:Name="PART_Track" Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                        CornerRadius="4" />
+                                <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                        CornerRadius="4" Margin="1" HorizontalAlignment="Left" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Mini toggle: header filters (fx / autoscroll) in DataPanel -->
+            <Style x:Key="MiniToggle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Height" Value="22" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <!-- ============================================== -->

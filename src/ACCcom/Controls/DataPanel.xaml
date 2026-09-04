@@ -50,6 +50,7 @@
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                 <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                              Style="{StaticResource MiniToggle}"
                                               FontFamily="Consolas" FontSize="11" Padding="4,1"
                                               ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
                             </StackPanel>
@@ -58,7 +59,7 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" />
                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
+                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- export group -->
@@ -256,6 +257,7 @@
                                 <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                           ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                 <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                              Style="{StaticResource MiniToggle}"
                                               FontFamily="Consolas" FontSize="11" Padding="4,1"
                                               ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
                             </StackPanel>
@@ -264,7 +266,7 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" />
                                 <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" FontSize="12" Padding="4,0" />
+                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
                             </StackPanel>
                             <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                             <!-- export group -->
