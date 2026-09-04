@@ -298,10 +298,32 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | **Cursor** | 项目根 `.cursor/mcp.json` 或全局 `~/.cursor/mcp.json` | 项目级配置需重新打开窗口生效 |
 | **VS Code（Cline / Roo 等插件）** | 插件各自的管理界面或 `.vscode/mcp.json` | Cline 在设置页粘贴同一片段 |
 | **opencode** | 项目根 `opencode.json` | `dotnet run` 或 exe 均可，推荐 exe |
-| **ZCode 等 CLI 助手** | 各自的 MCP 配置（一般为 `~/.zcode/...` 或项目级） | 同上，stdio + 绝对路径即可 |
+| **ZCode** | `~/.zcode/cli/config.json`（全局）→ `mcp.servers` | 仓库内已提供 `launch_acccom.ps1` 启动器，见下方 ZCode 配置示例 |
 
 > 提示：`cwd` 必须指向仓库根目录，因为 `--parsers-dir` 是相对仓库根的路径。若工具的配置格式不支持 `cwd` 字段，把 `--parsers-dir` 换成绝对路径即可：
 > `"args": ["--parsers-dir", "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.Core\\parsers"]`
+
+**ZCode 配置示例（本机已生效）：**
+
+编辑 `%USERPROFILE%\.zcode\cli\config.json`，在 `mcp.servers` 下加入：
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "acccom": {
+        "enabled": true,
+        "type": "stdio",
+        "command": "powershell",
+        "args": ["-ExecutionPolicy", "Bypass", "-File", "launch_acccom.ps1"],
+        "cwd": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom"
+      }
+    }
+  }
+}
+```
+
+`launch_acccom.ps1` 优先启动编译好的 Release exe（秒级启动），未构建时才回退到 `dotnet run`。修改配置后重启 ZCode 会话即生效，调用 `health_check` 可验证连接。
 
 **代理模式（需要 WPF 桌面端在 :8899 监听）：**
 
