@@ -57,7 +57,7 @@
         </StatusBarItem>
 
         <!-- 分隔符 2 -->
-        <Separator Width="1" Height="12" Margin="6,0"
+        <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
         <!-- TX 计数块（点击重置） -->
@@ -88,7 +88,7 @@
         </StatusBarItem>
 
         <!-- 分隔符 3 -->
-        <Separator Width="1" Height="12" Margin="6,0"
+        <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
         <!-- 错误帧计数（点击重置） -->
@@ -113,7 +113,7 @@
         </StatusBarItem>
 
         <!-- 分隔符 4 -->
-        <Separator Width="1" Height="12" Margin="6,0"
+        <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
 <!-- 连接时长（无点击行为，纯显示） -->
@@ -127,7 +127,7 @@
         </StatusBarItem>
 
         <!-- 分隔符 5 -->
-        <Separator Width="1" Height="12" Margin="6,0"
+        <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
         <!-- 录制指示（点击切换录制开关）。隐藏整个控件以避免占用状态栏空间。 -->

@@ -130,7 +130,7 @@
                                                Margin="0,0,8,0" VerticalAlignment="Center" />
                                      <TextBlock Grid.Column="2"
                                                 Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                                FontFamily="Consolas" FontSize="13"
+                                                FontFamily="Consolas" FontSize="11"
                                                 Foreground="{DynamicResource InkSecondaryBrush}"
                                                 Margin="0,0,14,0" VerticalAlignment="Center"
                                                 Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
@@ -337,7 +337,7 @@
                                                Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="2"
                                                Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                               FontFamily="Consolas" FontSize="13"
+                                               FontFamily="Consolas" FontSize="11"
                                                Foreground="{DynamicResource InkSecondaryBrush}"
                                                Margin="0,0,14,0" VerticalAlignment="Center"
                                                Visibility="{Binding DataContext.EnableTxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />

@@ -155,7 +155,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="36" />
-                    <RowDefinition Height="32" />
+                    <RowDefinition Height="34" />
                 </Grid.RowDefinitions>
 
                 <!-- ── Line 1: connection ── -->
@@ -212,9 +212,9 @@
                     <DockPanel VerticalAlignment="Center">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
-                                      Width="62" Margin="0,0,4,0" FontSize="11" />
+                                      Width="72" Margin="0,0,4,0" />
                             <ComboBox ItemsSource="{Binding Themes}" SelectedValuePath="Id" SelectedValue="{Binding SelectedTheme}"
-                                      Width="120" Margin="0,0,2,0" FontSize="11">
+                                      Width="120" Margin="0,0,2,0">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -386,9 +386,9 @@
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBox Text="{Binding NewPortTag, UpdateSourceTrigger=PropertyChanged}"
-                             Width="60" FontSize="11" Padding="3,1" Margin="0,0,4,0" />
+                             Width="60" FontSize="11" Padding="4,1" Margin="0,0,4,0" />
                     <TextBox Text="{Binding NewPortName, UpdateSourceTrigger=PropertyChanged}"
-                             Width="80" FontSize="11" Padding="3,1" Margin="0,0,4,0" />
+                             Width="80" FontSize="11" Padding="4,1" Margin="0,0,4,0" />
                     <Button Content="+" Command="{Binding OpenMultiPortCommand}"
                             Style="{StaticResource OutlineButton}" FontSize="12" Padding="4,0" Width="22" />
                     <Button Content="x" Command="{Binding CloseAllPortsCommand}"
