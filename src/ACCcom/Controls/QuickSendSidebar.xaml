@@ -63,7 +63,7 @@
             <!-- ===== Row 1: Page navigation ===== -->
             <DockPanel Grid.Row="1" Margin="2,0,2,6">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                    <Button Content="&#x25C0;" Style="{StaticResource NavButton}"
+                    <Button Content="&#xE72B;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
                             Command="{Binding PrevPageCommand}"
                             ToolTip="{Binding [QuickSend.PrevPage], Source={x:Static local:LanguageManager.Instance}}" />
                     <ComboBox x:Name="PageSelector" Width="90" Margin="4,0" FontSize="11"
@@ -75,15 +75,15 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Content="&#x25B6;" Style="{StaticResource NavButton}"
+                    <Button Content="&#xE72A;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
                             Command="{Binding NextPageCommand}"
                             ToolTip="{Binding [QuickSend.NextPage], Source={x:Static local:LanguageManager.Instance}}" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="+" Style="{StaticResource NavButton}"
+                    <Button Content="&#xE710;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
                             Command="{Binding AddPageCommand}"
                             ToolTip="{Binding [QuickSend.AddPage], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="&#x22EF;" Style="{StaticResource NavButton}" Margin="3,0,0,0"
+                    <Button Content="&#xE712;" Style="{StaticResource NavButton}" Margin="3,0,0,0" FontFamily="Segoe MDL2 Assets"
                             ToolTip="{Binding [QuickSend.PageMenu], Source={x:Static local:LanguageManager.Instance}}">
                         <Button.ContextMenu>
                             <ContextMenu>
@@ -102,9 +102,9 @@
 
             <!-- ===== Row 2: Search filter ===== -->
             <DockPanel Grid.Row="2" Margin="2,0,2,6" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Left" Text="&#x1F50D;" FontSize="11" VerticalAlignment="Center"
+                <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"
                            Foreground="{DynamicResource InkTertiaryBrush}" Margin="0,0,4,0" />
-                <Button DockPanel.Dock="Right" Content="&#x2715;" Margin="2,0,0,0"
+                <Button DockPanel.Dock="Right" Content="&#xE711;" Margin="2,0,0,0" FontFamily="Segoe MDL2 Assets"
                         Click="ClearFilter_Click"
                         ToolTip="{Binding [QuickSend.ClearFilter], Source={x:Static local:LanguageManager.Instance}}">
                     <Button.Style>

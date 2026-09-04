@@ -37,6 +37,10 @@
     <Color x:Key="StatusGreen">#7FA05C</Color>
     <Color x:Key="StatusWarning">#E0B33C</Color>
     <Color x:Key="StatusError">#D36C57</Color>
+    <!-- Danger button: deep red keeps white button text AA on every state -->
+    <Color x:Key="BtnDanger">#C94E34</Color>
+    <Color x:Key="BtnDangerHover">#BC4930</Color>
+    <Color x:Key="BtnDangerPressed">#A43F2A</Color>
 
     <Color x:Key="StatusWarningBg">#18E0B33C</Color>
     <Color x:Key="StatusErrorBg">#18C75B4A</Color>
@@ -77,6 +81,9 @@
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
     <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="BtnDangerBrush" Color="{StaticResource BtnDanger}" />
+    <SolidColorBrush x:Key="BtnDangerHoverBrush" Color="{StaticResource BtnDangerHover}" />
+    <SolidColorBrush x:Key="BtnDangerPressedBrush" Color="{StaticResource BtnDangerPressed}" />
     <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
     <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
     <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />

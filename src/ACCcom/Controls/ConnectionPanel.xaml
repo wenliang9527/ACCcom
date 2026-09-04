@@ -33,7 +33,7 @@
             <Button Command="{Binding AutoDetectBaudCommand}"
                     Style="{StaticResource HeaderButton}" FontSize="12" Padding="4,1" VerticalAlignment="Center"
                     ToolTip="{Binding [Tip.AutoDetectBaud], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="{Binding DetectGlyph, FallbackValue='🔍'}" FontSize="12" />
+                <TextBlock Text="{Binding DetectGlyph, FallbackValue='&#xE721;'}" FontFamily="Segoe MDL2 Assets" FontSize="14" />
             </Button>
 
             <!-- Connection presets: save current params, one-click restore -->
@@ -42,12 +42,12 @@
             <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"
                       DisplayMemberPath="Name" Width="110" Margin="0,0,4,0"
                       ToolTip="{Binding [Tip.PresetApply], Source={x:Static local:LanguageManager.Instance}}" />
-            <Button Content="&#x1F4BE;" Command="{Binding SavePresetCommand}"
-                    Style="{StaticResource HeaderButton}" FontSize="12" Padding="3,1" VerticalAlignment="Center"
+            <Button Content="&#xE74E;" Command="{Binding SavePresetCommand}"
+                    Style="{StaticResource HeaderButton}" FontFamily="Segoe MDL2 Assets" FontSize="14" Padding="3,1" VerticalAlignment="Center"
                     ToolTip="{Binding [Tip.SavePreset], Source={x:Static local:LanguageManager.Instance}}" />
-            <Button Content="&#x1F5D1;" Command="{Binding DeletePresetCommand}"
+            <Button Content="&#xE74D;" Command="{Binding DeletePresetCommand}"
                     CommandParameter="{Binding SelectedPreset}"
-                    Style="{StaticResource HeaderButton}" FontSize="12" Padding="3,1" VerticalAlignment="Center"
+                    Style="{StaticResource HeaderButton}" FontFamily="Segoe MDL2 Assets" FontSize="14" Padding="3,1" VerticalAlignment="Center"
                     Margin="2,0,0,0"
                     ToolTip="{Binding [Tip.DeletePreset], Source={x:Static local:LanguageManager.Instance}}" />
         </StackPanel>
@@ -82,11 +82,11 @@
         <ComboBox ItemsSource="{Binding AvailableParsers}"
                   SelectedItem="{Binding SelectedParser, Mode=TwoWay}"
                   Width="110" IsEditable="False" Margin="0,0,4,0" />
-        <Button Content="&#x2295;" Command="{Binding OpenParserDirCommand}"
-                Style="{StaticResource HeaderButton}" FontSize="12" Padding="3,1" VerticalAlignment="Center"
+        <Button Content="&#xE838;" Command="{Binding OpenParserDirCommand}"
+                Style="{StaticResource HeaderButton}" FontFamily="Segoe MDL2 Assets" FontSize="14" Padding="3,1" VerticalAlignment="Center"
                 ToolTip="{Binding [Tip.OpenParserDir], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="&#x229E;" Command="{Binding OpenFrameAssemblerConfigCommand}"
-                Style="{StaticResource HeaderButton}" FontSize="12" Padding="3,1" VerticalAlignment="Center"
+        <Button Content="&#xE70F;" Command="{Binding OpenFrameAssemblerConfigCommand}"
+                Style="{StaticResource HeaderButton}" FontFamily="Segoe MDL2 Assets" FontSize="14" Padding="3,1" VerticalAlignment="Center"
                 ToolTip="{Binding [Tip.FrameAssemblyConfig], Source={x:Static local:LanguageManager.Instance}}" />
     </StackPanel>
 </UserControl>

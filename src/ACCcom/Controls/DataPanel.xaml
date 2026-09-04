@@ -43,7 +43,7 @@
                         <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <!-- search group -->
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#x2315;" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
                                 <TextBox x:Name="RxSearchBox" Width="110" FontSize="11" Padding="4,1"
                                          Text="{Binding RxFilterText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
@@ -249,7 +249,7 @@
                         <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <!-- search group -->
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#x2315;" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
                                 <TextBox x:Name="TxSearchBox" Width="110" FontSize="11" Padding="4,1"
                                          Text="{Binding TxFilterText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />

@@ -108,6 +108,7 @@
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -312,7 +313,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource RedErrorBrush}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerBrush}" />
                                     <Setter Property="Foreground" Value="#FFFFFFFF" />
                                 </DataTrigger>
                                 <MultiDataTrigger>
@@ -327,11 +328,15 @@
                                         <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True" />
                                         <Condition Binding="{Binding IsOpen}" Value="True" />
                                     </MultiDataTrigger.Conditions>
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource RedErrorBrush}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerHoverBrush}" />
                                 </MultiDataTrigger>
-                                <Trigger Property="IsPressed" Value="True">
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsPressed}" Value="True" />
+                                        <Condition Binding="{Binding IsOpen}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
-                                    <Trigger.EnterActions>
+                                    <MultiDataTrigger.EnterActions>
                                         <BeginStoryboard>
                                             <Storyboard>
                                                 <DoubleAnimation Storyboard.TargetName="Bd"
@@ -342,8 +347,8 @@
                                                                  To="0.97" Duration="0:0:0.08" />
                                             </Storyboard>
                                         </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
+                                    </MultiDataTrigger.EnterActions>
+                                    <MultiDataTrigger.ExitActions>
                                         <BeginStoryboard>
                                             <Storyboard>
                                                 <DoubleAnimation Storyboard.TargetName="Bd"
@@ -354,8 +359,39 @@
                                                                  To="1.0" Duration="0:0:0.12" />
                                             </Storyboard>
                                         </BeginStoryboard>
-                                    </Trigger.ExitActions>
-                                </Trigger>
+                                    </MultiDataTrigger.ExitActions>
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsPressed}" Value="True" />
+                                        <Condition Binding="{Binding IsOpen}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerPressedBrush}" />
+                                    <MultiDataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.97" Duration="0:0:0.08" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiDataTrigger.EnterActions>
+                                    <MultiDataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.12" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiDataTrigger.ExitActions>
+                                </MultiDataTrigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>

@@ -181,7 +181,7 @@
         <!-- 弹性空间 -->
         <StatusBarItem HorizontalAlignment="Right">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#x2753;" FontSize="12" Cursor="Hand" Margin="0,0,8,0"
+                <TextBlock Text="&#xE897;" FontFamily="Segoe MDL2 Assets" FontSize="13" Cursor="Hand" Margin="0,0,8,0"
                            VerticalAlignment="Center" Foreground="{DynamicResource InkTertiaryBrush}"
                            ToolTip="{Binding [Shortcuts.Title], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonDown="OnShortcutsClick">

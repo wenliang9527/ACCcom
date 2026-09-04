@@ -38,6 +38,10 @@
     <!-- Lemon yellow of the draped cloth -->
     <Color x:Key="StatusWarning">#E3C95F</Color>
     <Color x:Key="StatusError">#D17362</Color>
+    <!-- Danger button: deep red keeps white button text AA on every state -->
+    <Color x:Key="BtnDanger">#C6513C</Color>
+    <Color x:Key="BtnDangerHover">#BB4B36</Color>
+    <Color x:Key="BtnDangerPressed">#A4412F</Color>
 
     <Color x:Key="StatusWarningBg">#18E3C95F</Color>
     <Color x:Key="StatusErrorBg">#18C96A5E</Color>
@@ -79,6 +83,9 @@
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
     <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="BtnDangerBrush" Color="{StaticResource BtnDanger}" />
+    <SolidColorBrush x:Key="BtnDangerHoverBrush" Color="{StaticResource BtnDangerHover}" />
+    <SolidColorBrush x:Key="BtnDangerPressedBrush" Color="{StaticResource BtnDangerPressed}" />
     <SolidColorBrush x:Key="SearchHighlightBrush" Color="{StaticResource SearchHighlight}" />
     <SolidColorBrush x:Key="ConnBadgeBgBrush" Color="{StaticResource ConnBadgeBg}" />
     <SolidColorBrush x:Key="ConnBadgeBorderBrush" Color="{StaticResource ConnBadgeBorder}" />

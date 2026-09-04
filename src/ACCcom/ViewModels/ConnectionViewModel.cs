@@ -105,8 +105,9 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private string _detectProgressText = "";
     public string DetectProgressText { get => _detectProgressText; set => SetField(ref _detectProgressText, value); }
 
-    /// <summary>Button face text: spinner while detecting, magnifier icon when idle.</summary>
-    public string DetectGlyph => IsDetecting ? "⟳" : "🔍";
+    /// <summary>Button face glyph: sync-arrows while probing, magnifier when idle.
+    /// Rendered in Segoe MDL2 Assets (see ConnectionPanel.xaml).</summary>
+    public string DetectGlyph => IsDetecting ? "\uE895" : "\uE721";
 
     public ICommand OpenCloseCommand { get; }
     public ICommand ConnectNetworkCommand { get; }
