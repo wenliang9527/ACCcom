@@ -100,7 +100,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public bool IsDarkTheme { get => _isDarkTheme; set => SetField(ref _isDarkTheme, value); }
 
     // ===== Theme selection =====
-    public sealed record ThemeOption(string Id, string Name);
+    public sealed record ThemeOption(string Id, string Name, System.Windows.Media.Color Accent);
 
     private ObservableCollection<ThemeOption> _themes = new();
     public ObservableCollection<ThemeOption> Themes => _themes;
@@ -130,7 +130,10 @@ public class MainViewModel : ObservableObject, IDisposable
     {
         var selected = _selectedTheme;
         _themes = new ObservableCollection<ThemeOption>(
-            Helpers.ThemeManager.ThemeIds.Select(id => new ThemeOption(id, Helpers.ThemeManager.GetDisplayName(id))));
+            Helpers.ThemeManager.ThemeIds.Select(id => new ThemeOption(
+                id,
+                Helpers.ThemeManager.GetDisplayName(id),
+                Helpers.ThemeManager.GetAccent(id))));
         OnPropertyChanged(nameof(Themes));
         OnPropertyChanged(nameof(SelectedTheme));
     }

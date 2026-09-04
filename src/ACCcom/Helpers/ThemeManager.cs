@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Windows;
+using System.Windows.Media;
 
 namespace ACCcom.Helpers;
 
@@ -40,4 +42,28 @@ public static class ThemeManager
         }
         return ThemeIds[0];
     }
+
+    /// <summary>Signature accent color of a theme, read from its dictionary.
+    /// Used by the theme picker to render a swatch next to the theme name.</summary>
+    public static Color GetAccent(string themeId)
+    {
+        var fileName = themeId switch
+        {
+            "Light" => "LightTheme",
+            "Dark" => "DarkTheme",
+            _ => themeId
+        };
+        var uri = $"pack://application:,,,/ACCcom;component/Themes/{fileName}.xaml";
+        try
+        {
+            var dict = new ResourceDictionary { Source = new System.Uri(uri, System.UriKind.Absolute) };
+            if (dict["Accent"] is Color accent) return accent;
+        }
+        catch
+        {
+            // fall through to default
+        }
+        return Colors.Gray;
+    }
 }
+
