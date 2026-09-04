@@ -189,11 +189,11 @@
                                         </Style>
                                     </Rectangle.Style>
                                 </Rectangle>
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11.5"
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11"
                                            Foreground="{DynamicResource InkPrimaryBrush}"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="2" Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource HotkeyIndex}}"
-                                           FontSize="9" FontFamily="Consolas"
+                                           FontSize="10" FontFamily="Consolas"
                                            Foreground="{DynamicResource InkTertiaryBrush}"
                                            VerticalAlignment="Center" Margin="6,0,0,0" />
                             </Grid>

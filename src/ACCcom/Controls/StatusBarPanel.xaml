@@ -50,7 +50,7 @@
                     <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
-                <TextBlock Text="{Binding RxRate}" FontSize="9" FontFamily="Consolas"
+                <TextBlock Text="{Binding RxRate}" FontSize="10" FontFamily="Consolas"
                            Foreground="{DynamicResource InkTertiaryBrush}"
                            ToolTip="{Binding [StatusBar.RxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
@@ -81,7 +81,7 @@
                     <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
-                <TextBlock Text="{Binding TxRate}" FontSize="9" FontFamily="Consolas"
+                <TextBlock Text="{Binding TxRate}" FontSize="10" FontFamily="Consolas"
                            Foreground="{DynamicResource InkTertiaryBrush}"
                            ToolTip="{Binding [StatusBar.TxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
