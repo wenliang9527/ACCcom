@@ -586,8 +586,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// Queues an RX entry from the receiving thread (lock-protected). Highlight
     /// matching and observable updates are deferred to the UI-thread flush timer.
     /// </summary>
+    /// <summary>Queues an RX entry from the receiving thread (lock-protected).
+    /// Highlight is computed here (enqueue thread) — before the entry enters the
+    /// pending list — so the UI flush never scans rules per frame; the lock
+    /// happens-before guarantees the value is visible when the UI reads it.</summary>
     public void AddRxEntry(LogEntry entry, int byteCount)
     {
+        ApplyHighlight(entry);
         AddRecentRxText(entry.Text);
         lock (_pendingLock)
         {
@@ -597,9 +602,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Queues a TX entry from the receiving thread (lock-protected).</summary>
+    /// <summary>Queues a TX entry from the receiving thread (lock-protected).
+    /// Highlight is computed here for the same reason as RX.</summary>
     public void AddTxEntry(LogEntry entry, int byteCount)
     {
+        ApplyHighlight(entry);
         lock (_pendingLock)
         {
             _pendingTx.Add(entry);
@@ -687,7 +694,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         if (rxBatch != null)
         {
-            foreach (var entry in rxBatch) ApplyHighlight(entry);
             RxEntries.AddRange(rxBatch);
             _rxCount += rxBatch.Count;
             _rxByteCount += rxBytesTotal;
@@ -701,7 +707,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
         if (txBatch != null)
         {
-            foreach (var entry in txBatch) ApplyHighlight(entry);
             TxEntries.AddRange(txBatch);
             _txCount += txBatch.Count;
             _txByteCount += txBytesTotal;

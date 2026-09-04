@@ -328,4 +328,37 @@ public class HighlightServiceTests : IDisposable
 
         Assert.Null(_sut.GetHighlightColor(MakeEntry(1, text: "hi")));
     }
+
+    /// <summary>GetHighlightColor reads a volatile snapshot (enqueue thread) while
+    /// the UI thread mutates Rules — this must never throw or return torn state.
+    /// Mirrors the real DataFlowViewModel usage where serial frames arrive on
+    /// background threads while the rule editor runs on the UI thread.</summary>
+    [Fact]
+    public async Task GetHighlightColor_concurrent_with_rule_mutation_does_not_throw()
+    {
+        _sut.AddRule(new HighlightRule { Name = "Base", Pattern = "hello", Color = "#111111" });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        var reader = Task.Run(() =>
+        {
+            var entry = MakeEntry(1, text: "hello");
+            while (!cts.IsCancellationRequested)
+                _ = _sut.GetHighlightColor(entry);
+        });
+
+        var writer = Task.Run(() =>
+        {
+            var i = 0;
+            while (!cts.IsCancellationRequested)
+            {
+                var name = $"R{i++ % 8}";
+                _sut.AddRule(new HighlightRule { Name = name, Pattern = "hello", Color = "#222222" });
+                _sut.RemoveRule(name);
+            }
+        });
+
+        await Task.WhenAll(reader, writer);
+        // Reader completed without throwing; final state is a valid rule.
+        Assert.NotNull(_sut.GetHighlightColor(MakeEntry(1, text: "hello")));
+    }
 }

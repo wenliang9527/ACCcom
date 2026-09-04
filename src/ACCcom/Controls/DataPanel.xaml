@@ -14,8 +14,15 @@
         </Grid.ColumnDefinitions>
 
         <!-- ======== RX Panel ======== -->
-        <controls:PaintedCard Grid.Column="0" Background="{DynamicResource BgSurfaceBrush}"
-                CornerRadius="8" Effect="{DynamicResource CardShadow}">
+        <!-- Static shadow layer: an identical, content-free Border carries the
+             DropShadowEffect so the blur is never re-rasterized when the ListBox
+             content refreshes (a shadow on the card itself re-renders the whole
+             card, ListBox included, every 30ms flush tick). -->
+        <Grid Grid.Column="0">
+            <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                    Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
+            <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}"
+                    CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="3" />
@@ -206,7 +213,8 @@
                     </DataGrid>
                 </Border>
             </Grid>
-        </controls:PaintedCard>
+            </controls:PaintedCard>
+            </Grid>
 
         <!-- Vertical splitter -->
         <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
@@ -223,8 +231,11 @@
         </GridSplitter>
 
         <!-- ======== TX Panel ======== -->
-        <controls:PaintedCard Grid.Column="2" Background="{DynamicResource BgSurfaceBrush}"
-                CornerRadius="8" Effect="{DynamicResource CardShadow}">
+        <Grid Grid.Column="2">
+            <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                    Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
+            <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}"
+                    CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="3" />
@@ -362,6 +373,7 @@
                    </ListBox>
 
             </Grid>
-        </controls:PaintedCard>
+            </controls:PaintedCard>
+            </Grid>
     </Grid>
 </UserControl>

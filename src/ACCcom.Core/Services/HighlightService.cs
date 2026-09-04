@@ -37,6 +37,14 @@ public class HighlightService
 
     public ObservableCollection<HighlightRule> Rules { get; } = new();
 
+    // Snapshot for lock-free reads: GetHighlightColor runs on the enqueue thread
+    // (per received frame) while the UI thread edits Rules. A volatile array swap
+    // (TriggerService pattern) lets readers see a consistent rule set without
+    // touching the ObservableCollection, which is not safe for concurrent
+    // enumeration. Rebuilt on every structural mutation.
+    private readonly object _lock = new();
+    private volatile HighlightRule[] _snapshot = Array.Empty<HighlightRule>();
+
     private readonly string _filePath;
 
     public HighlightService()
@@ -51,33 +59,43 @@ public class HighlightService
 
     public void AddRule(HighlightRule rule)
     {
-        var existing = Rules.FirstOrDefault(r => r.Name == rule.Name);
-        if (existing != null)
-            Rules.Remove(existing);
-        Rules.Add(rule);
+        lock (_lock)
+        {
+            var existing = Rules.FirstOrDefault(r => r.Name == rule.Name);
+            if (existing != null)
+                Rules.Remove(existing);
+            Rules.Add(rule);
+            RefreshSnapshot();
+        }
     }
 
     public bool RemoveRule(string name)
     {
-        var rule = Rules.FirstOrDefault(r => r.Name == name);
-        if (rule == null) return false;
-        Rules.Remove(rule);
-        return true;
+        lock (_lock)
+        {
+            var rule = Rules.FirstOrDefault(r => r.Name == name);
+            if (rule == null) return false;
+            Rules.Remove(rule);
+            RefreshSnapshot();
+            return true;
+        }
     }
 
     public string? GetHighlightColor(LogEntry entry)
     {
         if (entry == null) return null;
 
-        // Hand-rolled scan instead of LINQ Where+OrderByDescending: this runs on
-        // the UI thread for every frame received (via DataFlowViewModel.ApplyHighlight),
-        // and the LINQ pipeline allocated an enumerable + sort per call. We track the
-        // highest-priority match in one pass with no per-call allocation. OrderByDescending
-        // is stable, so equal priorities keep insertion order — we mirror that by only
-        // replacing a tie when there is no current best.
+        // Hand-rolled scan over the volatile snapshot instead of LINQ
+        // Where+OrderByDescending: this runs on the enqueue thread for every
+        // frame received (via DataFlowViewModel.AddRxEntry/AddTxEntry), and the
+        // LINQ pipeline allocated an enumerable + sort per call. We track the
+        // highest-priority match in one pass with no per-call allocation.
+        // OrderByDescending is stable, so equal priorities keep insertion order
+        // — we mirror that by only replacing a tie when there is no current best.
+        var rules = _snapshot;
         string? best = null;
         var bestPriority = int.MinValue;
-        foreach (var rule in Rules)
+        foreach (var rule in rules)
         {
             if (!rule.IsEnabled) continue;
             if (rule.Direction.HasValue)
@@ -131,22 +149,27 @@ public class HighlightService
 
     public void Load()
     {
-        Rules.Clear();
-        if (!File.Exists(_filePath)) return;
-
-        try
+        lock (_lock)
         {
-            var json = File.ReadAllText(_filePath);
-            var rules = JsonSerializer.Deserialize<HighlightRule[]>(json);
-            if (rules != null)
+            Rules.Clear();
+            if (File.Exists(_filePath))
             {
-                foreach (var rule in rules)
-                    Rules.Add(rule);
+                try
+                {
+                    var json = File.ReadAllText(_filePath);
+                    var rules = JsonSerializer.Deserialize<HighlightRule[]>(json);
+                    if (rules != null)
+                    {
+                        foreach (var rule in rules)
+                            Rules.Add(rule);
+                    }
+                }
+                catch
+                {
+                    // Ignore corrupt file, start fresh
+                }
             }
-        }
-        catch
-        {
-            // Ignore corrupt file, start fresh
+            RefreshSnapshot();
         }
     }
 
@@ -155,4 +178,6 @@ public class HighlightService
         var json = JsonSerializer.Serialize(Rules.ToArray(), IndentedOptions);
         File.WriteAllText(_filePath, json);
     }
+
+    private void RefreshSnapshot() => _snapshot = Rules.ToArray();
 }
