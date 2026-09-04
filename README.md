@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-609_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-610_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 

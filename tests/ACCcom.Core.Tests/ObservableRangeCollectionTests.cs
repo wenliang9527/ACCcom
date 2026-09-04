@@ -111,6 +111,24 @@ public class ObservableRangeCollectionTests
     }
 
     [Fact]
+    public void RemoveRange_OldItemsCarryActualRemovedValues()
+    {
+        var coll = Create();
+        coll.AddRange(new[] { 10, 20, 30, 40, 50 });
+
+        _events.Clear();
+        coll.RemoveRange(1, 3); // removes 20, 30, 40
+
+        Assert.Equal(3, _events.Count);
+        // The pooled snapshot must yield the exact removed values, in order,
+        // so handlers see the correct items even after the backing list shifted.
+        Assert.Equal(20, (int)_events[0].OldItems![0]!);
+        Assert.Equal(30, (int)_events[1].OldItems![0]!);
+        Assert.Equal(40, (int)_events[2].OldItems![0]!);
+        Assert.Equal(new[] { 10, 50 }, coll);
+    }
+
+    [Fact]
     public void RemoveRange_FiresCountAndIndexerPropertyChangedOnceEach()
     {
         var coll = Create();

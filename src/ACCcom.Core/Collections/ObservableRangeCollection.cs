@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -43,24 +44,34 @@ public class ObservableRangeCollection<T> : ObservableCollection<T>
 
     /// <summary>Removes a range. The internal list is shifted in one pass; the
     /// events fire one per removed item (all at the same start index, matching
-    /// how WPF removes items one at a time from the front).</summary>
+    /// how WPF removes items one at a time from the front). The removed-item
+    /// snapshot is rented from the shared array pool because this runs on the
+    /// 30ms UI flush (TrimBuffer for large sessions) — a fresh array per trim
+    /// was steady gen0 pressure at high frame rates.</summary>
     public void RemoveRange(int index, int count)
     {
         if (count <= 0 || index < 0 || index + count > Count) return;
 
-        var removed = new T[count];
-        for (int i = 0; i < count; i++)
-            removed[i] = Items[index + i];
+        var removed = ArrayPool<T>.Shared.Rent(count);
+        try
+        {
+            for (int i = 0; i < count; i++)
+                removed[i] = Items[index + i];
 
-        if (Items is List<T> list) list.RemoveRange(index, count);
-        else for (int i = index + count - 1; i >= index; i--) Items.RemoveAt(i);
+            if (Items is List<T> list) list.RemoveRange(index, count);
+            else for (int i = index + count - 1; i >= index; i--) Items.RemoveAt(i);
 
-        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
-        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+            OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
 
-        for (int i = 0; i < count; i++)
-            OnCollectionChanged(new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Remove, removed[i], index));
+            for (int i = 0; i < count; i++)
+                OnCollectionChanged(new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Remove, removed[i], index));
+        }
+        finally
+        {
+            ArrayPool<T>.Shared.Return(removed);
+        }
     }
 
     public void TrimTo(int maxSize)
