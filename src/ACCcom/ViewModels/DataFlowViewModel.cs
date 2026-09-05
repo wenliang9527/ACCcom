@@ -24,7 +24,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly TriggerService _triggerService;
     private readonly ParserManager _parserManager;
     private readonly FrameAssemblerConfig _frameAssemblerConfig;
-    private FrameBuffer _frameBuffer = null!;
+    // volatile so the receiver thread's FeedFrameBuffer reads the newest instance
+    // after ApplyFrameConfig swaps it; a stale read falls back to the old
+    // (already-unsubscribed) buffer, whose Write becomes a no-op once disposed.
+    private volatile FrameBuffer _frameBuffer = null!;
     private readonly AutoParserMatcher _autoMatcher;
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
@@ -481,13 +484,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     private void RebuildFrameBuffer()
     {
-        if (_frameBuffer != null)
-        {
-            _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
-            _frameBuffer.OnError -= _frameBufferErrorHandler;
-            _frameBuffer.Dispose();
-        }
-
+        // Construct + subscribe the new buffer first, then swap the field, then
+        // dispose the old one. This closes the window where writes land on a
+        // buffer whose OnFrameAssembled is not (yet) subscribed, which would
+        // silently drop assembled frames on every config change.
         var bufferConfig = new FrameBufferConfig
         {
             Strategy = FrameExtractStrategy.ByHeader,
@@ -499,9 +499,19 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             BufferCapacity = 65536,
             PartialFrameTimeoutMs = _frameAssemblerConfig.PartialFrameTimeoutMs
         };
-        _frameBuffer = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
-        _frameBuffer.OnFrameAssembled += _frameBufferFrameHandler;
-        _frameBuffer.OnError += _frameBufferErrorHandler;
+        var next = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
+        next.OnFrameAssembled += _frameBufferFrameHandler;
+        next.OnError += _frameBufferErrorHandler;
+
+        var old = _frameBuffer;
+        _frameBuffer = next;
+
+        if (old != null)
+        {
+            old.OnFrameAssembled -= _frameBufferFrameHandler;
+            old.OnError -= _frameBufferErrorHandler;
+            old.Dispose();
+        }
     }
 
     /// <summary>Parses a space-separated hex header string (e.g. "A5 5A") into

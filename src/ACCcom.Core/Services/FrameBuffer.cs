@@ -37,6 +37,11 @@ public class FrameBuffer : IDisposable
     private DateTime _lastDataTime;
     private Timer? _timeoutTimer;
     private bool _disposed;
+    private static int _entryIdSource;
+    // Serializes parser execution so in-flight script runs cannot accumulate
+    // without bound when parsing is slower than frame arrival, and so frames
+    // complete (and surface via OnFrameAssembled) in arrival order.
+    private readonly SemaphoreSlim _parseGate = new(1, 1);
 
     public event Action<LogEntry>? OnFrameAssembled;
     public event Action<string>? OnError;
@@ -117,7 +122,9 @@ public class FrameBuffer : IDisposable
             }
 
             if (frame == null) return;
-            EmitFrame(frame);
+            // Fire-and-forget: EmitFrame catches its own exceptions; the parse
+            // gate serializes execution so frames surface in arrival order.
+            _ = EmitFrame(frame);
         }
     }
 
@@ -157,6 +164,13 @@ public class FrameBuffer : IDisposable
             int frameLen = lenFieldValue + _config.LengthFieldIncludes;
             if (frameLen > _config.MaxFrameSize) { Reset(); return null; }
             if (frameLen > 0 && _count >= frameLen) return ConsumeBytes(frameLen);
+        }
+        else if (_config.LengthFieldOffset < 0)
+        {
+            // No length field: everything from the header to the current end of
+            // the buffered data is one frame (matches the legacy assembler's
+            // empty-length-field semantics).
+            return ConsumeBytes(_count);
         }
 
         return null;
@@ -230,13 +244,17 @@ public class FrameBuffer : IDisposable
         _count -= count;
     }
 
-    private async void EmitFrame(byte[] frame)
+    private async Task EmitFrame(byte[] frame)
     {
         var hex = HexHelper.BytesToHexSpaced(frame, 0, frame.Length);
         var text = Encoding.UTF8.GetString(frame);
 
         var entry = new LogEntry
         {
+            // Id feeds DataBufferService's monotonic cursor (GetEntriesSince for
+            // HTTP/MCP polling); without it the dashboard never sees frame-path
+            // entries because _maxId never advances past 0.
+            Id = Interlocked.Increment(ref _entryIdSource),
             Timestamp = DateTime.UtcNow,
             Direction = "RX",
             RawHex = hex,
@@ -256,9 +274,23 @@ public class FrameBuffer : IDisposable
             }
 
             if (_parserManager?.ActiveParserName != null)
-                entry.Fields = await _parserManager.Engine.ExecuteAsync(frame, entry.Timestamp).ConfigureAwait(false);
+            {
+                // One parser run at a time: keeps completions in arrival order and
+                // bounds in-flight script executions when the parser is slower
+                // than frame arrival.
+                await _parseGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    entry.Fields = await _parserManager.Engine.ExecuteAsync(frame, entry.Timestamp).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _parseGate.Release();
+                }
+            }
 
-            OnFrameAssembled?.Invoke(entry);
+            try { OnFrameAssembled?.Invoke(entry); }
+            catch (Exception ex) { OnError?.Invoke($"FrameBuffer callback error: {ex.Message}"); }
         }
         catch (Exception ex)
         {

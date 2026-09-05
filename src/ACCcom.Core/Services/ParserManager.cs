@@ -17,9 +17,19 @@ public class ParserManager : IDisposable
     private System.Threading.Timer? _debounceTimer;
     private readonly object _debounceLock = new();
     private bool _disposed;
+    // Serializes Activate() so the (engine-code, ActiveParserName) pair stays
+    // consistent: a frame thread calling Activate concurrently with a UI-thread
+    // reload can otherwise leave the engine running parser Y's code while
+    // ActiveParserName says X (silent mis-parse).
+    private readonly object _activateLock = new();
+    private string? _activeParserName;
 
     public ObservableCollection<string> AvailableParsers { get; } = new();
-    public string? ActiveParserName { get; private set; }
+    public string? ActiveParserName
+    {
+        get => Volatile.Read(ref _activeParserName);
+        private set => Volatile.Write(ref _activeParserName, value);
+    }
     public string? LastError => _engine.LastError;
     public ParserEngine Engine => _engine;
     public bool HotReloadEnabled { get; set; } = true;
@@ -93,18 +103,24 @@ public class ParserManager : IDisposable
                     try
                     {
                         Refresh();
-                        if (ActiveParserName != null)
+                        // Hot-reload reads/writes the same (engine, name) state as
+                        // Activate (called from the frame path), so it takes the
+                        // same lock to avoid a code/name mismatch.
+                        lock (_activateLock)
                         {
-                            var path = Path.Combine(_parserDir, ActiveParserName + ".csx");
-                            if (File.Exists(path))
+                            if (ActiveParserName != null)
                             {
-                                var code = File.ReadAllText(path);
-                                if (_engine.Load(code))
-                                    OnParserReloaded?.Invoke(ActiveParserName);
-                            }
-                            else
-                            {
-                                Activate(null);
+                                var path = Path.Combine(_parserDir, ActiveParserName + ".csx");
+                                if (File.Exists(path))
+                                {
+                                    var code = File.ReadAllText(path);
+                                    if (_engine.Load(code))
+                                        OnParserReloaded?.Invoke(ActiveParserName);
+                                }
+                                else
+                                {
+                                    Activate(null);
+                                }
                             }
                         }
                     }
@@ -149,24 +165,27 @@ public class ParserManager : IDisposable
 
     public bool Activate(string? parserName)
     {
-        parserName = parserName?.Trim();
-        if (string.IsNullOrEmpty(parserName) || parserName == NoParserName)
+        lock (_activateLock)
         {
-            ActiveParserName = null;
-            _activeParserPath = null;
-            _engine.Clear();
+            parserName = parserName?.Trim();
+            if (string.IsNullOrEmpty(parserName) || parserName == NoParserName)
+            {
+                ActiveParserName = null;
+                _activeParserPath = null;
+                _engine.Clear();
+                return true;
+            }
+
+            if (!TryResolveParserFile(parserName, ".csx", out var path)) return false;
+            if (!File.Exists(path)) return false;
+
+            var code = File.ReadAllText(path);
+            if (!_engine.Load(code)) return false;
+
+            ActiveParserName = parserName;
+            _activeParserPath = path;
             return true;
         }
-
-        if (!TryResolveParserFile(parserName, ".csx", out var path)) return false;
-        if (!File.Exists(path)) return false;
-
-        var code = File.ReadAllText(path);
-        if (!_engine.Load(code)) return false;
-
-        ActiveParserName = parserName;
-        _activeParserPath = path;
-        return true;
     }
 
     public string GetParserDir() => _parserDir;
