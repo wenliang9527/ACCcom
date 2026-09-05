@@ -256,8 +256,10 @@ public class SerialService : ISerialService, IDisposable
                    && !token.IsCancellationRequested)
             {
                 // Apply backoff: delay = interval * (backoff ^ attempt)
-                var delay = (int)(_reconnectSettings.ReconnectIntervalMs
-                    * Math.Pow(_reconnectSettings.BackoffMultiplier, _reconnectAttempt));
+                var delay = ComputeReconnectDelayMs(
+                    _reconnectSettings.ReconnectIntervalMs,
+                    _reconnectSettings.BackoffMultiplier,
+                    _reconnectAttempt);
                 await Task.Delay(delay, token).ConfigureAwait(false);
                 if (token.IsCancellationRequested) break;
                 if (_port?.IsOpen == true) break;
@@ -316,6 +318,27 @@ public class SerialService : ISerialService, IDisposable
         catch (Exception ex)
         {
             OnError?.Invoke($"[SerialService] Auto reconnect error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Exponential-backoff delay for a reconnect attempt: interval * backoff^attempt.
+    /// Clamped to a non-negative value so runaway backoff cannot overflow or delay forever.
+    /// </summary>
+    internal static int ComputeReconnectDelayMs(int intervalMs, double backoffMultiplier, int attempt)
+    {
+        if (intervalMs <= 0) return 0;
+        if (backoffMultiplier <= 0) return intervalMs;
+        if (attempt < 0) attempt = 0;
+        try
+        {
+            var delay = intervalMs * Math.Pow(backoffMultiplier, attempt);
+            if (delay > int.MaxValue) return int.MaxValue;
+            return (int)delay;
+        }
+        catch
+        {
+            return intervalMs;
         }
     }
 
