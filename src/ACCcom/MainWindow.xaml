@@ -358,6 +358,9 @@
                                         <EventSetter Event="Click" Handler="HistoryItem_Click" />
                                     </Style>
                                 </ContextMenu.ItemContainerStyle>
+                                <Separator />
+                                <MenuItem Header="{Binding [Menu.ClearSendHistory], Source={x:Static local:LanguageManager.Instance}}"
+                                          Command="{Binding ClearSendHistoryCommand}" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>

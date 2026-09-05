@@ -13,6 +13,7 @@ public partial class CompareWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "CompareWindow");
     }
 
     private void BrowseFileA_Click(object sender, RoutedEventArgs e)

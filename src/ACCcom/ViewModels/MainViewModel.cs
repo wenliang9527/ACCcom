@@ -188,6 +188,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenHighlightCommand { get; }
     public ICommand OpenProtocolTestCommand { get; }
     public ICommand OpenVirtualSerialCommand { get; }
+    public ICommand OpenCompareCommand { get; }
     public ICommand OpenTriggerCommand { get; }
     public ICommand OpenShortcutsCommand { get; }
     public ICommand OpenRecordingsFolderCommand { get; }
@@ -261,6 +262,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
         OpenVirtualSerialCommand = new RelayCommand(_ => OpenVirtualSerialWindow());
+        OpenCompareCommand = new RelayCommand(_ => OpenCompareWindow());
         OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
         OpenMacroCommand = new RelayCommand(_ => OpenMacroWindow());
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
@@ -528,6 +530,24 @@ public class MainViewModel : ObservableObject, IDisposable
         };
         _virtualSerialWindow.Show();
         StatusText = LanguageManager.Instance["Status.VirtualSerialOpened"];
+    }
+
+    private CompareWindow? _compareWindow;
+
+    private void OpenCompareWindow()
+    {
+        if (_compareWindow != null)
+        {
+            _compareWindow.Activate();
+            return;
+        }
+
+        _compareWindow = new CompareWindow
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _compareWindow.Closed += (_, _) => _compareWindow = null;
+        _compareWindow.Show();
     }
 
     private void OpenHighlightWindow()

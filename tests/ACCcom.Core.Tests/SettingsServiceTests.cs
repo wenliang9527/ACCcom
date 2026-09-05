@@ -107,17 +107,18 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void DefaultSettingsPath_IsUnderAppBaseDirectory()
+    public void DefaultSettingsPath_IsUnderLocalAppData()
     {
         // Arrange
-        var expected = Path.Combine(AppContext.BaseDirectory, "settings.json");
-
-        // Act - use default path (null)
         var service = new SettingsService();
 
-        // Assert - save to verify it writes to the expected location
-        service.Save(new AppSettings { LastPort = "test", WindowX = 0, WindowY = 0, WindowWidth = 800, WindowHeight = 600 });
-        Assert.True(File.Exists(expected));
+        // Assert: the default instance writes to LocalApplicationData (not
+        // AppContext.BaseDirectory — the legacy path before commit 62c4900).
+        // We only verify the location; we deliberately do NOT save here, so the
+        // test never touches a real user config directory.
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        Assert.StartsWith(localAppData, service.SettingsPath);
+        Assert.EndsWith("settings.json", service.SettingsPath);
     }
 
     [Fact]

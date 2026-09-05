@@ -118,7 +118,19 @@ public class ModbusViewModel : ObservableObject, IDisposable
     public string BatchValues { get => _batchValues; set => SetField(ref _batchValues, value); }
 
     private bool _isPolling;
-    public bool IsPolling { get => _isPolling; set => SetField(ref _isPolling, value); }
+    /// <summary>True while the auto-poll timer runs. The setter is the UI hook:
+    /// ticking the Auto Poll checkbox starts/stops the timer (the poll commands
+    /// and this property stay in sync). StartPoll/StopPoll write the backing
+    /// field directly so they don't re-enter this setter.</summary>
+    public bool IsPolling
+    {
+        get => _isPolling;
+        set
+        {
+            if (_isPolling == value) return;
+            if (value) StartPoll(); else StopPoll();
+        }
+    }
 
     private int _pollIntervalMs = 1000;
     public int PollIntervalMs { get => _pollIntervalMs; set => SetField(ref _pollIntervalMs, value); }
@@ -320,7 +332,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     private void StartPoll()
     {
-        if (IsPolling) return;
+        if (_isPolling) return;
         StopPoll();
         _pollTimer = new System.Timers.Timer(PollIntervalMs > 0 ? PollIntervalMs : 1000);
         _pollTimer.Elapsed += (_, _) =>
@@ -329,7 +341,8 @@ public class ModbusViewModel : ObservableObject, IDisposable
             app?.Dispatcher.InvokeAsync(() => ReadAsync());
         };
         _pollTimer.Start();
-        IsPolling = true;
+        _isPolling = true;
+        OnPropertyChanged(nameof(IsPolling));
         StatusText = $"Polling every {PollIntervalMs}ms";
     }
 
@@ -338,7 +351,8 @@ public class ModbusViewModel : ObservableObject, IDisposable
         _pollTimer?.Stop();
         _pollTimer?.Dispose();
         _pollTimer = null;
-        IsPolling = false;
+        _isPolling = false;
+        OnPropertyChanged(nameof(IsPolling));
     }
 
     private void ExportLog(string format)

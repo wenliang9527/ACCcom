@@ -22,6 +22,10 @@ public class SettingsService
     private readonly string _settingsPath;
     private string? _lastError;
 
+    /// <summary>Full path of the settings file this instance reads/writes.
+    /// Exposed for diagnostics and tests.</summary>
+    public string SettingsPath => _settingsPath;
+
     public SettingsService(string? settingsPath = null)
     {
         _settingsPath = settingsPath ?? DefaultSettingsPath;
@@ -60,7 +64,11 @@ public class SettingsService
         _lastError = null;
         try
         {
-            Directory.CreateDirectory(BaseDir);
+            // Create only the directory this instance actually writes to — a
+            // custom-path instance must not create the default LocalAppData dir.
+            var dir = Path.GetDirectoryName(_settingsPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
             var json = JsonSerializer.Serialize(settings, JsonOptions);
             File.WriteAllText(_settingsPath, json);
             return true;

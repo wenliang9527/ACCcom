@@ -1,40 +1,37 @@
-## 第 56 轮:虚拟串口模拟器 + 二级窗口状态持久化与空态提示
+## 第 57 轮:测试假绿修复 + 文档承诺但代码缺失的功能接线
 
-用户选择"两个都做"。虚拟串口做**独立模拟器窗口**(方案 A:自持 VirtualSerialService,注入数据显式接入主解析链路,不碰 `_serial` 共享——爆炸半径为零);窗口状态用 **WindowHelper.AttachWindowState 统一方案**(每窗口 1 行)。
+探索确认三个高收益项,全部属于"测试/实现不一致 + 文档有但代码无"主题,风险低收益直接。
 
-### 改动 1:虚拟串口模拟器窗口(功能)
-**背景**:`VirtualSerialService`(Core,108 行,完整 ISerialService)有 8 个测试但 UI 零引用;docs/guide/advanced-comms.md:35-43 宣传"无需真实硬件即可测试协议解析器"。
-**改法**(完全仿 ProtocolTestWindow 模式):
-- 新建 `src/ACCcom/ViewModels/VirtualSerialViewModel.cs`:自持 `VirtualSerialService`;命令 OpenCommand/CloseCommand/InjectRxCommand/SendCommand/ClearCommand;`ObservableCollection<LogEntry>` 记录窗口内 TX/RX;构造参数含 `DataFlowViewModel`——注入 RX 时同步调 `_dataFlow.OnSerialData(entry)` 接入 FrameBuffer/解析器/高亮/RxEntries 全链路(兑现文档承诺)
-- 新建 `src/ACCcom/VirtualSerialWindow.xaml(.cs)`:仿 ProtocolTestWindow(自绘标题栏 + SetupTitleBar);布局:连接控制(端口名/波特率 + Open/Close)、RX 注入框(hex 输入 + 注入按钮)、TX 发送框、TX/RX 滚动日志
-- `MainViewModel`:加 `OpenVirtualSerialCommand` + `OpenVirtualSerialWindow()`(懒建 VM、单例守卫、Closed 时 Dispose,复刻 `OpenProtocolTestWindow` MainViewModel.cs:477-503)
-- `ToolBarPanel.xaml` 加按钮绑定 `OpenVirtualSerialCommand`
-- 语言键(zh/en):`Button.VirtualSerial`/`Tip.OpenVirtualSerial`/窗口内各标签
-- VirtualSerialService 无需改(Core 已完整)
-
-### 改动 2:二级窗口位置/大小持久化(打磨)
-**背景**:仅 MainWindow 保存窗口状态;13 个二级窗口都不持久化;`_settings`/`_settingsService` 在 MainViewModel 私有,二级窗口无访问渠道。
+### 改动 1:修 SettingsService 测试假绿 + 真实副作用
+**现状**:`SettingsServiceTests.DefaultSettingsPath_IsUnderAppBaseDirectory`(:110-121)断言 `AppContext.BaseDirectory/settings.json`,但实现(SettingsService.cs:8-12)实际用 `%LOCALAPPDATA%\ACCcom\settings.json`——**干净环境必挂**,当前靠 bin 残留文件假绿(旧实现 commit 83a4917 用 BaseDirectory,62c4900 改实现没改测试);该测试还写入真实用户配置目录且不清理。另外 `Save()` 的 `Directory.CreateDirectory(BaseDir)`(:63)硬编码 LocalApplicationData,自定义路径实例也会创建真实目录副作用。
 **改法**:
-- `AppSettings` 加 `public record WindowRect(double X, double Y, double Width, double Height);` + `public Dictionary<string, WindowRect> WindowStates { get; set; } = new();`(与现有 FieldGridColumnWidths 字典风格一致;System.Text.Json 缺失属性取默认,旧 settings.json 零破坏)
-- `WindowHelper` 加:`SetSettingsProvider(Func<AppSettings>)`(MainWindow ctor 设一次)+ `AttachWindowState(Window, string key)`——订阅 Loaded(恢复)+ Closed(保存);恢复时用 `SystemParameters.VirtualScreen` 做屏幕内相交校验,窗口跑到屏外时回退居中(顺带回补 MainWindow 现有直接赋值)
-- 12 个二级窗口(跳过孤儿 CompareWindow)ctor 各加 1 行 `WindowHelper.AttachWindowState(this, "XxxWindow");`(ReplayWindow/FrameAssemblerConfigWindow 为 NoResize,只存位置)
-- `MainViewModel.SaveSettings` 末尾把 `WindowStates` 一并写入 settings;MainWindow.OnClosed 前 provider 已就绪
-- 不持久化 WindowState(最大化状态),避免与 SetupTitleBar 双击最大化交互
+- `SettingsService` 加 `public string SettingsPath => _settingsPath;`(暴露实际路径,仿 MacroManagerTests 断言模式)
+- 测试改为断言 `SettingsPath.StartsWith(LocalApplicationData)` 且**不写文件**(只验证默认路径归属,消除真实配置副作用)
+- `Save()` 的 `Directory.CreateDirectory` 改为 `Path.GetDirectoryName(_settingsPath)`(自定义路径不再碰真实配置目录)
+- 删除测试 bin 残留的 settings.json(假绿来源)
 
-### 改动 3:列表空状态提示(打磨)
-**背景**:全仓库无 EmptyTemplate;DataGrid/ListBox 空时全是空白。
+### 改动 2:接线 CompareWindow(孤儿窗口)
+**现状**:CompareWindow(文件行对比)+ DiffEngine 完整实现且有 8 个测试,但全仓库无 `new CompareWindow()`——docs/guide/visualization.md:22-29 宣称该功能但 UI 打不开。它与 DiffWindow(hex 字节对比)是**不同功能**,DiffEngine 只有它消费。
 **改法**:
-- App.xaml 加共享 `EmptyListTextBlock` 样式(居中、InkSecondaryBrush、FontSize 12)
-- 给 7 个最常用的列表加空态提示(DataTrigger on Items.Count==0 显示 TextBlock):RX/TX ListBox(DataPanel)、宏列表(MacroWindow)、触发器规则(TriggerWindow)、高亮规则(HighlightWindow)、Modbus 扫描结果与寄存器(ModbusWindow)、协议测试步骤(ProtocolTestWindow)
-- 语言键(zh/en):`Common.EmptyList`("暂无数据"/"No data")
+- `MainViewModel` 加 `OpenCompareCommand` + `OpenCompareWindow()`(懒建守卫 + Closed 置空,仿 OpenVirtualSerialWindow)
+- `ToolBarPanel.xaml` 加按钮绑定 `OpenCompareCommand`(放在 Diff 按钮旁);新增语言键 `Button.Compare`/`Tip.CompareFiles`(zh/en)
+- `CompareWindow.xaml.cs` 补 `WindowHelper.AttachWindowState(this, "CompareWindow")`(11 个窗口已有,它漏了)
+- 修正 `docs/guide/visualization.md` 过期描述(去掉 compare_frames/Modbus/字段级对比 claim,改为实际的文件行对比)
 
-### 测试
-- Core 侧:VirtualSerialService 已有 8 测试全绿;AppSettings 新字段不影响现有 SettingsServiceTests(JSON 缺省兼容)
-- 新增 1 个测试:`SettingsService` roundtrip 含 WindowStates 字典(存 2 个窗口位置 → Load → 断言还原)
-- UI 侧(窗口/持久化)按仓库惯例不做自动测试,靠构建 + 逻辑验证
+### 改动 3:修 Modbus Auto Poll(文档承诺但 UI 完全失效)
+**现状**:`ModbusWindow.xaml:90` Auto Poll CheckBox 绑 `IsChecked="{Binding IsPolling}"`,但 `IsPolling` setter(ModbusViewModel.cs:121)是纯 SetField——**勾选不启动轮询定时器**;`StartPollCommand/StopPollCommand`(:173-174)已实现但零绑定。docs/guide/modbus.md:43-45 宣称"勾选 Auto Poll 按设定周期自动读取"。
+**改法**:`IsPolling` setter 改为勾选时调 `StartPoll()`、取消时调 `StopPoll()`(保持命令存在,勾选即生效;StartPoll 内部有 `if (IsPolling) return` 防重入)。行为验证:勾选启动 Timer 轮询 ReadAsync,取消停止。
+
+### 改动 4(顺手清理,低风险)
+- `ClearSendHistoryCommand`(DataFlowViewModel:300/400,死代码;发送历史 tooltip 已声称"右键清空"):发送历史上下文菜单加"清空发送历史"项绑定该命令
+- `ModbusPriorityQueue`(Core 死服务,仅测试消费):删除文件 + 对应测试
+
+### 不做
+- 其余死命令(AddHighlightRuleCommand 透传等):纯冗余无影响,留待后续
+- CompareWindow 删除方案:接线成本远低于删除(删除要动窗口+DiffEngine+测试+24 语言键+7 主题资源)
 
 ### 验收标准
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(576 Core + 新增 1 = 577,10 McpServer)
-3. 逻辑验证:虚拟串口窗口可注入 RX 并出现在主 RX 列表;二级窗口移动/缩放后重启恢复位置;空列表显示"暂无数据"
+2. `dotnet test`:全绿(测试数可能因删 ModbusPriorityQueueTests 微降,新增 SettingsService 断言)
+3. 逻辑验证:干净环境 SettingsService 测试通过且不写真实配置目录;CompareWindow 按钮可打开;Modbus Auto Poll 勾选即轮询
 4. 工作树干净,commit + push 到 GitHub

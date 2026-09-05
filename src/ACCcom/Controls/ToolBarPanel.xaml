@@ -9,6 +9,9 @@
         <Button Content="{Binding [Button.Diff], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding CompareFramesCommand}"
                 Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
                 ToolTip="{Binding [Tip.HexDiffCompare], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.Compare], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenCompareCommand}"
+                Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
+                ToolTip="{Binding [Tip.CompareFiles], Source={x:Static local:LanguageManager.Instance}}" />
         <Button Content="{Binding [Button.Plot], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenPlotCommand}"
                 Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
                 ToolTip="{Binding [Tip.OpenRealtimePlot], Source={x:Static local:LanguageManager.Instance}}" />
