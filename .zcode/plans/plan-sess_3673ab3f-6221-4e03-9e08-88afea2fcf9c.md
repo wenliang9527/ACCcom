@@ -1,39 +1,38 @@
-## 第 53 轮:UI 响应性 — CompareWindow 冻结修复 + 启动路径测量先行
+## 第 54 轮:启动路径优化 — 主题加载缓存 + HTTP 延迟启动 + 埋点可见化
 
-### 背景
-上轮探索确认两个候选。本轮做主项 CompareWindow 冻结修复(高收益低风险);启动路径按探索建议"先测量再动刀"——本轮只加计时埋点 + 无风险并行化,`_http.Start()` 移出构造函数、ApplyTheme 异步加载这类中风险改动留到拿到实测数据后的下一轮。
+第 53 轮承诺"拿到实测数据后处理启动路径"。探索已核实三项优化的安全性,本轮实施。主题 XAML 是编译进程序集的资源(运行期不可变),缓存 100% 安全;MainWindow 对主题资源 100% DynamicResource,ApplyTheme 延迟不会 XamlParseException。
 
-### 改动 1:CompareWindow 对比循环移出 UI 线程 + 逻辑抽入 Core 可测
-**现状**:`CompareWindow.xaml.cs:58-73` 逐行对比循环(2 次插值 + 2 次 `new DiffRow` + 2 次 Add × 10 万行)全在 UI 线程 → 秒级冻结。DiffRow 是嵌套在窗口里的 record,零测试。
+### 改动 1(低风险·确定性收益):ThemeManager 字典缓存 — 消灭 7 次主题 XAML 解析
+**现状**:`BuildThemeOptions`(MainViewModel ctor + 语言切换两条路径)对每个主题调 `GetAccent` → 每次 `new ResourceDictionary { Source = pack://.../Themes/{id}.xaml }` **完整解析整个主题 XAML**(共 7 次);`ApplyTheme`(App.xaml.cs:126)切换主题时再解析 1 次。
+**改法**(`ThemeManager.cs`):
+- 新增 `static readonly Dictionary<string, ResourceDictionary>` + lock,`GetDictionary(string fileName)` 按需加载并缓存(失败不缓存,保留 catch→Gray 语义)
+- `GetAccent` 改从 `GetDictionary` 取字典再查 `Accent` key(不再自己 new 字典)
+- `App.ApplyTheme` 改用 `ThemeManager.GetDictionary(fileName)` 替代 `new ResourceDictionary{Source=uri}`(缓存实例的 Source 仍含 `Themes/`,purge 循环与 Insert(0) 顺序语义不变;`_activeThemeId` 短路守卫保持)
+- 收益:启动时 7 次完整解析 → 首次 1 次(首次访问某主题时才解析);主题切换从"每次重新解析"变"零解析"
+
+### 改动 2(中风险·行为变化):_http.Start() 移出构造函数 — 失败降级不再崩
+**现状**:MainViewModel ctor:227 同步 `_http.Start()`;端口被占(8899)时抛 InvalidOperationException → MainWindow ctor 崩 → 启动失败弹框。已核实无任何代码假设"窗口显示时 HTTP 已监听"(MCP 代理已删;Modbus dashboard 是用户触发型,有 catch)。
 **改法**:
-- 新建 `src/ACCcom.Core/Models/DiffRow.cs`:`public sealed record DiffRow(string Display, bool IsDiff);`(字段不变,XAML 的 `{Binding Display}`/`IsDiff` DataTrigger 无需动)
-- 新建 `src/ACCcom.Core/Services/DiffEngine.cs`:`public static (List<DiffRow> RowsA, List<DiffRow> RowsB, int Matching, int Different) BuildDiff(string[] linesA, string[] linesB)`——把 63-73 行逻辑原样搬入(逐行等位对比、空串补位、Ordinal 判等、预分配容量)
-- `CompareWindow.Compare_Click`:`await Task.Run(() => DiffEngine.BuildDiff(linesA, linesB))`,解构结果,ItemsSource 赋值与 SummaryText 仍留在 UI 线程(await 后默认回 UI 上下文);新增 catch 兜底 Task.Run 内异常(超大输入等),finally 恢复按钮不变
-- `DiffRow` 移入 Core.Models 后 CompareWindow 加 `using ACCcom.Core.Models;`
+- `MainViewModel` 新增 `public void StartHttpAsync()`(或 `async Task`):try/catch 包 `_http.Start()`,失败时 `StatusText` 提示而非抛异常(消息走语言资源或直接中文提示,与现有 StatusText 用法一致)
+- `MainWindow` 构造末尾(或 Loaded 事件)触发:`Loaded += ...` 里调用(异步、不阻塞首帧)
+- 退出竞态:Start 在飞时 `Dispose`(OnClosed → _vm.Dispose → _http.Dispose)——StartAsync 内 catch 兜底即可,EmbedIO Dispose 安全
+- HttpService 不新增 IsRunning 属性(状态栏 HttpUrl 是常量显示,无就绪依赖;OpenDashboard 未起时浏览器显示连接拒绝,可接受)
 
-### 改动 2:新增 DiffEngineTests(5 个)
-- 等长全同 / 等长有差异(IsDiff 标记与 matching/different 计数)
-- 不等长补位(短文件空串补位,计数正确)
-- 空文件对空文件 / 单侧空文件
-- 行号前缀格式(`[{i+1}] `)断言
-- 大批量输入(如 50k 行)快速完成(冒烟,不卡)
+### 改动 3(零风险·支撑):启动埋点 Debug → Trace,Release 可见
+**现状**:第 53 轮埋点用 `Debug.WriteLine`——`[Conditional("DEBUG")]` 在 Release 构建**整行不编译**,Release 下无任何输出(用户实际跑 Release exe,测量无效)。
+**改法**:MainViewModel ctor 的 `Stage` helper 与 MainWindow 的 ctor 计时改 `Trace.WriteLine`(Release 默认定义 TRACE,输出可被 DebugView/VS 附加查看;不写文件,保持轻量)。分段不变(settings+parser / http start / viewmodels / theme / language / total)。
 
-### 改动 3:启动路径计时埋点(零风险,为下一轮提供数据)
-- `MainViewModel` 构造函数各阶段加 `Stopwatch` 分段计时:SettingsService.Load / ParserManager / HttpService.Start / 各 ViewModel 构造 / ApplyTheme+BuildThemeOptions / LanguageManager.LoadLanguage,结束时 `Debug.WriteLine("[startup] ctor stages: ...")` 输出各段 ms
-- `MainWindow` 构造函数对 `new MainViewModel(...)` 单独计时输出
-- 仅添加 Debug 输出,不改任何执行顺序与行为
+### 不做
+- ApplyTheme 延迟到 Loaded:非 Light 用户首帧闪变,收益(省 1 次解析)已被改动 1 覆盖
+- SettingsService.Load / _highlights.Load / LoadLanguage 异步化:小文件 ~ms 级,复杂度不值
+- CompareWindow 行号前缀共享等:冻结已修复,无必要
 
-### 改动 4:InitializeAsync 无风险并行化
-- `MainViewModel.InitializeAsync`(L362-368):`LoadShortcutsAsync/LoadPresetsAsync/LoadMacrosAsync` 三连 await → `Task.WhenAll`(互无数据依赖,各自填独立 ObservableCollection);`LoadTriggers` 同步文件读包 `Task.Run`
-- 已在 UI 线程外的 fire-and-forget 中执行,并行只省墙钟,无绑定风险
-
-### 不做(留待测量后)
-- `_http.Start()` 移出构造函数 / 失败降级:中风险(API/仪表盘就绪时序),下一轮按埋点数据决定
-- ApplyTheme 字典异步加载 / BuildThemeOptions 缓存:中风险(主题就位时序),同上
-- CompareWindow 行号前缀共享等内存优化:收益中低,冻结修复后无必要
+### 测试
+- 改动均在 WPF 工程(ACCcom),Core.Tests/McpServer.Tests 不引用 WPF 工程,无新增测试点;现有 576 Core + 10 McpServer 必须全绿
+- 逻辑验证:构建 0 警告 0 错误(TreatWarningsAsErrors);主题缓存语义(首次解析、切换零解析、失败回退 Gray);HTTP 启动失败降级为状态栏提示;Release 构建下 [startup] 埋点 Trace 输出存在
 
 ### 验收标准
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(569 Core + 新增 5 = 574,10 McpServer)
-3. 逻辑验证:大文件对比 UI 不冻结;启动埋点输出各阶段耗时;InitializeAsync 并行无行为变化
+2. `dotnet test`:全绿(576 Core + 10 McpServer)
+3. 逻辑验证:主题缓存生效(GetDictionary 命中)、_http.Start 失败不崩、Trace 埋点 Release 可见
 4. 工作树干净,commit + push 到 GitHub

@@ -539,6 +539,7 @@
   "Tip.OpenDashboard": "在浏览器中打开实时仪表盘",
   "Status.DashboardOpened": "仪表盘已打开：{0}/dashboard/",
   "Status.DashboardFailed": "打开仪表盘失败：{0}",
+  "Status.HttpStartFailed": "HTTP API 启动失败（端口可能被占用）：{0}",
   "TitleBar.Minimize": "最小化",
   "TitleBar.Maximize": "最大化",
   "TitleBar.Close": "关闭",

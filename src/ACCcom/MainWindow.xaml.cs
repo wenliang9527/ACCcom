@@ -16,13 +16,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         // The VM ctor runs synchronously before the first frame; its internal
-        // stage timings go to debug output (see MainViewModel ctor) and the
+        // stage timings go to trace output (see MainViewModel ctor) and the
         // total is reported here.
         var vmSw = System.Diagnostics.Stopwatch.StartNew();
         _vm = new MainViewModel(new SerialService());
         vmSw.Stop();
-        System.Diagnostics.Debug.WriteLine($"[startup] MainViewModel ctor total = {vmSw.ElapsedMilliseconds}ms");
+        System.Diagnostics.Trace.WriteLine($"[startup] MainViewModel ctor total = {vmSw.ElapsedMilliseconds}ms");
         DataContext = _vm;
+
+        // Bind the HTTP port only after the first frame is shown: a port
+        // conflict degrades to a status message instead of crashing startup,
+        // and the bind no longer blocks the first frame.
+        Loaded += (_, _) => _vm.StartHttpAsync();
 
         // Setup chromeless titlebar
         WindowHelper.SetupTitleBar(this, TitleBar);

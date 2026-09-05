@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -123,7 +124,10 @@ public partial class App : Application
 
         try
         {
-            var loaded = new ResourceDictionary { Source = uri };
+            // Parsed once and cached by ThemeManager — theme dictionaries are
+            // compiled assembly resources, so reuse is safe and theme switches
+            // no longer re-parse the XAML.
+            var loaded = ThemeManager.GetDictionary(fileName);
             dicts.Insert(0, loaded);
             _activeTheme = loaded;
             _activeThemeId = themeId;

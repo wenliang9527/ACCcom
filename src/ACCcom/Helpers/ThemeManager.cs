@@ -47,17 +47,9 @@ public static class ThemeManager
     /// Used by the theme picker to render a swatch next to the theme name.</summary>
     public static Color GetAccent(string themeId)
     {
-        var fileName = themeId switch
-        {
-            "Light" => "LightTheme",
-            "Dark" => "DarkTheme",
-            _ => themeId
-        };
-        var uri = $"pack://application:,,,/ACCcom;component/Themes/{fileName}.xaml";
         try
         {
-            var dict = new ResourceDictionary { Source = new System.Uri(uri, System.UriKind.Absolute) };
-            if (dict["Accent"] is Color accent) return accent;
+            if (GetDictionary(themeId)["Accent"] is Color accent) return accent;
         }
         catch
         {
@@ -65,5 +57,43 @@ public static class ThemeManager
         }
         return Colors.Gray;
     }
+
+    // Theme XAML is compiled into the assembly and never changes at runtime, so
+    // dictionaries can be cached statically: BuildThemeOptions otherwise parses
+    // all 7 themes at startup (once per GetAccent call) and every theme switch
+    // re-parses the target. A failed load is not cached so it can be retried.
+    private static readonly Dictionary<string, ResourceDictionary> DictionaryCache = new();
+    private static readonly object CacheLock = new();
+
+    /// <summary>Returns the theme's ResourceDictionary, parsing it once and
+    /// caching the instance. App.ApplyTheme and GetAccent both go through this,
+    /// so a startup/switch parse is reused everywhere.</summary>
+    public static ResourceDictionary GetDictionary(string themeId)
+    {
+        var fileName = FileNameOf(themeId);
+        lock (CacheLock)
+        {
+            if (DictionaryCache.TryGetValue(fileName, out var cached))
+                return cached;
+        }
+
+        var uri = $"pack://application:,,,/ACCcom;component/Themes/{fileName}.xaml";
+        var dict = new ResourceDictionary { Source = new System.Uri(uri, System.UriKind.Absolute) };
+
+        lock (CacheLock)
+        {
+            if (DictionaryCache.TryGetValue(fileName, out var existing))
+                return existing; // another thread parsed it first; use that instance
+            DictionaryCache[fileName] = dict;
+            return dict;
+        }
+    }
+
+    private static string FileNameOf(string themeId) => themeId switch
+    {
+        "Light" => "LightTheme",
+        "Dark" => "DarkTheme",
+        _ => themeId
+    };
 }
 

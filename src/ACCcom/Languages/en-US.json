@@ -539,6 +539,7 @@
   "Tip.OpenDashboard": "Open the live dashboard in your browser",
   "Status.DashboardOpened": "Dashboard opened: {0}/dashboard/",
   "Status.DashboardFailed": "Failed to open dashboard: {0}",
+  "Status.HttpStartFailed": "HTTP API failed to start (port may be in use): {0}",
   "TitleBar.Minimize": "Minimize",
   "TitleBar.Maximize": "Maximize",
   "TitleBar.Close": "Close",

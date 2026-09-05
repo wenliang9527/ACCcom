@@ -203,7 +203,9 @@ public class MainViewModel : ObservableObject, IDisposable
         var sw = System.Diagnostics.Stopwatch.StartNew();
         void Stage(string name)
         {
-            System.Diagnostics.Debug.WriteLine($"[startup] ctor: {name} = {sw.ElapsedMilliseconds}ms");
+            // Trace (not Debug): Debug is compiled out in Release, so these
+            // startup timings would be invisible in the shipped exe.
+            System.Diagnostics.Trace.WriteLine($"[startup] ctor: {name} = {sw.ElapsedMilliseconds}ms");
         }
 
         _settings = _settingsService.Load();
@@ -224,8 +226,11 @@ public class MainViewModel : ObservableObject, IDisposable
             BufferCapacity = _settings.BufferCapacity,
             ApiToken = string.IsNullOrWhiteSpace(_settings.HttpApiToken) ? null : _settings.HttpApiToken
         });
-        _http.Start();
-        Stage("http start");
+        // _http.Start() is deliberately NOT called here: binding the 8899 port in
+        // the ctor blocked the first frame and crashed startup when the port was
+        // taken. MainWindow starts it after the window is shown (StartHttpAsync),
+        // degrading to a status message instead of a hard failure.
+        Stage("http construct");
 
         // _modbusViewModel 在 OpenModbusWindow 中延迟初始化
 
@@ -383,6 +388,25 @@ public class MainViewModel : ObservableObject, IDisposable
             _tool.LoadPresetsAsync(),
             _tool.LoadMacrosAsync());
         await Task.Run(() => _tool.LoadTriggers());
+    }
+
+    /// <summary>Starts the HTTP API (port 8899) after the first frame is shown.
+    /// A port conflict or bind error degrades to a status-bar message instead of
+    /// crashing startup (the old in-ctor Start() threw and killed the app).</summary>
+    public void StartHttpAsync()
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                _http.Start();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    StatusText = string.Format(LanguageManager.Instance["Status.HttpStartFailed"], ex.Message));
+            }
+        });
     }
 
     private void OpenShortcutsWindow()
