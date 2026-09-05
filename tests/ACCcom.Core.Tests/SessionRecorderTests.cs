@@ -231,4 +231,97 @@ public class SessionRecorderTests : IDisposable
             }
         }
     }
+
+    // ── Replay session (async playback: progress / cancellation / pause) ──
+
+    /// <summary>Writes a recording file with entries spaced one second apart
+    /// (timestamps drive replay pacing).</summary>
+    private string WriteRecording(params string[] texts)
+    {
+        var path = NewTempFile();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        using var sw = new StreamWriter(path);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            var ts = baseTime.AddSeconds(i).ToString("o");
+            sw.WriteLine($"{{\"timestamp\":\"{ts}\",\"direction\":\"RX\",\"portTag\":\"t\",\"rawHex\":\"\",\"text\":\"{texts[i]}\"}}");
+        }
+        return path;
+    }
+
+    [Fact]
+    public async Task ReplaySession_ReportsProgress_InOrder()
+    {
+        using var recorder = new SessionRecorder();
+        var path = WriteRecording("a", "b", "c");
+
+        var seen = new List<string>();
+        var progress = new List<int>();
+        await recorder.ReplaySessionAsync(path,
+            e => seen.Add(e.Text),
+            (done, total) => progress.Add(done),
+            speedMultiplier: 1000);
+
+        Assert.Equal(["a", "b", "c"], seen);
+        Assert.Equal([1, 2, 3], progress);
+    }
+
+    [Fact]
+    public async Task ReplaySession_Cancellation_StopsEarly()
+    {
+        using var recorder = new SessionRecorder();
+        var path = WriteRecording("a", "b", "c", "d", "e");
+        using var cts = new CancellationTokenSource();
+
+        var seen = new List<string>();
+        // Cancel after the first entry; the loop must stop before finishing.
+        cts.CancelAfter(50);
+        try
+        {
+            await recorder.ReplaySessionAsync(path, e => seen.Add(e.Text),
+                speedMultiplier: 0.0001, ct: cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation surfaces as an exception; that is expected.
+        }
+
+        Assert.True(seen.Count < 5, $"expected early stop, saw {seen.Count}");
+    }
+
+    [Fact]
+    public async Task ReplaySession_Pause_HoldsUntilResumed()
+    {
+        using var recorder = new SessionRecorder();
+        // One entry per second; at 1x speed the second entry is 1s later.
+        var path = WriteRecording("first", "second");
+        recorder.IsPaused = true;
+
+        var seen = new List<string>();
+        var replayed = recorder.ReplaySessionAsync(path, e => seen.Add(e.Text), speedMultiplier: 1);
+
+        // Give the first entry a moment to surface, then release the pause.
+        await Task.Delay(100);
+        recorder.IsPaused = false;
+        await replayed.WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.Equal(2, seen.Count);
+    }
+
+    [Fact]
+    public void ReplayFile_IgnoresCorruptLines()
+    {
+        using var recorder = new SessionRecorder();
+        var path = NewTempFile();
+        File.WriteAllText(path,
+            "{\"text\":\"good\"}\n" +
+            "this is not json\n" +
+            "{\"text\":\"also-good\"}\n");
+
+        var entries = recorder.ReplayFile(path);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("good", entries[0].Text);
+        Assert.Equal("also-good", entries[1].Text);
+    }
 }

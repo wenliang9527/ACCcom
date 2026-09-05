@@ -92,4 +92,92 @@ public class MultiPortServiceTests
         var ex = Record.Exception(() => mps.Dispose());
         Assert.Null(ex);
     }
+
+    // ── Real routing via injected virtual serial services ──
+
+    [Fact]
+    public void OpenPort_WithVirtualSerial_OpensAndLists()
+    {
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+
+        Assert.True(mps.OpenPort("sensor", config));
+        Assert.Single(mps.Ports);
+        Assert.True(mps.Ports["sensor"].Service.IsOpen);
+        Assert.Equal("sensor", mps.Ports["sensor"].Tag);
+    }
+
+    [Fact]
+    public void SendToPort_RoutesToCorrectVirtualSerial()
+    {
+        // Two ports; send on each; each virtual serial records its own TX data.
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("a", config));
+        Assert.True(mps.OpenPort("b", config));
+
+        Assert.True(mps.SendToPort("a", "hello-a"));
+        Assert.True(mps.SendToPort("b", "hello-b"));
+
+        var a = (VirtualSerialService)mps.Ports["a"].Service;
+        var b = (VirtualSerialService)mps.Ports["b"].Service;
+        Assert.Contains("hello-a", a.GetSentData().Select(e => e.Text));
+        Assert.DoesNotContain("hello-b", a.GetSentData().Select(e => e.Text));
+        Assert.Contains("hello-b", b.GetSentData().Select(e => e.Text));
+        Assert.DoesNotContain("hello-a", b.GetSentData().Select(e => e.Text));
+    }
+
+    [Fact]
+    public void InjectRxData_TagsEntriesWithPortTag()
+    {
+        // RX data injected on a port must surface with that port's tag.
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("pump", config));
+
+        var received = new List<LogEntry>();
+        mps.OnDataReceived += received.Add;
+
+        ((VirtualSerialService)mps.Ports["pump"].Service).InjectRxData("AA BB CC");
+
+        var entry = Assert.Single(received);
+        Assert.Equal("pump", entry.PortTag);
+        Assert.Equal("RX", entry.Direction);
+    }
+
+    [Fact]
+    public void ClosePort_RemovesAndDisposes()
+    {
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("x", config));
+
+        Assert.True(mps.ClosePort("x"));
+        Assert.Empty(mps.Ports);
+
+        // Sending to the closed port fails.
+        Assert.False(mps.SendToPort("x", "data"));
+    }
+
+    [Fact]
+    public void MultiplePorts_IsolatedDataStreams()
+    {
+        // Each port's RX feed must not leak into the other port's service.
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("one", config));
+        Assert.True(mps.OpenPort("two", config));
+
+        var events = new List<LogEntry>();
+        mps.OnDataReceived += events.Add;
+
+        ((VirtualSerialService)mps.Ports["one"].Service).InjectRxData("01");
+        ((VirtualSerialService)mps.Ports["two"].Service).InjectRxData("02");
+
+        Assert.Equal(2, events.Count);
+        Assert.Equal("one", events[0].PortTag);
+        Assert.Equal("two", events[1].PortTag);
+        Assert.Equal("01", events[0].RawHex.Replace(" ", ""));
+        Assert.Equal("02", events[1].RawHex.Replace(" ", ""));
+    }
 }

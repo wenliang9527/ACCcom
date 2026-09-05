@@ -6,6 +6,7 @@ public class MultiPortService : IDisposable
 {
     private readonly Dictionary<string, PortInstance> _ports = new();
     private readonly object _lock = new();
+    private readonly Func<ISerialService> _serviceFactory;
 
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string, string>? OnPortError;
@@ -13,13 +14,27 @@ public class MultiPortService : IDisposable
 
     public IReadOnlyDictionary<string, PortInstance> Ports => _ports;
 
+    public MultiPortService() : this(() => new SerialService())
+    {
+    }
+
+    /// <summary>
+    /// Test seam: lets callers supply their own serial service factory (e.g.
+    /// VirtualSerialService) so multi-port data routing is testable without
+    /// real hardware.
+    /// </summary>
+    public MultiPortService(Func<ISerialService> serviceFactory)
+    {
+        _serviceFactory = serviceFactory;
+    }
+
     public bool OpenPort(string tag, SerialConfig config)
     {
         lock (_lock)
         {
             if (_ports.ContainsKey(tag)) return _ports[tag].Service.IsOpen;
 
-            var service = new SerialService();
+            var service = _serviceFactory();
             service.OnDataReceived += entry =>
             {
                 entry.PortTag = tag;
@@ -79,6 +94,6 @@ public class MultiPortService : IDisposable
 public class PortInstance
 {
     public string Tag { get; set; } = "";
-    public SerialService Service { get; set; } = null!;
+    public ISerialService Service { get; set; } = null!;
     public SerialConfig Config { get; set; } = null!;
 }
