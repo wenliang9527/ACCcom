@@ -23,8 +23,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly HttpService _http;
     private readonly TriggerService _triggerService;
     private readonly ParserManager _parserManager;
-    private readonly FrameAssembler _frameAssembler;
-    private readonly FrameBuffer _frameBuffer;
+    private readonly FrameAssemblerConfig _frameAssemblerConfig;
+    private FrameBuffer _frameBuffer = null!;
     private readonly AutoParserMatcher _autoMatcher;
     private readonly DataStatistics _stats;
     private readonly FileExportService _fileExportService;
@@ -320,8 +320,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _triggerService = triggerService;
         _parserManager = parserManager;
         _highlightService = highlightService;
-        _frameAssembler = new FrameAssembler(frameAssemblerConfig, parserManager);
-        _frameAssembler.OnFrameAssembled += OnAssembledFrame;
+        _frameAssemblerConfig = frameAssemblerConfig;
         _stats = stats;
         _fileExportService = fileExportService;
         _setStatus = setStatus;
@@ -332,22 +331,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _parserReloadedHandler = _ => LoadParserFingerprints();
         _parserManager.OnParserReloaded += _parserReloadedHandler;
 
-        var bufferConfig = new FrameBufferConfig
-        {
-            Strategy = FrameExtractStrategy.ByHeader,
-            Header = new byte[] { 0xA5, 0x5A },
-            LengthFieldOffset = 2,
-            LengthFieldSize = 1,
-            LengthFieldIncludes = 4,
-            MaxFrameSize = 4096,
-            BufferCapacity = 65536,
-            PartialFrameTimeoutMs = 2000
-        };
-        _frameBuffer = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
+        // FrameBuffer is the single frame-assembly path: its config is mapped
+        // from the user-facing FrameAssemblerConfig so header/length-field/
+        // timeout/max-size edits keep applying, and it is gated by the same
+        // Enabled switch (see OnSerialData).
         _frameBufferFrameHandler = OnFrameReady;
-        _frameBuffer.OnFrameAssembled += _frameBufferFrameHandler;
         _frameBufferErrorHandler = msg => _setStatus(msg);
-        _frameBuffer.OnError += _frameBufferErrorHandler;
+        RebuildFrameBuffer();
 
         _filterDebounce = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -420,9 +410,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (string.IsNullOrEmpty(entry.PortTag))
                 entry.PortTag = "main";
 
-            if (_frameAssembler.IsEnabled)
+            // Frame assembly enabled: route RX bytes through the FrameBuffer.
+            // Assembled frames surface via OnFrameReady with the full pipeline
+            // (HTTP/trigger/logger/stats/display) exactly once; non-frame bytes
+            // are held for the frame window like the legacy assembler did. TX
+            // entries always bypass assembly and go straight to the display.
+            if (entry.Direction == "RX" && _frameAssemblerConfig.Enabled)
             {
-                _frameAssembler.Feed(entry);
+                FeedFrameBuffer(entry);
                 return;
             }
 
@@ -431,26 +426,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
             int byteCount = 0;
             if (!string.IsNullOrEmpty(entry.RawHex))
-            {
-                try
-                {
-                    // Single hex pass into a pooled buffer: FrameBuffer.Write copies
-                    // synchronously into its ring, so the array can be returned
-                    // immediately. Avoids a byte[] allocation per packet.
-                    var buffer = ArrayPool<byte>.Shared.Rent(entry.RawHex.Length / 2 + 1);
-                    try
-                    {
-                        byteCount = HexHelper.HexStringToBytes(entry.RawHex, buffer);
-                        if (byteCount > 0)
-                            _frameBuffer.Write(buffer, 0, byteCount);
-                    }
-                    finally
-                    {
-                        ArrayPool<byte>.Shared.Return(buffer);
-                    }
-                }
-                catch { }
-            }
+                byteCount = HexHelper.CountHexBytes(entry.RawHex);
 
             // Serial/network events arrive on a background thread. Enqueue is
             // lock-protected and statistics are atomics/ring buffers, so no UI
@@ -472,40 +448,76 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void OnAssembledFrame(LogEntry entry)
+    private void FeedFrameBuffer(LogEntry entry)
     {
+        if (string.IsNullOrEmpty(entry.RawHex)) return;
         try
         {
-            if (string.IsNullOrEmpty(entry.PortTag))
-                entry.PortTag = "main";
-            _http.AddEntry(entry);
-            _triggerService.Evaluate(entry);
-
-            int byteCount = 0;
-            if (!string.IsNullOrEmpty(entry.RawHex))
-                byteCount = HexHelper.CountHexBytes(entry.RawHex);
-
-            // Script execution (active parser) can block for the timeout, so it
-            // must stay off the receive thread. With no parser the whole
-            // downstream path (enqueue + logger) is synchronous and lock-safe —
-            // a per-frame Task.Run would only add a Task + closure allocation.
-            if (_parserManager.ActiveParserName != null)
+            // Single hex pass into a pooled buffer: FrameBuffer.Write copies
+            // synchronously into its ring, so the array can be returned
+            // immediately. Avoids a byte[] allocation per packet.
+            var buffer = ArrayPool<byte>.Shared.Rent(entry.RawHex.Length / 2 + 1);
+            try
             {
-                _ = Task.Run(async () =>
-                {
-                    try { await ProcessAssembledFrameAsync(entry, byteCount).ConfigureAwait(false); }
-                    catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message)); }
-                });
+                var byteCount = HexHelper.HexStringToBytes(entry.RawHex, buffer);
+                if (byteCount > 0)
+                    _frameBuffer.Write(buffer, 0, byteCount);
             }
-            else
+            finally
             {
-                _ = ProcessAssembledFrameAsync(entry, byteCount);
+                ArrayPool<byte>.Shared.Return(buffer);
             }
         }
-        catch (Exception ex)
+        catch { }
+    }
+
+    /// <summary>(Re)builds the FrameBuffer from the current FrameAssemblerConfig.
+    /// Called from the constructor and again when the user changes frame-assembly
+    /// settings so header/length-field edits take effect immediately.</summary>
+    public void ApplyFrameConfig()
+    {
+        RebuildFrameBuffer();
+    }
+
+    private void RebuildFrameBuffer()
+    {
+        if (_frameBuffer != null)
         {
-            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
+            _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
+            _frameBuffer.OnError -= _frameBufferErrorHandler;
+            _frameBuffer.Dispose();
         }
+
+        var bufferConfig = new FrameBufferConfig
+        {
+            Strategy = FrameExtractStrategy.ByHeader,
+            Header = ParseHeaderBytes(_frameAssemblerConfig.Header),
+            LengthFieldOffset = _frameAssemblerConfig.LengthFieldOffset,
+            LengthFieldSize = _frameAssemblerConfig.LengthFieldSize,
+            LengthFieldIncludes = 0,
+            MaxFrameSize = _frameAssemblerConfig.MaxFrameSize,
+            BufferCapacity = 65536,
+            PartialFrameTimeoutMs = _frameAssemblerConfig.PartialFrameTimeoutMs
+        };
+        _frameBuffer = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
+        _frameBuffer.OnFrameAssembled += _frameBufferFrameHandler;
+        _frameBuffer.OnError += _frameBufferErrorHandler;
+    }
+
+    /// <summary>Parses a space-separated hex header string (e.g. "A5 5A") into
+    /// bytes; null when empty or malformed (FrameBuffer treats null header as
+    /// "no header — whole buffer is a frame", matching the legacy assembler's
+    /// empty-header behavior of assembling everything).</summary>
+    private static byte[]? ParseHeaderBytes(string? header)
+    {
+        if (string.IsNullOrWhiteSpace(header)) return null;
+        try
+        {
+            var stripped = new string(header.Where(c => !char.IsWhiteSpace(c)).ToArray());
+            if (stripped.Length == 0 || stripped.Length % 2 != 0) return null;
+            return Convert.FromHexString(stripped);
+        }
+        catch { return null; }
     }
 
     private void OnFrameReady(LogEntry entry)
@@ -542,51 +554,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingFrame"], ex.Message));
-        }
-    }
-
-    private async Task ProcessAssembledFrameAsync(LogEntry entry, int byteCount)
-    {
-        await ProcessEntryAsync(entry, byteCount, forceRx: true, errorContext: "Status.ErrorProcessingFrame").ConfigureAwait(false);
-    }
-
-    private async Task ProcessEntryAsync(LogEntry entry, int byteCount, bool forceRx, string errorContext)
-    {
-        try
-        {
-            bool isRx = forceRx || entry.Direction == "RX";
-            // Assembled frames (forceRx via OnAssembledFrame) already ran the
-            // parser inside FrameAssembler.EmitCompleteAsync when a parser was
-            // active, so entry.Fields is populated there. Re-running the script
-            // here would duplicate execution (and re-parse hex) for every frame.
-            if (isRx && _parserManager.ActiveParserName != null)
-            {
-                if (entry.Fields == null)
-                    await RunParserAsync(entry).ConfigureAwait(false); // counts error frames itself
-                else if (HexHelper.HasErrorSeverity(entry.Fields))
-                    ErrorFrameCount++; // assembler already parsed; mirror its error count
-            }
-
-            // Continuations may land on a thread-pool thread after await; the
-            // enqueue path here is lock-protected and the logger is internally
-            // synchronized, so we can operate without UI marshaling.
-            _logger.Write(entry);
-
-            if (isRx)
-            {
-                _stats.RecordRx(byteCount);
-                if (HexHelper.HasErrorSeverity(entry.Fields))
-                    _stats.RecordError();
-                AddRxEntry(entry, byteCount);
-            }
-            else
-            {
-                AddTxEntry(entry, byteCount);
-            }
-        }
-        catch (Exception ex)
-        {
-            _setStatus(string.Format(LanguageManager.Instance[errorContext], ex.Message));
         }
     }
 
@@ -1087,11 +1054,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _disposed = true;
         _flushTimer?.Stop();
         _filterDebounce?.Stop();
-        _frameAssembler.OnFrameAssembled -= OnAssembledFrame;
         _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
         _frameBuffer.OnError -= _frameBufferErrorHandler;
         _parserManager.OnParserReloaded -= _parserReloadedHandler;
-        _frameAssembler.Dispose();
         _frameBuffer.Dispose();
     }
 }

@@ -9,6 +9,8 @@ public class LoggerService : BufferedFileWriter
     private readonly string _logDir;
     private readonly long _maxFileSize = 5 * 1024 * 1024;
     private const int MaxFileCount = 10;
+    private const int RotateCheckEvery = 512; // entries between size checks
+    private int _sinceSizeCheck;
 
     public LoggerService() : this(Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -29,8 +31,14 @@ public class LoggerService : BufferedFileWriter
     {
         lock (SyncLock)
         {
-            if (Writer?.BaseStream.Length > _maxFileSize)
-                RotateFile();
+            // Avoid a BaseStream.Length query on the frame path for every entry:
+            // check the size only every RotateCheckEvery writes.
+            if (++_sinceSizeCheck >= RotateCheckEvery)
+            {
+                _sinceSizeCheck = 0;
+                if (Writer?.BaseStream.Length > _maxFileSize)
+                    RotateFile();
+            }
 
             var timestamp = entry.Timestamp.ToString("HH:mm:ss.fff");
             var direction = entry.Direction;

@@ -241,26 +241,6 @@ public class SerialService : ISerialService, IDisposable
         }
     }
 
-    public void EnableAutoReconnect(bool enable, int maxAttempts = 10, int delayMs = 1000)
-    {
-        _reconnectSettings.AutoReconnect = enable;
-        _reconnectSettings.MaxReconnectAttempts = maxAttempts;
-        _reconnectSettings.ReconnectIntervalMs = delayMs;
-        if (!enable)
-        {
-            _reconnectCts?.Cancel();
-        }
-    }
-
-    public void UpdateReconnectSettings(ReconnectSettings settings)
-    {
-        _reconnectSettings = settings;
-        if (!settings.AutoReconnect)
-        {
-            _reconnectCts?.Cancel();
-        }
-    }
-
     private async Task StartAutoReconnectAsync()
     {
         if (!_reconnectSettings.AutoReconnect || _lastConfig == null) return;

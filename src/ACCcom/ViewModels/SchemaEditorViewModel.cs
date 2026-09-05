@@ -155,7 +155,7 @@ public class SchemaEditorViewModel : ObservableObject
     {
         var schema = new ProtocolSchema
         {
-            Name = string.IsNullOrWhiteSpace(_parserName) ? "NewProtocol" : _parserName,
+            Name = string.IsNullOrWhiteSpace(_parserName) ? LanguageManager.Instance["SchemaEditor.NewProtocol"] : _parserName,
             Description = string.IsNullOrWhiteSpace(_description) ? "" : _description,
             MinLength = _minLength,
             Fields = Fields.Select(f => f.ToFieldSchema()).ToList()

@@ -782,6 +782,9 @@ public class MainViewModel : ObservableObject, IDisposable
         };
         if (window.ShowDialog() == true)
         {
+            // Frame assembly settings changed: rebuild the FrameBuffer so the
+            // new header/length-field/timeout take effect immediately.
+            _dataFlow.ApplyFrameConfig();
             StatusText = _frameAssemblerConfig.Enabled
                 ? string.Format(LanguageManager.Instance["Status.FrameAssemblyEnabled"], _frameAssemblerConfig.Header)
                 : LanguageManager.Instance["Status.FrameAssemblyDisabled"];

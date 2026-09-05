@@ -23,6 +23,7 @@ public class AutoParserMatcher
         }
     }
 
+
     public void RemoveFingerprint(string parserName)
     {
         lock (_lock)

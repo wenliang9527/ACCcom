@@ -26,8 +26,8 @@ public class DataStatistics
     public double ErrorRate => _totalRxFrames > 0 ? (double)_totalErrorFrames / _totalRxFrames * 100 : 0;
     public double AvgFrameIntervalMs => CalculateAvgInterval();
     public long TotalRxBytes => _totalRxBytes;
-    public long TotalTxBytes => _totalTxBytes;
     public long TotalRxFrames => _totalRxFrames;
+    public long TotalTxBytes => _totalTxBytes;
     public long TotalTxFrames => _totalTxFrames;
     public long TotalErrorFrames => _totalErrorFrames;
 

@@ -100,11 +100,5 @@ public static class PatternMatcher
         return regex;
     }
 
-    /// <summary>
-    /// 清除正则表达式缓存
-    /// </summary>
-    public static void ClearCache()
-    {
-        _regexCache.Compact(1.0);
-    }
+
 }

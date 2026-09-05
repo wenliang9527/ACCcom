@@ -1,4 +1,4 @@
-{
+﻿{
   "App.Title": "ACCCOM 串口调试工具",
   "App.CrashTitle": "程序错误",
   "App.CrashMessage": "发生未处理的异常:\n{0}\n\n详细信息已记录到日志。",
@@ -9,8 +9,8 @@
   "Label.DataBits": "数据位",
   "Label.Parity": "校验",
   "Label.StopBits": "停止位",
-  "Label.Timestamp": "时间戳",
-  "Label.Loop": "循环",
+
+
   "Label.QuickSend": "快捷发送",
   "Label.AuxPorts": "附加端口",
   "Label.Host": "主机",
@@ -19,13 +19,13 @@
   "Label.MaxAttempts": "最大次数",
   "Label.Unlimited": "(0=无限)",
   "Label.AutoReconnect": "自动重连",
-  "Label.RX": "RX",
-  "Label.TX": "TX",
+
+
   "SerialPort.Open": "打开串口",
   "SerialPort.Close": "关闭串口",
   "Button.Refresh": "刷新",
-  "Button.Open": "连接",
-  "Button.Disconnect": "断开",
+
+
   "Button.Send": "发送",
   "Button.Stop": "停止",
   "Button.Clear": "清空",
@@ -38,7 +38,7 @@
   "Button.CSV": "CSV",
   "Button.PCAP": "PCAP",
   "Button.TXT": "TXT",
-  "Button.Copy": "复制",
+
   "Button.CopyAll": "复制全部",
   "Button.CopySelected": "复制选中",
   "Button.CopyHex": "复制 Hex",
@@ -46,13 +46,13 @@
   "Button.ClearTx": "清空发送",
   "Button.Replay": "回放",
   "Button.Compare": "对比文件",
-  "Button.BookmarkList": "书签列表",
+
   "Button.VirtualSerial": "虚拟串口",
   "Button.OK": "确定",
   "Button.Cancel": "取消",
   "Button.SchemaEditor": "编辑器",
-  "Panel.Receive": "接收",
-  "Panel.Transmit": "发送",
+
+
   "Panel.ReceiveFull": "◀ 接收",
   "Panel.TransmitFull": "▶ 发送",
   "Check.ShowRX": "显示接收",
@@ -110,12 +110,12 @@
   "Theme.KlimtKiss": "吻 克里姆特",
   "Theme.HokusaiWave": "神奈川冲浪 北斋",
   "Theme.VermeerPearl": "珍珠少女 维米尔",
-  "Label.Theme": "主题",
+
   "Status.PortArrived": "检测到新串口设备：{0}",
   "Status.PortRemoved": "串口设备已移除：{0}",
   "Status.WaitingForDevice": "端口 {0} 未接入，等待设备重新插入…",
   "Status.HexInvalid": "HEX 输入无效",
-  "SendBox.HexErrorTooltip": "HEX 输入有误：{0}",
+
   "Column.Offset": "偏移",
   "Column.Name": "名称",
   "Column.Length": "长度",
@@ -129,7 +129,7 @@
   "Tab.JSON": "JSON",
   "Tab.CsxCode": ".csx 代码",
   "Tab.TestParse": "测试解析",
-  "Tip.ThemeToggle": "切换深色/浅色主题",
+
   "Tip.OpenParserDir": "打开脚本目录",
   "Tip.AdvancedParams": "高级串口参数",
   "Tip.AddBookmark": "在当前位置添加书签 (Ctrl+B)",
@@ -185,7 +185,7 @@
   "Shortcuts.RefreshPorts": "刷新端口列表",
   "Shortcuts.StopLoop": "停止循环发送",
   "Shortcuts.OpenShortcuts": "打开本快捷键面板",
-  "Button.Highlights": "高亮",
+
   "HighlightWindow.Title": "高亮规则",
   "HighlightWindow.AddRule": "添加",
   "HighlightWindow.EditRule": "编辑",
@@ -216,7 +216,7 @@
   "VirtualSerial.TxSend": "发送 TX",
   "VirtualSerial.Send": "发送",
   "VirtualSerial.Log": "通信记录",
-  "VirtualSerial.Tooltip": "注入 RX 数据会同步进入主解析链路（解析器/高亮/RX 列表）",
+
   "Status.ShortcutsOpened": "快捷键面板已打开",
   "Status.ProtocolTestNew": "已新建空白脚本",
   "Status.ProtocolTestSaved": "脚本已保存：{0}",
@@ -353,17 +353,17 @@
   "SchemaEditor.ParseError": "解析错误：{0}",
   "SchemaEditor.NoFieldsParsed": "未解析到字段。",
   "SchemaEditor.TemplateDescription": "自定义串口协议，包含帧头+长度+命令码+数据+校验和",
-  "StatusBar.RXLabel": "RX：",
-  "StatusBar.TXLabel": "TX：",
-  "StatusBar.Bytes": " 字节",
+
+
+
   "StatusBar.Errors": "错误：",
-  "StatusBar.Up": "运行时间：",
-  "Status.Settings": "设置",
-  "Status.Ready": "就绪",
+
+
+
   "Status.PortDisconnected": "端口已断开",
   "Status.NetworkDisconnected": "网络已断开",
   "Status.PlotWindowOpened": "图表窗口已打开 - 从 RX 数据中接收数值",
-  "Status.ModbusWindowOpened": "MODBUS Master 窗口已打开",
+
   "Status.FrameAssemblyEnabled": "帧组包已启用：header={0}",
   "Status.FrameAssemblyDisabled": "帧组包已禁用",
   "Status.PortClosed": "端口已关闭",
@@ -464,7 +464,7 @@
   "Status.MacroStopped": "宏已停止",
   "Status.MacroError": "宏执行错误：{0}",
   "Status.ReplayWindowOpened": "回放窗口已打开：{0}",
-  "Status.StatsWindowOpened": "统计窗口已打开",
+
   "Plot.Points": "  （{0} 个点）",
   "Plot.WaitingForData": "等待数据（至少需要 2 个点）...",
   "Plot.Status": "绘制 {0} 个点 | 最大值 {1} | 最小值 {2}",

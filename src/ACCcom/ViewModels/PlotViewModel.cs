@@ -33,25 +33,43 @@ public class PlotViewModel : ObservableObject
         lock (_lock)
         {
             _dataPoints.Add((DateTime.Now, value));
+
+            // Incremental min/max: only the new point can change the extrema for
+            // the common case. A full rescan runs only when a point was dropped
+            // from the front (removed point might have been the min or max).
             if (_dataPoints.Count > _maxPoints)
+            {
                 _dataPoints.RemoveRange(0, _dataPoints.Count - _maxPoints);
+                RecomputeMinMaxLocked();
+            }
+            else if (_dataPoints.Count == 1)
+            {
+                // First point: seed extrema with its value (defaults are 0).
+                MinValue = value;
+                MaxValue = value;
+            }
+            else
+            {
+                if (value < _minValue) MinValue = value;
+                if (value > _maxValue) MaxValue = value;
+            }
 
             LatestValue = value;
             PointCount = _dataPoints.Count;
-
-            if (_dataPoints.Count > 0)
-            {
-                double min = double.MaxValue, max = double.MinValue;
-                foreach (var p in _dataPoints)
-                {
-                    if (p.Value < min) min = p.Value;
-                    if (p.Value > max) max = p.Value;
-                }
-                MinValue = min;
-                MaxValue = max;
-            }
         }
         DataChanged?.Invoke();
+    }
+
+    private void RecomputeMinMaxLocked()
+    {
+        double min = double.MaxValue, max = double.MinValue;
+        foreach (var p in _dataPoints)
+        {
+            if (p.Value < min) min = p.Value;
+            if (p.Value > max) max = p.Value;
+        }
+        MinValue = min;
+        MaxValue = max;
     }
 
     public void Clear()

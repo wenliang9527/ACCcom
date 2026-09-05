@@ -17,6 +17,7 @@ public class DataBufferService : IDisposable
     private readonly List<DataBufferWaiter> _waiters = new();
     private readonly object _waiterLock = new();
     private readonly MetricsCollector _metrics = MetricsCollector.Instance;
+    private static readonly List<LogEntry> EmptyBuffer = new(0);
 
     public DataBufferService(int capacity = 10000)
     {
@@ -98,7 +99,7 @@ public class DataBufferService : IDisposable
     {
         lock (_lock)
         {
-            if (_count == 0 || id >= _maxId) return new List<LogEntry>();
+            if (_count == 0 || id >= _maxId) return EmptyBuffer;
 
             var start = (_head - _count + _capacity) % _capacity;
 
@@ -213,6 +214,8 @@ public class DataBufferService : IDisposable
             waiter.Tcs.TrySetResult(null);
     }
 
+
+
     public int CountWhere(Func<LogEntry, bool> predicate)
     {
         lock (_lock)
@@ -228,8 +231,6 @@ public class DataBufferService : IDisposable
             return c;
         }
     }
-
-
 
     /// <summary>
     /// Wait for a buffer entry matching the given pattern and filters.

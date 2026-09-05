@@ -92,17 +92,10 @@ public class VirtualSerialService : ISerialService, IDisposable
         lock (_lock) return new List<LogEntry>(_sentData);
     }
 
-    public int SentCount
-    {
-        get { lock (_lock) return _sentData.Count; }
-    }
-
     public void ClearSentData()
     {
         lock (_lock) _sentData.Clear();
     }
 
-    public void EnableAutoReconnect(bool enable, int maxAttempts = 10, int delayMs = 1000) { }
-    public void UpdateReconnectSettings(ReconnectSettings settings) { }
     public void Dispose() { }
 }

@@ -9,8 +9,8 @@
   "Label.DataBits": "Data Bits",
   "Label.Parity": "Parity",
   "Label.StopBits": "Stop Bits",
-  "Label.Timestamp": "Timestamp",
-  "Label.Loop": "Loop",
+
+
   "Label.QuickSend": "Quick Send",
   "Label.AuxPorts": "Aux Ports",
   "Label.Host": "Host",
@@ -19,13 +19,13 @@
   "Label.MaxAttempts": "Max Attempts",
   "Label.Unlimited": "(0=Unlimited)",
   "Label.AutoReconnect": "Auto Reconnect",
-  "Label.RX": "RX",
-  "Label.TX": "TX",
+
+
   "SerialPort.Open": "Open Port",
   "SerialPort.Close": "Close Port",
   "Button.Refresh": "Refresh",
-  "Button.Open": "Open",
-  "Button.Disconnect": "Close",
+
+
   "Button.Send": "Send",
   "Button.Stop": "Stop",
   "Button.Clear": "Clear",
@@ -38,7 +38,7 @@
   "Button.CSV": "CSV",
   "Button.PCAP": "PCAP",
   "Button.TXT": "TXT",
-  "Button.Copy": "Copy",
+
   "Button.CopyAll": "Copy All",
   "Button.CopySelected": "Copy Selected",
   "Button.CopyHex": "Copy Hex",
@@ -46,15 +46,15 @@
   "Button.ClearTx": "Clear TX",
   "Button.Replay": "Replay",
   "Button.Compare": "Compare Files",
-  "Button.BookmarkList": "Bookmarks",
+
   "Button.VirtualSerial": "Virtual Serial",
   "Button.OK": "OK",
   "Button.Cancel": "Cancel",
   "Button.SchemaEditor": "Editor",
-  "Panel.Receive": "Receive",
-  "Panel.Transmit": "Transmit",
-  "Panel.ReceiveFull": "鈼€ Receive",
-  "Panel.TransmitFull": "鈻?Send",
+
+
+  "Panel.ReceiveFull": "◀ Receive",
+  "Panel.TransmitFull": "▶ Send",
   "Check.ShowRX": "Show RX",
   "Check.ShowTX": "Show TX",
   "Check.Timestamp": "Timestamp",
@@ -110,12 +110,12 @@
   "Theme.KlimtKiss": "The Kiss · Klimt",
   "Theme.HokusaiWave": "The Great Wave · Hokusai",
   "Theme.VermeerPearl": "Girl with a Pearl Earring · Vermeer",
-  "Label.Theme": "Theme",
+
   "Status.PortArrived": "New serial device detected: {0}",
   "Status.PortRemoved": "Serial device removed: {0}",
   "Status.WaitingForDevice": "Port {0} not present, waiting for device…",
   "Status.HexInvalid": "Invalid HEX input",
-  "SendBox.HexErrorTooltip": "HEX input is invalid: {0}",
+
   "Column.Offset": "Offset",
   "Column.Name": "Name",
   "Column.Length": "Len",
@@ -129,7 +129,7 @@
   "Tab.JSON": "JSON",
   "Tab.CsxCode": ".csx Code",
   "Tab.TestParse": "Test Parse",
-  "Tip.ThemeToggle": "Toggle dark/light theme",
+
   "Tip.OpenParserDir": "Open script directory",
   "Tip.AdvancedParams": "Advanced serial parameters",
   "Tip.AddBookmark": "Add bookmark at current position (Ctrl+B)",
@@ -184,7 +184,7 @@
   "Shortcuts.RefreshPorts": "Refresh port list",
   "Shortcuts.StopLoop": "Stop loop send",
   "Shortcuts.OpenShortcuts": "Open this shortcut panel",
-  "Button.Highlights": "Highlights",
+
   "HighlightWindow.Title": "Highlight Rules",
   "HighlightWindow.AddRule": "Add",
   "HighlightWindow.EditRule": "Edit",
@@ -228,7 +228,7 @@
   "VirtualSerial.TxSend": "Send TX",
   "VirtualSerial.Send": "Send",
   "VirtualSerial.Log": "Communication log",
-  "VirtualSerial.Tooltip": "Injected RX data also flows into the live parse pipeline (parser/highlight/RX list)",
+
   "Status.ShortcutsOpened": "Shortcuts panel opened",
   "Status.ProtocolTestNew": "Blank script created",
   "Status.ProtocolTestSaved": "Script saved: {0}",
@@ -336,8 +336,8 @@
   "SchemaEditor.Checksum": "Checksum:",
   "SchemaEditor.HexData": "Hex Data:",
   "SchemaEditor.AddField": "+ Add Field",
-  "SchemaEditor.MoveUp": "鈫?Move Up",
-  "SchemaEditor.MoveDown": "鈫?Move Down",
+  "SchemaEditor.MoveUp": "↑ Move Up",
+  "SchemaEditor.MoveDown": "↓ Move Down",
   "SchemaEditor.Generate": "Generate",
   "SchemaEditor.Save": "Save",
   "SchemaEditor.Parse": "Parse",
@@ -353,17 +353,17 @@
   "SchemaEditor.ParseError": "Parse error: {0}",
   "SchemaEditor.NoFieldsParsed": "No fields parsed.",
   "SchemaEditor.TemplateDescription": "Custom serial protocol with header + length + command + data + checksum",
-  "StatusBar.RXLabel": "RX:",
-  "StatusBar.TXLabel": "TX:",
-  "StatusBar.Bytes": " bytes",
+
+
+
   "StatusBar.Errors": "Errors:",
-  "StatusBar.Up": "Up:",
-  "Status.Settings": "Settings",
-  "Status.Ready": "Ready",
+
+
+
   "Status.PortDisconnected": "Port disconnected",
   "Status.NetworkDisconnected": "Network disconnected",
   "Status.PlotWindowOpened": "Plot window opened - receiving numeric values from RX data",
-  "Status.ModbusWindowOpened": "MODBUS Master window opened",
+
   "Status.FrameAssemblyEnabled": "Frame assembly enabled: header={0}",
   "Status.FrameAssemblyDisabled": "Frame assembly disabled",
   "Status.PortClosed": "Port closed",
@@ -464,7 +464,7 @@
   "Status.MacroStopped": "Macro stopped",
   "Status.MacroError": "Macro execution error: {0}",
   "Status.ReplayWindowOpened": "Replay window opened: {0}",
-  "Status.StatsWindowOpened": "Statistics window opened",
+
   "Plot.Points": "  ({0} points)",
   "Plot.WaitingForData": "Waiting for data (need at least 2 points)...",
   "Plot.Status": "Plotting {0} points | {1} max | {2} min",

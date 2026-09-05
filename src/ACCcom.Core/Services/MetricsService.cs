@@ -68,8 +68,6 @@ public sealed class MetricsCollector
         return _counters.GetValueOrDefault(name, 0);
     }
 
-    // ── Gauge 操作 ──
-
     public void SetGauge(string name, double value)
     {
         _gauges[name] = value;
@@ -169,38 +167,35 @@ public sealed class Histogram
     private long[] _bucketCounts = new long[BucketBounds.Length + 1];
     private long _count;
     private double _sum;
-    private readonly object _lock = new();
+    private readonly object _sumLock = new();
 
     public long Count => Interlocked.Read(ref _count);
     public double Sum
     {
-        get { lock (_lock) return _sum; }
+        get { lock (_sumLock) return _sum; }
     }
 
     public void Record(double value)
     {
-        lock (_lock)
-        {
-            _sum += value;
-            _count++;
-
-            int idx = Array.BinarySearch(BucketBounds, value);
-            if (idx < 0) idx = ~idx;
-            else idx++;
-            for (int i = idx; i < _bucketCounts.Length; i++)
-                _bucketCounts[i]++;
-        }
+        // Bucket counts use Interlocked so the per-frame parse path never takes
+        // a lock; Sum is a rare/read-only metric and keeps its own small lock.
+        int idx = Array.BinarySearch(BucketBounds, value);
+        if (idx < 0) idx = ~idx;
+        else idx++;
+        for (int i = idx; i < _bucketCounts.Length; i++)
+            Interlocked.Increment(ref _bucketCounts[i]);
+        Interlocked.Increment(ref _count);
+        lock (_sumLock) _sum += value;
     }
 
     public IReadOnlyList<BucketEntry> GetBuckets()
     {
         var result = new List<BucketEntry>(BucketBounds.Length + 1);
-        lock (_lock)
-        {
-            for (int i = 0; i < BucketBounds.Length; i++)
-                result.Add(new BucketEntry(BucketBounds[i], Volatile.Read(ref _bucketCounts[i])));
-            result.Add(new BucketEntry(double.PositiveInfinity, Volatile.Read(ref _bucketCounts[^1])));
-        }
+        // Snapshot under no lock: each bucket is read via Volatile.Read, and the
+        // per-bucket ordering is not a strict invariant consumers rely on.
+        for (int i = 0; i < BucketBounds.Length; i++)
+            result.Add(new BucketEntry(BucketBounds[i], Volatile.Read(ref _bucketCounts[i])));
+        result.Add(new BucketEntry(double.PositiveInfinity, Volatile.Read(ref _bucketCounts[^1])));
         return result;
     }
 }

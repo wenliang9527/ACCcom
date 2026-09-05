@@ -16,6 +16,4 @@ public interface ISerialService : IDisposable
     bool Send(string data, bool isHex = false);
     bool SendHex(string hex);
     bool Close();
-    void EnableAutoReconnect(bool enable, int maxAttempts = 10, int delayMs = 1000);
-    void UpdateReconnectSettings(ReconnectSettings settings);
 }

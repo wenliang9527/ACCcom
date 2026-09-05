@@ -206,14 +206,5 @@ public class SessionRecorder : BufferedFileWriter
         base.Dispose();
     }
 
-    public static string[] ListRecordings(string? directory = null)
-    {
-        directory ??= RecordingsDirectory;
-        if (!Directory.Exists(directory))
-            return Array.Empty<string>();
 
-        return Directory.GetFiles(directory, "*.jsonl")
-            .OrderByDescending(f => Path.GetFileName(f))
-            .ToArray();
-    }
 }

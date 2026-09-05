@@ -50,17 +50,6 @@ public class ModbusConnectionManager : IDisposable
         return _connections.TryGetValue(connectionId, out var managed) ? managed.Service : null;
     }
 
-    public bool RemoveConnection(string connectionId)
-    {
-        if (connectionId == DefaultConnectionId) return false;
-        if (_connections.TryRemove(connectionId, out var managed))
-        {
-            managed.Transport.Dispose();
-            return true;
-        }
-        return false;
-    }
-
     public IReadOnlyDictionary<string, string> GetActiveConnections()
     {
         return _connections.ToDictionary(kv => kv.Key, kv => kv.Value.Description);
