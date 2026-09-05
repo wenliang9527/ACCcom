@@ -179,7 +179,8 @@ public class ModbusTcpTransport : IModbusTransport
 
     private static byte[] BuildMbap(ushort transactionId, byte slaveId, byte functionCode, byte[] pdu)
     {
-        var adu = new byte[7 + pdu.Length];
+        // 6-byte MBAP header + unit id + function code + PDU.
+        var adu = new byte[8 + pdu.Length];
         adu[0] = (byte)(transactionId >> 8);
         adu[1] = (byte)transactionId;
         adu[2] = 0; // protocol ID high
