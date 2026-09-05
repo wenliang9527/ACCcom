@@ -228,7 +228,6 @@ curl http://127.0.0.1:8899/api/slaves
 - 数据到达时自动推送到所有已连接的 WebSocket 客户端
 - 格式与 HTTP API `read_data` 一致
 - 适合实时监控面板、Web 端数据流可视化
-- 支持 Modbus 事务实时推送
 
 ## i18n 国际化
 

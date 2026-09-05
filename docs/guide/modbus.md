@@ -15,9 +15,10 @@
 
 ### 1. 打开 MODBUS 窗口
 
-在主界面的工具栏中点击 **MODBUS** 按钮（或按快捷键 `F5`），弹出连接对话框：
+在主界面的工具栏中点击 **MODBUS** 按钮，弹出连接对话框：
 
 - **RTU（串口）模式**：选中 RTU，点击"Connect & Open MODBUS Window"，自动使用当前主串口连接
+- **ASCII（串口）模式**：选中 ASCII，同样使用当前主串口连接，按 Modbus ASCII 帧格式（`:...CRLF` + LRC）收发
 - **TCP（网络）模式**：选中 TCP，填入设备 IP 地址和端口号（默认 502），点击连接
 
 连接成功后即打开 MODBUS 窗口，包含三个标签页。
@@ -71,7 +72,7 @@
 
 创建成功后，从站出现在设备列表中。选中一个从站后可 **Remove Selected** 删除。
 
-通过 HTTP API 或 MCP 工具可读写从站内部的寄存器值。
+通过 HTTP API 可读写从站内部的寄存器值。
 
 ### 4. Dashboard 标签 — Web 仪表盘
 
@@ -100,7 +101,7 @@
 - 可配置超时时间
 - 支持取消扫描
 - 返回在线设备列表（从站地址、首个寄存器值、响应时间）
-- MCP 工具：`scan_devices`
+- 也可通过 HTTP API 触发扫描：`POST /api/modbus/scan`
 
 ## Modbus 从站模拟
 
@@ -115,27 +116,31 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/slaves` | 获取所有活跃的从站列表 |
+| GET | `/api/slave/list` | 获取所有活跃的从站列表 |
 
 **获取从站列表：**
 
 ```bash
-curl http://127.0.0.1:8899/api/slaves
+curl http://127.0.0.1:8899/api/slave/list
 # → {"success":true,"data":[{"id":"slave_1","slaveId":1,"transportType":"tcp","connectionParam":"15000","isRunning":true}]}
 ```
 
-## MCP 工具
+## HTTP API 摘要
 
-| Tool | 说明 |
-|------|------|
-| `read_registers` | 读取 Modbus 寄存器（支持 01-04 功能码） |
-| `write_register` | 写入 Modbus 寄存器/线圈（支持 05-06、15-16、22-23 功能码） |
-| `slave_create` | 创建虚拟 Modbus 从站设备 |
-| `slave_remove` | 移除 Modbus 从站设备 |
-| `slave_list` | 列出所有活跃的 Modbus 从站设备 |
-| `slave_write` | 向从站设备写入寄存器值 |
-| `slave_read` | 从从站设备读取寄存器值 |
-| `scan_devices` | 扫描 Modbus 网络上的从站设备 |
+MCP 服务器仅保留基础串口工具，Modbus 相关能力通过桌面端 HTTP API 提供：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET/POST | `/api/modbus/read` | 读取寄存器（01-04 功能码） |
+| POST | `/api/modbus/write` | 写入寄存器/线圈（05-06、15-16、22-23 功能码） |
+| POST | `/api/modbus/scan` | 扫描网络上的从站设备 |
+| POST | `/api/slave/create` | 创建虚拟从站 |
+| POST | `/api/slave/remove` | 移除虚拟从站 |
+| GET | `/api/slave/list` | 列出活跃从站 |
+| POST | `/api/slave/write` | 写从站寄存器 |
+| POST | `/api/slave/read` | 读从站寄存器 |
+
+完整路由见 [integration.md](integration.md)。
 
 ## 常见问题
 

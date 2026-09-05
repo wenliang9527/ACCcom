@@ -192,8 +192,6 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenTriggerCommand { get; }
     public ICommand OpenShortcutsCommand { get; }
     public ICommand OpenRecordingsFolderCommand { get; }
-    public ICommand AddHighlightRuleCommand => _highlights.AddRuleCommand;
-    public ICommand DeleteHighlightRuleCommand => _highlights.DeleteRuleCommand;
     public HighlightViewModel Highlights => _highlights;
     public ProtocolTestViewModel? ProtocolTest => _protocolTest;
 
@@ -673,7 +671,6 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenFrameAssemblerConfigCommand { get; }
     public ICommand SendShortcutCommand => _tool.SendShortcutCommand;
     public ICommand AddShortcutCommand => _tool.AddShortcutCommand;
-    public ICommand DeleteShortcutCommand => _tool.DeleteShortcutCommand;
     public ICommand SavePresetCommand => _tool.SavePresetCommand;
     public ICommand DeletePresetCommand => _tool.DeletePresetCommand;
     public ICommand RunMacroCommand => _tool.RunMacroCommand;
@@ -745,7 +742,7 @@ public class MainViewModel : ObservableObject, IDisposable
         if (_modbusViewModel == null)
         {
             var defaultSvc = _modbusConnectionManager.GetDefaultService(_serial);
-            var dialog = new ModbusConnectionDialog(_modbusConnectionManager, defaultSvc)
+            var dialog = new ModbusConnectionDialog(_modbusConnectionManager, defaultSvc, _serial)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };

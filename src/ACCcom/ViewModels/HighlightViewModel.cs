@@ -27,8 +27,6 @@ public class HighlightViewModel : ObservableObject
     public ICommand AddRuleCommand { get; }
     public ICommand DeleteRuleCommand { get; }
     public ICommand SaveRulesCommand { get; }
-    public ICommand LoadRulesCommand { get; }
-    public ICommand OpenEditDialogCommand { get; }
 
     public HighlightViewModel(
         HighlightService service,
@@ -42,8 +40,6 @@ public class HighlightViewModel : ObservableObject
         AddRuleCommand = new RelayCommand(_ => AddDefaultRule());
         DeleteRuleCommand = new RelayCommand(p => { if (p is HighlightRule r) DeleteRule(r); });
         SaveRulesCommand = new RelayCommand(_ => Save());
-        LoadRulesCommand = new RelayCommand(_ => Load());
-        OpenEditDialogCommand = new RelayCommand(p => { if (p is HighlightRule r) OpenEditDialog(r); });
 
         // Persist on every structural change so the user never loses work to a
         // crash — the rule list lives in %LOCALAPPDATA% anyway.
@@ -67,6 +63,18 @@ public class HighlightViewModel : ObservableObject
         if (df == null) return;
         foreach (var entry in df.RxEntries) entry.HighlightColor = _service.GetHighlightColor(entry);
         foreach (var entry in df.TxEntries) entry.HighlightColor = _service.GetHighlightColor(entry);
+    }
+
+    /// <summary>Persists an in-place-edited rule and recolors the buffered
+    /// entries. The edit dialog mutates the rule instance directly, which never
+    /// raises CollectionChanged, so without this explicit Save() edits made via
+    /// the window's Edit button / double-click would silently vanish on restart.
+    /// Unlike AddRule, it does not replace by name — if the user renames a rule
+    /// onto a name another rule already owns, both must survive.</summary>
+    public void ApplyEditedRule(HighlightRule rule)
+    {
+        _service.Save();
+        RefreshExisting();
     }
 
     private HighlightRule AddDefaultRule()
@@ -97,11 +105,9 @@ public class HighlightViewModel : ObservableObject
         dialog.Owner = System.Windows.Application.Current?.MainWindow;
         if (dialog.ShowDialog() == true)
         {
-            var updated = dialog.Rule;
-            // HighlightService.AddRule replaces by name — works for both new
-            // and edited rules.
-            _service.AddRule(updated);
-            RefreshExisting();
+            // The dialog mutated the rule in place; the collection already
+            // reflects it. Persist and recolor without AddRule's by-name replace.
+            ApplyEditedRule(dialog.Rule);
         }
         else
         {

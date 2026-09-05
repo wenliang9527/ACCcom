@@ -42,8 +42,9 @@
 
         <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
             <StackPanel>
-                <RadioButton Content="{Binding [ModbusConnection.RTU], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode, Converter={StaticResource BoolInverter}, Mode=OneWay}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
-                <RadioButton Content="{Binding [ModbusConnection.TCP], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode, Mode=TwoWay}" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.RTU], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsRtuMode}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.ASCII], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsAsciiMode}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.TCP], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode}" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
 
                 <StackPanel IsEnabled="{Binding IsTcpMode}" Margin="20,8,0,0">
                     <Grid>

@@ -126,8 +126,6 @@ return fields;
 - 定义测试步骤：每步包含命令、超时、预期响应模式
 - 自动匹配验证：contains / regex / exact
 - 输出测试报告：逐步 pass/fail 结果、执行时间、错误详情
-- 支持 `send_batch` MCP 工具批量发送命令序列
-- 支持 Modbus 命令测试
 
 ## Related
 

@@ -23,7 +23,7 @@ ACCCOM 提供了完整的串口配置、数据收发、文件操作和连接管�
 - RX/TX 面板实时关键字过滤（忽略大小写）
 - 包过滤引擎：支持表达式过滤 `direction==RX and text contains "OK"`（`PacketFilterEngine`）
 - 高亮规则引擎：条件高亮 RX/TX 条目（`HighlightService`，持久化到 `highlights.json`）
-- 断线自动重连（最多 10 次，1 秒间隔）
+- 断线自动重连（重试间隔 3 秒，重试次数可配置、默认不限次）
 - 深色/浅色主题切换（Ctrl+D）
 - HEX 显示切换（Ctrl+H）
 - 支持 Modbus 寄存器读写操作

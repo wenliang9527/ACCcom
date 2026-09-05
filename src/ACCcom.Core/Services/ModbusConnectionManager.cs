@@ -32,6 +32,19 @@ public class ModbusConnectionManager : IDisposable
         return svc;
     }
 
+    /// <summary>Creates an ASCII-mode connection over the given serial port
+    /// (the same physical link the app's main serial service uses).</summary>
+    public ModbusService CreateAsciiConnection(string connectionId, ISerialService serial)
+    {
+        if (_connections.ContainsKey(connectionId))
+            throw new InvalidOperationException($"Connection '{connectionId}' already exists");
+
+        var transport = new ModbusAsciiTransport(serial);
+        var svc = new ModbusService(transport);
+        _connections[connectionId] = new ManagedConnection(transport, svc, "ASCII");
+        return svc;
+    }
+
     public ModbusService? GetService(string connectionId)
     {
         return _connections.TryGetValue(connectionId, out var managed) ? managed.Service : null;

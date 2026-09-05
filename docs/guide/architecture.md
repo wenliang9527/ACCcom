@@ -60,11 +60,11 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | HTTP 服务 | EmbedIO |
 | WebSocket | EmbedIO WebSocketModule |
 | AI 集成 | ModelContextProtocol SDK |
-| Modbus | 自研 Modbus RTU/TCP 主从站实现 |
+| Modbus | 自研 Modbus RTU/TCP/ASCII 主从站实现 |
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
-| 缓冲区 | System.Threading.Channels + RingBuffer |
+| 缓冲区 | 预分配 RingBuffer 环形缓冲 |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（613 个测试） |
+| 测试 | xUnit 2.5.3（589 个执行用例，583 个测试方法） |
 
 ## 项目结构
 
@@ -99,7 +99,7 @@ ACCcom/
 │   │   │   ├── FrameBuffer.cs           # 环形缓冲帧提取 (ByHeader/Length/Fixed)
 │   │   │   ├── SerialService.cs         # 串口管理
 │   │   │   ├── SerialConnectionManager.cs  # 连接生命周期管理
-│   │   │   ├── SerialController.cs      # HTTP API 控制器 (41 个端点)
+│   │   │   ├── SerialController.cs      # HTTP API 控制器 (33 个端点)
 │   │   │   ├── SerialWebSocketHandler.cs # WebSocket 处理器
 │   │   │   ├── HttpService.cs           # HTTP REST API + WebSocket (EmbedIO)
 │   │   │   ├── DataBufferService.cs     # Channel<T> + RingBuffer 数据缓冲
@@ -142,14 +142,12 @@ ACCcom/
 │   │   │   ├── ModbusTcpSlaveTransport.cs # Modbus TCP 从站传输
 │   │   │   ├── ModbusSlaveService.cs    # Modbus 从站服务
 │   │   │   ├── ModbusSlaveDevice.cs     # Modbus 从站设备模拟
-│   │   │   ├── ModbusPriorityQueue.cs   # Modbus 优先级队列
 │   │   │   ├── ModbusUtils.cs           # Modbus 工具方法
 │   │   │   └── VirtualSerialService.cs  # 虚拟串口服务
 │   │   └── parsers/                 # 内置协议解析器
 │   │       ├── dirui_protocol.csx   # 迪瑞生化分析仪协议
 │   │       ├── esoac_v3.csx
 │   │       ├── modbus_rtu_template.csx # Modbus RTU 模板
-│   │       ├── modbus_tcp_template.csx # Modbus TCP 模板
 │   │       ├── sample.csx
 │   │       └── simple_frame_template.csx
 │   ├── ACCcom/                     # WPF 桌面客户端
@@ -169,9 +167,8 @@ ACCcom/
 │   │   │   └── en-US.json
 │   │   ├── SchemaEditorWindow.xaml     # 协议可视化编辑器
 │   │   ├── FrameAssemblerConfigWindow.xaml # 多帧拼接配置
-│   │   ├── Themes/                 # 主题资源
-│   │   │   ├── DarkTheme.xaml
-│   │   │   └── LightTheme.xaml
+│   │   ├── Themes/                 # 主题资源 (7 款：Dark/Light/MonetSunrise/VanGoghWheat/KlimtKiss/HokusaiWave/VermeerPearl)
+│   │   │   ├── LightTheme.xaml
 │   │   ├── Converters/             # WPF 值转换器
 │   │   │   ├── FieldValuesTemplateSelector.cs
 │   │   ├── ViewModels/
@@ -204,7 +201,7 @@ ACCcom/
 │           ├── SerialTools.cs      # 基础串口工具 (8 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tests/
-│   ├── ACCcom.Core.Tests/          # 核心库单元测试 (54 个文件, ~566 个测试)
+│   ├── ACCcom.Core.Tests/          # 核心库单元测试 (55 个文件, ~573 个测试)
 │   │   ├── DataBufferServiceTests.cs
 │   │   ├── DataBufferServiceConcurrencyTests.cs
 │   │   ├── TriggerServiceTests.cs
@@ -245,7 +242,7 @@ ACCcom/
 │   │   ├── ModbusRtuTransportTests.cs
 │   │   ├── ModbusAsciiTransportTests.cs
 │   │   ├── ModbusSlaveDeviceTests.cs
-│   │   ├── ModbusPriorityQueueTests.cs
+│   │   ├── ModbusConnectionManagerTests.cs
 │   │   ├── ModbusCancellationTests.cs
 │   │   ├── ModbusMergingTests.cs
 │   │   ├── ModbusFunctionCodeExtensionTests.cs

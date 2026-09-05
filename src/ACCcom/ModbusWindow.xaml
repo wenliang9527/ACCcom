@@ -121,10 +121,14 @@
                             <TextBlock Text="{Binding ScanProgress}" Style="{StaticResource Label}" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,4"
                                        Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
-                        <ListView Grid.Row="1" ItemsSource="{Binding ScanResults}" MaxHeight="110"
+                        <ListView x:Name="ScanResultsList" Grid.Row="1" ItemsSource="{Binding ScanResults}" MaxHeight="110"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   Background="Transparent" BorderThickness="0"
+                                  MouseDoubleClick="ScanResultsList_MouseDoubleClick"
                                   Visibility="{Binding ScanResults.Count, Converter={StaticResource NullToVisibility}}">
+                            <ListView.ToolTip>
+                                <TextBlock Text="{Binding [Modbus.ScanDoubleClick], Source={x:Static local:LanguageManager.Instance}}" />
+                            </ListView.ToolTip>
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="{Binding [Modbus.ColScanSlave], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding SlaveIdHex}" />

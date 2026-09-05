@@ -80,4 +80,4 @@ SerialService 的 Open/Close/Send 已改为返回 bool。
 | HTTP API (EmbedIO) | GUI 调试、curl/PowerShell 测试（桌面端内嵌） | ✅ 已完成，保留在 ACCcom.Wpf |
 | MCP stdio | AI 客户端调用 | ✅ 已完成，默认直接模式 |
 
-两者共享 ACCcom.Core 业务逻辑。直接模式下 MCP 独立操作串口；代理模式（`--proxy`）下 MCP 通过桌面端 HTTP API 操作串口，AI 操作与 GUI 实时同步。桌面端由 `launch_acccom_gui.ps1` 单独启动。
+两者共享 ACCcom.Core 业务逻辑。直接模式下 MCP 独立操作串口；代理模式（`--proxy`）已随工具裁剪移除，MCP 不再通过桌面端 HTTP API 操作串口。桌面端由 `launch_acccom_gui.ps1` 单独启动。

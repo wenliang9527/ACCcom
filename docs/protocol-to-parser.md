@@ -8,7 +8,7 @@
 
 - [前置准备](#前置准备)
 - [路径 A：JSON Schema → 自动生成（推荐）](#路径-ajson-schema--自动生成推荐)
-- [路径 B：MCP AI 帮你写（在 AI 客户端内操作）](#路径-bmcp-ai-帮你写在-ai-客户端内操作)
+- [路径 B：AI 帮你写（生成脚本后经 HTTP/UI 落地）](#路径-bai-帮你写生成脚本后经-httpui-落地)
 - [路径 C：手写 .csx 脚本](#路径-c手写-csx-脚本)
 - [路径 D：可视化编辑器（桌面 UI 操作）](#路径-d可视化编辑器桌面-ui-操作)
 - [多帧拼接重组](#多帧拼接重组)
@@ -36,7 +36,7 @@
 
 ### 第 1 步：填写协议 Schema JSON
 
-参照模板（模版内容可通过 MCP 工具 `acccom_get_schema_template` 获取或查看底部参考）：
+参照模板（可在桌面端 Schema 编辑器点击 **Load Template** 获取，或查看底部参考）：
 
 ```json
 {
@@ -66,47 +66,36 @@
 
 ### 第 2 步：生成解析器（二选一）
 
-#### 方式 A1：在 AI 客户端中使用 `generate_parser` 工具
+#### 方式 A1（推荐）：桌面 UI 编辑器
 
-```json
-acccom_generate_parser({
-  "schemaJson": "{...上面的 JSON...}",
-  "name": "my_device"
-})
-```
+打开桌面端工具栏的 **「编辑器」** 按钮，按参考模板填写协议名称、帧头、字段等参数，点击 **Generate** 预览 .csx 代码，**Save** 保存到 `parsers/` 目录即生效。
 
-工具会验证 JSON → 生成 `.csx` → 保存到 `parsers/` 目录 → 返回生成的脚本代码。
+#### 方式 A2：HTTP API 直接写入脚本
 
-#### 方式 A2：直接运行桌面客户端，通过 HTTP API
+把 schema 对应的 .csx 脚本写入（脚本内容可用底部模板或 UI 编辑器 Generate 生成）：
 
 ```bash
-# 先写入 schema JSON 文件
-echo "{...上面的 JSON...}" > schema.json
-
-# 调用 HTTP API 生成
-curl -X POST http://127.0.0.1:8899/api/parser/generate `
+curl -X POST http://127.0.0.1:8899/api/parser/write `
   -H "Content-Type: application/json" `
-  -d (Get-Content schema.json -Raw)
+  -d '{"name":"my_device","code":"var result = new List<FieldAnnotation>();\n..."}'
 ```
 
 ### 第 3 步：验证生成是否成功
 
-调用 `list_parsers`，列表中应出现 `my_device`：
-
-```json
-acccom_list_parsers()
-// 返回 → { "parsers": ["my_device", "sample", ...], "active": null }
+```bash
+curl http://127.0.0.1:8899/api/parsers
+# 返回 → { "parsers": ["my_device", "sample", ...], "active": null }
 ```
 
 ---
 
-## 路径 B：MCP AI 帮你写（在 AI 客户端内操作）
+## 路径 B：AI 帮你写（生成脚本后经 HTTP/UI 落地）
 
-把协议文档丢给 AI，让 AI 直接写脚本。
+把协议文档丢给 AI，让 AI 直接写脚本，然后通过 HTTP API 或桌面 UI 落地。
 
-### 第 1 步：把协议文档提供给 AI
+### 第 1 步：让 AI 生成 .csx 脚本
 
-直接说出帧结构，例如：
+把协议描述提供给 AI，例如：
 
 ```
 帮我写一个 ACCCOM 解析脚本，协议如下：
@@ -114,22 +103,31 @@ acccom_list_parsers()
 温度在偏移 4（1 字节 uint8，单位 °C），校验 Xor8(0~5)
 ```
 
-### 第 2 步：AI 调用 `write_parser` 写入脚本
+AI 输出 `List<FieldAnnotation>` 形式的 `.csx` 代码（可参考 `sample.csx` 的写法与内置函数表）。
 
-AI 会生成 `.csx` 代码并通过 MCP 工具写入：
+### 第 2 步：写入脚本
 
-```json
-acccom_write_parser({
-  "name": "my_device",
-  "code": "var result = new List<FieldAnnotation>();\n..."
-})
+#### 方式 B1：HTTP API
+
+```bash
+curl -X POST http://127.0.0.1:8899/api/parser/write `
+  -H "Content-Type: application/json" `
+  -d '{"name":"my_device","code":"var result = new List<FieldAnnotation>();\n..."}'
 ```
 
-### 第 3 步：AI 激活解析器
+#### 方式 B2：直接保存到 parsers/ 目录（热加载自动生效）
 
-```json
-acccom_activate_parser({ "name": "my_device" })
+把 `.csx` 文件放入 `parsers/` 目录，500ms 内自动生效，无需重启。
+
+### 第 3 步：激活解析器
+
+```bash
+curl -X POST http://127.0.0.1:8899/api/parser/activate `
+  -H "Content-Type: application/json" `
+  -d '{"name":"my_device"}'
 ```
+
+或在桌面 UI 解析器下拉菜单中选择 `my_device`。
 
 ---
 
@@ -288,26 +286,11 @@ code ACCcom.Core/parsers/my_device.csx    # 编辑保存
 - 超时未完成的帧自动丢弃
 - 分片数据**不显示**在 RX 列表中，只显示组装后的完整帧
 
-### 通过 MCP 配置
-
-```json
-acccom_activate_parser({ "name": "my_device" })
-// 多帧拼接目前仅支持桌面 UI 配置
-```
+> 多帧拼接目前仅支持桌面 UI 配置。
 
 ---
 
-### 方式 1：MCP 工具
-
-```json
-acccom_parse_raw({
-  "hex": "AA 55 06 01 19 2E",
-  "parserName": "my_device"
-})
-// 返回所有解析出的字段
-```
-
-### 方式 2：HTTP API
+### 方式 1：HTTP API
 
 ```bash
 curl -X POST http://127.0.0.1:8899/api/parser/parse-raw `
@@ -315,7 +298,7 @@ curl -X POST http://127.0.0.1:8899/api/parser/parse-raw `
   -d '{"hex":"AA 55 06 01 19 2E","parserName":"my_device"}'
 ```
 
-### 方式 3：UI 桌面端
+### 方式 2：UI 桌面端
 
 打开 ACCCOM → 连接串口 → 下拉选择解析器 → 选中接收到的数据条目 → 查看右侧"字段解析"面板。
 
@@ -325,20 +308,19 @@ curl -X POST http://127.0.0.1:8899/api/parser/parse-raw `
 
 | 方式 | 操作 |
 |------|------|
-| MCP | `acccom_activate_parser({ "name": "my_device" })` |
-| HTTP | `curl -X POST ... -d '{"name":"my_device"}'` |
+| HTTP | `curl -X POST http://127.0.0.1:8899/api/parser/activate -d '{"name":"my_device"}'` |
 | UI 桌面端 | 在下拉菜单选择解析器名字 |
 
 激活后，所有后续 RX 数据会自动经解析器处理，条目显示字段解析结果。
 
-如果要停用：`activate_parser(null)` 或 UI 中选择"无"。
+如果要停用：HTTP `POST /api/parser/activate`（`name` 传空）或 UI 下拉选择"无"。
 
 ---
 
 ## 常见问题
 
 **Q：解析器写好了但看不到字段解析？**
-→ 检查解析器是否已激活（`list_parsers` 看 active 字段）
+→ 检查解析器是否已激活（HTTP `GET /api/parsers` 看 active 字段，或 UI 下拉菜单当前项）
 → 检查数据是否对方向（只有 RX 数据会被解析）
 → 检查 `.csx` 是否有语法错误（看 `ParserEngine.LastError`）
 
@@ -346,7 +328,7 @@ curl -X POST http://127.0.0.1:8899/api/parser/parse-raw `
 → 不需要。`FileSystemWatcher` 自动检测文件变化 → 防抖 500ms → 重新编译 → 即时生效。
 
 **Q：如何调试脚本？**
-→ 用 `parse_raw` 离线测试（无需串口），逐步调整字段偏移和类型。
+→ 用 HTTP `POST /api/parser/parse-raw` 或桌面 UI 编辑器的 Test Parse 面板离线测试（无需串口），逐步调整字段偏移和类型。
 → 查看 Color/Severity：绿色=正常，红色=错误/异常。
 
 **Q：如何限制只在某个命令码下解析子字段？**
@@ -405,4 +387,4 @@ curl -X POST http://127.0.0.1:8899/api/parser/parse-raw `
 }
 ```
 
-*`acccom_get_schema_template()` 可在线获取此模板。*
+*桌面端 Schema 编辑器点击 **Load Template** 可加载此模板；示例脚本也可通过 HTTP `GET /api/parser/read?name=sample` 读取。*

@@ -267,6 +267,28 @@ public class HighlightServiceTests : IDisposable
         Assert.True(File.Exists(_tempFile));
     }
 
+    /// <summary>The rule editor dialog mutates the rule instance in place, which
+    /// never raises CollectionChanged, so persistence depends on an explicit
+    /// Save() capturing the mutated state (HighlightViewModel.ApplyEditedRule
+    /// does exactly this for the window's Edit button / double-click path).</summary>
+    [Fact]
+    public void Save_persists_in_place_mutation()
+    {
+        var rule = new HighlightRule { Name = "Old", Pattern = "hello", Color = "#FF0000" };
+        _sut.AddRule(rule);
+
+        // Simulate the edit dialog mutating the instance in place.
+        rule.Name = "New";
+        rule.Pattern = "world";
+        _sut.Save();
+
+        var loaded = new HighlightService(_tempFile);
+        loaded.Load();
+        Assert.Single(loaded.Rules);
+        Assert.Equal("New", loaded.Rules[0].Name);
+        Assert.Equal("world", loaded.Rules[0].Pattern);
+    }
+
     [Fact]
     public void Load_corrupt_file_starts_empty()
     {

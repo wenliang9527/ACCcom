@@ -143,8 +143,6 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     public ICommand ReadCommand { get; }
     public ICommand WriteCommand { get; }
-    public ICommand StartPollCommand { get; }
-    public ICommand StopPollCommand { get; }
     public ICommand ClearLogCommand { get; }
     public ICommand ExportCsvCommand { get; }
     public ICommand ExportJsonCommand { get; }
@@ -182,8 +180,6 @@ public class ModbusViewModel : ObservableObject, IDisposable
                 System.Diagnostics.Debug.WriteLine($"Write error: {ex.Message}");
             }
         }, _ => !IsReadFunction);
-        StartPollCommand = new RelayCommand(_ => StartPoll(), _ => !IsPolling);
-        StopPollCommand = new RelayCommand(_ => StopPoll(), _ => IsPolling);
         ClearLogCommand = new RelayCommand(_ => TransactionLog.Clear());
         ExportCsvCommand = new RelayCommand(_ => ExportLog("CSV"));
         ExportJsonCommand = new RelayCommand(_ => ExportLog("JSON"));

@@ -42,7 +42,6 @@ public class ToolViewModel : ObservableObject, IDisposable
 
     public ICommand SendShortcutCommand => Shortcuts.SendShortcutCommand;
     public ICommand AddShortcutCommand => Shortcuts.AddShortcutCommand;
-    public ICommand DeleteShortcutCommand => Shortcuts.DeleteShortcutCommand;
     public ICommand SavePresetCommand => PresetsVm.SavePresetCommand;
     public ICommand DeletePresetCommand => PresetsVm.DeletePresetCommand;
     public ICommand RunMacroCommand => MacrosVm.RunMacroCommand;

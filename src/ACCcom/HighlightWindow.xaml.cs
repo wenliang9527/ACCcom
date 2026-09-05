@@ -26,12 +26,22 @@ public partial class HighlightWindow : Window
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
         if (RulesGrid.SelectedItem is HighlightRule rule)
-            new HighlightRuleDialog(rule) { Owner = this }.ShowDialog();
+            EditRule(rule);
     }
 
     private void Row_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (RulesGrid.SelectedItem is HighlightRule rule)
-            new HighlightRuleDialog(rule) { Owner = this }.ShowDialog();
+            EditRule(rule);
+    }
+
+    /// <summary>The rule dialog mutates the rule in place, which never raises
+    /// CollectionChanged — route the result through the VM so the edit persists
+    /// to disk and buffered entries get recolored.</summary>
+    private void EditRule(HighlightRule rule)
+    {
+        var dialog = new HighlightRuleDialog(rule) { Owner = this };
+        if (dialog.ShowDialog() == true)
+            _vm.ApplyEditedRule(rule);
     }
 }

@@ -84,11 +84,9 @@ public class ShortcutViewModel : ObservableObject
 
     public ICommand SendShortcutCommand { get; }
     public ICommand AddShortcutCommand { get; }
-    public ICommand DeleteShortcutCommand { get; }
     public ICommand PrevPageCommand { get; }
     public ICommand NextPageCommand { get; }
     public ICommand AddPageCommand { get; }
-    public ICommand RenamePageCommand { get; }
     public ICommand DeletePageCommand { get; }
     public ICommand ExportAllCommand { get; }
     public ICommand ExportCurrentPageCommand { get; }
@@ -109,11 +107,9 @@ public class ShortcutViewModel : ObservableObject
 
         SendShortcutCommand = new RelayCommand(p => { if (p is ShortcutItem s) SendShortcut(s); });
         AddShortcutCommand = new RelayCommand(_ => AddShortcut());
-        DeleteShortcutCommand = new RelayCommand(p => { if (p is ShortcutItem s) DeleteShortcut(s); });
         PrevPageCommand = new RelayCommand(_ => GoToPage(-1));
         NextPageCommand = new RelayCommand(_ => GoToPage(1));
         AddPageCommand = new RelayCommand(_ => AddPage());
-        RenamePageCommand = new RelayCommand(_ => RenameCurrentPage());
         DeletePageCommand = new RelayCommand(_ => DeleteCurrentPage());
         ExportAllCommand = new RelayCommand(_ => ExportPages(Pages.ToList()));
         ExportCurrentPageCommand = new RelayCommand(_ => { if (CurrentPage != null) ExportPages(new List<ShortcutPage> { CurrentPage }); });

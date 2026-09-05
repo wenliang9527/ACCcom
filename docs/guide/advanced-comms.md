@@ -9,7 +9,7 @@ ACCCOM 在基础串口通信之上提供了多端口并发、网络桥接、自�
 - 按标签（tag）标识每个端口实例
 - 统一事件总线：所有端口的数据通过 `OnDataReceived` 事件汇总，自动附加 `PortTag` 标识
 - 独立的连接/断开/错误事件
-- MCP 工具：`open_port_tagged`、`close_port_tagged`、`send_to_port_tagged`
+- 多端口操作也可通过 HTTP API 完成：`POST /api/multiport/open`、`POST /api/multiport/close`、`POST /api/multiport/send`
 - 支持同时连接多个设备进行数据对比分析
 
 ## 网络桥接
@@ -29,7 +29,7 @@ ACCCOM 在基础串口通信之上提供了多端口并发、网络桥接、自�
 
 - 按优先级依次尝试：9600 → 115200 → 57600 → 38400 → 19200 → 4800 → 2400 → 1200 → 460800 → 230400 → 921600
 - 发送探测字节（0x00 × 3），检测是否有响应
-- MCP 工具：`detect_baud_rate`
+- 也可通过 HTTP API 触发检测：`POST /api/baud/detect`
 - 支持 Modbus 设备波特率检测
 
 ## 虚拟串口服务

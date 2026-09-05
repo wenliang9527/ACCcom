@@ -57,6 +57,12 @@ public partial class ModbusWindow : Window
         base.OnClosed(e);
     }
 
+    private void ScanResultsList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (ScanResultsList.SelectedItem is ScanResultItem item)
+            _vm.UseScanSlaveCommand.Execute(item);
+    }
+
     private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
     private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
     private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();

@@ -73,3 +73,6 @@ docs/superpowers/
 skills-lock.json
 
 *.wpftmp.csproj
+
+# ZCode session-local caches
+.zcode/
