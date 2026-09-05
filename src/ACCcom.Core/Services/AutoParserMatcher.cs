@@ -6,6 +6,7 @@ public class AutoParserMatcher
 {
     private readonly Dictionary<string, ParserFingerprint> _fingerprints = new();
     private readonly object _lock = new();
+    private int _count;
 
     public int Count
     {
@@ -20,15 +21,16 @@ public class AutoParserMatcher
         lock (_lock)
         {
             _fingerprints[parserName] = fingerprint;
+            _count = _fingerprints.Count;
         }
     }
-
 
     public void RemoveFingerprint(string parserName)
     {
         lock (_lock)
         {
             _fingerprints.Remove(parserName);
+            _count = _fingerprints.Count;
         }
     }
 
@@ -37,12 +39,19 @@ public class AutoParserMatcher
         lock (_lock)
         {
             _fingerprints.Clear();
+            _count = 0;
         }
     }
 
     public string? MatchParser(byte[] data)
     {
         if (data == null || data.Length == 0)
+            return null;
+
+        // Fast path: no fingerprints registered. Avoids taking the lock and
+        // iterating an empty dictionary on every frame when auto-matching is
+        // not in use (the common case).
+        if (Volatile.Read(ref _count) == 0)
             return null;
 
         lock (_lock)

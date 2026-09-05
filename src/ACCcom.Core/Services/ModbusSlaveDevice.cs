@@ -64,6 +64,14 @@ public class ModbusSlaveDevice
         }
     }
 
+    private static byte[] WithFunctionCode(byte funcCode, byte[] pdu)
+    {
+        var result = new byte[1 + pdu.Length];
+        result[0] = funcCode;
+        Array.Copy(pdu, 0, result, 1, pdu.Length);
+        return result;
+    }
+
     private byte[] HandleReadBits(byte[] pdu, bool[] bits, byte funcCode)
     {
         var startAddr = (ushort)((pdu[0] << 8) | pdu[1]);
@@ -80,7 +88,7 @@ public class ModbusSlaveDevice
         for (int i = 0; i < count; i++)
             if (bits[startAddr + i]) data[1 + i / 8] |= (byte)(1 << (i % 8));
         NotifyTransaction(funcCode, pdu, data);
-        return data;
+        return WithFunctionCode(funcCode, data);
     }
 
     private byte[] HandleReadRegisters(byte[] pdu, ushort[] regs, byte funcCode)
@@ -94,7 +102,7 @@ public class ModbusSlaveDevice
         for (int i = 0; i < count; i++)
         { data[1 + i * 2] = (byte)(regs[startAddr + i] >> 8); data[1 + i * 2 + 1] = (byte)regs[startAddr + i]; }
         NotifyTransaction(funcCode, pdu, data);
-        return data;
+        return WithFunctionCode(funcCode, data);
     }
 
     private byte[] HandleWriteSingleCoil(byte[] pdu)
@@ -168,7 +176,7 @@ public class ModbusSlaveDevice
         for (int i = 0; i < readCount; i++)
         { resp[1 + i * 2] = (byte)(_holdingRegisters[readAddr + i] >> 8); resp[1 + i * 2 + 1] = (byte)_holdingRegisters[readAddr + i]; }
         NotifyTransaction(0x17, pdu, resp);
-        return resp;
+        return WithFunctionCode(0x17, resp);
     }
 
     private static byte[] ErrorResponse(byte funcCode, byte exceptionCode)

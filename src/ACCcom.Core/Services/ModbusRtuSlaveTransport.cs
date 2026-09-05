@@ -78,11 +78,12 @@ public class ModbusRtuSlaveTransport : IDisposable
             return;
         }
         if (responseBody.Length == 0) return;
-        var funcCode = pdu[0];
-        var adu = new byte[1 + 1 + responseBody.Length + 2];
+        // The handler returns the full response PDU starting with the function
+        // code (see ModbusSlaveDevice.WithFunctionCode), so the ADU is
+        // [slave id][response PDU][CRC16].
+        var adu = new byte[1 + responseBody.Length + 2];
         adu[0] = slaveId;
-        adu[1] = funcCode;
-        Array.Copy(responseBody, 0, adu, 2, responseBody.Length);
+        Array.Copy(responseBody, 0, adu, 1, responseBody.Length);
         var crc = CrcHelper.Crc16(adu.AsSpan(0, adu.Length - 2));
         adu[^2] = (byte)(crc & 0xFF);
         adu[^1] = (byte)((crc >> 8) & 0xFF);

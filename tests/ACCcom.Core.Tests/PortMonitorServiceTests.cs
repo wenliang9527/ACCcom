@@ -1,0 +1,137 @@
+using ACCcom.Core.Services;
+using Xunit;
+
+namespace ACCcom.Core.Tests;
+
+public class PortMonitorServiceTests
+{
+    [Fact]
+    public void Start_ThenStop_DoesNotThrow()
+    {
+        using var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 50);
+        monitor.Stop();
+        monitor.Stop(); // double stop is safe
+    }
+
+    [Fact]
+    public void Dispose_IsIdempotent()
+    {
+        var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 50);
+        monitor.Dispose();
+        monitor.Dispose();
+    }
+
+    [Fact]
+    public void Poll_InitialSnapshot_ReportsArrivedPorts()
+    {
+        using var monitor = new PortMonitorService();
+        // Start captures the (empty/live) snapshot; then inject COM3 as new.
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop(); // no timer ticks; we drive Poll manually
+
+        List<string>? arrived = null;
+        List<string>? removed = null;
+        monitor.PortsChanged += (a, r) => { arrived = a; removed = r; };
+
+        monitor.Poll(["COM3", "COM4"]);
+
+        Assert.NotNull(arrived);
+        Assert.NotNull(removed);
+        Assert.Contains("COM3", arrived);
+        Assert.Contains("COM4", arrived);
+        Assert.Empty(removed);
+    }
+
+    [Fact]
+    public void Poll_RemovedPort_ReportsRemoved()
+    {
+        using var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+
+        // Establish a baseline with COM3 present.
+        monitor.Poll(["COM3"]);
+
+        List<string>? arrived = null;
+        List<string>? removed = null;
+        monitor.PortsChanged += (a, r) => { arrived = a; removed = r; };
+
+        // COM3 disappears, nothing arrives.
+        monitor.Poll([]);
+
+        Assert.NotNull(arrived);
+        Assert.NotNull(removed);
+        Assert.Empty(arrived);
+        Assert.Contains("COM3", removed);
+    }
+
+    [Fact]
+    public void Poll_NoChange_DoesNotRaise()
+    {
+        using var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+        monitor.Poll(["COM3"]);
+
+        var raised = false;
+        monitor.PortsChanged += (_, _) => raised = true;
+
+        monitor.Poll(["COM3"]);
+
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public void Poll_PortReinserted_ReportsArrivedAgain()
+    {
+        using var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+
+        monitor.Poll(["COM3"]);
+        monitor.Poll([]); // removed
+
+        List<string>? arrived = null;
+        monitor.PortsChanged += (a, _) => arrived = a;
+        monitor.Poll(["COM3"]);
+
+        Assert.NotNull(arrived);
+        Assert.Contains("COM3", arrived);
+    }
+
+    [Fact]
+    public void Poll_AfterDispose_DoesNotRaise()
+    {
+        var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+        monitor.Poll(["COM3"]);
+
+        var raised = false;
+        monitor.PortsChanged += (_, _) => raised = true;
+
+        monitor.Dispose();
+        monitor.Poll(["COM4"]);
+
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public void Poll_PortCaseInsensitive_NoFalseRemove()
+    {
+        using var monitor = new PortMonitorService();
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+
+        monitor.Poll(["COM3"]);
+        var raised = false;
+        monitor.PortsChanged += (_, _) => raised = true;
+
+        // "com3" differs only in case; must not count as remove+arrive.
+        monitor.Poll(["com3"]);
+
+        Assert.False(raised);
+    }
+}

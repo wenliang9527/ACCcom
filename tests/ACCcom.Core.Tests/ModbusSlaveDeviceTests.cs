@@ -15,8 +15,9 @@ public class ModbusSlaveDeviceTests
         var device = CreateDevice();
         device.SetCoil(0, true); device.SetCoil(2, true); device.SetCoil(7, true);
         var resp = device.HandleRequest(0x01, [0x00, 0x00, 0x00, 0x08]);
-        Assert.Equal(1, resp[0]);
-        Assert.Equal(0b1000_0101, resp[1]);
+        Assert.Equal(0x01, resp[0]); // function code
+        Assert.Equal(1, resp[1]);
+        Assert.Equal(0b1000_0101, resp[2]);
     }
 
     [Fact]
@@ -33,7 +34,7 @@ public class ModbusSlaveDeviceTests
         var device = CreateDevice();
         device.SetDiscreteInput(1, true); device.SetDiscreteInput(5, true);
         var resp = device.HandleRequest(0x02, [0x00, 0x00, 0x00, 0x08]);
-        Assert.Equal(1, resp[0]); Assert.Equal(0b0010_0010, resp[1]);
+        Assert.Equal(0x02, resp[0]); Assert.Equal(1, resp[1]); Assert.Equal(0b0010_0010, resp[2]);
     }
 
     [Fact]
@@ -50,8 +51,9 @@ public class ModbusSlaveDeviceTests
         var device = CreateDevice();
         device.SetHoldingRegister(0, 0x0A); device.SetHoldingRegister(1, 0x64); device.SetHoldingRegister(2, 0x0100);
         var resp = device.HandleRequest(0x03, [0x00, 0x00, 0x00, 0x03]);
-        Assert.Equal(6, resp[0]);
-        Assert.Equal([0x00, 0x0A, 0x00, 0x64, 0x01, 0x00], resp[1..]);
+        Assert.Equal(0x03, resp[0]); // function code
+        Assert.Equal(6, resp[1]);
+        Assert.Equal([0x00, 0x0A, 0x00, 0x64, 0x01, 0x00], resp[2..]);
     }
 
     [Fact]
@@ -59,7 +61,7 @@ public class ModbusSlaveDeviceTests
     {
         var device = CreateDevice(); device.SetInputRegister(5, 0x1234);
         var resp = device.HandleRequest(0x04, [0x00, 0x05, 0x00, 0x01]);
-        Assert.Equal(2, resp[0]); Assert.Equal(0x12, resp[1]); Assert.Equal(0x34, resp[2]);
+        Assert.Equal(0x04, resp[0]); Assert.Equal(2, resp[1]); Assert.Equal(0x12, resp[2]); Assert.Equal(0x34, resp[3]);
     }
 
     [Fact]
@@ -124,9 +126,10 @@ public class ModbusSlaveDeviceTests
         var device = CreateDevice();
         device.SetHoldingRegister(0, 0x1111); device.SetHoldingRegister(1, 0x2222);
         var resp = device.HandleRequest(0x17, [0x00, 0x00, 0x00, 0x02, 0x00, 0x05, 0x00, 0x02, 0x04, 0xAA, 0xBB, 0xCC, 0xDD]);
-        Assert.Equal(4, resp[0]);
-        Assert.Equal(0x11, resp[1]); Assert.Equal(0x11, resp[2]);
-        Assert.Equal(0x22, resp[3]); Assert.Equal(0x22, resp[4]);
+        Assert.Equal(0x17, resp[0]); // function code
+        Assert.Equal(4, resp[1]);
+        Assert.Equal(0x11, resp[2]); Assert.Equal(0x11, resp[3]);
+        Assert.Equal(0x22, resp[4]); Assert.Equal(0x22, resp[5]);
         Assert.Equal(0xAABB, device.GetHoldingRegister(5));
         Assert.Equal(0xCCDD, device.GetHoldingRegister(6));
     }
@@ -251,7 +254,7 @@ public class ModbusTcpSlaveTransportTests
         Assert.Equal(0x00, headerBuf[0]); Assert.Equal(0x01, headerBuf[1]);
         Assert.Equal(0x00, headerBuf[2]); Assert.Equal(0x00, headerBuf[3]);
         var bodyLen = (headerBuf[4] << 8) | headerBuf[5];
-        Assert.Equal(4, bodyLen);
+        Assert.Equal(5, bodyLen);
 
         var body = new byte[bodyLen]; offset = 0;
         while (offset < bodyLen)
@@ -259,11 +262,12 @@ public class ModbusTcpSlaveTransportTests
             var read = await stream.ReadAsync(body.AsMemory(offset, bodyLen - offset));
             if (read == 0) break; offset += read;
         }
-        Assert.Equal(4, offset);
+        Assert.Equal(5, offset);
         Assert.Equal(0x01, body[0]);
-        Assert.Equal(0x02, body[1]);
-        Assert.Equal(0x12, body[2]);
-        Assert.Equal(0x34, body[3]);
+        Assert.Equal(0x03, body[1]);
+        Assert.Equal(0x02, body[2]);
+        Assert.Equal(0x12, body[3]);
+        Assert.Equal(0x34, body[4]);
     }
 
     [Fact]

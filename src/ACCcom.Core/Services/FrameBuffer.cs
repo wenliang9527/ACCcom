@@ -46,11 +46,6 @@ public class FrameBuffer : IDisposable
     public event Action<LogEntry>? OnFrameAssembled;
     public event Action<string>? OnError;
 
-    public int DataCount
-    {
-        get { lock (_lock) return _count; }
-    }
-
     public FrameBuffer(FrameBufferConfig config, AutoParserMatcher? matcher = null, ParserManager? parserManager = null)
     {
         _config = config;

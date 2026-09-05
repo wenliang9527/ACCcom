@@ -162,4 +162,117 @@ return result;
         // Assert
         Assert.Equal(_tempDir, dir);
     }
+
+    // ── Hot-reload (watcher + debounce) ──
+
+    [Fact]
+    public async Task HotReload_ChangedFile_ReloadsActiveParser()
+    {
+        // Arrange: activate a parser, then rewrite its file.
+        var script = "return new List<FieldAnnotation>();";
+        var parserPath = Path.Combine(_tempDir, "hot.csx");
+        File.WriteAllText(parserPath, script);
+        using var manager = new ParserManager(_tempDir);
+        Assert.True(manager.Activate("hot"));
+
+        var reloaded = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.OnParserReloaded += name => reloaded.TrySetResult(name);
+
+        // Act: overwrite the active parser file; the watcher + 500ms debounce
+        // should reload it.
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+
+        // Assert: reload fires with the active parser name.
+        var name = await reloaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("hot", name);
+    }
+
+    [Fact]
+    public void HotReload_DeletedActiveParser_Deactivates()
+    {
+        // Arrange
+        var parserPath = Path.Combine(_tempDir, "gone.csx");
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+        using var manager = new ParserManager(_tempDir);
+        Assert.True(manager.Activate("gone"));
+
+        // Act: delete the file while it's active.
+        File.Delete(parserPath);
+
+        // Assert: after the debounce, the parser is deactivated.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (manager.ActiveParserName != null && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
+        Assert.Null(manager.ActiveParserName);
+    }
+
+    [Fact]
+    public void HotReload_NewFile_AppearsInAvailableParsers()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+        Assert.DoesNotContain("late.csx", manager.AvailableParsers);
+
+        // Act: create a new parser file; the watcher should pick it up.
+        File.WriteAllText(Path.Combine(_tempDir, "late.csx"), "return new List<FieldAnnotation>();");
+
+        // Assert: after the debounce, the new parser is listed.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!manager.AvailableParsers.Contains("late") && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
+        Assert.Contains("late", manager.AvailableParsers);
+    }
+
+    [Fact]
+    public void HotReload_Disabled_DoesNotReload()
+    {
+        // Arrange
+        var parserPath = Path.Combine(_tempDir, "static.csx");
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+        using var manager = new ParserManager(_tempDir)
+        {
+            HotReloadEnabled = false
+        };
+        Assert.True(manager.Activate("static"));
+
+        var reloaded = false;
+        manager.OnParserReloaded += _ => reloaded = true;
+
+        // Act: change the file; with hot reload disabled the debounce never runs.
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+
+        // Give any (incorrect) reload enough time to fire, then assert none did.
+        Thread.Sleep(800);
+        Assert.False(reloaded);
+    }
+
+    [Fact]
+    public void HotReload_MultipleChanges_DebouncesToSingleReload()
+    {
+        // Arrange
+        var parserPath = Path.Combine(_tempDir, "burst.csx");
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+        using var manager = new ParserManager(_tempDir);
+        Assert.True(manager.Activate("burst"));
+
+        int reloadCount = 0;
+        manager.OnParserReloaded += _ => Interlocked.Increment(ref reloadCount);
+
+        // Act: several rapid writes within the debounce window.
+        for (int i = 0; i < 5; i++)
+        {
+            File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+            Thread.Sleep(30);
+        }
+
+        // Wait for the single debounced reload to land.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reloadCount == 0 && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
+
+        Assert.True(reloadCount >= 1);
+        // A burst of writes within the 500ms debounce window must not produce a
+        // reload per write; allow one (possibly two due to timer granularity).
+        Assert.True(reloadCount <= 2, $"Expected debounced reload, got {reloadCount}");
+    }
 }

@@ -4,6 +4,7 @@ using Xunit;
 
 namespace ACCcom.Core.Tests;
 
+[Collection("SerialTcp")]
 public class SerialWebSocketHandlerTests : IDisposable
 {
     private readonly HttpService _service;
@@ -13,7 +14,7 @@ public class SerialWebSocketHandlerTests : IDisposable
     {
         // Server not started: the handler only subscribes to OnDataEntry, so
         // no port is bound for these unit tests.
-        _service = new HttpService(new HttpServiceOptions { Url = "http://127.0.0.1:18999" });
+        _service = new HttpService(new HttpServiceOptions { Url = $"http://127.0.0.1:{TestPortHelper.GetFreePort()}" });
         _handler = new SerialWebSocketHandler("/ws", _service);
     }
 

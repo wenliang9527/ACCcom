@@ -3,17 +3,19 @@ using ACCcom.Core.Services;
 
 namespace ACCcom.Core.Tests;
 
+[Collection("SerialTcp")]
 public class HttpServiceTests : IDisposable
 {
     private readonly HttpService _service;
     private readonly HttpClient _client;
-    private const string BaseUrl = "http://127.0.0.1:18899";
+    private readonly string _baseUrl;
 
     public HttpServiceTests()
     {
-        _service = new HttpService(new HttpServiceOptions { Url = BaseUrl });
+        _baseUrl = $"http://127.0.0.1:{TestPortHelper.GetFreePort()}";
+        _service = new HttpService(new HttpServiceOptions { Url = _baseUrl });
         _service.Start();
-        _client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        _client = new HttpClient { BaseAddress = new Uri(_baseUrl) };
     }
 
     public void Dispose()
@@ -50,7 +52,7 @@ public class HttpServiceTests : IDisposable
         {
             SerialService = new SerialService(),
             ParserManager = new ParserManager(),
-            Url = "http://127.0.0.1:18901"
+            Url = $"http://127.0.0.1:{TestPortHelper.GetFreePort()}"
         });
 
         // Assert

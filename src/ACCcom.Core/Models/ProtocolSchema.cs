@@ -80,9 +80,6 @@ public class LengthFieldSchema
     /// <summary>字段长度 (1/2字节)</summary>
     public int Length { get; set; } = 1;
     
-    /// <summary>长度值从哪字节开始计算 (0=帧头, 2=跳过帧头)</summary>
-    public int IncludesStart { get; set; } = 0;
-    
     /// <summary>长度包含哪些部分: "all"(整帧) | "header" | "payload" | "data"</summary>
     public string? IncludesWhat { get; set; }
 }

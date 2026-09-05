@@ -343,6 +343,8 @@ public class HttpService : IDisposable
             avgFrameIntervalMs = Math.Round(_stats.AvgFrameIntervalMs, 2),
             totalRxBytes = _stats.TotalRxBytes,
             totalRxFrames = _stats.TotalRxFrames,
+            totalTxBytes = _stats.TotalTxBytes,
+            totalTxFrames = _stats.TotalTxFrames,
             totalErrorFrames = _stats.TotalErrorFrames
         };
     }

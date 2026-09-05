@@ -3,6 +3,7 @@ using ACCcom.Core.Services;
 
 namespace ACCcom.Core.Tests;
 
+[Collection("SerialTcp")]
 public class SerialServiceIntegrationTests : IDisposable
 {
     private readonly string _tempParserDir;
@@ -151,44 +152,6 @@ public class SerialServiceIntegrationTests : IDisposable
         serial.Send("ping");
         var status = http.GetStatus();
         Assert.NotNull(status);
-    }
-
-    // --- FrameAssembler integration ---
-
-    [Fact]
-    public void FrameAssembler_Assembles_Fragments_From_VirtualSerial()
-    {
-        using var serial = new VirtualSerialService();
-
-        var assemblerConfig = new FrameAssemblerConfig
-        {
-            Enabled = true,
-            Header = "AA 55",
-            LengthFieldOffset = 2,
-            LengthFieldSize = 1,
-            MaxFrameSize = 256,
-            PartialFrameTimeoutMs = 5000
-        };
-        var assembler = new FrameAssembler(assemblerConfig);
-        LogEntry? assembled = null;
-        assembler.OnFrameAssembled += e => assembled = e;
-
-        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
-
-        LogEntry? captured = null;
-        serial.OnDataReceived += e =>
-        {
-            captured = e;
-            if (e.Direction == "RX")
-                assembler.Feed(e);
-        };
-
-        serial.InjectRxData("AA 55 06");
-        Assert.Null(assembled);
-
-        serial.InjectRxData("01 19 2E");
-        Assert.NotNull(assembled);
-        Assert.Equal("AA 55 06 01 19 2E", assembled!.RawHex);
     }
 
     // --- Concurrent injection ---

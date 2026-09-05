@@ -6,22 +6,23 @@ namespace ACCcom.Core.Tests;
 
 /// <summary>End-to-end tests for the local HTTP API security filter: token
 /// enforcement on /api and /ws, and loopback-only Host enforcement.</summary>
+[Collection("SerialTcp")]
 public class LocalAccessGuardModuleTests : IDisposable
 {
-    private const string BaseUrl = "http://127.0.0.1:18977";
     private const string Token = "s3cret-token";
     private readonly HttpService _service;
     private readonly HttpClient _client;
 
     public LocalAccessGuardModuleTests()
     {
+        var baseUrl = $"http://127.0.0.1:{TestPortHelper.GetFreePort()}";
         _service = new HttpService(new HttpServiceOptions
         {
-            Url = BaseUrl,
+            Url = baseUrl,
             ApiToken = Token
         });
         _service.Start();
-        _client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        _client = new HttpClient { BaseAddress = new Uri(baseUrl) };
     }
 
     public void Dispose()

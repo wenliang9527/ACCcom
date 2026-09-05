@@ -53,19 +53,10 @@ public class ModbusTcpTransportTests
 
     // ── MBAP framing + request/response round-trip (against a real listener) ──
 
-    private static int GetFreePort()
-    {
-        var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-        l.Start();
-        var port = ((System.Net.IPEndPoint)l.LocalEndpoint).Port;
-        l.Stop();
-        return port;
-    }
-
     [Fact]
     public async Task SendReceiveAsync_RoundTripsAgainstSlaveListener()
     {
-        var port = GetFreePort();
+        var port = TestPortHelper.GetFreePort();
         using var slave = new ModbusTcpSlaveTransport(port);
         slave.OnRequestReceived = (slaveId, pdu) =>
         {
@@ -92,7 +83,7 @@ public class ModbusTcpTransportTests
     [Fact]
     public async Task SendReceiveAsync_Timeout_ThrowsOperationCanceled()
     {
-        var port = GetFreePort();
+        var port = TestPortHelper.GetFreePort();
         using var slave = new ModbusTcpSlaveTransport(port);
         // Handler never replies.
         slave.OnRequestReceived = (_, pdu) => new byte[0];
@@ -112,7 +103,7 @@ public class ModbusTcpTransportTests
     [Fact]
     public async Task SendReceiveAsync_ExceptionResponse_SurfacesAsException()
     {
-        var port = GetFreePort();
+        var port = TestPortHelper.GetFreePort();
         using var slave = new ModbusTcpSlaveTransport(port);
         slave.OnRequestReceived = (_, pdu) => new byte[] { (byte)(pdu[0] | 0x80), 0x02 }; // exception 0x02
         slave.Start();

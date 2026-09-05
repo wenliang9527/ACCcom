@@ -17,7 +17,6 @@ public class ModbusTcpSlaveTransport : IDisposable
     private string? _lastError;
 
     public bool IsRunning => _isRunning;
-    public int ConnectedClients { get { lock (_lock) return _clients.Count; } }
     public string? LastError => _lastError;
     public Func<byte, byte[], byte[]>? OnRequestReceived { get; set; }
 
@@ -96,6 +95,10 @@ public class ModbusTcpSlaveTransport : IDisposable
                     continue;
                 }
                 if (responsePdu.Length == 0) continue;
+                // MBAP body is [unit id][function code][data]: the handler returns
+                // the full response PDU starting with the function code, so
+                // unit id + responsePdu yields [unit][func][data...], which is
+                // exactly what ModbusTcpTransport (master) expects.
                 var respLen = 1 + responsePdu.Length;
                 var resp = new byte[6 + respLen];
                 resp[0] = tidHi; resp[1] = tidLo; resp[2] = 0; resp[3] = 0;

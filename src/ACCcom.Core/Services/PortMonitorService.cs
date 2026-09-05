@@ -41,14 +41,16 @@ public class PortMonitorService : IDisposable
         }
     }
 
-    private void Poll()
+    // Internal for tests: runs one poll with an injected port snapshot instead
+    // of the live OS list, so the arrived/removed diff logic is testable.
+    internal void Poll(IEnumerable<string> injectedPorts)
     {
         List<string> arrived = new(), removed = new();
         lock (_lock)
         {
             if (_disposed) return;
 
-            var current = new HashSet<string>(SafeGetPorts(), StringComparer.OrdinalIgnoreCase);
+            var current = new HashSet<string>(injectedPorts, StringComparer.OrdinalIgnoreCase);
 
             foreach (var p in current)
                 if (!_lastPorts.Contains(p)) arrived.Add(p);
@@ -60,6 +62,11 @@ public class PortMonitorService : IDisposable
 
         if (arrived.Count > 0 || removed.Count > 0)
             PortsChanged?.Invoke(arrived, removed);
+    }
+
+    private void Poll()
+    {
+        Poll(SafeGetPorts());
     }
 
     private static string[] SafeGetPorts()
