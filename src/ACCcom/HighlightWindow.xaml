@@ -86,6 +86,17 @@
                 </Style>
             </DataGrid.RowStyle>
         </DataGrid>
+        <TextBlock Grid.Row="1" Visibility="Collapsed">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasItems, ElementName=RulesGrid}" Value="False">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
 
         <DockPanel Grid.Row="2" Margin="10,8,10,10">
             <Button DockPanel.Dock="Left" Content="{Binding [HighlightWindow.AddRule], Source={x:Static local:LanguageManager.Instance}}"

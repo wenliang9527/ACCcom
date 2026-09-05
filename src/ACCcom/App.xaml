@@ -4,6 +4,7 @@
              xmlns:converters="clr-namespace:ACCcom.Converters"
              xmlns:controls="clr-namespace:ACCcom.Controls"
              xmlns:models="clr-namespace:ACCcom.Core.Models;assembly=ACCcom.Core"
+             xmlns:local="clr-namespace:ACCcom"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
@@ -1024,6 +1025,18 @@
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- Overlay shown on empty lists/grids ("暂无数据"). Layered above the
+                 ItemsControl via a Grid; Visibility driven by a DataTrigger on
+                 Items.Count == 0 in each consumer. -->
+            <Style x:Key="EmptyListText" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="Text" Value="{Binding [Common.EmptyList], Source={x:Static local:LanguageManager.Instance}}" />
             </Style>
 
             <!-- ============================================== -->

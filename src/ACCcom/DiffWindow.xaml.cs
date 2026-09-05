@@ -19,6 +19,7 @@ public partial class DiffWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "DiffWindow");
     }
 
     /// <summary>

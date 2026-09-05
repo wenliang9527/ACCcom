@@ -44,7 +44,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Macro list: in-place editable Name / Description / repeat -->
-            <DataGrid Grid.Column="0"
+            <DataGrid x:Name="MacroGrid" Grid.Column="0"
                       ItemsSource="{Binding Macros}"
                       SelectedItem="{Binding SelectedMacro}"
                       AutoGenerateColumns="False"
@@ -68,6 +68,17 @@
                     <DataGridTextColumn Header="{Binding [MacroWindow.ColRepeatDelay], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RepeatDelayMs}" Width="78" />
                 </DataGrid.Columns>
             </DataGrid>
+            <TextBlock Grid.Column="0" Visibility="Collapsed">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=MacroGrid}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
 
             <!-- Steps of the selected macro: command / hex / delay / wait -->
             <DataGrid Grid.Column="2"

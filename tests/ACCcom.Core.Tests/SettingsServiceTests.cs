@@ -119,4 +119,47 @@ public class SettingsServiceTests : IDisposable
         service.Save(new AppSettings { LastPort = "test", WindowX = 0, WindowY = 0, WindowWidth = 800, WindowHeight = 600 });
         Assert.True(File.Exists(expected));
     }
+
+    [Fact]
+    public void WindowStates_Roundtrip_PreservesAllEntries()
+    {
+        // Arrange
+        var service = new SettingsService(GetTempSettingsPath());
+        var saved = new AppSettings
+        {
+            WindowStates = new Dictionary<string, WindowRect>
+            {
+                ["StatsWindow"] = new(100, 120, 420, 380),
+                ["MacroWindow"] = new(-50, 40, 520, 860),
+                ["ReplayWindow"] = new(10, 20, null, null) // NoResize: position only
+            }
+        };
+
+        // Act
+        service.Save(saved);
+        var loaded = service.Load();
+
+        // Assert
+        Assert.Equal(3, loaded.WindowStates.Count);
+        Assert.Equal(new WindowRect(100, 120, 420, 380), loaded.WindowStates["StatsWindow"]);
+        Assert.Equal(new WindowRect(-50, 40, 520, 860), loaded.WindowStates["MacroWindow"]);
+        Assert.Equal(new WindowRect(10, 20, null, null), loaded.WindowStates["ReplayWindow"]);
+    }
+
+    [Fact]
+    public void WindowStates_MissingInOldSettings_LoadsEmpty()
+    {
+        // Arrange: legacy settings.json without the WindowStates key
+        var path = GetTempSettingsPath();
+        File.WriteAllText(path, """{ "LastPort": "COM3", "WindowX": 5, "WindowY": 6 }""");
+        var service = new SettingsService(path);
+
+        // Act
+        var settings = service.Load();
+
+        // Assert: missing dictionary defaults to empty, other fields intact
+        Assert.Empty(settings.WindowStates);
+        Assert.Equal("COM3", settings.LastPort);
+        Assert.Equal(5, settings.WindowX);
+    }
 }

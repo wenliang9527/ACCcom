@@ -46,6 +46,8 @@ public class MainViewModel : ObservableObject, IDisposable
     private HighlightWindow? _highlightWindow;
     private ProtocolTestViewModel? _protocolTest;
     private ProtocolTestWindow? _protocolTestWindow;
+    private VirtualSerialViewModel? _virtualSerial;
+    private VirtualSerialWindow? _virtualSerialWindow;
     private TriggerWindow? _triggerWindow;
     private MacroWindow? _macroWindow;
     private ShortcutsWindow? _shortcutsWindow;
@@ -185,6 +187,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleRecordingCommand { get; }
     public ICommand OpenHighlightCommand { get; }
     public ICommand OpenProtocolTestCommand { get; }
+    public ICommand OpenVirtualSerialCommand { get; }
     public ICommand OpenTriggerCommand { get; }
     public ICommand OpenShortcutsCommand { get; }
     public ICommand OpenRecordingsFolderCommand { get; }
@@ -257,6 +260,7 @@ public class MainViewModel : ObservableObject, IDisposable
         ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
+        OpenVirtualSerialCommand = new RelayCommand(_ => OpenVirtualSerialWindow());
         OpenTriggerCommand = new RelayCommand(_ => OpenTriggerWindow());
         OpenMacroCommand = new RelayCommand(_ => OpenMacroWindow());
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
@@ -500,6 +504,30 @@ public class MainViewModel : ObservableObject, IDisposable
         };
         _protocolTestWindow.Show();
         StatusText = LanguageManager.Instance["Status.ProtocolTestOpened"];
+    }
+
+    private void OpenVirtualSerialWindow()
+    {
+        if (_virtualSerialWindow != null)
+        {
+            _virtualSerialWindow.Activate();
+            return;
+        }
+
+        _virtualSerial ??= new VirtualSerialViewModel(_dataFlow, msg => StatusText = msg);
+
+        _virtualSerialWindow = new VirtualSerialWindow(_virtualSerial)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _virtualSerialWindow.Closed += (_, _) =>
+        {
+            _virtualSerialWindow = null;
+            _virtualSerial?.Dispose();
+            _virtualSerial = null;
+        };
+        _virtualSerialWindow.Show();
+        StatusText = LanguageManager.Instance["Status.VirtualSerialOpened"];
     }
 
     private void OpenHighlightWindow()

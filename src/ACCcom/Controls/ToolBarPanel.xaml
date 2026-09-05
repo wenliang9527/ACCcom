@@ -49,6 +49,9 @@
         <Button Content="{Binding [Button.Replay], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ReplayFileCommand}"
                 Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
                 ToolTip="{Binding [Tip.Replay], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.VirtualSerial], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenVirtualSerialCommand}"
+                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.OpenVirtualSerial], Source={x:Static local:LanguageManager.Instance}}" />
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
 

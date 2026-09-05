@@ -13,6 +13,7 @@ public partial class TriggerWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "TriggerWindow");
         _vm = vm;
         DataContext = vm;
     }

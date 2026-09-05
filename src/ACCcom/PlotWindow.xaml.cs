@@ -19,6 +19,7 @@ public partial class PlotWindow : Window
         InitializeComponent();
 
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "PlotWindow");
 
         _viewModel.DataChanged += OnDataChanged;
         SizeChanged += (_, _) => RequestRender();

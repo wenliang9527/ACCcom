@@ -24,6 +24,10 @@ public partial class MainWindow : Window
         System.Diagnostics.Trace.WriteLine($"[startup] MainViewModel ctor total = {vmSw.ElapsedMilliseconds}ms");
         DataContext = _vm;
 
+        // Secondary windows persist their position/size through this settings
+        // instance (see WindowHelper.AttachWindowState).
+        WindowHelper.SetSettingsProvider(() => _vm.Settings);
+
         // Bind the HTTP port only after the first frame is shown: a port
         // conflict degrades to a status message instead of crashing startup,
         // and the bind no longer blocks the first frame.

@@ -1,40 +1,40 @@
-## 第 55 轮:前端功能增强 — 死代码接线 + UX 安全网
+## 第 56 轮:虚拟串口模拟器 + 二级窗口状态持久化与空态提示
 
-探索确认:无 TODO/占位/主题漂移,真正的金矿是"Core/VM/窗口已完整实现但 UI 零入口"的死代码(3 处)与半成品功能。本轮全部为低风险接线/增强,不做中风险的虚拟串口与低收益的窗口状态恢复。
+用户选择"两个都做"。虚拟串口做**独立模拟器窗口**(方案 A:自持 VirtualSerialService,注入数据显式接入主解析链路,不碰 `_serial` 共享——爆炸半径为零);窗口状态用 **WindowHelper.AttachWindowState 统一方案**(每窗口 1 行)。
 
-### 改动 1:会话回放入口(死代码接线,最高性价比)
-**现状**:`ReplayFileCommand`(MainViewModel:651 → ReplayViewModel:26)完整实现 + `ReplayWindow.xaml` 完整窗口,但**全仓库零绑定**——用户无法从桌面 UI 打开回放;docs/guide/automation.md 却已宣传该功能。
-**改法**:`ToolBarPanel.xaml` 录制按钮旁加"回放"按钮绑定 `ReplayFileCommand`(Segoe MDL2 `&#xE768;` Play);新增语言键 `Button.Replay`/`Tip.Replay`(zh/en 同步)。
+### 改动 1:虚拟串口模拟器窗口(功能)
+**背景**:`VirtualSerialService`(Core,108 行,完整 ISerialService)有 8 个测试但 UI 零引用;docs/guide/advanced-comms.md:35-43 宣传"无需真实硬件即可测试协议解析器"。
+**改法**(完全仿 ProtocolTestWindow 模式):
+- 新建 `src/ACCcom/ViewModels/VirtualSerialViewModel.cs`:自持 `VirtualSerialService`;命令 OpenCommand/CloseCommand/InjectRxCommand/SendCommand/ClearCommand;`ObservableCollection<LogEntry>` 记录窗口内 TX/RX;构造参数含 `DataFlowViewModel`——注入 RX 时同步调 `_dataFlow.OnSerialData(entry)` 接入 FrameBuffer/解析器/高亮/RxEntries 全链路(兑现文档承诺)
+- 新建 `src/ACCcom/VirtualSerialWindow.xaml(.cs)`:仿 ProtocolTestWindow(自绘标题栏 + SetupTitleBar);布局:连接控制(端口名/波特率 + Open/Close)、RX 注入框(hex 输入 + 注入按钮)、TX 发送框、TX/RX 滚动日志
+- `MainViewModel`:加 `OpenVirtualSerialCommand` + `OpenVirtualSerialWindow()`(懒建 VM、单例守卫、Closed 时 Dispose,复刻 `OpenProtocolTestWindow` MainViewModel.cs:477-503)
+- `ToolBarPanel.xaml` 加按钮绑定 `OpenVirtualSerialCommand`
+- 语言键(zh/en):`Button.VirtualSerial`/`Tip.OpenVirtualSerial`/窗口内各标签
+- VirtualSerialService 无需改(Core 已完整)
 
-### 改动 2:协议可视化编辑器入口(死代码接线)
-**现状**:`OpenSchemaEditorCommand`(MainViewModel:294,655,723)实现完整(ShowDialog SchemaEditorWindow),零调用;`Button.SchemaEditor`/`Tip.SchemaEditor` 语言键已存在(zh:46,128);docs 宣传"离线解析"依赖此窗口。
-**改法**:`ToolBarPanel.xaml` 加"编辑器"按钮绑定 `OpenSchemaEditorCommand`(MDL2 `&#xE70F;` Edit);en-US 补 `Button.SchemaEditor`/`Tip.SchemaEditor`(确认是否已存在,不存在则补)。
-
-### 改动 3:书签列表 + 删除(半成品补全)
-**现状**:`RemoveBookmarkCommand`(BookmarkViewModel:34)已实现但零绑定;`Bookmarks` 集合零 XAML 绑定——书签只能加/上下跳,看不到列表、删不掉。
+### 改动 2:二级窗口位置/大小持久化(打磨)
+**背景**:仅 MainWindow 保存窗口状态;13 个二级窗口都不持久化;`_settings`/`_settingsService` 在 MainViewModel 私有,二级窗口无访问渠道。
 **改法**:
-- `BookmarkViewModel` 新增 `JumpToBookmarkCommand`(按 EntryId 在 Rx/TxEntries 中定位条目并选中,复用 BookmarkManager 语义)+ `RemoveBookmark` 已有
-- `ToolBarPanel.xaml` 书签按钮组加"书签列表"下拉(ItemsSource=Bookmarks,每项显示 Label+Preview+Direction,点击跳转;项内含删除命令 RemoveBookmarkCommand,CommandParameter=BookmarkItem)
-- 新增语言键(zh/en):`Button.BookmarkList`/`Tip.BookmarkList`/`Menu.DeleteBookmark`
+- `AppSettings` 加 `public record WindowRect(double X, double Y, double Width, double Height);` + `public Dictionary<string, WindowRect> WindowStates { get; set; } = new();`(与现有 FieldGridColumnWidths 字典风格一致;System.Text.Json 缺失属性取默认,旧 settings.json 零破坏)
+- `WindowHelper` 加:`SetSettingsProvider(Func<AppSettings>)`(MainWindow ctor 设一次)+ `AttachWindowState(Window, string key)`——订阅 Loaded(恢复)+ Closed(保存);恢复时用 `SystemParameters.VirtualScreen` 做屏幕内相交校验,窗口跑到屏外时回退居中(顺带回补 MainWindow 现有直接赋值)
+- 12 个二级窗口(跳过孤儿 CompareWindow)ctor 各加 1 行 `WindowHelper.AttachWindowState(this, "XxxWindow");`(ReplayWindow/FrameAssemblerConfigWindow 为 NoResize,只存位置)
+- `MainViewModel.SaveSettings` 末尾把 `WindowStates` 一并写入 settings;MainWindow.OnClosed 前 provider 已就绪
+- 不持久化 WindowState(最大化状态),避免与 SetupTitleBar 双击最大化交互
 
-### 改动 4:破坏性操作确认(UX 安全网)
-**现状**:全工程 MessageBox 出现 0 次——清空 RX/TX(Ctrl+L 直清)、删除宏/预设/触发器全部直接执行无确认。
-**改法**:新建 `ConfirmDialog.xaml`(仿 PromptDialog 风格:标题+消息+确认/取消,主题一致,~40 行);接入:
-- `DataFlowViewModel.ClearRxCommand/ClearTxCommand`(:373-374)清空前确认
-- `MacroViewModel.DeleteMacro`、`PresetViewModel.DeletePreset`、`TriggerViewModel.DeleteTrigger` 删除前确认
-- 新增语言键(zh/en):`Confirm.ClearRx`/`Confirm.ClearTx`/`Confirm.DeleteMacro`/`Confirm.DeletePreset`/`Confirm.DeleteTrigger`/`Confirm.Title`(或复用 Title 键)
+### 改动 3:列表空状态提示(打磨)
+**背景**:全仓库无 EmptyTemplate;DataGrid/ListBox 空时全是空白。
+**改法**:
+- App.xaml 加共享 `EmptyListTextBlock` 样式(居中、InkSecondaryBrush、FontSize 12)
+- 给 7 个最常用的列表加空态提示(DataTrigger on Items.Count==0 显示 TextBlock):RX/TX ListBox(DataPanel)、宏列表(MacroWindow)、触发器规则(TriggerWindow)、高亮规则(HighlightWindow)、Modbus 扫描结果与寄存器(ModbusWindow)、协议测试步骤(ProtocolTestWindow)
+- 语言键(zh/en):`Common.EmptyList`("暂无数据"/"No data")
 
-### 改动 5:RX/TX 右键菜单增强(前端)
-**现状**:DataPanel.xaml:107-111/318-322 右键菜单只有"复制选中";DataFlowViewModel 已有 SaveRxCommand/SaveRxCsvCommand/SaveRxJsonCommand/SaveRxPcapCommand/ClearRxCommand/RxFilterText(184)全未接菜单。
-**改法**:RX 菜单加:复制 Hex(选中项 RawHex 到剪贴板,code-behind)、另存为 TXT(绑定 SaveRxCommand)、清空 RX(绑定 ClearRxCommand);TX 菜单对应(SaveTxCommand/ClearTxCommand)。新增语言键 `Button.CopyHex`/`Menu.SaveAsTxt`(zh/en)。
-
-### 不做
-- 虚拟串口 UI(候选 3):`_serial` 实例被 SerialController/Modbus/NetworkBridge 共享,替换需架构级处理,中风险,单独轮
-- 二级窗口位置持久化/空状态提示(候选 8):收益低,后续轮
-- MetricsCollector 进 StatsWindow(候选 7):低收益
+### 测试
+- Core 侧:VirtualSerialService 已有 8 测试全绿;AppSettings 新字段不影响现有 SettingsServiceTests(JSON 缺省兼容)
+- 新增 1 个测试:`SettingsService` roundtrip 含 WindowStates 字典(存 2 个窗口位置 → Load → 断言还原)
+- UI 侧(窗口/持久化)按仓库惯例不做自动测试,靠构建 + 逻辑验证
 
 ### 验收标准
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(576 Core + 10 McpServer,无新增测试点——全部为 UI 接线)
-3. 逻辑验证:回放/编辑器按钮可打开窗口;书签列表可见可跳转可删除;清空/删除有确认;右键菜单新项可用
+2. `dotnet test`:全绿(576 Core + 新增 1 = 577,10 McpServer)
+3. 逻辑验证:虚拟串口窗口可注入 RX 并出现在主 RX 列表;二级窗口移动/缩放后重启恢复位置;空列表显示"暂无数据"
 4. 工作树干净,commit + push 到 GitHub

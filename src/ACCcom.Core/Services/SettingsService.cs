@@ -13,7 +13,10 @@ public class SettingsService
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        // AppSettings window fields default to double.NaN ("not set"); allow it
+        // to round-trip instead of throwing on Save.
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     private readonly string _settingsPath;

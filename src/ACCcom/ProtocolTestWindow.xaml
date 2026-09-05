@@ -87,6 +87,17 @@
                     <DataGridTextColumn Header="{Binding [ProtocolTest.ColRetries], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RetryCount}" Width="60" />
                 </DataGrid.Columns>
             </DataGrid>
+            <TextBlock Grid.Row="1" Visibility="Collapsed">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=StepsGrid}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
         </Grid>
 
         <!-- Results -->

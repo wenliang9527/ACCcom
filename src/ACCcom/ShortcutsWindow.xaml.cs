@@ -18,6 +18,7 @@ public partial class ShortcutsWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "ShortcutsWindow");
         ShortcutGroups = BuildGroups();
         DataContext = this;
     }

@@ -31,6 +31,7 @@ public partial class ReplayWindow : Window
         _isJsonl = string.Equals(Path.GetExtension(filePath), ".jsonl", StringComparison.OrdinalIgnoreCase);
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "ReplayWindow");
     }
 
     private void PlayPause_Click(object sender, RoutedEventArgs e)

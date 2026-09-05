@@ -17,6 +17,7 @@ public partial class ModbusWindow : Window
         _vm = vm;
         DataContext = vm;
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "ModbusWindow");
         MainTabControl.SelectionChanged += OnTabSelected;
     }
 

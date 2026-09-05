@@ -164,6 +164,17 @@
                           </DataTemplate>
                       </ListBox.ItemTemplate>
                   </ListBox>
+                  <TextBlock Grid.Row="2" Visibility="Collapsed">
+                      <TextBlock.Style>
+                          <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                              <Style.Triggers>
+                                  <DataTrigger Binding="{Binding HasItems, ElementName=RxListBox}" Value="False">
+                                      <Setter Property="Visibility" Value="Visible" />
+                                  </DataTrigger>
+                              </Style.Triggers>
+                          </Style>
+                      </TextBlock.Style>
+                  </TextBlock>
 
                  <!-- Field splitter -->
                 <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
@@ -379,6 +390,17 @@
                            </DataTemplate>
                        </ListBox.ItemTemplate>
                    </ListBox>
+                   <TextBlock Grid.Row="2" Visibility="Collapsed">
+                       <TextBlock.Style>
+                           <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                               <Style.Triggers>
+                                   <DataTrigger Binding="{Binding HasItems, ElementName=TxListBox}" Value="False">
+                                       <Setter Property="Visibility" Value="Visible" />
+                                   </DataTrigger>
+                               </Style.Triggers>
+                           </Style>
+                       </TextBlock.Style>
+                   </TextBlock>
 
             </Grid>
             </controls:PaintedCard>

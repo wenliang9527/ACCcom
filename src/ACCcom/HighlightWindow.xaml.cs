@@ -14,6 +14,7 @@ public partial class HighlightWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "HighlightWindow");
         _vm = vm;
         DataContext = vm;
     }

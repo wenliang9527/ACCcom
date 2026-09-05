@@ -10,6 +10,7 @@ public partial class MacroWindow : Window
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "MacroWindow");
         DataContext = vm;
     }
 

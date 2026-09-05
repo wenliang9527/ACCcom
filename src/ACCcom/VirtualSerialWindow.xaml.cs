@@ -1,15 +1,19 @@
 using System.Windows;
 using ACCcom.Helpers;
+using ACCcom.ViewModels;
 
 namespace ACCcom;
 
-public partial class StatsWindow : Window
+public partial class VirtualSerialWindow : Window
 {
-    public StatsWindow()
+    private readonly VirtualSerialViewModel _vm;
+
+    public VirtualSerialWindow(VirtualSerialViewModel vm)
     {
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
-        WindowHelper.AttachWindowState(this, "StatsWindow");
+        _vm = vm;
+        DataContext = vm;
     }
 
     private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);

@@ -14,6 +14,7 @@ public partial class FrameAssemblerConfigWindow : Window
         InitializeComponent();
         _config = config;
         WindowHelper.SetupTitleBar(this, TitleBar);
+        WindowHelper.AttachWindowState(this, "FrameAssemblerConfigWindow");
 
         EnabledCheckBox.IsChecked = config.Enabled;
         HeaderBox.Text = config.Header;
