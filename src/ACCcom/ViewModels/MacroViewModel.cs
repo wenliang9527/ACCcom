@@ -145,6 +145,11 @@ public class MacroViewModel : ObservableObject
     {
         if (SelectedMacro == null) return;
         var name = SelectedMacro.Name;
+        var confirm = string.Format(LanguageManager.Instance["Confirm.DeleteMacro"], name);
+        if (System.Windows.MessageBox.Show(confirm,
+                LanguageManager.Instance["Confirm.Title"],
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
+            return;
         Macros.Remove(SelectedMacro);
         SelectedMacro = null;
         try { _macroManager.Save(Macros); }

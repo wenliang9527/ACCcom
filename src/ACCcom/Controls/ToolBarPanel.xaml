@@ -43,10 +43,18 @@
             <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
         </Button>
 
+        <Button Content="{Binding [Button.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenSchemaEditorCommand}"
+                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" />
+        <Button Content="{Binding [Button.Replay], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ReplayFileCommand}"
+                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.Replay], Source={x:Static local:LanguageManager.Instance}}" />
+
         <Rectangle Style="{StaticResource ToolSeparator}" />
 
         <!-- Bookmarks: mark a moment in the RX stream and jump back to it later.
-             Hotkeys: Ctrl+B (add), Ctrl+Left / Ctrl+Right (prev / next). -->
+             Hotkeys: Ctrl+B (add), Ctrl+Left / Ctrl+Right (prev / next). The
+             list button opens all bookmarks: click jumps, right-click deletes. -->
         <Button Command="{Binding AddBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                 ToolTip="{Binding [Tip.AddBookmark], Source={x:Static local:LanguageManager.Instance}}">
             <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
@@ -58,6 +66,10 @@
         <Button Command="{Binding NextBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
                 ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
             <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+        </Button>
+        <Button x:Name="BookmarkListButton" Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
+                ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}">
+            <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
         </Button>
 
         <Rectangle Style="{StaticResource ToolSeparator}" />

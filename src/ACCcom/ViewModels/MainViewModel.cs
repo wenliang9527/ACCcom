@@ -645,6 +645,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand AddTriggerCommand => _tool.AddTriggerCommand;
     public ICommand DeleteTriggerCommand => _tool.DeleteTriggerCommand;
     public ICommand AddBookmarkCommand => _tool.AddBookmarkCommand;
+    public ICommand JumpToBookmarkCommand => _tool.JumpToBookmarkCommand;
     public ICommand RemoveBookmarkCommand => _tool.RemoveBookmarkCommand;
     public ICommand NextBookmarkCommand => _tool.NextBookmarkCommand;
     public ICommand PrevBookmarkCommand => _tool.PrevBookmarkCommand;

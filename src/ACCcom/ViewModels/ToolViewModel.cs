@@ -61,6 +61,7 @@ public class ToolViewModel : ObservableObject, IDisposable
     public ICommand AddTriggerCommand => Triggers.AddTriggerCommand;
     public ICommand DeleteTriggerCommand => Triggers.DeleteTriggerCommand;
     public ICommand AddBookmarkCommand => BookmarksVm.AddBookmarkCommand;
+    public ICommand JumpToBookmarkCommand => BookmarksVm.JumpToBookmarkCommand;
     public ICommand RemoveBookmarkCommand => BookmarksVm.RemoveBookmarkCommand;
     public ICommand NextBookmarkCommand => BookmarksVm.NextBookmarkCommand;
     public ICommand PrevBookmarkCommand => BookmarksVm.PrevBookmarkCommand;

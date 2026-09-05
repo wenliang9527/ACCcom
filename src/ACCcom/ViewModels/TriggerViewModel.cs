@@ -100,6 +100,11 @@ public class TriggerViewModel : ObservableObject
 
     private void DeleteTrigger(TriggerRule rule)
     {
+        var confirm = string.Format(LanguageManager.Instance["Confirm.DeleteTrigger"], rule.Name);
+        if (System.Windows.MessageBox.Show(confirm,
+                LanguageManager.Instance["Confirm.Title"],
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
+            return;
         _triggerService.RemoveRule(rule.Name);
         TriggerRules.Remove(rule);
     }

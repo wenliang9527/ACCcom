@@ -370,8 +370,16 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _flushTimer.Tick += (_, _) => FlushPendingEntries();
 
         SendCommand = new RelayCommand(_ => SendData());
-        ClearRxCommand = new RelayCommand(_ => { FlushPendingEntries(); RxEntries.Clear(); RxCount = 0; RxByteCount = 0; });
-        ClearTxCommand = new RelayCommand(_ => { FlushPendingEntries(); TxEntries.Clear(); TxCount = 0; TxByteCount = 0; });
+        ClearRxCommand = new RelayCommand(_ =>
+        {
+            if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearRx"])) return;
+            FlushPendingEntries(); RxEntries.Clear(); RxCount = 0; RxByteCount = 0;
+        });
+        ClearTxCommand = new RelayCommand(_ =>
+        {
+            if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearTx"])) return;
+            FlushPendingEntries(); TxEntries.Clear(); TxCount = 0; TxByteCount = 0;
+        });
         SaveRxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(RxEntries, "RX"); });
         SaveTxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(TxEntries, "TX"); });
         SaveRxJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(RxEntries, "RX"); });
@@ -733,6 +741,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// Trims overflow beyond MaxEntries in chunks so the Remove notification
     /// fires once per chunk instead of once per entry.
     /// </summary>
+    /// <summary>Yes/No guard for destructive actions (clear RX/TX buffers).
+    /// Uses the same MessageBox pattern as ShortcutViewModel page deletion.</summary>
+    private static bool ConfirmClear(string message)
+        => System.Windows.MessageBox.Show(message,
+            LanguageManager.Instance["Confirm.Title"],
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
+
     private void TrimBuffer(ObservableRangeCollection<LogEntry> entries)
     {
         var overflow = entries.Count - MaxEntries;

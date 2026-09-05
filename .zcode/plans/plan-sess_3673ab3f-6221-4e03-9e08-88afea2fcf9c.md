@@ -1,38 +1,40 @@
-## 第 54 轮:启动路径优化 — 主题加载缓存 + HTTP 延迟启动 + 埋点可见化
+## 第 55 轮:前端功能增强 — 死代码接线 + UX 安全网
 
-第 53 轮承诺"拿到实测数据后处理启动路径"。探索已核实三项优化的安全性,本轮实施。主题 XAML 是编译进程序集的资源(运行期不可变),缓存 100% 安全;MainWindow 对主题资源 100% DynamicResource,ApplyTheme 延迟不会 XamlParseException。
+探索确认:无 TODO/占位/主题漂移,真正的金矿是"Core/VM/窗口已完整实现但 UI 零入口"的死代码(3 处)与半成品功能。本轮全部为低风险接线/增强,不做中风险的虚拟串口与低收益的窗口状态恢复。
 
-### 改动 1(低风险·确定性收益):ThemeManager 字典缓存 — 消灭 7 次主题 XAML 解析
-**现状**:`BuildThemeOptions`(MainViewModel ctor + 语言切换两条路径)对每个主题调 `GetAccent` → 每次 `new ResourceDictionary { Source = pack://.../Themes/{id}.xaml }` **完整解析整个主题 XAML**(共 7 次);`ApplyTheme`(App.xaml.cs:126)切换主题时再解析 1 次。
-**改法**(`ThemeManager.cs`):
-- 新增 `static readonly Dictionary<string, ResourceDictionary>` + lock,`GetDictionary(string fileName)` 按需加载并缓存(失败不缓存,保留 catch→Gray 语义)
-- `GetAccent` 改从 `GetDictionary` 取字典再查 `Accent` key(不再自己 new 字典)
-- `App.ApplyTheme` 改用 `ThemeManager.GetDictionary(fileName)` 替代 `new ResourceDictionary{Source=uri}`(缓存实例的 Source 仍含 `Themes/`,purge 循环与 Insert(0) 顺序语义不变;`_activeThemeId` 短路守卫保持)
-- 收益:启动时 7 次完整解析 → 首次 1 次(首次访问某主题时才解析);主题切换从"每次重新解析"变"零解析"
+### 改动 1:会话回放入口(死代码接线,最高性价比)
+**现状**:`ReplayFileCommand`(MainViewModel:651 → ReplayViewModel:26)完整实现 + `ReplayWindow.xaml` 完整窗口,但**全仓库零绑定**——用户无法从桌面 UI 打开回放;docs/guide/automation.md 却已宣传该功能。
+**改法**:`ToolBarPanel.xaml` 录制按钮旁加"回放"按钮绑定 `ReplayFileCommand`(Segoe MDL2 `&#xE768;` Play);新增语言键 `Button.Replay`/`Tip.Replay`(zh/en 同步)。
 
-### 改动 2(中风险·行为变化):_http.Start() 移出构造函数 — 失败降级不再崩
-**现状**:MainViewModel ctor:227 同步 `_http.Start()`;端口被占(8899)时抛 InvalidOperationException → MainWindow ctor 崩 → 启动失败弹框。已核实无任何代码假设"窗口显示时 HTTP 已监听"(MCP 代理已删;Modbus dashboard 是用户触发型,有 catch)。
+### 改动 2:协议可视化编辑器入口(死代码接线)
+**现状**:`OpenSchemaEditorCommand`(MainViewModel:294,655,723)实现完整(ShowDialog SchemaEditorWindow),零调用;`Button.SchemaEditor`/`Tip.SchemaEditor` 语言键已存在(zh:46,128);docs 宣传"离线解析"依赖此窗口。
+**改法**:`ToolBarPanel.xaml` 加"编辑器"按钮绑定 `OpenSchemaEditorCommand`(MDL2 `&#xE70F;` Edit);en-US 补 `Button.SchemaEditor`/`Tip.SchemaEditor`(确认是否已存在,不存在则补)。
+
+### 改动 3:书签列表 + 删除(半成品补全)
+**现状**:`RemoveBookmarkCommand`(BookmarkViewModel:34)已实现但零绑定;`Bookmarks` 集合零 XAML 绑定——书签只能加/上下跳,看不到列表、删不掉。
 **改法**:
-- `MainViewModel` 新增 `public void StartHttpAsync()`(或 `async Task`):try/catch 包 `_http.Start()`,失败时 `StatusText` 提示而非抛异常(消息走语言资源或直接中文提示,与现有 StatusText 用法一致)
-- `MainWindow` 构造末尾(或 Loaded 事件)触发:`Loaded += ...` 里调用(异步、不阻塞首帧)
-- 退出竞态:Start 在飞时 `Dispose`(OnClosed → _vm.Dispose → _http.Dispose)——StartAsync 内 catch 兜底即可,EmbedIO Dispose 安全
-- HttpService 不新增 IsRunning 属性(状态栏 HttpUrl 是常量显示,无就绪依赖;OpenDashboard 未起时浏览器显示连接拒绝,可接受)
+- `BookmarkViewModel` 新增 `JumpToBookmarkCommand`(按 EntryId 在 Rx/TxEntries 中定位条目并选中,复用 BookmarkManager 语义)+ `RemoveBookmark` 已有
+- `ToolBarPanel.xaml` 书签按钮组加"书签列表"下拉(ItemsSource=Bookmarks,每项显示 Label+Preview+Direction,点击跳转;项内含删除命令 RemoveBookmarkCommand,CommandParameter=BookmarkItem)
+- 新增语言键(zh/en):`Button.BookmarkList`/`Tip.BookmarkList`/`Menu.DeleteBookmark`
 
-### 改动 3(零风险·支撑):启动埋点 Debug → Trace,Release 可见
-**现状**:第 53 轮埋点用 `Debug.WriteLine`——`[Conditional("DEBUG")]` 在 Release 构建**整行不编译**,Release 下无任何输出(用户实际跑 Release exe,测量无效)。
-**改法**:MainViewModel ctor 的 `Stage` helper 与 MainWindow 的 ctor 计时改 `Trace.WriteLine`(Release 默认定义 TRACE,输出可被 DebugView/VS 附加查看;不写文件,保持轻量)。分段不变(settings+parser / http start / viewmodels / theme / language / total)。
+### 改动 4:破坏性操作确认(UX 安全网)
+**现状**:全工程 MessageBox 出现 0 次——清空 RX/TX(Ctrl+L 直清)、删除宏/预设/触发器全部直接执行无确认。
+**改法**:新建 `ConfirmDialog.xaml`(仿 PromptDialog 风格:标题+消息+确认/取消,主题一致,~40 行);接入:
+- `DataFlowViewModel.ClearRxCommand/ClearTxCommand`(:373-374)清空前确认
+- `MacroViewModel.DeleteMacro`、`PresetViewModel.DeletePreset`、`TriggerViewModel.DeleteTrigger` 删除前确认
+- 新增语言键(zh/en):`Confirm.ClearRx`/`Confirm.ClearTx`/`Confirm.DeleteMacro`/`Confirm.DeletePreset`/`Confirm.DeleteTrigger`/`Confirm.Title`(或复用 Title 键)
+
+### 改动 5:RX/TX 右键菜单增强(前端)
+**现状**:DataPanel.xaml:107-111/318-322 右键菜单只有"复制选中";DataFlowViewModel 已有 SaveRxCommand/SaveRxCsvCommand/SaveRxJsonCommand/SaveRxPcapCommand/ClearRxCommand/RxFilterText(184)全未接菜单。
+**改法**:RX 菜单加:复制 Hex(选中项 RawHex 到剪贴板,code-behind)、另存为 TXT(绑定 SaveRxCommand)、清空 RX(绑定 ClearRxCommand);TX 菜单对应(SaveTxCommand/ClearTxCommand)。新增语言键 `Button.CopyHex`/`Menu.SaveAsTxt`(zh/en)。
 
 ### 不做
-- ApplyTheme 延迟到 Loaded:非 Light 用户首帧闪变,收益(省 1 次解析)已被改动 1 覆盖
-- SettingsService.Load / _highlights.Load / LoadLanguage 异步化:小文件 ~ms 级,复杂度不值
-- CompareWindow 行号前缀共享等:冻结已修复,无必要
-
-### 测试
-- 改动均在 WPF 工程(ACCcom),Core.Tests/McpServer.Tests 不引用 WPF 工程,无新增测试点;现有 576 Core + 10 McpServer 必须全绿
-- 逻辑验证:构建 0 警告 0 错误(TreatWarningsAsErrors);主题缓存语义(首次解析、切换零解析、失败回退 Gray);HTTP 启动失败降级为状态栏提示;Release 构建下 [startup] 埋点 Trace 输出存在
+- 虚拟串口 UI(候选 3):`_serial` 实例被 SerialController/Modbus/NetworkBridge 共享,替换需架构级处理,中风险,单独轮
+- 二级窗口位置持久化/空状态提示(候选 8):收益低,后续轮
+- MetricsCollector 进 StatsWindow(候选 7):低收益
 
 ### 验收标准
 1. `dotnet build -c Release`:0 警告 0 错误
-2. `dotnet test`:全绿(576 Core + 10 McpServer)
-3. 逻辑验证:主题缓存生效(GetDictionary 命中)、_http.Start 失败不崩、Trace 埋点 Release 可见
+2. `dotnet test`:全绿(576 Core + 10 McpServer,无新增测试点——全部为 UI 接线)
+3. 逻辑验证:回放/编辑器按钮可打开窗口;书签列表可见可跳转可删除;清空/删除有确认;右键菜单新项可用
 4. 工作树干净,commit + push 到 GitHub

@@ -91,6 +91,11 @@ public class PresetViewModel : ObservableObject
 
     private void DeletePreset(SerialPreset preset)
     {
+        var confirm = string.Format(LanguageManager.Instance["Confirm.DeletePreset"], preset.Name);
+        if (System.Windows.MessageBox.Show(confirm,
+                LanguageManager.Instance["Confirm.Title"],
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
+            return;
         Presets.Remove(preset);
         SavePresetsToFile();
         _setStatus(string.Format(LanguageManager.Instance["Status.PresetDeleted"], preset.Name));

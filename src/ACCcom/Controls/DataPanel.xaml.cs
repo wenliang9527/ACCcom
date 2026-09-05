@@ -119,6 +119,24 @@ public partial class DataPanel : UserControl
         CopyAll(TxListBox, "TX");
     }
 
+    private void CopyRxHex_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelectedHex(RxListBox);
+    }
+
+    private void CopyTxHex_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelectedHex(TxListBox);
+    }
+
+    /// <summary>Copies the raw hex of the selected entries (space-separated).</summary>
+    private static void CopySelectedHex(ListBox listBox)
+    {
+        var hex = string.Join("\r\n", listBox.SelectedItems.OfType<LogEntry>()
+            .Select(entry => entry.RawHex ?? "").Where(h => h.Length > 0));
+        if (hex.Length > 0) CopyToClipboard(hex);
+    }
+
     private static void CopyAll(ListBox listBox, string direction)
     {
         if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
