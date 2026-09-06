@@ -195,26 +195,23 @@ public class ModbusAsciiTransportTests
         using var transport = new ModbusAsciiTransport(serial);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            var resp1Adu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
-            var resp1Full = new byte[resp1Adu.Length + 1];
-            Array.Copy(resp1Adu, resp1Full, resp1Adu.Length);
-            resp1Full[^1] = Lrc(resp1Adu);
-            serial.InjectRxData(AsciiFrameHex(resp1Full));
-
-            await Task.Delay(20);
-
-            var resp2Adu = new byte[] { 0x02, 0x03, 0x02, 0x00, 0x14 };
-            var resp2Full = new byte[resp2Adu.Length + 1];
-            Array.Copy(resp2Adu, resp2Full, resp2Adu.Length);
-            resp2Full[^1] = Lrc(resp2Adu);
-            serial.InjectRxData(AsciiFrameHex(resp2Full));
-        });
-
+        // Both requests are issued before either response, so each response
+        // lands after its request's frame is on the wire and is routed by
+        // slave id + function — deterministic, no Task.Delay race.
         var t1 = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
         var t2 = transport.SendReceiveAsync(0x02, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+
+        var resp1Adu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
+        var resp1Full = new byte[resp1Adu.Length + 1];
+        Array.Copy(resp1Adu, resp1Full, resp1Adu.Length);
+        resp1Full[^1] = Lrc(resp1Adu);
+        serial.InjectRxData(AsciiFrameHex(resp1Full));
+
+        var resp2Adu = new byte[] { 0x02, 0x03, 0x02, 0x00, 0x14 };
+        var resp2Full = new byte[resp2Adu.Length + 1];
+        Array.Copy(resp2Adu, resp2Full, resp2Adu.Length);
+        resp2Full[^1] = Lrc(resp2Adu);
+        serial.InjectRxData(AsciiFrameHex(resp2Full));
 
         var results = await Task.WhenAll(t1, t2);
         Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, results[0]);

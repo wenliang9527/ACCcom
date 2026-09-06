@@ -424,8 +424,15 @@ public class ProtocolTestRunnerTests : IDisposable
         Assert.False(runner.IsRunning);
 
         var task = runner.RunAsync(script, send, wait);
-        await Task.Delay(50);
-        Assert.True(runner.IsRunning);
+        // Wait for the runner to actually start (condition-based, not a fixed
+        // delay, so a loaded CI machine can't make this flake).
+        var started = await Task.Run(async () =>
+        {
+            for (int i = 0; i < 200 && !runner.IsRunning; i++)
+                await Task.Delay(10);
+            return runner.IsRunning;
+        });
+        Assert.True(started, "Runner should enter running state");
 
         runner.Stop();
 

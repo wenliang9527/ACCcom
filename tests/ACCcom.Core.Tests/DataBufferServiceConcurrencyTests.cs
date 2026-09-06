@@ -73,6 +73,9 @@ public class DataBufferServiceConcurrencyTests
         var sut = new DataBufferService();
         int matchCount = 0;
 
+        // Issue all 10 waits first — WaitForMatchAsync registers each waiter
+        // before it returns, so by the time we AddEntry below every waiter is
+        // guaranteed to be live. No Task.Delay scheduling gamble.
         var tasks = new Task[10];
         for (int i = 0; i < 10; i++)
         {
@@ -83,7 +86,6 @@ public class DataBufferServiceConcurrencyTests
             });
         }
 
-        await Task.Delay(50);
         sut.AddEntry(MakeEntry(1, text: "target"));
 
         await Task.WhenAll(tasks);
@@ -96,13 +98,9 @@ public class DataBufferServiceConcurrencyTests
     {
         var sut = new DataBufferService();
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(30);
-            sut.AddEntry(MakeEntry(1, text: "trigger_data"));
-        });
-
-        var result = await sut.WaitForMatchAsync("trigger_data", timeoutMs: 1000);
+        var wait = sut.WaitForMatchAsync("trigger_data", timeoutMs: 2000);
+        sut.AddEntry(MakeEntry(1, text: "trigger_data"));
+        var result = await wait;
 
         Assert.NotNull(result);
         Assert.Equal("trigger_data", result!.Text);
@@ -132,7 +130,8 @@ public class DataBufferServiceConcurrencyTests
             tasks[i] = sut.WaitForMatchAsync("never_comes", timeoutMs: 5000);
         }
 
-        await Task.Delay(50);
+        // Each wait registered its waiter before returning, so cancelling now
+        // deterministically covers all 5 — no delay needed.
         sut.CancelWaiters();
 
         var results = await Task.WhenAll(tasks);
@@ -150,7 +149,6 @@ public class DataBufferServiceConcurrencyTests
 
         var task = sut.WaitForMatchAsync("waiting", timeoutMs: 10000);
 
-        await Task.Delay(30);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         sut.CancelWaiters();
         var result = await task;
