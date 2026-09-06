@@ -185,17 +185,17 @@ public class DataBufferServiceTests
     [Fact]
     public async Task WaitForMatchAsync_returns_matching_entry()
     {
-        // Arrange
+        // Arrange — WaitForMatchAsync registers the waiter before it awaits,
+        // so calling it first and then adding the entry is deterministic: the
+        // add always happens after registration and is delivered via the
+        // waiter path. The old version raced a fixed 50ms Task.Delay against
+        // the 500ms wait and flaked under parallel load.
         var sut = new DataBufferService();
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            sut.AddEntry(MakeEntry(1, text: "hello world"));
-        });
-
         // Act
-        var result = await sut.WaitForMatchAsync("hello", timeoutMs: 500);
+        var waitTask = sut.WaitForMatchAsync("hello", timeoutMs: 2000);
+        sut.AddEntry(MakeEntry(1, text: "hello world"));
+        var result = await waitTask;
 
         // Assert
         Assert.NotNull(result);
@@ -218,18 +218,15 @@ public class DataBufferServiceTests
     [Fact]
     public async Task WaitForMatchAsync_with_direction_filter()
     {
-        // Arrange
+        // Arrange — deterministic ordering: waiter registered first, entry
+        // added after (delivered via the waiter path).
         var sut = new DataBufferService();
         sut.AddEntry(MakeEntry(1, direction: "TX", text: "hello"));
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            sut.AddEntry(MakeEntry(2, direction: "RX", text: "hello"));
-        });
-
         // Act
-        var result = await sut.WaitForMatchAsync("hello", direction: "RX", timeoutMs: 500);
+        var waitTask = sut.WaitForMatchAsync("hello", direction: "RX", timeoutMs: 2000);
+        sut.AddEntry(MakeEntry(2, direction: "RX", text: "hello"));
+        var result = await waitTask;
 
         // Assert
         Assert.NotNull(result);
@@ -253,17 +250,13 @@ public class DataBufferServiceTests
     [Fact]
     public async Task WaitForMatchAsync_regex_mode()
     {
-        // Arrange
+        // Arrange — deterministic ordering, same as the other waiter tests.
         var sut = new DataBufferService();
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            sut.AddEntry(MakeEntry(1, hex: "AB 12 34 CD", text: "ignored"));
-        });
-
         // Act
-        var result = await sut.WaitForMatchAsync("^AB.*CD$", matchMode: "regex", matchHex: true, timeoutMs: 500);
+        var waitTask = sut.WaitForMatchAsync("^AB.*CD$", matchMode: "regex", matchHex: true, timeoutMs: 2000);
+        sut.AddEntry(MakeEntry(1, hex: "AB 12 34 CD", text: "ignored"));
+        var result = await waitTask;
 
         // Assert
         Assert.NotNull(result);

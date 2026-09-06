@@ -242,11 +242,7 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
     }
 
     private static string SafeFileName(string name)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-            name = name.Replace(c, '_');
-        return string.IsNullOrWhiteSpace(name) ? "script" : name;
-    }
+        => FileNameSanitizer.Sanitize(name);
 
     public void Dispose()
     {
