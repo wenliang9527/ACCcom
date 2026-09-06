@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
 using ACCcom.Core.Collections;
@@ -12,8 +11,6 @@ namespace ACCcom.ViewModels;
 
 public class MainViewModel : ObservableObject, IDisposable
 {
-    private static readonly Regex KeyValueRegex = new(@"[=:]?\s*(-?\d+\.?\d*)", RegexOptions.Compiled);
-    private static readonly Regex StandaloneNumberRegex = new(@"-?\d+\.\d+", RegexOptions.Compiled);
     private readonly ISerialService _serial;
     private readonly NetworkBridgeService _networkBridge = new();
     private readonly LoggerService _logger = new();
@@ -304,7 +301,7 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             if (_plotWindow != null)
             {
-                var values = ExtractNumericValues(entry.Text ?? "");
+                var values = NumericValueExtractor.Extract(entry.Text ?? "");
                 foreach (var v in values)
                     _plotViewModel.AddPoint(v);
             }
@@ -805,31 +802,6 @@ public class MainViewModel : ObservableObject, IDisposable
         {
             StatusText = string.Format(LanguageManager.Instance["Status.DashboardFailed"], ex.Message);
         }
-    }
-
-    private static List<double> ExtractNumericValues(string text)
-    {
-        var results = new List<double>();
-        if (string.IsNullOrWhiteSpace(text)) return results;
-
-        foreach (Match m in KeyValueRegex.Matches(text))
-        {
-            if (double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double val))
-                results.Add(val);
-        }
-
-        if (results.Count == 0)
-        {
-            foreach (Match m in StandaloneNumberRegex.Matches(text))
-            {
-                if (double.TryParse(m.Value, System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out double val))
-                    results.Add(val);
-            }
-        }
-
-        return results;
     }
 
     public void SaveSettings(double windowX, double windowY, double windowWidth, double windowHeight, double sidebarWidth)
