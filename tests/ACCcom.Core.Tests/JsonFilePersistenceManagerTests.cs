@@ -35,6 +35,13 @@ public class JsonFilePersistenceManagerTests : IDisposable
     private TestManager CreateManager() => new(Path.GetFileName(_tempFile));
 
     [Fact]
+    public void LoadFromFile_null_path_throws()
+    {
+        var manager = CreateManager();
+        Assert.Throws<ArgumentNullException>(() => manager.LoadFromFile(null!));
+    }
+
+    [Fact]
     public void LoadFromFile_ReadsArray()
     {
         // Default serializer is case-sensitive PascalCase, matching the DTO.

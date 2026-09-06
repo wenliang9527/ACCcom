@@ -45,6 +45,8 @@ public abstract class JsonFilePersistenceManager<T>
 
     public T[] LoadFromFile(string filePath)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var json = File.ReadAllText(filePath);
         return JsonSerializer.Deserialize<T[]>(json) ?? Array.Empty<T>();
     }
