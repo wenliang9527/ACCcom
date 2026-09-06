@@ -65,7 +65,7 @@ public class ShortcutViewModel : ObservableObject
         }
         foreach (var cmd in source)
         {
-            if (cmd.Name != null && cmd.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase))
+            if (ShortcutFilter.IsMatch(cmd, _filterText))
                 VisibleCommands.Add(cmd);
         }
     }
