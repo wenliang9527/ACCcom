@@ -57,6 +57,12 @@ public class PresetManagerTests : IDisposable
     }
 
     [Fact]
+    public void GetConfig_null_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => PresetManager.GetConfig(null!));
+    }
+
+    [Fact]
     public async Task LoadAsync_WithMissingFile_ReturnsEmptyList()
     {
         // Arrange: remove file if it exists

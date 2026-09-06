@@ -24,6 +24,7 @@ public class PresetManager : JsonFilePersistenceManager<SerialPreset>
 
     public static (string Port, int BaudRate, int DataBits, int StopBits, int Parity, bool Dtr, bool Rts) GetConfig(SerialPreset preset)
     {
+        ArgumentNullException.ThrowIfNull(preset);
         return (preset.Port, preset.BaudRate, preset.DataBits, preset.StopBits, preset.Parity, preset.Dtr, preset.Rts);
     }
 }
