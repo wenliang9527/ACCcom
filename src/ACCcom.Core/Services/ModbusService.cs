@@ -36,17 +36,26 @@ public class ModbusService : IDisposable
     public Task<ModbusResponse> WriteSingleRegisterAsync(byte slaveId, ushort addr, ushort value, int timeoutMs = 1000, CancellationToken ct = default)
         => ExecuteAsync(slaveId, ModbusFunctionCode.WriteSingleRegister, BuildWriteRegisterRequest(addr, value), timeoutMs, ct);
 
-    public Task<ModbusResponse> WriteMultipleCoilsAsync(byte slaveId, ushort startAddr, bool[] values, int timeoutMs = 1000, CancellationToken ct = default)
-        => ExecuteAsync(slaveId, ModbusFunctionCode.WriteMultipleCoils, BuildWriteCoilsRequest(startAddr, values), timeoutMs, ct);
+    public Task<ModbusResponse> WriteMultipleCoilsAsync(byte slaveId, ushort startAddr, bool[]? values, int timeoutMs = 1000, CancellationToken ct = default)
+        => values is { Length: > 0 }
+            ? ExecuteAsync(slaveId, ModbusFunctionCode.WriteMultipleCoils, BuildWriteCoilsRequest(startAddr, values), timeoutMs, ct)
+            : Task.FromResult(ErrorResponse(slaveId, ModbusFunctionCode.WriteMultipleCoils, "values must not be null or empty"));
 
-    public Task<ModbusResponse> WriteMultipleRegistersAsync(byte slaveId, ushort startAddr, ushort[] values, int timeoutMs = 1000, CancellationToken ct = default)
-        => ExecuteAsync(slaveId, ModbusFunctionCode.WriteMultipleRegisters, BuildWriteRegistersRequest(startAddr, values), timeoutMs, ct);
+    public Task<ModbusResponse> WriteMultipleRegistersAsync(byte slaveId, ushort startAddr, ushort[]? values, int timeoutMs = 1000, CancellationToken ct = default)
+        => values is { Length: > 0 }
+            ? ExecuteAsync(slaveId, ModbusFunctionCode.WriteMultipleRegisters, BuildWriteRegistersRequest(startAddr, values), timeoutMs, ct)
+            : Task.FromResult(ErrorResponse(slaveId, ModbusFunctionCode.WriteMultipleRegisters, "values must not be null or empty"));
 
     public Task<ModbusResponse> MaskWriteRegisterAsync(byte slaveId, ushort addr, ushort andMask, ushort orMask, int timeoutMs = 1000, CancellationToken ct = default)
         => ExecuteAsync(slaveId, ModbusFunctionCode.MaskWriteRegister, BuildMaskWriteRequest(addr, andMask, orMask), timeoutMs, ct);
 
-    public Task<ModbusResponse> ReadWriteMultipleRegistersAsync(byte slaveId, ushort readAddr, ushort readCount, ushort writeAddr, ushort[] writeValues, int timeoutMs = 1000, CancellationToken ct = default)
-        => ExecuteAsync(slaveId, ModbusFunctionCode.ReadWriteMultipleRegisters, BuildReadWriteRegistersRequest(readAddr, readCount, writeAddr, writeValues), timeoutMs, ct);
+    public Task<ModbusResponse> ReadWriteMultipleRegistersAsync(byte slaveId, ushort readAddr, ushort readCount, ushort writeAddr, ushort[]? writeValues, int timeoutMs = 1000, CancellationToken ct = default)
+        => writeValues is { Length: > 0 }
+            ? ExecuteAsync(slaveId, ModbusFunctionCode.ReadWriteMultipleRegisters, BuildReadWriteRegistersRequest(readAddr, readCount, writeAddr, writeValues), timeoutMs, ct)
+            : Task.FromResult(ErrorResponse(slaveId, ModbusFunctionCode.ReadWriteMultipleRegisters, "writeValues must not be null or empty"));
+
+    private static ModbusResponse ErrorResponse(byte slaveId, ModbusFunctionCode function, string message)
+        => new() { IsError = true, SlaveId = slaveId, FunctionCode = function, ErrorMessage = message };
 
     private async Task<ModbusResponse> ExecuteAsync(byte slaveId, ModbusFunctionCode function, byte[] pdu, int timeoutMs, CancellationToken ct = default)
     {

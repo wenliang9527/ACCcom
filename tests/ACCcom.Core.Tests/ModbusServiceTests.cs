@@ -211,4 +211,55 @@ public class ModbusServiceTests
         Assert.True(result.IsError);
         Assert.Contains("Timeout", result.ErrorMessage);
     }
+
+    [Fact]
+    public async Task WriteMultipleCoils_null_or_empty_values_returns_error()
+    {
+        using var virtualSerial = new VirtualSerialService();
+        using var modbus = new ModbusService(virtualSerial);
+        virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        var nullResult = await modbus.WriteMultipleCoilsAsync(0x01, 0x0000, null);
+        Assert.True(nullResult.IsError);
+        Assert.Contains("values", nullResult.ErrorMessage);
+
+        var emptyResult = await modbus.WriteMultipleCoilsAsync(0x01, 0x0000, []);
+        Assert.True(emptyResult.IsError);
+        Assert.Contains("values", emptyResult.ErrorMessage);
+
+        // No request frame was sent for the invalid input.
+        Assert.Empty(virtualSerial.GetSentData());
+    }
+
+    [Fact]
+    public async Task WriteMultipleRegisters_null_or_empty_values_returns_error()
+    {
+        using var virtualSerial = new VirtualSerialService();
+        using var modbus = new ModbusService(virtualSerial);
+        virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        var nullResult = await modbus.WriteMultipleRegistersAsync(0x01, 0x0000, null);
+        Assert.True(nullResult.IsError);
+        Assert.Contains("values", nullResult.ErrorMessage);
+
+        var emptyResult = await modbus.WriteMultipleRegistersAsync(0x01, 0x0000, []);
+        Assert.True(emptyResult.IsError);
+        Assert.Contains("values", emptyResult.ErrorMessage);
+
+        Assert.Empty(virtualSerial.GetSentData());
+    }
+
+    [Fact]
+    public async Task ReadWriteMultipleRegisters_null_write_values_returns_error()
+    {
+        using var virtualSerial = new VirtualSerialService();
+        using var modbus = new ModbusService(virtualSerial);
+        virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        var result = await modbus.ReadWriteMultipleRegistersAsync(0x01, 0x0000, 1, 0x0000, null);
+
+        Assert.True(result.IsError);
+        Assert.Contains("writeValues", result.ErrorMessage);
+        Assert.Empty(virtualSerial.GetSentData());
+    }
 }
