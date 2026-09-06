@@ -134,4 +134,20 @@ public class PortMonitorServiceTests
 
         Assert.False(raised);
     }
+
+    [Fact]
+    public void Start_nonPositiveInterval_DoesNotThrow()
+    {
+        // System.Timers.Timer throws for non-positive intervals; the clamp must
+        // make 0/negative behave as "as fast as possible" instead.
+        using var monitor = new PortMonitorService();
+
+        var exception = Record.Exception(() => monitor.Start(intervalMs: 0));
+        Assert.Null(exception);
+        monitor.Stop();
+
+        var exception2 = Record.Exception(() => monitor.Start(intervalMs: -100));
+        Assert.Null(exception2);
+        monitor.Stop();
+    }
 }

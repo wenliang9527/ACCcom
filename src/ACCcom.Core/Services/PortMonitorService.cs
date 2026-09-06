@@ -24,8 +24,12 @@ public class PortMonitorService : IDisposable
         Stop();
         lock (_lock)
         {
+            // System.Timers.Timer throws for non-positive intervals; clamp so a
+            // 0/negative interval behaves as "poll as fast as possible" instead
+            // of surfacing an ArgumentException to the caller.
+            var effectiveInterval = Math.Max(1, intervalMs);
             _lastPorts = new HashSet<string>(SafeGetPorts(), StringComparer.OrdinalIgnoreCase);
-            _timer = new System.Timers.Timer(intervalMs) { AutoReset = true };
+            _timer = new System.Timers.Timer(effectiveInterval) { AutoReset = true };
             _timer.Elapsed += (_, _) => Poll();
             _timer.Start();
         }
