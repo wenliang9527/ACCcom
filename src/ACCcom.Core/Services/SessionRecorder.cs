@@ -182,14 +182,10 @@ public class SessionRecorder : BufferedFileWriter
 
             if (speedMultiplier > 0 && i < entries.Count - 1)
             {
-                var delay = entries[i + 1].Timestamp - entries[i].Timestamp;
+                var delay = ReplayThrottle.ComputeDelay(
+                    entries[i + 1].Timestamp - entries[i].Timestamp, speedMultiplier);
                 if (delay > TimeSpan.Zero)
-                {
-                    var adjustedDelay = TimeSpan.FromTicks((long)(delay.Ticks / speedMultiplier));
-                    if (adjustedDelay > TimeSpan.FromSeconds(5))
-                        adjustedDelay = TimeSpan.FromSeconds(5);
-                    await Task.Delay(adjustedDelay, ct).ConfigureAwait(false);
-                }
+                    await Task.Delay(delay, ct).ConfigureAwait(false);
             }
 
             while (IsPaused && !ct.IsCancellationRequested)

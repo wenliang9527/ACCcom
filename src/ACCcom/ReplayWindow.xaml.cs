@@ -161,14 +161,10 @@ public partial class ReplayWindow : Window
 
             if (_speedMultiplier > 0 && i < total - 1)
             {
-                var delay = allEntries[i + 1].Timestamp - allEntries[i].Timestamp;
+                var delay = ReplayThrottle.ComputeDelay(
+                    allEntries[i + 1].Timestamp - allEntries[i].Timestamp, _speedMultiplier);
                 if (delay > TimeSpan.Zero)
-                {
-                    var adjusted = TimeSpan.FromTicks((long)(delay.Ticks / _speedMultiplier));
-                    if (adjusted > TimeSpan.FromSeconds(5))
-                        adjusted = TimeSpan.FromSeconds(5);
-                    await Task.Delay(adjusted, ct).ConfigureAwait(false);
-                }
+                    await Task.Delay(delay, ct).ConfigureAwait(false);
             }
 
             while (_recorder.IsPaused && !ct.IsCancellationRequested)
