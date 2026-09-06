@@ -398,12 +398,5 @@ public class ShortcutViewModel : ObservableObject
     }
 
     private string UniquePageName(string baseName)
-    {
-        if (!Pages.Any(p => p.Name == baseName)) return baseName;
-        for (int i = 2; ; i++)
-        {
-            var candidate = $"{baseName} ({i})";
-            if (!Pages.Any(p => p.Name == candidate)) return candidate;
-        }
-    }
+        => NameUniquifier.UniqueName(Pages.Select(p => p.Name), baseName);
 }
