@@ -20,6 +20,16 @@ public class TriggerServiceTests : IDisposable
     }
 
     [Fact]
+    public void SaveRules_null_arguments_throw()
+    {
+        var rules = new List<TriggerRule> { new() { Name = "r" } };
+
+        Assert.Throws<ArgumentNullException>(() => TriggerService.SaveRules(null!, _tempFile));
+        Assert.Throws<ArgumentNullException>(() => TriggerService.SaveRules(rules, null!));
+        Assert.Throws<ArgumentNullException>(() => TriggerService.LoadRules(null!));
+    }
+
+    [Fact]
     public void TestRegexMatch()
     {
         var rule = new TriggerRule { Name = "r1", Pattern = "^hello.*world$", MatchMode = "regex", Enabled = true };

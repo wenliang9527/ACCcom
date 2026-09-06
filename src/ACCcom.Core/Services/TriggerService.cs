@@ -62,12 +62,17 @@ public class TriggerService
 
     public static void SaveRules(IEnumerable<TriggerRule> rules, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(rules);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var json = System.Text.Json.JsonSerializer.Serialize(rules.ToArray(), _jsonOptions);
         File.WriteAllText(filePath, json);
     }
 
     public static List<TriggerRule> LoadRules(string filePath)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         if (!File.Exists(filePath)) return new();
         var json = File.ReadAllText(filePath);
         return System.Text.Json.JsonSerializer.Deserialize<TriggerRule[]>(json)?.ToList() ?? new();
