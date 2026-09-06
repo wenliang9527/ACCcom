@@ -366,10 +366,10 @@ public class MainViewModel : ObservableObject, IDisposable
         _statsTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _statsTimer.Tick += (_, _) =>
         {
-            RxRate = $"{_stats.RxBytesPerSecond:F1} B/s | {_stats.RxFramesPerSecond:F1} fps";
-            TxRate = $"{_stats.TxBytesPerSecond:F1} B/s | {_stats.TxFramesPerSecond:F1} fps";
-            ErrorRate = $"{_stats.ErrorRate:F1}%";
-            FrameInterval = $"{_stats.AvgFrameIntervalMs:F1} ms";
+            RxRate = StatusLineFormatter.FormatThroughput(_stats.RxBytesPerSecond, _stats.RxFramesPerSecond);
+            TxRate = StatusLineFormatter.FormatThroughput(_stats.TxBytesPerSecond, _stats.TxFramesPerSecond);
+            ErrorRate = StatusLineFormatter.FormatErrorRate(_stats.ErrorRate);
+            FrameInterval = StatusLineFormatter.FormatFrameInterval(_stats.AvgFrameIntervalMs);
             // Counters accumulate silently on 30ms flushes; surface them here at
             // 1Hz so the status bar bindings don't re-layout on every flush tick.
             _dataFlow.NotifyCountsChanged();
