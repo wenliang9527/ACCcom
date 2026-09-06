@@ -34,6 +34,31 @@ public class CrcHelperTests
     }
 
     [Fact]
+    public void Crc16_NegativeOffset_ReturnsZero()
+    {
+        var data = new byte[] { 0x01, 0x02, 0x03 };
+
+        Assert.Equal(0, CrcHelper.Crc16(data, -1, 2));
+    }
+
+    [Fact]
+    public void Crc16_NegativeLength_ReturnsZero()
+    {
+        var data = new byte[] { 0x01, 0x02, 0x03 };
+
+        Assert.Equal(0, CrcHelper.Crc16(data, 0, -1));
+    }
+
+    [Fact]
+    public void Crc16_OffsetPlusLengthBeyondData_ReturnsZero()
+    {
+        var data = new byte[] { 0x01, 0x02, 0x03 };
+
+        Assert.Equal(0, CrcHelper.Crc16(data, 1, 3));
+        Assert.Equal(0, CrcHelper.Crc16(data, 0, 4));
+    }
+
+    [Fact]
     public void Sum8_CalculatesCorrectly()
     {
         var data = new byte[] { 0x01, 0x02, 0x03, 0x04 };
