@@ -193,8 +193,12 @@ public class ParserManager : IDisposable
     /// <summary>
     /// 从 ProtocolSchema 生成并保存解析器
     /// </summary>
-    public (bool success, string? error) GenerateParser(ProtocolSchema schema)
+    public (bool success, string? error) GenerateParser(ProtocolSchema? schema)
     {
+        // A null schema would NRE inside Validate; return a clear error instead.
+        if (schema == null)
+            return (false, "Schema is null");
+
         var generator = new ParserGenerator();
         var (valid, errors) = generator.Validate(schema);
         if (!valid)

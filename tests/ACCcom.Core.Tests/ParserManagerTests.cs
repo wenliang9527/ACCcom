@@ -275,4 +275,15 @@ return result;
         // reload per write; allow one (possibly two due to timer granularity).
         Assert.True(reloadCount <= 2, $"Expected debounced reload, got {reloadCount}");
     }
+
+    [Fact]
+    public void GenerateParser_null_schema_returns_error()
+    {
+        using var manager = new ParserManager();
+
+        var (success, error) = manager.GenerateParser(null);
+
+        Assert.False(success);
+        Assert.Contains("null", error);
+    }
 }
