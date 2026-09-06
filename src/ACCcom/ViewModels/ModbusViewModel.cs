@@ -271,10 +271,10 @@ public class ModbusViewModel : ObservableObject, IDisposable
             {
                 ModbusFunctionCode.WriteSingleCoil => await _modbus.WriteSingleCoilAsync(SlaveId, StartAddress, WriteValue != 0),
                 ModbusFunctionCode.WriteSingleRegister => await _modbus.WriteSingleRegisterAsync(SlaveId, StartAddress, WriteValue),
-                ModbusFunctionCode.WriteMultipleCoils => await _modbus.WriteMultipleCoilsAsync(SlaveId, StartAddress, ParseCoilValues(BatchValues)),
-                ModbusFunctionCode.WriteMultipleRegisters => await _modbus.WriteMultipleRegistersAsync(SlaveId, StartAddress, ParseRegisterValues(BatchValues)),
+                ModbusFunctionCode.WriteMultipleCoils => await _modbus.WriteMultipleCoilsAsync(SlaveId, StartAddress, ModbusValueParser.ParseCoilValues(BatchValues)),
+                ModbusFunctionCode.WriteMultipleRegisters => await _modbus.WriteMultipleRegistersAsync(SlaveId, StartAddress, ModbusValueParser.ParseRegisterValues(BatchValues)),
                 ModbusFunctionCode.MaskWriteRegister => await _modbus.MaskWriteRegisterAsync(SlaveId, StartAddress, WriteValue, (ushort)(WriteValue ^ 0xFFFF)),
-                ModbusFunctionCode.ReadWriteMultipleRegisters => await _modbus.ReadWriteMultipleRegistersAsync(SlaveId, StartAddress, Quantity, StartAddress, ParseRegisterValues(BatchValues)),
+                ModbusFunctionCode.ReadWriteMultipleRegisters => await _modbus.ReadWriteMultipleRegistersAsync(SlaveId, StartAddress, Quantity, StartAddress, ModbusValueParser.ParseRegisterValues(BatchValues)),
                 _ => await _modbus.WriteSingleRegisterAsync(SlaveId, StartAddress, WriteValue)
             };
 
@@ -284,23 +284,6 @@ public class ModbusViewModel : ObservableObject, IDisposable
         {
             StatusText = $"Exception: {ex.Message}";
         }
-    }
-
-    private static bool[] ParseCoilValues(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return [];
-        return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s is "1" or "true" or "on" or "yes").ToArray();
-    }
-
-    private static ushort[] ParseRegisterValues(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return [];
-        return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                ? ushort.Parse(s[2..], System.Globalization.NumberStyles.HexNumber)
-                : ushort.TryParse(s, out var v) ? v : (ushort)0)
-            .ToArray();
     }
 
     private void OnTransaction(ModbusTransaction tx)
