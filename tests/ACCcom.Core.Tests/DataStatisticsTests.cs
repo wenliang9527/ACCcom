@@ -255,4 +255,29 @@ public class DataStatisticsTests
         Assert.Equal(0, stats.RxBytesPerSecond);
         Assert.Equal(0, stats.RxFramesPerSecond);
     }
+
+    [Fact]
+    public void RecordRx_NegativeByteCount_TreatedAsZero()
+    {
+        var stats = new DataStatistics();
+
+        stats.RecordRx(-5);
+        stats.RecordRx(10);
+
+        // The negative count must not corrupt the totals.
+        Assert.Equal(10, stats.TotalRxBytes);
+        Assert.Equal(2, stats.TotalRxFrames);
+    }
+
+    [Fact]
+    public void RecordTx_NegativeByteCount_TreatedAsZero()
+    {
+        var stats = new DataStatistics();
+
+        stats.RecordTx(-100);
+        stats.RecordTx(25);
+
+        Assert.Equal(25, stats.TotalTxBytes);
+        Assert.Equal(2, stats.TotalTxFrames);
+    }
 }

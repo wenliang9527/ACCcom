@@ -33,6 +33,10 @@ public class DataStatistics
 
     public void RecordRx(int byteCount)
     {
+        // A negative byte count would corrupt the totals and ring samples —
+        // treat it as no data rather than poisoning the statistics.
+        if (byteCount < 0) byteCount = 0;
+
         var now = DateTime.UtcNow;
         Interlocked.Add(ref _totalRxBytes, byteCount);
         Interlocked.Increment(ref _totalRxFrames);
@@ -56,6 +60,7 @@ public class DataStatistics
     /// actually consuming what the host is sending.</summary>
     public void RecordTx(int byteCount)
     {
+        if (byteCount < 0) byteCount = 0;
         Interlocked.Add(ref _totalTxBytes, byteCount);
         Interlocked.Increment(ref _totalTxFrames);
         _txSamples.Add(DateTime.UtcNow.Ticks, byteCount);
