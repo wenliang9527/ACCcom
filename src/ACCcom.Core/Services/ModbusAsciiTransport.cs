@@ -58,9 +58,9 @@ public class ModbusAsciiTransport : IModbusTransport
         }
     }
 
-    private void OnSerialData(LogEntry entry)
+    private void OnSerialData(LogEntry? entry)
     {
-        if (entry.Direction != "RX") return;
+        if (entry == null || entry.Direction != "RX") return;
         if (string.IsNullOrEmpty(entry.RawHex)) return;
 
         var rawBytes = HexStringToBytes(entry.RawHex);

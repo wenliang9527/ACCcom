@@ -64,9 +64,9 @@ public class ModbusRtuTransport : IModbusTransport
         }
     }
 
-    private void OnSerialData(LogEntry entry)
+    private void OnSerialData(LogEntry? entry)
     {
-        if (entry.Direction != "RX") return;
+        if (entry == null || entry.Direction != "RX") return;
         if (string.IsNullOrEmpty(entry.RawHex)) return;
         var bytes = HexStringToBytes(entry.RawHex);
         if (bytes.Length < 4) return;

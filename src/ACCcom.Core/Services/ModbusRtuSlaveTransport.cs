@@ -43,9 +43,9 @@ public class ModbusRtuSlaveTransport : IDisposable
         lock (_lock) _buffer.Clear();
     }
 
-    private void OnSerialData(LogEntry entry)
+    private void OnSerialData(LogEntry? entry)
     {
-        if (!_isRunning || entry.Direction != "RX") return;
+        if (!_isRunning || entry == null || entry.Direction != "RX") return;
         if (string.IsNullOrEmpty(entry.RawHex)) return;
         var bytes = HexStringToBytes(entry.RawHex);
         lock (_lock) { _buffer.AddRange(bytes); }
