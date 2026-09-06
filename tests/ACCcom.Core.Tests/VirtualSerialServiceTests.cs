@@ -98,6 +98,24 @@ public class VirtualSerialServiceTests
     }
 
     [Fact]
+    public void InjectRxData_null_or_empty_is_noop()
+    {
+        var svc = new VirtualSerialService();
+        svc.Open(new SerialConfig { PortName = "VIRTUAL", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+        int received = 0;
+        svc.OnDataReceived += _ => received++;
+
+        var exception = Record.Exception(() =>
+        {
+            svc.InjectRxData(null);
+            svc.InjectRxData("");
+        });
+
+        Assert.Null(exception);
+        Assert.Equal(0, received);
+    }
+
+    [Fact]
     public void InjectRxData_Without_Open_Does_Not_Throw()
     {
         var svc = new VirtualSerialService();

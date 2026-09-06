@@ -76,8 +76,11 @@ public class VirtualSerialService : ISerialService, IDisposable
 
     public bool SendHex(string hex) => Send(hex, true);
 
-    public void InjectRxData(string hex)
+    public void InjectRxData(string? hex)
     {
+        // A null/empty payload injects nothing — NRE on Replace otherwise.
+        if (string.IsNullOrEmpty(hex)) return;
+
         var hexNoSpace = hex.Replace(" ", "");
         var bytes = Convert.FromHexString(hexNoSpace);
 
