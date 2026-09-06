@@ -59,6 +59,8 @@ public class HighlightService
 
     public void AddRule(HighlightRule rule)
     {
+        ArgumentNullException.ThrowIfNull(rule);
+
         lock (_lock)
         {
             var existing = Rules.FirstOrDefault(r => r.Name == rule.Name);

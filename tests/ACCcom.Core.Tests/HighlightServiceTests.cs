@@ -23,6 +23,12 @@ public class HighlightServiceTests : IDisposable
             File.Delete(_tempFile);
     }
 
+    [Fact]
+    public void AddRule_null_rule_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _sut.AddRule(null!));
+    }
+
     private static LogEntry MakeEntry(int id, string direction = "RX", string text = "hello world", string hex = "AA BB CC")
     {
         return new LogEntry
