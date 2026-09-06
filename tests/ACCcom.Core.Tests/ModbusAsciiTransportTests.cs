@@ -136,6 +136,22 @@ public class ModbusAsciiTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_NonPositiveTimeout_ThrowsOperationCanceledNotArgument()
+    {
+        // A non-positive timeout used to throw ArgumentOutOfRangeException
+        // inside CancellationTokenSource; it must behave as an immediate
+        // timeout instead (OperationCanceledException).
+        using var serial = new VirtualSerialService();
+        using var transport = new ModbusAsciiTransport(serial);
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 0));
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], -100));
+    }
+
+    [Fact]
     public async Task SendReceiveAsync_ExceptionResponse()
     {
         using var serial = new VirtualSerialService();
