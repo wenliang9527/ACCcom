@@ -284,7 +284,11 @@ public class DataBufferService : IDisposable
         }
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var delayTask = Task.Delay(timeoutMs, cts.Token);
+        // Task.Delay throws for negative timeouts; clamp so a non-positive
+        // timeout behaves as "no wait" (immediate timeout path) instead of
+        // surfacing an ArgumentOutOfRangeException to the caller.
+        var delayMs = Math.Max(1, timeoutMs);
+        var delayTask = Task.Delay(delayMs, cts.Token);
         return WaitForMatchInternal(waiter, delayTask, cts);
     }
 

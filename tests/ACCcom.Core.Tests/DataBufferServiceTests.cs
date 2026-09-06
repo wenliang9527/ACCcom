@@ -303,4 +303,41 @@ public class DataBufferServiceTests
         Assert.NotNull(result);
         Assert.Equal(1, result!.Id);
     }
+
+    [Fact]
+    public async Task WaitForMatchAsync_zero_timeout_returns_null_without_throwing()
+    {
+        var sut = new DataBufferService();
+
+        // A non-positive timeout used to throw inside Task.Delay; it must
+        // instead behave as "no wait" and return null promptly.
+        var result = await sut.WaitForMatchAsync("never", timeoutMs: 0);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_negative_timeout_returns_null_without_throwing()
+    {
+        var sut = new DataBufferService();
+
+        var result = await sut.WaitForMatchAsync("never", timeoutMs: -100);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_zero_timeout_still_finds_existing_entry()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "already here"));
+
+        // The existing-buffer scan happens before the timeout path, so a
+        // matching entry already present is still returned even with a
+        // zero timeout.
+        var result = await sut.WaitForMatchAsync("already here", timeoutMs: 0);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result!.Id);
+    }
 }
