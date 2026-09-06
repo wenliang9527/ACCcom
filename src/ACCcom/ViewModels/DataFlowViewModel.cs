@@ -33,13 +33,12 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly FileExportService _fileExportService;
     private readonly PcapExportService _pcapExportService = new();
     private readonly Action<string> _setStatus;
-    private readonly AppSettings _settings;
+    private readonly AppSettings? _settings;
     private readonly HighlightService? _highlightService;
     private readonly DispatcherTimer? _filterDebounce;
 
-    private readonly List<string> _sendHistory = new();
-    private int _historyIndex = -1;
-    private int _sendCounter;
+    private readonly SendHistoryBuffer _sendHistory;
+    private readonly VariableExpander _variableExpander;
 
     // Batched UI updates: serial/network events arrive on background threads and
     // at high rates; entries are queued here (background-safe, lock-protected)
@@ -334,6 +333,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _parserReloadedHandler = _ => LoadParserFingerprints();
         _parserManager.OnParserReloaded += _parserReloadedHandler;
 
+        _sendHistory = new SendHistoryBuffer(_settings?.MaxSendHistory ?? 50);
+        _variableExpander = new VariableExpander();
+
         // FrameBuffer is the single frame-assembly path: its config is mapped
         // from the user-facing FrameAssemblerConfig so header/length-field/
         // timeout/max-size edits keep applying, and it is gated by the same
@@ -393,11 +395,15 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         ClearSendHistoryCommand = new RelayCommand(_ => { _sendHistory.Clear(); SendHistory.Clear(); PersistSendHistory(); });
         ToggleHexDisplayCommand = new RelayCommand(_ => { IsHexDisplayRx = !IsHexDisplayRx; IsHexDisplayTx = !IsHexDisplayTx; });
 
-        // Hydrate persistent send history into the in-memory list and the UI collection.
-        if (_settings.SendHistory is { Count: > 0 })
+        // Hydrate persistent send history into the in-memory buffer and the UI collection.
+        if (_settings?.SendHistory is { Count: > 0 })
         {
-            _sendHistory.AddRange(_settings.SendHistory);
-            foreach (var item in _sendHistory) SendHistory.Add(item);
+            foreach (var item in _settings.SendHistory)
+            {
+                if (string.IsNullOrWhiteSpace(item)) continue;
+                _sendHistory.Add(item);
+                SendHistory.Add(item);
+            }
         }
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
@@ -798,26 +804,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private void RecordSendHistory(string? text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        // Dedupe: move an existing entry to the end rather than creating a duplicate.
-        var existing = _sendHistory.IndexOf(text);
-        if (existing >= 0) _sendHistory.RemoveAt(existing);
+        // Dedupe + capacity eviction live in SendHistoryBuffer; mirror the entry
+        // into the observable collection for UI binding. This is a small bounded
+        // list (cap=50), so a full re-sync is cheap and simpler than tracking
+        // incremental move-to-end semantics.
         _sendHistory.Add(text);
-
-        var cap = Math.Max(1, _settings?.MaxSendHistory ?? 50);
-        while (_sendHistory.Count > cap)
-        {
-            var dropped = _sendHistory[0];
-            _sendHistory.RemoveAt(0);
-            if (SendHistory.Count > 0 && SendHistory[0] == dropped) SendHistory.RemoveAt(0);
-        }
-
-        // Mirror the in-memory list into the observable collection for UI binding.
-        // This is a small bounded list (cap=50), so a full re-sync is cheap and
-        // simpler than tracking incremental move-to-end semantics.
         SendHistory.Clear();
-        foreach (var item in _sendHistory) SendHistory.Add(item);
-
-        _historyIndex = _sendHistory.Count;
+        foreach (var item in _sendHistory.Entries) SendHistory.Add(item);
         PersistSendHistory();
     }
 
@@ -825,7 +818,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public void PersistSendHistory()
     {
         if (_settings == null) return;
-        _settings.SendHistory = new List<string>(_sendHistory);
+        _settings.SendHistory = new List<string>(_sendHistory.Entries);
     }
 
     public void NavigateHistory(int direction)
@@ -844,44 +837,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// <see cref="SendText"/>. Returns false when there is no history to navigate.
     /// On a true return, <paramref name="caretIndex"/> is the position the view
     /// should place the caret at (end of restored text, mirroring shell behaviour
-    /// so users can immediately press Enter to re-send).
+    /// so users can immediately press Enter to re-send). Navigation starts at the
+    /// newest entry and clamps at both ends, with a "draft" slot past the newest.
     /// </summary>
     public bool TryNavigateHistory(int direction, out string? text, out int caretIndex)
-    {
-        if (_sendHistory.Count == 0)
-        {
-            text = null;
-            caretIndex = 0;
-            return false;
-        }
-        _historyIndex += direction;
-        if (_historyIndex < 0) _historyIndex = 0;
-        if (_historyIndex >= _sendHistory.Count) _historyIndex = _sendHistory.Count;
-        if (_historyIndex < _sendHistory.Count)
-        {
-            text = _sendHistory[_historyIndex];
-            caretIndex = text.Length;
-        }
-        else
-        {
-            // Past the newest entry: return to "draft" state.
-            text = "";
-            caretIndex = 0;
-        }
-        return true;
-    }
+        => _sendHistory.TryNavigate(direction, out text, out caretIndex);
 
     public string ExpandVariables(string input)
-    {
-        if (string.IsNullOrEmpty(input) || !input.Contains("{{")) return input;
-        var now = DateTime.Now;
-        return input
-            .Replace("{{timestamp}}", now.ToString("yyyy-MM-dd HH:mm:ss.fff"))
-            .Replace("{{date}}", now.ToString("yyyy-MM-dd"))
-            .Replace("{{time}}", now.ToString("HH:mm:ss"))
-            .Replace("{{counter}}", (++_sendCounter).ToString())
-            .Replace("{{ticks}}", now.Ticks.ToString());
-    }
+        => _variableExpander.Expand(input);
 
     private void SaveToFile(ObservableCollection<LogEntry> entries, string tag)
     {
