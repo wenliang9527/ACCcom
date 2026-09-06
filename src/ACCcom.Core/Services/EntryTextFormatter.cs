@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using ACCcom.Core.Models;
 
@@ -13,6 +14,7 @@ public static class EntryTextFormatter
     /// separate lines (an entry carrying both produces two lines).</summary>
     public static string Format(IEnumerable<LogEntry> entries, string direction)
     {
+        ArgumentNullException.ThrowIfNull(entries);
         var sb = new StringBuilder();
         Format(entries, direction, sb);
         return sb.ToString();
@@ -20,6 +22,9 @@ public static class EntryTextFormatter
 
     public static void Format(IEnumerable<LogEntry> entries, string direction, StringBuilder target)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(target);
+
         foreach (var entry in entries)
         {
             var hex = entry.RawHex ?? "";

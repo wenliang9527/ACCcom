@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -16,6 +17,14 @@ public class EntryTextFormatterTests
             Text = text,
             RawHex = hex
         };
+    }
+
+    [Fact]
+    public void Format_null_entries_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => EntryTextFormatter.Format(null!, "RX"));
+        Assert.Throws<ArgumentNullException>(() => EntryTextFormatter.Format(null!, "RX", new StringBuilder()));
+        Assert.Throws<ArgumentNullException>(() => EntryTextFormatter.Format(new[] { MakeEntry(1) }, "RX", null!));
     }
 
     [Fact]

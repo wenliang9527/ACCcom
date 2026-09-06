@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using ACCcom.Core.Models;
 
@@ -30,6 +31,9 @@ public class BookmarkManager
     /// </summary>
     public string RemoveBookmark(ObservableCollection<BookmarkItem> bookmarks, BookmarkItem bm)
     {
+        ArgumentNullException.ThrowIfNull(bookmarks);
+        ArgumentNullException.ThrowIfNull(bm);
+
         bookmarks.Remove(bm);
         return bm.Label;
     }

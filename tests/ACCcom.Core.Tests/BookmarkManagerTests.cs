@@ -24,6 +24,16 @@ public class BookmarkManagerTests
     }
 
     [Fact]
+    public void RemoveBookmark_null_arguments_throw()
+    {
+        var bookmarks = new ObservableCollection<BookmarkItem>();
+        var bm = new BookmarkItem { EntryId = 1, Label = "#1", Direction = "RX" };
+
+        Assert.Throws<ArgumentNullException>(() => _sut.RemoveBookmark(null!, bm));
+        Assert.Throws<ArgumentNullException>(() => _sut.RemoveBookmark(bookmarks, null!));
+    }
+
+    [Fact]
     public void AddBookmark_adds_item_returns_true()
     {
         // Arrange
