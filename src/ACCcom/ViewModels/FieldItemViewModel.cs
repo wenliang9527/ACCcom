@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using ACCcom.Core.Models;
+using ACCcom.Core.Services;
 
 namespace ACCcom.ViewModels;
 
@@ -51,32 +52,10 @@ public class FieldItemViewModel : ObservableObject
     public bool IsEnumOrBitfield => _type == "enum" || _type == "bitfield";
 
     public Dictionary<string, string>? ParseValues()
-    {
-        if (string.IsNullOrWhiteSpace(_valuesText))
-            return null;
-
-        var dict = new Dictionary<string, string>();
-        var pairs = _valuesText.Split(',');
-        foreach (var pair in pairs)
-        {
-            var parts = pair.Split('=');
-            if (parts.Length == 2)
-            {
-                var key = parts[0].Trim();
-                var value = parts[1].Trim();
-                if (!string.IsNullOrEmpty(key))
-                    dict[key] = value;
-            }
-        }
-        return dict.Count > 0 ? dict : null;
-    }
+        => FieldValueMap.Parse(_valuesText);
 
     public static string SerializeValues(Dictionary<string, string>? values)
-    {
-        if (values == null || values.Count == 0)
-            return "";
-        return string.Join(",", values.Select(kv => $"{kv.Key}={kv.Value}"));
-    }
+        => FieldValueMap.Serialize(values);
 
     public FieldSchema ToFieldSchema()
     {
