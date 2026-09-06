@@ -64,8 +64,10 @@ public class DataBufferService : IDisposable
         return list;
     }
 
-    public void AddEntry(LogEntry entry)
+    public void AddEntry(LogEntry? entry)
     {
+        if (entry == null) return;
+
         lock (_lock) { RingAdd(entry); }
 
         // Fast path: no active waiters, skip the waiter lock + scan entirely.

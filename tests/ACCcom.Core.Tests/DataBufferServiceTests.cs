@@ -277,4 +277,30 @@ public class DataBufferServiceTests
         Assert.NotNull(result);
         Assert.Equal(1, result!.Id);
     }
+
+    [Fact]
+    public void AddEntry_null_is_noop()
+    {
+        var sut = new DataBufferService();
+
+        sut.AddEntry(null);
+
+        Assert.Equal(0, sut.Count());
+        Assert.Empty(sut.GetEntriesSince(0));
+    }
+
+    [Fact]
+    public async Task AddEntry_null_does_not_break_waiters()
+    {
+        var sut = new DataBufferService();
+        var wait = sut.WaitForMatchAsync("target", timeoutMs: 2000);
+
+        // A null entry must not NRE in the waiter scan or match anything.
+        sut.AddEntry(null);
+        sut.AddEntry(MakeEntry(1, text: "target"));
+
+        var result = await wait;
+        Assert.NotNull(result);
+        Assert.Equal(1, result!.Id);
+    }
 }

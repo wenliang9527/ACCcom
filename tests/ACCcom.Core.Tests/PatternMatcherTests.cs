@@ -65,4 +65,18 @@ public class PatternMatcherTests
     {
         Assert.False(PatternMatcher.TryRegexMatch("test", "[invalid"));
     }
+
+    [Fact]
+    public void Matches_null_entry_returns_false()
+    {
+        Assert.False(PatternMatcher.Matches(null, "pattern", "contains", matchHex: false));
+        Assert.False(PatternMatcher.Matches(null, "pattern", "exact", matchHex: false));
+        Assert.False(PatternMatcher.Matches(null, "pattern", "regex", matchHex: false));
+    }
+
+    [Fact]
+    public void Matches_null_entry_with_direction_returns_false()
+    {
+        Assert.False(PatternMatcher.Matches(null, "pattern", "contains", matchHex: false, direction: "RX"));
+    }
 }

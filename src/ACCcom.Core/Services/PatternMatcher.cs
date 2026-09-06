@@ -18,8 +18,9 @@ public static class PatternMatcher
     /// <summary>
     /// 检查日志条目是否匹配指定模式
     /// </summary>
-    public static bool Matches(LogEntry entry, string pattern, string matchMode, bool matchHex, string? direction = null)
+    public static bool Matches(LogEntry? entry, string pattern, string matchMode, bool matchHex, string? direction = null)
     {
+        if (entry == null) return false;
         if (!string.IsNullOrEmpty(direction) &&
             !string.Equals(entry.Direction, direction, StringComparison.OrdinalIgnoreCase))
             return false;
