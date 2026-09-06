@@ -265,7 +265,10 @@ public class ModbusViewModel : ObservableObject, IDisposable
     {
         if (_isPolling) return;
         StopPoll();
-        _pollTimer = new System.Timers.Timer(PollIntervalMs > 0 ? PollIntervalMs : 1000);
+        // Clamp to a positive interval; the status text must reflect the
+        // interval actually used, not a raw 0/negative input.
+        var effectiveInterval = PollIntervalMs > 0 ? PollIntervalMs : 1000;
+        _pollTimer = new System.Timers.Timer(effectiveInterval);
         _pollTimer.Elapsed += (_, _) =>
         {
             var app = Application.Current;
@@ -274,7 +277,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
         _pollTimer.Start();
         _isPolling = true;
         OnPropertyChanged(nameof(IsPolling));
-        StatusText = $"Polling every {PollIntervalMs}ms";
+        StatusText = $"Polling every {effectiveInterval}ms";
     }
 
     private void StopPoll()
