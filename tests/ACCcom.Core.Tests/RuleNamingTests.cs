@@ -33,4 +33,25 @@ public class RuleNamingTests
         var existing = new List<string> { "Other", "Rule_1" };
         Assert.Equal("Rule_2", RuleNaming.NextName(existing));
     }
+
+    [Fact]
+    public void NextName_WithPrefix_StartsAtOne()
+    {
+        Assert.Equal("Step 1", RuleNaming.NextName(new List<string>(), "Step "));
+        Assert.Equal("field1", RuleNaming.NextName(new List<string>(), "field"));
+    }
+
+    [Fact]
+    public void NextName_WithPrefix_SkipsTakenNumbers()
+    {
+        var existing = new List<string> { "Step 1", "Step 2", "Step 5" };
+        Assert.Equal("Step 3", RuleNaming.NextName(existing, "Step "));
+    }
+
+    [Fact]
+    public void NextName_WithPrefix_IgnoresOtherPrefixedNames()
+    {
+        var existing = new List<string> { "Step 1", "field1", "Rule_1" };
+        Assert.Equal("field2", RuleNaming.NextName(existing, "field"));
+    }
 }

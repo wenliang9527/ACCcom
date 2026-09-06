@@ -120,7 +120,7 @@ public class SchemaEditorViewModel : ObservableObject
     {
         var field = new FieldItemViewModel
         {
-            Name = $"field{Fields.Count + 1}",
+            Name = RuleNaming.NextName(Fields.Select(f => f.Name), "field"),
             Offset = Fields.Count > 0 ? Fields.Max(f => f.Offset + f.Length) : 0,
             Length = 1,
             Type = "uint8"

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -87,7 +88,7 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
     {
         var step = new TestStep
         {
-            Name = $"Step {Steps.Count + 1}",
+            Name = RuleNaming.NextName(Steps.Select(s => s.Name), "Step "),
             Command = "",
             ExpectedPattern = null
         };
