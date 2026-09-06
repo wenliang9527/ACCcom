@@ -333,4 +333,50 @@ public class HexHelperTests
         Assert.False(ok);
         Assert.Empty(bytes);
     }
+
+    // ========== FormatHexSpaced ==========
+
+    [Fact]
+    public void FormatHexSpaced_compact_hex_gets_spaced()
+    {
+        Assert.Equal("AA BB CC", HexHelper.FormatHexSpaced("AABBCC"));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_already_spaced_is_unchanged()
+    {
+        Assert.Equal("AA BB CC", HexHelper.FormatHexSpaced("AA BB CC"));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_tabs_and_newlines_normalized()
+    {
+        Assert.Equal("AA BB CC", HexHelper.FormatHexSpaced("AA\tBB\nCC"));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_mixed_case_preserved()
+    {
+        Assert.Equal("aA bB cC", HexHelper.FormatHexSpaced("aAbBcC"));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_odd_digit_count_drops_trailing_nibble()
+    {
+        Assert.Equal("AA BB", HexHelper.FormatHexSpaced("AABBC"));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_empty_or_whitespace_returns_empty()
+    {
+        Assert.Equal("", HexHelper.FormatHexSpaced(""));
+        Assert.Equal("", HexHelper.FormatHexSpaced("   "));
+        Assert.Equal("", HexHelper.FormatHexSpaced(null));
+    }
+
+    [Fact]
+    public void FormatHexSpaced_non_hex_skipped()
+    {
+        Assert.Equal("AA BB", HexHelper.FormatHexSpaced("A A Z B B"));
+    }
 }

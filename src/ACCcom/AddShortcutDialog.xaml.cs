@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Windows;
+using ACCcom.Core.Models;
 using ACCcom.Helpers;
 
 namespace ACCcom;
@@ -55,7 +56,7 @@ public partial class AddShortcutDialog : Window
         {
             _updating = true;
             var caret = CommandBox.CaretIndex;
-            var formatted = FormatHexWithSpaces(raw);
+            var formatted = HexHelper.FormatHexSpaced(raw);
             if (formatted != text)
             {
                 CommandBox.Text = formatted;
@@ -90,7 +91,7 @@ public partial class AddShortcutDialog : Window
                 if (HexPattern.IsMatch(raw) && raw.Length % 2 == 0)
                 {
                     _updating = true;
-                    CommandBox.Text = FormatHexWithSpaces(raw);
+                    CommandBox.Text = HexHelper.FormatHexSpaced(raw);
                     _updating = false;
                 }
             }
@@ -120,22 +121,5 @@ public partial class AddShortcutDialog : Window
     private void TitleBarClose_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
-    }
-
-    private static string FormatHexWithSpaces(string raw)
-    {
-        if (raw.Length == 0) return "";
-        int len = raw.Length / 2;
-        return string.Create(raw.Length + len - 1, (raw, len), static (span, state) =>
-        {
-            var (r, _) = state;
-            int si = 0;
-            for (int i = 0; i < state.len; i++)
-            {
-                if (i > 0) span[si++] = ' ';
-                span[si++] = r[i * 2];
-                span[si++] = r[i * 2 + 1];
-            }
-        });
     }
 }

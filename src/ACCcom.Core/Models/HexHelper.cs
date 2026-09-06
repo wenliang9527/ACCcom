@@ -149,6 +149,40 @@ public static class HexHelper
     private static bool IsHexDigit(char c) =>
         (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
 
+    /// <summary>
+    /// Normalizes a user-typed hex string ("AABBCC", "AA BB CC", or mixed
+    /// whitespace incl. tabs/newlines) into space-separated bytes ("AA BB CC"),
+    /// preserving digit case. Returns "" for empty/whitespace input or when the
+    /// digit count is odd (the trailing nibble is dropped, matching the lenient
+    /// parser). Any non-hex characters are skipped.
+    /// </summary>
+    public static string FormatHexSpaced(string? hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return "";
+        int digits = 0;
+        foreach (var c in hex.AsSpan())
+            if (c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')
+                digits++;
+        if (digits == 0) return "";
+        var byteCount = digits / 2;
+        if (byteCount == 0) return ""; // single trailing digit: nothing to format
+        return string.Create(byteCount * 3 - 1, (hex, byteCount), static (span, state) =>
+        {
+            var (source, count) = state;
+            int si = 0, di = 0;
+            foreach (var c in source.AsSpan())
+            {
+                if (c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')
+                {
+                    if (di > 0 && di % 2 == 0) span[si++] = ' ';
+                    span[si++] = c;
+                    di++;
+                    if (di == count * 2) break;
+                }
+            }
+        });
+    }
+
     public static string BytesToHexSpaced(byte[] bytes, int offset, int count)
     {
         if (count == 0) return string.Empty;
