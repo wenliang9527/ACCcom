@@ -63,6 +63,20 @@ public class ModbusMergingTests
     }
 
     [Fact]
+    public void MergeRanges_MaxTotalCount_SplitsIntoExpectedChunks()
+    {
+        // The full ushort address space (65535 addresses) with the standard
+        // 125-per-request limit: 65535 / 125 = 524 full chunks + 35 remainder.
+        var ranges = ModbusUtils.MergeRanges(0, 65535, 125);
+
+        Assert.Equal(525, ranges.Count);
+        Assert.All(ranges.Take(524), r => Assert.Equal((ushort)125, r.count));
+        Assert.Equal((ushort)35, ranges[^1].count);
+        // The last chunk starts exactly where the previous 524 chunks ended.
+        Assert.Equal((ushort)(524 * 125), ranges[^1].start);
+    }
+
+    [Fact]
     public void MergeRanges_NearAddressLimit_StaysWithinUshort()
     {
         // startAddr 0xFFFE with count 2 covers 0xFFFE/0xFFFF — a single range,
