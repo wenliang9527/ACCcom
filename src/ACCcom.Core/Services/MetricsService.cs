@@ -36,8 +36,10 @@ public sealed class MetricsCollector
 
     // ── Counter 操作 ──
 
-    public void IncrementCounter(string name, long value = 1)
+    public void IncrementCounter(string? name, long value = 1)
     {
+        if (string.IsNullOrEmpty(name)) return;
+
         switch (name)
         {
             case "acccom_serial_bytes_received_total": Interlocked.Add(ref _bytesReceived, value); return;
@@ -52,8 +54,10 @@ public sealed class MetricsCollector
         _counters.AddOrUpdate(name, value, (_, old) => old + value);
     }
 
-    public long GetCounter(string name)
+    public long GetCounter(string? name)
     {
+        if (string.IsNullOrEmpty(name)) return 0;
+
         switch (name)
         {
             case "acccom_serial_bytes_received_total": return Interlocked.Read(ref _bytesReceived);
@@ -68,21 +72,24 @@ public sealed class MetricsCollector
         return _counters.GetValueOrDefault(name, 0);
     }
 
-    public void SetGauge(string name, double value)
+    public void SetGauge(string? name, double value)
     {
+        if (string.IsNullOrEmpty(name)) return;
         _gauges[name] = value;
     }
 
-    public double GetGauge(string name)
+    public double GetGauge(string? name)
     {
+        if (string.IsNullOrEmpty(name)) return 0;
         if (name == "acccom_buffer_usage_ratio") return Volatile.Read(ref _bufferUsage);
         return _gauges.GetValueOrDefault(name, 0);
     }
 
     // ── Histogram 操作 ──
 
-    public void RecordHistogram(string name, double value)
+    public void RecordHistogram(string? name, double value)
     {
+        if (string.IsNullOrEmpty(name)) return;
         var histogram = _histograms.GetOrAdd(name, _ => new Histogram());
         histogram.Record(value);
     }

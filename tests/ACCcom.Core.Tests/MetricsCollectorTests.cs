@@ -102,4 +102,27 @@ public class MetricsCollectorTests
         Assert.Contains("# TYPE acccom_buffer_usage_ratio gauge", output);
         Assert.Contains("acccom_buffer_usage_ratio ", output);
     }
+
+    [Fact]
+    public void NullOrEmptyName_IsIgnoredWithoutThrowing()
+    {
+        // A null/empty metric name must not throw (dictionary key lookup would
+        // otherwise ArgumentNullException) — metric collection should never be
+        // taken down by a bad name.
+        Assert.Equal(0, Metrics.GetCounter(null));
+        Assert.Equal(0, Metrics.GetCounter(""));
+        Assert.Equal(0, Metrics.GetGauge(null));
+        Assert.Equal(0, Metrics.GetGauge(""));
+
+        var exception = Record.Exception(() =>
+        {
+            Metrics.IncrementCounter(null);
+            Metrics.SetGauge(null, 1.0);
+            Metrics.RecordHistogram(null, 5);
+        });
+
+        Assert.Null(exception);
+        // Nothing was recorded for the null names.
+        Assert.Equal(0, Metrics.GetCounter("acccom_test_null_never_written"));
+    }
 }
