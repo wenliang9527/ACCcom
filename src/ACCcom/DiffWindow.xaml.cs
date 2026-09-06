@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using ACCcom.Core.Models;
+using ACCcom.Core.Services;
 using ACCcom.Helpers;
 
 namespace ACCcom;
@@ -43,37 +45,27 @@ public partial class DiffWindow : Window
             return;
         }
 
-        // Strip spaces and validate hex
-        var cleanA = rawA.Replace(" ", "").Replace("\r", "").Replace("\n", "");
-        var cleanB = rawB.Replace(" ", "").Replace("\r", "").Replace("\n", "");
-
-        byte[] bytesA, bytesB;
-        try
-        {
-            bytesA = Convert.FromHexString(cleanA);
-        }
-        catch (FormatException)
+        // Strip spaces and validate hex (HexHelper also accepts tabs/newlines
+        // and rejects odd digit counts / invalid chars, matching the send box).
+        if (!HexHelper.TryHexStringToBytes(rawA, out var bytesA))
         {
             SummaryText.Text = LanguageManager.Instance["DiffWindow.InvalidHexA"];
             return;
         }
 
-        try
-        {
-            bytesB = Convert.FromHexString(cleanB);
-        }
-        catch (FormatException)
+        if (!HexHelper.TryHexStringToBytes(rawB, out var bytesB))
         {
             SummaryText.Text = LanguageManager.Instance["DiffWindow.InvalidHexB"];
             return;
         }
 
+        // Positional byte comparison (classification + diff count) in Core.
+        var (states, diffCount) = ByteDiff.Compare(bytesA, bytesB);
+        int maxLen = states.Length;
+
         // Build inline hex display with highlighting
         DiffTextA.Inlines.Clear();
         DiffTextB.Inlines.Clear();
-
-        int maxLen = Math.Max(bytesA.Length, bytesB.Length);
-        int diffCount = 0;
 
         var dimFg = (SolidColorBrush)FindResource("InkTertiaryBrush");
 
@@ -88,9 +80,7 @@ public partial class DiffWindow : Window
 
             bool hasA = i < bytesA.Length;
             bool hasB = i < bytesB.Length;
-            bool same = hasA && hasB && bytesA[i] == bytesB[i];
-
-            if (!same) diffCount++;
+            bool same = states[i] == ByteDiff.ByteState.Match;
 
             // Frame A byte
             if (hasA)
