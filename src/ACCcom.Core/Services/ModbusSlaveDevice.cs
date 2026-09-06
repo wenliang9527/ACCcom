@@ -39,8 +39,13 @@ public class ModbusSlaveDevice
     public ushort GetHoldingRegister(ushort addr) { lock (_lock) { return addr < _holdingRegisters.Length ? _holdingRegisters[addr] : (ushort)0; } }
     public ushort GetInputRegister(ushort addr) { lock (_lock) { return addr < _inputRegisters.Length ? _inputRegisters[addr] : (ushort)0; } }
 
-    public byte[] HandleRequest(byte functionCode, byte[] pdu)
+    public byte[] HandleRequest(byte functionCode, byte[]? pdu)
     {
+        // A null PDU is an illegal-data condition, not a crash: the existing
+        // IndexOutOfRangeException catch handles empty/short PDUs, and null
+        // would otherwise NRE past it (NRE is not an IndexOutOfRangeException).
+        if (pdu == null) return ErrorResponse(functionCode, 0x02);
+
         lock (_lock)
         {
             try

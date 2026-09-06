@@ -149,6 +149,18 @@ public class ModbusSlaveDeviceTests
         var resp = device.HandleRequest(0x01, [0x00, 0x00, 0x07, 0xD0]);
         Assert.Equal(0x81, resp[0]); Assert.Equal(0x03, resp[1]);
     }
+
+    [Fact]
+    public void HandleRequest_NullPdu_ReturnsIllegalDataValue()
+    {
+        var device = CreateDevice();
+
+        var resp = device.HandleRequest(0x03, null);
+
+        // Exception frame: func | 0x80, exception code 0x02 (illegal data).
+        Assert.Equal(0x83, resp[0]);
+        Assert.Equal(0x02, resp[1]);
+    }
 }
 
 public class ModbusSlaveTransportTests
