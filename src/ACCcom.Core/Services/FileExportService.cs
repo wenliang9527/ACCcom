@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using ACCcom.Core.Models;
 
@@ -14,6 +15,9 @@ public class FileExportService
     /// </summary>
     public void ExportToText(IEnumerable<LogEntry> entries, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var text = string.Join(Environment.NewLine,
             entries.Select(e =>
             {
@@ -29,6 +33,9 @@ public class FileExportService
     /// </summary>
     public void ExportToJson(IEnumerable<LogEntry> entries, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var data = entries.Select(e => new
         {
             timestamp = e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff"),
@@ -55,6 +62,9 @@ public class FileExportService
     /// </summary>
     public static void ExportToCsv(IEnumerable<LogEntry> entries, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var lines = new List<string> { "Timestamp,Direction,RawHex,Text,ParsedFields" };
         foreach (var e in entries)
         {
@@ -102,6 +112,8 @@ public class FileExportService
     /// </summary>
     public (List<LogEntry> rxEntries, List<LogEntry> txEntries, int parsed, int skipped) ReplayFromFile(string filePath, int startId)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var rxEntries = new List<LogEntry>();
         var txEntries = new List<LogEntry>();
         var lines = File.ReadAllLines(filePath);

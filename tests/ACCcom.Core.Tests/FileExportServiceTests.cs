@@ -43,6 +43,36 @@ public class FileExportServiceTests : IDisposable
     }
 
     [Fact]
+    public void ExportToText_null_arguments_throw()
+    {
+        var path = NewTempPath(".txt");
+        Assert.Throws<ArgumentNullException>(() => _sut.ExportToText(null!, path));
+        Assert.Throws<ArgumentNullException>(() => _sut.ExportToText(new List<LogEntry>(), null!));
+    }
+
+    [Fact]
+    public void ExportToJson_null_arguments_throw()
+    {
+        var path = NewTempPath(".json");
+        Assert.Throws<ArgumentNullException>(() => _sut.ExportToJson(null!, path));
+        Assert.Throws<ArgumentNullException>(() => _sut.ExportToJson(new List<LogEntry>(), null!));
+    }
+
+    [Fact]
+    public void ExportToCsv_null_arguments_throw()
+    {
+        var path = NewTempPath(".csv");
+        Assert.Throws<ArgumentNullException>(() => FileExportService.ExportToCsv(null!, path));
+        Assert.Throws<ArgumentNullException>(() => FileExportService.ExportToCsv(new List<LogEntry>(), null!));
+    }
+
+    [Fact]
+    public void ReplayFromFile_null_path_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _sut.ReplayFromFile(null!, startId: 1));
+    }
+
+    [Fact]
     public void ExportToText_writes_correct_format()
     {
         // Arrange
