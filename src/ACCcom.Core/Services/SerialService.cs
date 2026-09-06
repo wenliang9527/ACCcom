@@ -125,8 +125,14 @@ public class SerialService : ISerialService, IDisposable
         }
     }
 
-    public bool Send(string data, bool isHex = false)
+    public bool Send(string? data, bool isHex = false)
     {
+        // Reject null/empty up front: the hex/utf8 conversion would throw
+        // inside the retry loop and burn a full 500ms retry delay before
+        // reporting a misleading failure.
+        if (string.IsNullOrEmpty(data))
+            return false;
+
         if (_port?.IsOpen != true)
         {
             OnError?.Invoke("[SerialService] Send failed: serial port not open");

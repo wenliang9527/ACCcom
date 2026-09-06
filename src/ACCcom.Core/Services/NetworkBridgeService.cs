@@ -87,8 +87,14 @@ public class NetworkBridgeService : IDisposable
         }
     }
 
-    public bool Send(string data, bool isHex)
+    public bool Send(string? data, bool isHex)
     {
+        // Reject null/empty up front: otherwise the hex/utf8 conversion throws
+        // inside the try, which would report a send failure and tear down the
+        // connection (HandleDisconnect) for an input that was never sendable.
+        if (string.IsNullOrEmpty(data))
+            return false;
+
         if (!IsConnected)
         {
             OnError?.Invoke("Network not connected");

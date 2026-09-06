@@ -58,4 +58,19 @@ public class SerialServiceReconnectTests
             prev = delay;
         }
     }
+
+    [Fact]
+    public void Send_null_or_empty_returns_false_without_port_error()
+    {
+        using var serial = new SerialService();
+        var errorRaised = false;
+        serial.OnError += _ => errorRaised = true;
+
+        // The null/empty guard fires before the "port not open" path, so no
+        // error event and no 500ms retry loop for an unsendable input.
+        Assert.False(serial.Send(null));
+        Assert.False(serial.Send(""));
+
+        Assert.False(errorRaised);
+    }
 }

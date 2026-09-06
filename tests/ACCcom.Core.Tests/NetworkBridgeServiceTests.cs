@@ -253,4 +253,35 @@ public class NetworkBridgeServiceTests
         Assert.False(service.Send("after-close", isHex: false));
         Assert.True(errorRaised);
     }
+
+    [Fact]
+    public void Send_null_or_empty_returns_false_without_error()
+    {
+        using var service = new NetworkBridgeService();
+        var errorRaised = false;
+        service.OnError += _ => errorRaised = true;
+
+        Assert.False(service.Send(null, isHex: false));
+        Assert.False(service.Send("", isHex: false));
+        // The null/empty guard fires before the "not connected" path, so no
+        // error event is raised for an input that was never sendable.
+        Assert.False(errorRaised);
+    }
+
+    [Fact]
+    public async Task Send_null_while_connected_does_not_disconnect()
+    {
+        using var server = new EchoTcpServer();
+        using var service = new NetworkBridgeService();
+        Assert.True(await service.ConnectTcp("127.0.0.1", server.Port));
+
+        var errorRaised = false;
+        service.OnError += _ => errorRaised = true;
+
+        // null must be rejected without tearing the connection down (the old
+        // behavior threw inside the try and triggered HandleDisconnect).
+        Assert.False(service.Send(null, isHex: false));
+        Assert.True(service.IsConnected, "Connection must survive an invalid send input");
+        Assert.False(errorRaised);
+    }
 }
