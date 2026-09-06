@@ -6,15 +6,6 @@ using ACCcom.Core.Services;
 
 namespace ACCcom.ViewModels;
 
-public class RegisterItem
-{
-    public ushort Address { get; set; }
-    public ushort Value { get; set; }
-    public string Hex => $"0x{Value:X4}";
-    public ushort Dec => Value;
-    public string Binary => Convert.ToString(Value, 2).PadLeft(16, '0');
-}
-
 /// <summary>Display row for a device found by the slave scanner (record kept
 /// simple so it binds directly in the ListView).</summary>
 public class ScanResultItem
@@ -207,13 +198,8 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     private static void AppendRegisters(ObservableCollection<RegisterItem> registers, byte[] data, ushort baseAddr)
     {
-        if (data.Length < 2) return;
-        for (int i = 0; i + 1 < data.Length; i += 2)
-        {
-            var addr = (ushort)(baseAddr + (i / 2));
-            var value = (ushort)((data[i] << 8) | data[i + 1]);
-            registers.Add(new RegisterItem { Address = addr, Value = value });
-        }
+        foreach (var item in ModbusRegisterDecoder.Decode(data, baseAddr))
+            registers.Add(item);
     }
 
     public async Task ReadAsync()

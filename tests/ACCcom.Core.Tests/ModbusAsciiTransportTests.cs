@@ -91,18 +91,16 @@ public class ModbusAsciiTransportTests
 
         var requestPdu = new byte[] { 0x00, 0x00, 0x00, 0x0A };
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            var respAdu = new byte[] { 0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x64 };
-            var respLrc = Lrc(respAdu);
-            var respFull = new byte[respAdu.Length + 1];
-            Array.Copy(respAdu, respFull, respAdu.Length);
-            respFull[^1] = respLrc;
-            serial.InjectRxData(AsciiFrameHex(respFull));
-        });
-
-        var result = await transport.SendReceiveAsync(0x01, 0x03, requestPdu, 1000);
+        // Start the request first (it sends the frame synchronously before
+        // awaiting), then inject the response — no Task.Delay scheduling race.
+        var request = transport.SendReceiveAsync(0x01, 0x03, requestPdu, 1000);
+        var respAdu = new byte[] { 0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x64 };
+        var respLrc = Lrc(respAdu);
+        var respFull = new byte[respAdu.Length + 1];
+        Array.Copy(respAdu, respFull, respAdu.Length);
+        respFull[^1] = respLrc;
+        serial.InjectRxData(AsciiFrameHex(respFull));
+        var result = await request;
 
         Assert.Equal(new byte[] { 0x01, 0x03, 0x04, 0x00, 0x0A, 0x00, 0x64 }, result);
     }
@@ -114,19 +112,15 @@ public class ModbusAsciiTransportTests
         using var transport = new ModbusAsciiTransport(serial);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            var respAdu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
-            var wrongLrc = (byte)(Lrc(respAdu) ^ 0xFF);
-            var respFull = new byte[respAdu.Length + 1];
-            Array.Copy(respAdu, respFull, respAdu.Length);
-            respFull[^1] = wrongLrc;
-            serial.InjectRxData(AsciiFrameHex(respFull));
-        });
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        var respAdu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
+        var wrongLrc = (byte)(Lrc(respAdu) ^ 0xFF);
+        var respFull = new byte[respAdu.Length + 1];
+        Array.Copy(respAdu, respFull, respAdu.Length);
+        respFull[^1] = wrongLrc;
+        serial.InjectRxData(AsciiFrameHex(respFull));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await request);
         Assert.Contains("LRC", ex.Message);
     }
 
@@ -148,18 +142,14 @@ public class ModbusAsciiTransportTests
         using var transport = new ModbusAsciiTransport(serial);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            var respAdu = new byte[] { 0x01, 0x83, 0x02 };
-            var respLrc = Lrc(respAdu);
-            var respFull = new byte[respAdu.Length + 1];
-            Array.Copy(respAdu, respFull, respAdu.Length);
-            respFull[^1] = respLrc;
-            serial.InjectRxData(AsciiFrameHex(respFull));
-        });
-
-        var result = await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        var respAdu = new byte[] { 0x01, 0x83, 0x02 };
+        var respLrc = Lrc(respAdu);
+        var respFull = new byte[respAdu.Length + 1];
+        Array.Copy(respAdu, respFull, respAdu.Length);
+        respFull[^1] = respLrc;
+        serial.InjectRxData(AsciiFrameHex(respFull));
+        var result = await request;
 
         Assert.Equal(0x01, result[0]);
         Assert.Equal(0x83, result[1]);
@@ -185,15 +175,15 @@ public class ModbusAsciiTransportTests
         var part1 = BitConverter.ToString(asciiBytes, 0, half).Replace("-", " ");
         var part2 = BitConverter.ToString(asciiBytes, half).Replace("-", " ");
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(50);
-            serial.InjectRxData(part1);
-            await Task.Delay(10);
-            serial.InjectRxData(part2);
-        });
+        // Start the request first, inject the first fragment immediately, then
+        // the second after a short gap (the fragmentation is the point of the
+        // test; the 10ms gap is functional, the pre-request delay was the race).
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        serial.InjectRxData(part1);
+        await Task.Delay(10);
+        serial.InjectRxData(part2);
 
-        var result = await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        var result = await request;
 
         Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, result);
     }
