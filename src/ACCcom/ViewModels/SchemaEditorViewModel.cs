@@ -58,8 +58,8 @@ public class SchemaEditorViewModel : ObservableObject
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static string[] ChecksumTypes { get; } = { "none", "xor8", "sum8", "crc16" };
-    public static string[] FieldTypes { get; } = { "uint8", "uint16", "uint32", "int8", "int16", "int32", "float", "double", "string", "hex", "bcd", "enum", "bitfield" };
+    public static string[] ChecksumTypes => FieldTypeCatalog.ChecksumTypes;
+    public static string[] FieldTypes => FieldTypeCatalog.FieldTypes;
 
     public SchemaEditorViewModel(ParserManager parserManager)
     {

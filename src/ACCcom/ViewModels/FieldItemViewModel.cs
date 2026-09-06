@@ -7,15 +7,6 @@ namespace ACCcom.ViewModels;
 
 public class FieldItemViewModel : ObservableObject
 {
-    private static readonly Dictionary<string, int> TypeLengthMap = new()
-    {
-        ["uint8"] = 1, ["int8"] = 1, ["bcd"] = 1,
-        ["uint16"] = 2, ["int16"] = 2,
-        ["uint32"] = 4, ["int32"] = 4, ["float"] = 4,
-        ["double"] = 8,
-        ["hex"] = 1, ["string"] = 1, ["enum"] = 1, ["bitfield"] = 1
-    };
-
     private string _name = "";
     private int _offset;
     private int _length = 1;
@@ -37,7 +28,7 @@ public class FieldItemViewModel : ObservableObject
         {
             if (SetField(ref _type, value))
             {
-                if (TypeLengthMap.TryGetValue(value, out var len))
+                if (FieldTypeCatalog.GetFixedLength(value) is { } len)
                     Length = len;
                 OnPropertyChanged(nameof(IsEnumOrBitfield));
             }
