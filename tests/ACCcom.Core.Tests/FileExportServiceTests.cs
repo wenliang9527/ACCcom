@@ -111,6 +111,50 @@ public class FileExportServiceTests : IDisposable
     }
 
     [Fact]
+    public void ExportToCsv_all_fields_quoted_protects_commas_and_newlines()
+    {
+        // Arrange — a text value containing both a comma and a newline would
+        // break an unquoted CSV row; the exporter wraps every field in quotes,
+        // so the value must survive as a single logical cell.
+        var entry = MakeEntry(1, text: "line1,part\nline2");
+        var entries = new List<LogEntry> { entry };
+        var path = NewTempPath(".csv");
+
+        // Act
+        FileExportService.ExportToCsv(entries, path);
+        var content = File.ReadAllText(path);
+
+        // Assert — the embedded newline stays inside the quoted field: the
+        // first line is the header and the value appears as one quoted cell
+        // (line1,part\nline2) rather than splitting into phantom rows.
+        var headerEnd = content.IndexOf(Environment.NewLine);
+        var header = content[..headerEnd];
+        Assert.Contains("Timestamp", header);
+        Assert.Contains("\"line1,part\nline2\"", content);
+    }
+
+    [Fact]
+    public void ExportToCsv_null_text_and_hex_become_empty_cells()
+    {
+        // Arrange — entries may carry null text/hex; every field stays quoted.
+        var entry = MakeEntry(1);
+        entry.Text = null!;
+        entry.RawHex = null!;
+        var entries = new List<LogEntry> { entry };
+        var path = NewTempPath(".csv");
+
+        // Act
+        FileExportService.ExportToCsv(entries, path);
+        var lines = File.ReadAllLines(path);
+
+        // Assert — the row has exactly 5 cells, all quoted.
+        var cells = lines[1].Split(',');
+        Assert.Equal(5, cells.Length);
+        Assert.All(cells, c => Assert.StartsWith("\"", c));
+        Assert.Contains("\"\"", lines[1]); // empty quoted cell(s)
+    }
+
+    [Fact]
     public void ReplayFromFile_parses_valid_entries()
     {
         // Arrange
