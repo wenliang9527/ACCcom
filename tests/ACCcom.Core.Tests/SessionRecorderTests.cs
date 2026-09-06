@@ -115,6 +115,35 @@ public class SessionRecorderTests : IDisposable
     }
 
     [Fact]
+    public void Record_null_while_recording_is_noop()
+    {
+        // Arrange
+        var path = NewTempFile();
+        using var recorder = new SessionRecorder();
+        recorder.StartRecording(path);
+        var entry = new LogEntry { Timestamp = DateTime.UtcNow, Direction = "RX", Text = "data" };
+
+        // Act — a null entry must not be enqueued (it would NRE in the drain
+        // loop and silently lose the record).
+        recorder.Record(null);
+        recorder.Record(entry);
+
+        // Assert — only the real entry counted; nothing was written for null.
+        Assert.Equal(1, recorder.RecordedCount);
+        recorder.StopRecording();
+    }
+
+    [Fact]
+    public void Record_null_while_not_recording_does_not_throw()
+    {
+        using var recorder = new SessionRecorder();
+
+        var exception = Record.Exception(() => recorder.Record(null));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void StartRecordStop_RoundTrip_ReadsBackEntries()
     {
         // Arrange

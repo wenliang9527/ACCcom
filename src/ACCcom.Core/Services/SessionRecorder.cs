@@ -85,11 +85,14 @@ public class SessionRecorder : BufferedFileWriter
         return true;
     }
 
-    public void Record(LogEntry entry)
+    public void Record(LogEntry? entry)
     {
         // Fast path: recording is off (the common case on the UI flush loop
         // that calls this per entry) — return without taking the lock.
         if (!_isRecording) return;
+        // A null entry would otherwise be enqueued and NRE inside the drain
+        // loop (swallowed, silently losing the record) — drop it up front.
+        if (entry == null) return;
 
         // Enqueue only; serialization + disk I/O happen on the drain task so a
         // fast RX feed cannot stall the UI-thread flush loop.
