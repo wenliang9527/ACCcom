@@ -51,6 +51,29 @@ public class MacroManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_null_macro_throws()
+    {
+        using var manager = new MacroManager();
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            manager.RunAsync(null!, (_, _) => { }, s => s, _ => { }));
+    }
+
+    [Fact]
+    public async Task RunAsync_null_delegates_throw()
+    {
+        using var manager = new MacroManager();
+        var macro = new MacroTemplate { Name = "M", Steps = new List<MacroStep>(), RepeatCount = 1 };
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            manager.RunAsync(macro, null!, s => s, _ => { }));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            manager.RunAsync(macro, (_, _) => { }, null!, _ => { }));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            manager.RunAsync(macro, (_, _) => { }, s => s, null!));
+    }
+
+    [Fact]
     public async Task RunAsync_Cancellation_ReturnsFalse()
     {
         // Arrange

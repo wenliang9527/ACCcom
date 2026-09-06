@@ -18,6 +18,11 @@ public class MacroManager : JsonFilePersistenceManager<MacroTemplate>, IDisposab
         Action<string> updateStatus,
         Func<string, string?>? findResponse = null)
     {
+        ArgumentNullException.ThrowIfNull(macro);
+        ArgumentNullException.ThrowIfNull(send);
+        ArgumentNullException.ThrowIfNull(expandVariables);
+        ArgumentNullException.ThrowIfNull(updateStatus);
+
         var oldCts = _cts;
         _cts = new CancellationTokenSource();
         oldCts?.Dispose();

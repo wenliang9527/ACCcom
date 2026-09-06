@@ -153,6 +153,21 @@ public class ModbusSlaveDeviceTests
 
 public class ModbusSlaveTransportTests
 {
+    /// <summary>Polls <paramref name="get"/> until <paramref name="predicate"/>
+    /// holds or a generous timeout elapses. Replaces fixed Task.Delay waits that
+    /// flake under parallel load when the async chain runs slower than expected.</summary>
+    private static async Task<T> WaitForAsync<T>(Func<T> get, Func<T, bool> predicate, int timeoutMs = 3000)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            var value = get();
+            if (predicate(value)) return value;
+            await Task.Delay(20);
+        }
+        return get();
+    }
+
     [Fact]
     public async Task RtuTransport_ReceivesRequest_SendsResponse()
     {
@@ -164,8 +179,10 @@ public class ModbusSlaveTransportTests
         transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
         transport.Start();
         serial.InjectRxData("01 03 00 00 00 01 84 0A");
-        await Task.Delay(300);
-        var sent = serial.GetSentData();
+
+        // Condition-based wait for the async response chain instead of a fixed
+        // delay (a loaded CI machine could exceed 300ms and see no response yet).
+        var sent = await WaitForAsync(() => serial.GetSentData(), d => d.Count > 0);
         Assert.Single(sent);
         Assert.StartsWith("0103021234", sent[0].RawHex.Replace(" ", ""));
     }
@@ -180,6 +197,9 @@ public class ModbusSlaveTransportTests
         transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
         transport.Start();
         serial.InjectRxData("02 03 00 00 00 01 84 0A");
+
+        // Give the transport a bounded window to (not) respond, then assert
+        // nothing was sent. The window is generous; the assertion is the point.
         await Task.Delay(300);
         Assert.Empty(serial.GetSentData());
     }
@@ -194,6 +214,8 @@ public class ModbusSlaveTransportTests
         transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
         transport.Start();
         serial.InjectRxData("01 03 00 00 00 01 00 00");
+
+        // Same bounded window: an invalid CRC must produce no response.
         await Task.Delay(300);
         Assert.Empty(serial.GetSentData());
     }
@@ -241,13 +263,15 @@ public class ModbusTcpSlaveTransportTests
         var stream = client.GetStream();
         var req = new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 };
         await stream.WriteAsync(req);
-        await Task.Delay(500);
 
+        // ReadAsync blocks until bytes arrive, so no fixed delay is needed —
+        // just a bounded timeout so a missing response fails fast instead of hanging.
         var headerBuf = new byte[6];
         var offset = 0;
         while (offset < 6)
         {
-            var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset));
+            var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset))
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             if (read == 0) break; offset += read;
         }
         Assert.Equal(6, offset);
@@ -259,7 +283,8 @@ public class ModbusTcpSlaveTransportTests
         var body = new byte[bodyLen]; offset = 0;
         while (offset < bodyLen)
         {
-            var read = await stream.ReadAsync(body.AsMemory(offset, bodyLen - offset));
+            var read = await stream.ReadAsync(body.AsMemory(offset, bodyLen - offset))
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             if (read == 0) break; offset += read;
         }
         Assert.Equal(5, offset);
