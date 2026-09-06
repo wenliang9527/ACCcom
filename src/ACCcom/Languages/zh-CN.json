@@ -351,6 +351,7 @@
   "SchemaEditor.PleaseEnterHex": "请输入十六进制数据以解析。",
   "SchemaEditor.CompileError": "编译错误：{0}",
   "SchemaEditor.ParseError": "解析错误：{0}",
+  "SchemaEditor.InvalidHex": "十六进制数据包含无效字符或位数为奇数。",
   "SchemaEditor.NoFieldsParsed": "未解析到字段。",
   "SchemaEditor.TemplateDescription": "自定义串口协议，包含帧头+长度+命令码+数据+校验和",
 

@@ -351,6 +351,7 @@
   "SchemaEditor.PleaseEnterHex": "Please enter hex data to parse.",
   "SchemaEditor.CompileError": "Compile error: {0}",
   "SchemaEditor.ParseError": "Parse error: {0}",
+  "SchemaEditor.InvalidHex": "Hex data contains invalid characters or an odd digit count.",
   "SchemaEditor.NoFieldsParsed": "No fields parsed.",
   "SchemaEditor.TemplateDescription": "Custom serial protocol with header + length + command + data + checksum",
 

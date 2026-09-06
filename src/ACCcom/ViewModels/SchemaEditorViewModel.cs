@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Windows.Input;
 using ACCcom.Core.Models;
@@ -227,9 +226,14 @@ public class SchemaEditorViewModel : ObservableObject
             }
 
             var hex = _testHexInput.Replace(" ", "").Replace("-", "");
-            var bytes = new byte[hex.Length / 2];
-            for (int i = 0; i < bytes.Length; i++)
-                bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            // Strict parse surfaces malformed input (invalid digits / odd digit
+            // count) instead of the legacy lenient loop, which silently turned
+            // an invalid nibble into 0x0.
+            if (!HexHelper.TryHexStringToBytes(hex, out var bytes))
+            {
+                ParseResult = string.Format(LanguageManager.Instance["SchemaEditor.ParseError"], LanguageManager.Instance["SchemaEditor.InvalidHex"]);
+                return;
+            }
 
             var result = await engine.ExecuteAsync(bytes, DateTime.Now);
 
@@ -239,18 +243,7 @@ public class SchemaEditorViewModel : ObservableObject
                 return;
             }
 
-            var sb = new StringBuilder();
-            foreach (var field in result)
-            {
-                var sev = field.Severity switch
-                {
-                    FieldSeverity.Warning => "⚠",
-                    FieldSeverity.Error => "✗",
-                    _ => "✓"
-                };
-                sb.AppendLine($"{sev} [{field.Offset:X2}] {field.Name,-10} {field.RawHex,-8} {field.DisplayValue}");
-            }
-            ParseResult = sb.ToString();
+            ParseResult = FieldAnnotationFormatter.Format(result);
         }
         catch (Exception ex)
         {
