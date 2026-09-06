@@ -1,18 +1,21 @@
 using System.Collections.ObjectModel;
+using ACCcom.Core.Services;
 
 namespace ACCcom.ViewModels;
 
 public class PlotViewModel : ObservableObject
 {
+    private readonly PlotDataBuffer _buffer;
     private readonly List<(DateTime Time, double Value)> _dataPoints = new();
     private readonly object _lock = new();
-    private int _maxPoints = 200;
 
     public int MaxPoints
     {
-        get => _maxPoints;
-        set => SetField(ref _maxPoints, Math.Max(10, value));
+        get => _buffer.MaxPoints;
+        set => SetField(ref _maxPoints, _buffer.MaxPoints = value);
     }
+
+    private int _maxPoints;
 
     private double _minValue;
     public double MinValue { get => _minValue; private set => SetField(ref _minValue, value); }
@@ -28,48 +31,29 @@ public class PlotViewModel : ObservableObject
 
     public event Action? DataChanged;
 
+    public PlotViewModel(int maxPoints = 200)
+    {
+        _buffer = new PlotDataBuffer(maxPoints);
+        _maxPoints = _buffer.MaxPoints;
+    }
+
     public void AddPoint(double value)
     {
         lock (_lock)
         {
             _dataPoints.Add((DateTime.Now, value));
+            _buffer.Add(value);
 
-            // Incremental min/max: only the new point can change the extrema for
-            // the common case. A full rescan runs only when a point was dropped
-            // from the front (removed point might have been the min or max).
-            if (_dataPoints.Count > _maxPoints)
-            {
-                _dataPoints.RemoveRange(0, _dataPoints.Count - _maxPoints);
-                RecomputeMinMaxLocked();
-            }
-            else if (_dataPoints.Count == 1)
-            {
-                // First point: seed extrema with its value (defaults are 0).
-                MinValue = value;
-                MaxValue = value;
-            }
-            else
-            {
-                if (value < _minValue) MinValue = value;
-                if (value > _maxValue) MaxValue = value;
-            }
+            // Keep the UI snapshot list trimmed to the same capacity as the buffer.
+            if (_dataPoints.Count > _buffer.MaxPoints)
+                _dataPoints.RemoveRange(0, _dataPoints.Count - _buffer.MaxPoints);
 
+            MinValue = _buffer.MinValue;
+            MaxValue = _buffer.MaxValue;
             LatestValue = value;
             PointCount = _dataPoints.Count;
         }
         DataChanged?.Invoke();
-    }
-
-    private void RecomputeMinMaxLocked()
-    {
-        double min = double.MaxValue, max = double.MinValue;
-        foreach (var p in _dataPoints)
-        {
-            if (p.Value < min) min = p.Value;
-            if (p.Value > max) max = p.Value;
-        }
-        MinValue = min;
-        MaxValue = max;
     }
 
     public void Clear()
@@ -77,6 +61,7 @@ public class PlotViewModel : ObservableObject
         lock (_lock)
         {
             _dataPoints.Clear();
+            _buffer.Clear();
             MinValue = 0;
             MaxValue = 0;
             LatestValue = 0;
