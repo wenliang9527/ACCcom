@@ -42,6 +42,18 @@ public class MultiPortServiceTests
     }
 
     [Fact]
+    public void OpenPort_null_tag_or_config_returns_false()
+    {
+        using var mps = new MultiPortService();
+        var config = new SerialConfig { PortName = "COM1", BaudRate = 115200 };
+
+        // A null tag would throw ArgumentNullException from ContainsKey; both
+        // must fail cleanly as bool returns.
+        Assert.False(mps.OpenPort(null, config));
+        Assert.False(mps.OpenPort("tag", null));
+    }
+
+    [Fact]
     public void Ports_InitiallyEmpty()
     {
         using var mps = new MultiPortService();

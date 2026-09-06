@@ -28,8 +28,12 @@ public class MultiPortService : IDisposable
         _serviceFactory = serviceFactory;
     }
 
-    public bool OpenPort(string tag, SerialConfig config)
+    public bool OpenPort(string? tag, SerialConfig? config)
     {
+        // A null tag would throw ArgumentNullException from ContainsKey; a null
+        // config fails cleanly through the service's own Open guard.
+        if (string.IsNullOrEmpty(tag) || config == null) return false;
+
         lock (_lock)
         {
             if (_ports.ContainsKey(tag)) return _ports[tag].Service.IsOpen;
