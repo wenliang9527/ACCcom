@@ -15,6 +15,8 @@ public class PcapExportService
 
     public void ExportToPcap(IEnumerable<LogEntry>? entries, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         // Defensive: a null collection or a null entry would otherwise NRE in
         // WritePacketRecord. Skip both and keep writing the rest.
         if (entries == null) return;

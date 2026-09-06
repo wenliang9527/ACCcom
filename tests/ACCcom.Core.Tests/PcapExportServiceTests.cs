@@ -20,6 +20,13 @@ public class PcapExportServiceTests : IDisposable
     }
 
     [Fact]
+    public void ExportToPcap_null_path_throws()
+    {
+        var service = new PcapExportService();
+        Assert.Throws<ArgumentNullException>(() => service.ExportToPcap(new List<LogEntry>(), null!));
+    }
+
+    [Fact]
     public void ExportToPcap_CreatesFile()
     {
         var service = new PcapExportService();
