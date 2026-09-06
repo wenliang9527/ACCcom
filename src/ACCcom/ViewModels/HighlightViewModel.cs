@@ -81,7 +81,7 @@ public class HighlightViewModel : ObservableObject
     {
         var rule = new HighlightRule
         {
-            Name = $"Rule_{_service.Rules.Count + 1}",
+            Name = RuleNaming.NextName(_service.Rules.Select(r => r.Name)),
             Pattern = "",
             Color = "#FF6B6B",
             MatchType = HighlightMatchType.Contains,

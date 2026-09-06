@@ -75,7 +75,7 @@ public class TriggerViewModel : ObservableObject
     {
         var rule = new TriggerRule
         {
-            Name = $"Rule_{TriggerRules.Count + 1}",
+            Name = RuleNaming.NextName(TriggerRules.Select(r => r.Name)),
             Pattern = "",
             MatchMode = "contains",
             Action = TriggerAction.None
