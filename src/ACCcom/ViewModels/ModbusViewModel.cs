@@ -72,19 +72,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
         set => SetField(ref _selectedFunction, value);
     }
 
-    public List<string> FunctionNames { get; } =
-    [
-        "01 Read Coils",
-        "02 Read Discrete Inputs",
-        "03 Read Holding Registers",
-        "04 Read Input Registers",
-        "05 Write Single Coil",
-        "06 Write Single Register",
-        "15 Write Multiple Coils",
-        "16 Write Multiple Registers",
-        "22 Mask Write Register",
-        "23 Read/Write Multiple Registers"
-    ];
+    public List<string> FunctionNames { get; } = new(ModbusFunctionCatalog.DisplayNames);
 
     private ushort _startAddress;
     public ushort StartAddress { get => _startAddress; set => SetField(ref _startAddress, value); }
@@ -177,20 +165,8 @@ public class ModbusViewModel : ObservableObject, IDisposable
         SelectedFunctionIndex = 2;
     }
 
-    private ModbusFunctionCode GetFunctionByIndex(int index) => index switch
-    {
-        0 => ModbusFunctionCode.ReadCoils,
-        1 => ModbusFunctionCode.ReadDiscreteInputs,
-        2 => ModbusFunctionCode.ReadHoldingRegisters,
-        3 => ModbusFunctionCode.ReadInputRegisters,
-        4 => ModbusFunctionCode.WriteSingleCoil,
-        5 => ModbusFunctionCode.WriteSingleRegister,
-        6 => ModbusFunctionCode.WriteMultipleCoils,
-        7 => ModbusFunctionCode.WriteMultipleRegisters,
-        8 => ModbusFunctionCode.MaskWriteRegister,
-        9 => ModbusFunctionCode.ReadWriteMultipleRegisters,
-        _ => ModbusFunctionCode.ReadHoldingRegisters
-    };
+    private ModbusFunctionCode GetFunctionByIndex(int index)
+        => ModbusFunctionCatalog.FromIndex(index);
 
     private bool IsWriteMultiple =>
         SelectedFunction == ModbusFunctionCode.WriteMultipleCoils ||
