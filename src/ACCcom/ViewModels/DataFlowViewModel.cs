@@ -61,16 +61,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public event Action? BatchFlushed;
 
     // Recent RX text used by the macro engine's WaitFor/Condition matching.
-    // Locked so the macro runner (background polling) can read safely while RX
-    // entries keep arriving. Cleared when a macro starts so waits only see data
-    // received during that run.
-    private readonly object _recentRxLock = new();
-    private readonly List<string> _recentRxTexts = new();
-    private const int RecentRxTextCap = 512;
-    // List.RemoveRange from index 0 shifts every remaining element, so trimming
-    // on every RX frame would memmove ~cap items per packet on the receive
-    // thread. Trim only once the backlog grows a full chunk past the cap.
-    private const int RecentRxTextTrimChunk = 128;
+    // The buffer is lock-protected internally so the macro runner (background
+    // polling) can read safely while RX entries keep arriving; cleared when a
+    // macro starts so waits only see data received during that run.
+    private readonly RecentRxTextBuffer _recentRxTexts;
     private readonly DispatcherTimer? _flushTimer;
     private readonly Action<LogEntry> _frameBufferFrameHandler;
     private readonly Action<string> _frameBufferErrorHandler;
@@ -334,6 +328,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         _sendHistory = new SendHistoryBuffer(_settings?.MaxSendHistory ?? 50);
         _variableExpander = new VariableExpander();
+        _recentRxTexts = new RecentRxTextBuffer(cap: 512, trimChunk: 128);
 
         // FrameBuffer is the single frame-assembly path: its config is mapped
         // from the user-facing FrameAssemblerConfig so header/length-field/
@@ -579,22 +574,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     }
 
     private void AddRecentRxText(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        lock (_recentRxLock)
-        {
-            _recentRxTexts.Add(text);
-            if (_recentRxTexts.Count > RecentRxTextCap + RecentRxTextTrimChunk)
-                _recentRxTexts.RemoveRange(0, _recentRxTexts.Count - RecentRxTextCap);
-        }
-    }
+        => _recentRxTexts.Add(text);
 
     /// <summary>Clears the recent-RX snapshot; call before starting a macro run.</summary>
     public void ClearRecentRxTexts()
-    {
-        lock (_recentRxLock)
-            _recentRxTexts.Clear();
-    }
+        => _recentRxTexts.Clear();
 
     /// <summary>
     /// Returns the most recent RX text containing <paramref name="pattern"/>
@@ -602,18 +586,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// which polls this from a background task while RX entries accumulate.
     /// </summary>
     public string? FindRecentRxText(string pattern)
-    {
-        if (string.IsNullOrEmpty(pattern)) return null;
-        lock (_recentRxLock)
-        {
-            for (int i = _recentRxTexts.Count - 1; i >= 0; i--)
-            {
-                if (_recentRxTexts[i].Contains(pattern, StringComparison.OrdinalIgnoreCase))
-                    return _recentRxTexts[i];
-            }
-        }
-        return null;
-    }
+        => _recentRxTexts.FindLatestContaining(pattern);
 
     private void ApplyHighlight(LogEntry entry)
         => entry.HighlightColor = _highlightService?.GetHighlightColor(entry);
@@ -706,10 +679,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     private void TrimBuffer(ObservableRangeCollection<LogEntry> entries)
     {
-        var overflow = entries.Count - MaxEntries;
-        if (overflow <= 0) return;
-        var removeCount = Math.Min(((overflow + TrimChunkSize - 1) / TrimChunkSize) * TrimChunkSize, entries.Count);
-        entries.RemoveRange(0, removeCount);
+        // Chunk-rounding so RemoveRange fires one notification per chunk instead
+        // of one per entry (see EntryListTrimmer for the exact semantics).
+        var removeCount = EntryListTrimmer.ComputeRemoveCount(entries.Count, MaxEntries, TrimChunkSize);
+        if (removeCount > 0)
+            entries.RemoveRange(0, removeCount);
     }
 
     public void RecordTxBytes(int byteCount)
