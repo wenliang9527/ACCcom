@@ -13,8 +13,12 @@ public class PcapExportService
     private const byte DirectionTx = 0x01;
     private const byte DirectionRx = 0x02;
 
-    public void ExportToPcap(IEnumerable<LogEntry> entries, string filePath)
+    public void ExportToPcap(IEnumerable<LogEntry>? entries, string filePath)
     {
+        // Defensive: a null collection or a null entry would otherwise NRE in
+        // WritePacketRecord. Skip both and keep writing the rest.
+        if (entries == null) return;
+
         using var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
         using var writer = new BinaryWriter(stream);
 
@@ -26,6 +30,7 @@ public class PcapExportService
             // abort the whole export — skip it and keep writing the rest.
             try
             {
+                if (entry == null) continue;
                 WritePacketRecord(writer, entry);
             }
             catch (FormatException)

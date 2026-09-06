@@ -184,4 +184,37 @@ public class PcapExportServiceTests : IDisposable
         // header + 2 valid packet records, malformed one skipped
         Assert.Equal(24 + (16 + 2) + (16 + 2), bytes.Length);
     }
+
+    [Fact]
+    public void ExportToPcap_null_entries_is_noop()
+    {
+        var service = new PcapExportService();
+        var path = Path.Combine(_tempDir, "null.pcap");
+
+        var exception = Record.Exception(() => service.ExportToPcap(null, path));
+
+        Assert.Null(exception);
+        // No file is created for a null collection.
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void ExportToPcap_null_entry_is_skipped()
+    {
+        var service = new PcapExportService();
+        var path = Path.Combine(_tempDir, "nullentry.pcap");
+        var entries = new List<LogEntry?>
+        {
+            null,
+            new() { Id = 1, Timestamp = DateTime.UtcNow, Direction = "TX", RawHex = "AA" },
+            null
+        };
+
+        var exception = Record.Exception(() => service.ExportToPcap(entries!, path));
+
+        Assert.Null(exception);
+        var bytes = File.ReadAllBytes(path);
+        // header + 1 valid packet record; the null entries were skipped.
+        Assert.Equal(24 + (16 + 2), bytes.Length);
+    }
 }
