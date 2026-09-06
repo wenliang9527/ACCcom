@@ -47,7 +47,11 @@ public class ModbusTcpTransport : IModbusTransport
 
         try
         {
-            using var cts = new CancellationTokenSource(timeoutMs);
+            // CancellationTokenSource throws for non-positive due-times; clamp so
+            // a non-positive timeout behaves as "immediate timeout" instead of
+            // surfacing an ArgumentOutOfRangeException to the caller.
+            var effectiveTimeout = Math.Max(1, timeoutMs);
+            using var cts = new CancellationTokenSource(effectiveTimeout);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
             using var registration = linkedCts.Token.Register(() =>
             {

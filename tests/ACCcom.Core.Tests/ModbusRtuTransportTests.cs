@@ -87,6 +87,21 @@ public class ModbusRtuTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_NonPositiveTimeout_ThrowsOperationCanceledNotArgument()
+    {
+        // A non-positive timeout used to throw ArgumentOutOfRangeException
+        // inside CancellationTokenSource; it must behave as an immediate
+        // timeout instead (OperationCanceledException).
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 0));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], -100));
+    }
+
+    [Fact]
     public void SendReceiveAsync_WhenSerialNotOpen_Throws()
     {
         using var serial = new VirtualSerialService(); // never opened

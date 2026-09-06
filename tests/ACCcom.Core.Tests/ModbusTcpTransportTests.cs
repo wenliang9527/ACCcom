@@ -101,6 +101,30 @@ public class ModbusTcpTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_NonPositiveTimeout_ThrowsOperationCanceledNotArgument()
+    {
+        // A non-positive timeout used to throw ArgumentOutOfRangeException
+        // inside CancellationTokenSource; it must behave as an immediate
+        // timeout instead (OperationCanceledException).
+        var port = TestPortHelper.GetFreePort();
+        using var slave = new ModbusTcpSlaveTransport(port);
+        slave.OnRequestReceived = (_, pdu) => new byte[0]; // never replies
+        slave.Start();
+        try
+        {
+            using var master = new ModbusTcpTransport("127.0.0.1", port);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await master.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 0));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await master.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], -100));
+        }
+        finally
+        {
+            slave.Stop();
+        }
+    }
+
+    [Fact]
     public async Task SendReceiveAsync_ExceptionResponse_SurfacesAsException()
     {
         var port = TestPortHelper.GetFreePort();
