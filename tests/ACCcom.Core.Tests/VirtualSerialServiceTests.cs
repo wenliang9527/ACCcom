@@ -49,6 +49,31 @@ public class VirtualSerialServiceTests
     }
 
     [Fact]
+    public void Send_null_or_empty_returns_false_and_stores_nothing()
+    {
+        var svc = new VirtualSerialService();
+        svc.Open(new SerialConfig { PortName = "VIRTUAL", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        Assert.False(svc.Send(null));
+        Assert.False(svc.Send(""));
+
+        Assert.Empty(svc.GetSentData());
+    }
+
+    [Fact]
+    public void Send_null_when_closed_returns_false_without_error()
+    {
+        var svc = new VirtualSerialService();
+        var errorRaised = false;
+        svc.OnError += _ => errorRaised = true;
+
+        Assert.False(svc.Send(null));
+
+        // The null guard fires before the "not open" path — no misleading error.
+        Assert.False(errorRaised);
+    }
+
+    [Fact]
     public void SendHex_Stores_Entry()
     {
         var svc = new VirtualSerialService();

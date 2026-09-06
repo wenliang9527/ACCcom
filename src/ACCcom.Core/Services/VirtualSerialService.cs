@@ -42,8 +42,14 @@ public class VirtualSerialService : ISerialService, IDisposable
         return true;
     }
 
-    public bool Send(string data, bool isHex = false)
+    public bool Send(string? data, bool isHex = false)
     {
+        // Reject null/empty up front: GetBytes would throw and the exception
+        // would propagate to the caller (no try/catch here, unlike the real
+        // SerialService).
+        if (string.IsNullOrEmpty(data))
+            return false;
+
         if (!_isOpen)
         {
             OnError?.Invoke("Serial port not open");
