@@ -295,8 +295,15 @@ public class MacroManagerRunAsyncTests : IDisposable
         };
 
         var task = manager.RunAsync(macro, (_, _) => { }, s => s, _ => { });
-        await Task.Delay(20);
-        Assert.True(manager.IsRunning);
+        // Condition-based wait for the run to actually start (a fixed 20ms
+        // delay flakes under parallel load when startup runs slower).
+        var started = await Task.Run(async () =>
+        {
+            for (int i = 0; i < 200 && !manager.IsRunning; i++)
+                await Task.Delay(10);
+            return manager.IsRunning;
+        });
+        Assert.True(started, "Macro run should enter running state");
 
         manager.Stop();
         await task;
