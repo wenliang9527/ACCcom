@@ -74,6 +74,28 @@ public class ProtocolTestRunnerTests : IDisposable
         return (pattern, mode, hex, timeout, ct) => Task.FromResult<string?>(null);
     }
 
+    [Fact]
+    public void SaveScript_null_arguments_throw()
+    {
+        var path = TempFile();
+        Assert.Throws<ArgumentNullException>(() => ProtocolTestRunner.SaveScript(null!, path));
+        Assert.Throws<ArgumentNullException>(() => ProtocolTestRunner.SaveScript(MakeScript(), null!));
+    }
+
+    [Fact]
+    public void LoadScript_null_path_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => ProtocolTestRunner.LoadScript(null!));
+    }
+
+    [Fact]
+    public void SaveReport_null_arguments_throw()
+    {
+        var path = TempFile();
+        Assert.Throws<ArgumentNullException>(() => ProtocolTestRunner.SaveReport(null!, path));
+        Assert.Throws<ArgumentNullException>(() => ProtocolTestRunner.SaveReport(new TestReport(), null!));
+    }
+
     // --- Tests ---
 
     [Fact]

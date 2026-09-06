@@ -229,6 +229,9 @@ public class ProtocolTestRunner
     /// </summary>
     public static void SaveScript(TestScript script, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(script);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var json = JsonSerializer.Serialize(script, JsonOptions);
         File.WriteAllText(filePath, json);
     }
@@ -238,6 +241,8 @@ public class ProtocolTestRunner
     /// </summary>
     public static TestScript LoadScript(string filePath)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var json = File.ReadAllText(filePath);
         return JsonSerializer.Deserialize<TestScript>(json) ?? new TestScript();
     }
@@ -247,6 +252,9 @@ public class ProtocolTestRunner
     /// </summary>
     public static void SaveReport(TestReport report, string filePath)
     {
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(filePath);
+
         var json = JsonSerializer.Serialize(report, JsonOptions);
         File.WriteAllText(filePath, json);
     }
