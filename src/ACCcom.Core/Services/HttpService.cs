@@ -63,8 +63,10 @@ public class HttpService : IDisposable
 
     public void Stop() => _server.Dispose();
 
-    public void AddEntry(LogEntry entry)
+    public void AddEntry(LogEntry? entry)
     {
+        if (entry == null) return;
+
         Buffer.AddEntry(entry);
         OnDataEntry?.Invoke(entry);
     }

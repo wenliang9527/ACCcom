@@ -159,4 +159,31 @@ public class HttpServiceTests : IDisposable
         Assert.True(data.TryGetProperty("parsers", out var parsers));
         Assert.Equal(JsonValueKind.Array, parsers.ValueKind);
     }
+
+    [Fact]
+    public void AddEntry_null_is_noop_and_does_not_raise_event()
+    {
+        var raised = 0;
+        _service.OnDataEntry += _ => Interlocked.Increment(ref raised);
+
+        _service.AddEntry(null);
+
+        Assert.Equal(0, raised);
+        Assert.Empty(_service.GetEntriesSince(0));
+    }
+
+    [Fact]
+    public void AddEntry_valid_entry_raises_event_and_buffers()
+    {
+        var raised = 0;
+        _service.OnDataEntry += _ => Interlocked.Increment(ref raised);
+        var entry = new ACCcom.Core.Models.LogEntry { Id = 1, Timestamp = DateTime.UtcNow, Direction = "RX", Text = "hello" };
+
+        _service.AddEntry(entry);
+
+        Assert.Equal(1, raised);
+        var entries = _service.GetEntriesSince(0);
+        Assert.Single(entries);
+        Assert.Equal("hello", entries[0].Text);
+    }
 }

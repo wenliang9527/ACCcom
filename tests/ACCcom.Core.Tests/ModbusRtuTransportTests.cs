@@ -24,17 +24,14 @@ public class ModbusRtuTransportTests
         using var serial = OpenVirtual();
         using var transport = new ModbusRtuTransport(serial);
 
-        // Slave echoes a valid FC03 response: [01 03 02 12 34] + CRC.
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(30);
-            var adu = new byte[] { 0x01, 0x03, 0x02, 0x12, 0x34 };
-            var crc = CrcHelper.Crc16(adu);
-            var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
-            serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
-        });
-
-        var response = await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
+        // Start the request first (it sends the frame synchronously before
+        // awaiting), then inject the response — deterministic, no delay race.
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
+        var adu = new byte[] { 0x01, 0x03, 0x02, 0x12, 0x34 };
+        var crc = CrcHelper.Crc16(adu);
+        var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
+        var response = await request;
 
         Assert.Equal([0x01, 0x03, 0x02, 0x12, 0x34], response);
     }
@@ -46,16 +43,12 @@ public class ModbusRtuTransportTests
         using var transport = new ModbusRtuTransport(serial);
 
         // Slave replies with an exception: [01 83 02] + CRC (func | 0x80).
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(30);
-            var adu = new byte[] { 0x01, 0x83, 0x02 };
-            var crc = CrcHelper.Crc16(adu);
-            var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
-            serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
-        });
-
-        var response = await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
+        var adu = new byte[] { 0x01, 0x83, 0x02 };
+        var crc = CrcHelper.Crc16(adu);
+        var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
+        var response = await request;
 
         // Exception frames surface as the raw body (caller inspects func|0x80).
         Assert.Equal([0x01, 0x83, 0x02], response);
@@ -67,15 +60,11 @@ public class ModbusRtuTransportTests
         using var serial = OpenVirtual();
         using var transport = new ModbusRtuTransport(serial);
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(30);
-            // Wrong CRC on purpose.
-            serial.InjectRxData("01 03 02 12 34 00 00");
-        });
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
+        // Wrong CRC on purpose.
+        serial.InjectRxData("01 03 02 12 34 00 00");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await request);
         Assert.Contains("CRC", ex.Message);
     }
 
@@ -85,18 +74,16 @@ public class ModbusRtuTransportTests
         using var serial = OpenVirtual();
         using var transport = new ModbusRtuTransport(serial);
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(30);
-            // Response for slave 0x02, but we asked for slave 0x01.
-            var adu = new byte[] { 0x02, 0x03, 0x02, 0x12, 0x34 };
-            var crc = CrcHelper.Crc16(adu);
-            var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
-            serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
-        });
+        // Response for slave 0x02, but we asked for slave 0x01 — the request
+        // keeps waiting and times out. Injecting after the request is issued
+        // still exercises the no-match path deterministically.
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 300);
+        var adu = new byte[] { 0x02, 0x03, 0x02, 0x12, 0x34 };
+        var crc = CrcHelper.Crc16(adu);
+        var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 300));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await request);
     }
 
     [Fact]
