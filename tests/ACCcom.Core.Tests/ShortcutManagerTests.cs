@@ -14,6 +14,19 @@ public class ShortcutManagerTests : IDisposable
     }
 
     [Fact]
+    public void ExportToFile_null_arguments_throw()
+    {
+        var pages = new List<ShortcutPage> { new() { Name = "P" } };
+        var path = Path.Combine(Path.GetTempPath(), $"acctest_{Guid.NewGuid():N}.json");
+
+        Assert.Throws<ArgumentNullException>(() => ShortcutManager.ExportToFile(null!, pages));
+        Assert.Throws<ArgumentNullException>(() => ShortcutManager.ExportToFile(path, null!));
+        Assert.Throws<ArgumentNullException>(() => ShortcutManager.ImportFromFile(null!));
+
+        try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+
+    [Fact]
     public async Task Save_ThenLoadAsync_RoundTripsPages()
     {
         // Arrange

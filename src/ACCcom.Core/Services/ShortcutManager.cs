@@ -80,6 +80,9 @@ public class ShortcutManager
     /// <summary>Exports pages to an external file (shareable between machines).</summary>
     public static void ExportToFile(string filePath, IEnumerable<ShortcutPage> pages)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+        ArgumentNullException.ThrowIfNull(pages);
+
         var store = new ShortcutStore { Version = FormatVersion, Pages = new List<ShortcutPage>(pages) };
         File.WriteAllText(filePath, JsonSerializer.Serialize(store, IndentedOptions));
     }
@@ -87,6 +90,8 @@ public class ShortcutManager
     /// <summary>Reads pages from an exported file. Returns null when the file is invalid.</summary>
     public static List<ShortcutPage>? ImportFromFile(string filePath)
     {
+        ArgumentNullException.ThrowIfNull(filePath);
+
         if (!File.Exists(filePath)) return null;
         try
         {
