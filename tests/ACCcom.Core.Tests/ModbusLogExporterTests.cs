@@ -27,6 +27,14 @@ public class ModbusLogExporterTests
     }
 
     [Fact]
+    public void Export_null_items_throw()
+    {
+        Assert.Throws<ArgumentNullException>(() => ModbusLogExporter.ExportCsv(null!));
+        Assert.Throws<ArgumentNullException>(() => ModbusLogExporter.ExportJson(null!));
+        Assert.Throws<ArgumentNullException>(() => ModbusLogExporter.ExportTxt(null!));
+    }
+
+    [Fact]
     public void ExportCsv_header_and_row()
     {
         var csv = ModbusLogExporter.ExportCsv(new List<TransactionLogItem> { MakeItem() });

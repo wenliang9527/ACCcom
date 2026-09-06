@@ -14,6 +14,8 @@ public static class ModbusLogExporter
 {
     public static string ExportCsv(List<TransactionLogItem> items)
     {
+        ArgumentNullException.ThrowIfNull(items);
+
         var sb = new StringBuilder();
         sb.AppendLine("Timestamp,SlaveId,FunctionCode,RequestHex,ResponseHex,Status");
         foreach (var item in items)
@@ -35,6 +37,8 @@ public static class ModbusLogExporter
 
     public static string ExportJson(List<TransactionLogItem> items)
     {
+        ArgumentNullException.ThrowIfNull(items);
+
         var sb = new StringBuilder();
         sb.AppendLine("[");
         for (int i = 0; i < items.Count; i++)
@@ -56,6 +60,8 @@ public static class ModbusLogExporter
 
     public static string ExportTxt(List<TransactionLogItem> items)
     {
+        ArgumentNullException.ThrowIfNull(items);
+
         var sb = new StringBuilder();
         sb.AppendLine("=== MODBUS Transaction Log ===");
         sb.AppendLine($"Exported: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
