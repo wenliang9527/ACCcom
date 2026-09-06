@@ -20,8 +20,10 @@ public static class HexHelper
         return count / 2;
     }
 
-    public static byte[] HexStringToBytes(string hex)
+    public static byte[] HexStringToBytes(string? hex)
     {
+        if (string.IsNullOrEmpty(hex)) return [];
+
         int nonSpaceLen = 0;
         foreach (var c in hex.AsSpan())
             if (c != ' ') nonSpaceLen++;
@@ -37,8 +39,10 @@ public static class HexHelper
     /// count is dropped, matching the allocating variant. Input larger than
     /// <paramref name="destination"/> is truncated to the buffer capacity.
     /// </summary>
-    public static int HexStringToBytes(string hex, Span<byte> destination)
+    public static int HexStringToBytes(string? hex, Span<byte> destination)
     {
+        if (string.IsNullOrEmpty(hex)) return 0;
+
         int byteIdx = 0;
         int hi = -1;
         foreach (var c in hex.AsSpan())

@@ -175,6 +175,16 @@ public class HexHelperTests
         Assert.Equal([0xAA, 0xBB], buffer);
     }
 
+    [Fact]
+    public void HexStringToBytes_Null_ReturnsEmpty()
+    {
+        Assert.Empty(HexHelper.HexStringToBytes(null));
+
+        var buffer = new byte[4];
+        Assert.Equal(0, HexHelper.HexStringToBytes(null, buffer));
+        Assert.Equal(0, HexHelper.HexStringToBytes("", buffer));
+    }
+
     // ========== HasErrorSeverity ==========
 
     [Fact]
