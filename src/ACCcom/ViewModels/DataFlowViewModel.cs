@@ -2,7 +2,6 @@ using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -494,18 +493,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         // dispose the old one. This closes the window where writes land on a
         // buffer whose OnFrameAssembled is not (yet) subscribed, which would
         // silently drop assembled frames on every config change.
-        var bufferConfig = new FrameBufferConfig
-        {
-            Strategy = FrameExtractStrategy.ByHeader,
-            Header = ParseHeaderBytes(_frameAssemblerConfig.Header),
-            LengthFieldOffset = _frameAssemblerConfig.LengthFieldOffset,
-            LengthFieldSize = _frameAssemblerConfig.LengthFieldSize,
-            LengthFieldIncludes = 0,
-            MaxFrameSize = _frameAssemblerConfig.MaxFrameSize,
-            BufferCapacity = 65536,
-            PartialFrameTimeoutMs = _frameAssemblerConfig.PartialFrameTimeoutMs
-        };
-        var next = new FrameBuffer(bufferConfig, _autoMatcher, _parserManager);
+        var next = new FrameBuffer(_frameAssemblerConfig.ToFrameBufferConfig(), _autoMatcher, _parserManager);
         next.OnFrameAssembled += _frameBufferFrameHandler;
         next.OnError += _frameBufferErrorHandler;
 
@@ -518,22 +506,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             old.OnError -= _frameBufferErrorHandler;
             old.Dispose();
         }
-    }
-
-    /// <summary>Parses a space-separated hex header string (e.g. "A5 5A") into
-    /// bytes; null when empty or malformed (FrameBuffer treats null header as
-    /// "no header — whole buffer is a frame", matching the legacy assembler's
-    /// empty-header behavior of assembling everything).</summary>
-    private static byte[]? ParseHeaderBytes(string? header)
-    {
-        if (string.IsNullOrWhiteSpace(header)) return null;
-        try
-        {
-            var stripped = new string(header.Where(c => !char.IsWhiteSpace(c)).ToArray());
-            if (stripped.Length == 0 || stripped.Length % 2 != 0) return null;
-            return Convert.FromHexString(stripped);
-        }
-        catch { return null; }
     }
 
     private void OnFrameReady(LogEntry entry)
