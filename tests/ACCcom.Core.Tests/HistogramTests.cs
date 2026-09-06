@@ -107,4 +107,47 @@ public class HistogramTests
         Assert.Equal(threads * perThread, h.Count);
         Assert.Equal(threads * perThread, h.Sum);
     }
+
+    [Fact]
+    public void Record_NaN_IsIgnored()
+    {
+        var h = new Histogram();
+        h.Record(10);
+
+        h.Record(double.NaN);
+
+        // NaN must not be counted, must not land in a bucket, and must not
+        // poison the running sum.
+        Assert.Equal(1, h.Count);
+        Assert.Equal(10, h.Sum);
+        Assert.False(double.IsNaN(h.Sum));
+    }
+
+    [Fact]
+    public void Record_NaN_ThenValid_SumStaysFinite()
+    {
+        var h = new Histogram();
+        h.Record(double.NaN);
+        h.Record(double.NaN);
+
+        h.Record(5);
+        h.Record(3);
+
+        Assert.Equal(2, h.Count);
+        Assert.Equal(8, h.Sum);
+    }
+
+    [Fact]
+    public void Record_PositiveInfinity_LandsInOverflowBucket()
+    {
+        var h = new Histogram();
+        h.Record(double.PositiveInfinity);
+
+        Assert.Equal(1, h.Count);
+        Assert.Equal(double.PositiveInfinity, h.Sum);
+        var buckets = h.GetBuckets();
+        // Infinity is the last (overflow) bucket.
+        Assert.Equal(double.PositiveInfinity, buckets[^1].Le);
+        Assert.Equal(1, buckets[^1].Count);
+    }
 }

@@ -177,6 +177,11 @@ public sealed class Histogram
 
     public void Record(double value)
     {
+        // NaN has no meaningful bucket and would poison _sum (NaN + x == NaN
+        // forever) — drop it entirely. Infinity legitimately lands in the
+        // overflow bucket (Array.BinarySearch handles it).
+        if (double.IsNaN(value)) return;
+
         // Bucket counts use Interlocked so the per-frame parse path never takes
         // a lock; Sum is a rare/read-only metric and keeps its own small lock.
         int idx = Array.BinarySearch(BucketBounds, value);
