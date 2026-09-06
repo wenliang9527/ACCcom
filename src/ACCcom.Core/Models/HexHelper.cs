@@ -12,8 +12,10 @@ public static class HexHelper
         return false;
     }
 
-    public static int CountHexBytes(string hex)
+    public static int CountHexBytes(string? hex)
     {
+        if (string.IsNullOrEmpty(hex)) return 0;
+
         int count = 0;
         foreach (var c in hex.AsSpan())
             if (c != ' ') count++;

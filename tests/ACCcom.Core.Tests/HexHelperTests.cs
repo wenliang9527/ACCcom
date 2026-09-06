@@ -107,6 +107,12 @@ public class HexHelperTests
         Assert.Equal(3, HexHelper.CountHexBytes("AA   BB   CC"));
     }
 
+    [Fact]
+    public void CountHexBytes_Null_ReturnsZero()
+    {
+        Assert.Equal(0, HexHelper.CountHexBytes(null));
+    }
+
     // ========== HexStringToBytes ==========
 
     [Fact]
