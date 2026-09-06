@@ -73,4 +73,13 @@ public class SerialServiceReconnectTests
 
         Assert.False(errorRaised);
     }
+
+    [Fact]
+    public void Open_null_config_returns_false()
+    {
+        using var serial = new SerialService();
+
+        // A null config must not NRE outside the retry loop; it fails cleanly.
+        Assert.False(serial.Open(null));
+    }
 }

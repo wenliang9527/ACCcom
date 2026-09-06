@@ -31,11 +31,14 @@ public class MultiPortServiceTests
     }
 
     [Fact]
-    public void OpenPort_WithInvalidConfig_ThrowsArgumentException()
+    public void OpenPort_WithInvalidConfig_ReturnsFalse()
     {
+        // A bad config (empty port, zero baud) used to surface as an
+        // ArgumentException propagating from SerialService.Open; it now fails
+        // cleanly as a bool return, matching the OpenPort contract.
         using var mps = new MultiPortService();
         var config = new SerialConfig { PortName = "", BaudRate = 0 };
-        Assert.Throws<ArgumentException>(() => mps.OpenPort("test", config));
+        Assert.False(mps.OpenPort("test", config));
     }
 
     [Fact]

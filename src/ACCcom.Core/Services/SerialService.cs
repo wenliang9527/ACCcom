@@ -44,9 +44,11 @@ public class SerialService : ISerialService, IDisposable
         }
     }
 
-    public bool Open(SerialConfig config)
+    public bool Open(SerialConfig? config)
     {
         if (_port?.IsOpen == true) return true;
+        // A null config would NRE below (outside the try); reject it up front.
+        if (config == null) return false;
 
         const int maxRetries = 2;
         const int retryDelayMs = 500;
@@ -56,19 +58,22 @@ public class SerialService : ISerialService, IDisposable
             if (attempt > 0)
                 Thread.Sleep(retryDelayMs);
 
-            _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
-            {
-                DtrEnable = config.DtrEnable,
-                RtsEnable = config.RtsEnable,
-                ReadTimeout = 1000,
-                WriteTimeout = 1000
-            };
-
-            _port.DataReceived += OnSerialDataReceived;
-            _port.ErrorReceived += OnSerialError;
-
             try
             {
+                // Construct inside the try: a bad config (invalid baud rate,
+                // data bits, etc.) surfaces as a failed open, not an exception
+                // that propagates past the retry loop.
+                _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
+                {
+                    DtrEnable = config.DtrEnable,
+                    RtsEnable = config.RtsEnable,
+                    ReadTimeout = 1000,
+                    WriteTimeout = 1000
+                };
+
+                _port.DataReceived += OnSerialDataReceived;
+                _port.ErrorReceived += OnSerialError;
+
                 _port.Open();
                 _lastConfig = config;
                 _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
@@ -78,10 +83,13 @@ public class SerialService : ISerialService, IDisposable
             }
             catch (Exception ex)
             {
-                _port.DataReceived -= OnSerialDataReceived;
-                _port.ErrorReceived -= OnSerialError;
-                _port?.Dispose();
-                _port = null;
+                if (_port != null)
+                {
+                    _port.DataReceived -= OnSerialDataReceived;
+                    _port.ErrorReceived -= OnSerialError;
+                    _port.Dispose();
+                    _port = null;
+                }
 
                 if (attempt == maxRetries)
                 {
