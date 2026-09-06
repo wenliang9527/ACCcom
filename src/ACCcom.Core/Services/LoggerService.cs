@@ -27,8 +27,10 @@ public class LoggerService : BufferedFileWriter
 
     public string CurrentLogPath => CurrentFilePath ?? "";
 
-    public void Write(LogEntry entry)
+    public void Write(LogEntry? entry)
     {
+        if (entry == null) return;
+
         lock (SyncLock)
         {
             // Avoid a BaseStream.Length query on the frame path for every entry:

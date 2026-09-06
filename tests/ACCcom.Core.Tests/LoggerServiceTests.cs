@@ -111,4 +111,19 @@ public class LoggerServiceTests : IDisposable
         var content = File.ReadAllText(path);
         Assert.NotEmpty(content);
     }
+
+    [Fact]
+    public void Write_null_is_noop()
+    {
+        var logger = new LoggerService();
+        var path = logger.CurrentLogPath;
+
+        var exception = Record.Exception(() => logger.Write(null));
+
+        Assert.Null(exception);
+        // Dispose releases the file handle before we read it back.
+        logger.Dispose();
+        var content = File.ReadAllText(path);
+        Assert.Empty(content.Trim());
+    }
 }
