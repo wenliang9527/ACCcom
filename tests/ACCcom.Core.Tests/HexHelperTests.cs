@@ -53,6 +53,34 @@ public class HexHelperTests
         Assert.Equal("00", result);
     }
 
+    [Fact]
+    public void BytesToHexSpaced_OffsetPlusCountBeyondBuffer_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => HexHelper.BytesToHexSpaced([0xAA], 0, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => HexHelper.BytesToHexSpaced([0xAA, 0x55], 1, 2));
+    }
+
+    [Fact]
+    public void BytesToHexSpaced_NegativeOffsetOrCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => HexHelper.BytesToHexSpaced([0xAA], -1, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => HexHelper.BytesToHexSpaced([0xAA], 0, -1));
+    }
+
+    [Fact]
+    public void BytesToHexSpaced_NullBuffer_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => HexHelper.BytesToHexSpaced(null!, 0, 1));
+    }
+
+    [Fact]
+    public void BytesToHexSpaced_ZeroCountWithNull_StillReturnsEmpty()
+    {
+        // count == 0 short-circuits before the null check — a no-op contract
+        // matching the fast path of other buffer writers.
+        Assert.Equal("", HexHelper.BytesToHexSpaced(null!, 0, 0));
+    }
+
     // ========== CountHexBytes ==========
 
     [Fact]

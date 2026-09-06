@@ -147,6 +147,12 @@ public static class HexHelper
     {
         if (count == 0) return string.Empty;
 
+        // Clear contract for invalid ranges: an out-of-range offset/count would
+        // otherwise surface as a raw IndexOutOfRangeException from the indexer.
+        ArgumentNullException.ThrowIfNull(bytes);
+        if (offset < 0 || count < 0 || offset + count > bytes.Length)
+            throw new ArgumentOutOfRangeException(nameof(offset), "offset/count exceed the byte buffer");
+
         return string.Create(count * 3 - 1, (bytes, offset, count), static (span, state) =>
         {
             var (buf, off, len) = state;
