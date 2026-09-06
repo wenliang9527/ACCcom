@@ -19,13 +19,24 @@ public abstract class JsonFilePersistenceManager<T>
         if (!File.Exists(path))
             return DefaultValue();
 
-        var json = await Task.Run(() => File.ReadAllText(path)).ConfigureAwait(false);
-        var items = JsonSerializer.Deserialize<T[]>(json);
-        return items != null ? new List<T>(items) : DefaultValue();
+        try
+        {
+            var json = await Task.Run(() => File.ReadAllText(path)).ConfigureAwait(false);
+            var items = JsonSerializer.Deserialize<T[]>(json);
+            return items != null ? new List<T>(items) : DefaultValue();
+        }
+        catch (JsonException)
+        {
+            // A corrupt/truncated persistence file (power loss, hand edit) must
+            // not take the app down at startup — fall back to defaults.
+            return DefaultValue();
+        }
     }
 
-    public void Save(IReadOnlyList<T> items)
+    public void Save(IReadOnlyList<T>? items)
     {
+        if (items == null) return;
+
         Directory.CreateDirectory(BaseDir);
         var path = Path.Combine(BaseDir, FileName);
         var json = JsonSerializer.Serialize(items.ToArray(), IndentedOptions);

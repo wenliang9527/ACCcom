@@ -102,4 +102,65 @@ public class JsonFilePersistenceManagerTests : IDisposable
         var result = await manager.LoadAsync();
         Assert.Empty(result);
     }
+
+    [Fact]
+    public async Task LoadAsync_CorruptFile_ReturnsDefaultWithoutThrowing()
+    {
+        // A corrupt/truncated persistence file must not crash app startup —
+        // LoadAsync falls back to the default (empty) list, unlike LoadFromFile
+        // which documents that callers handle the JsonException.
+        var defaultPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom", Path.GetFileName(_tempFile));
+        try
+        {
+            File.WriteAllText(defaultPath, "not valid json {{{");
+
+            var manager = CreateManager();
+            var result = await manager.LoadAsync();
+
+            Assert.Empty(result);
+        }
+        finally
+        {
+            try { File.Delete(defaultPath); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Save_null_is_noop()
+    {
+        var manager = CreateManager();
+
+        var exception = Record.Exception(() => manager.Save(null));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task LoadAsync_RoundTrips_SavedItems()
+    {
+        var defaultPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ACCcom", Path.GetFileName(_tempFile));
+        try
+        {
+            var manager = CreateManager();
+            var items = new List<TestItem>
+            {
+                new() { Name = "round", Value = 7 }
+            };
+
+            manager.Save(items);
+            var loaded = await manager.LoadAsync();
+
+            Assert.Single(loaded);
+            Assert.Equal("round", loaded[0].Name);
+            Assert.Equal(7, loaded[0].Value);
+        }
+        finally
+        {
+            try { File.Delete(defaultPath); } catch { }
+        }
+    }
 }
