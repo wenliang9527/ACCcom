@@ -79,8 +79,11 @@ public class ParserEngine : IDisposable
         }
     }
 
-    public async Task<List<FieldAnnotation>?> ExecuteAsync(byte[] data, DateTime timestamp, int timeoutMs = DefaultExecutionTimeoutMs)
+    public async Task<List<FieldAnnotation>?> ExecuteAsync(byte[]? data, DateTime timestamp, int timeoutMs = DefaultExecutionTimeoutMs)
     {
+        // Null input has nothing to parse; the script would only NRE on it.
+        if (data == null) return null;
+
         Script<List<FieldAnnotation>>? script;
 
         _rwLock.EnterReadLock();
@@ -101,7 +104,11 @@ public class ParserEngine : IDisposable
             _rwLock.ExitReadLock();
         }
 
-        using var cts = new CancellationTokenSource(timeoutMs);
+        // CancellationTokenSource throws for non-positive due-times; clamp so a
+        // non-positive timeout behaves as "immediate timeout" instead of
+        // surfacing an ArgumentOutOfRangeException to the caller.
+        var effectiveTimeout = Math.Max(1, timeoutMs);
+        using var cts = new CancellationTokenSource(effectiveTimeout);
         var sw = Stopwatch.StartNew();
         try
         {
