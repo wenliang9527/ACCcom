@@ -931,81 +931,12 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _setStatus(LanguageManager.Instance["Status.DiffWindowOpened"]);
     }
 
-    // Bounded regex cache: user-typed patterns would otherwise grow without limit.
-    private const int MaxRegexCacheEntries = 16;
-    private static readonly object _regexCacheLock = new();
-    private static readonly Dictionary<string, System.Text.RegularExpressions.Regex> _regexCache = new(StringComparer.Ordinal);
-
-    private static System.Text.RegularExpressions.Regex GetOrAddRegex(string pattern)
-    {
-        lock (_regexCacheLock)
-        {
-            if (_regexCache.TryGetValue(pattern, out var regex)) return regex;
-            regex = new System.Text.RegularExpressions.Regex(pattern,
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
-            if (_regexCache.Count >= MaxRegexCacheEntries)
-            {
-                // Drop an arbitrary old entry (first key) to stay bounded.
-                var oldest = System.Linq.Enumerable.First(_regexCache.Keys);
-                _regexCache.Remove(oldest);
-            }
-            _regexCache[pattern] = regex;
-            return regex;
-        }
-    }
-
     private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine)
-    {
-        if (!showDirection) return false;
-        if (expressionEngine != null)
-        {
-            // Expression filter mode: PacketFilter syntax handles everything,
-            // so the plain-text/regex path below is bypassed.
-            var exprMatch = expressionEngine.Matches(entry);
-            entry.IsSearchMatch = exprMatch;
-            return exprMatch;
-        }
-        if (string.IsNullOrWhiteSpace(filter))
-        {
-            entry.IsSearchMatch = false;
-            return true;
-        }
-        var text = entry.Text ?? "";
-        var hex = entry.RawHex ?? "";
-        bool matches;
-        if (useRegex)
-        {
-            try
-            {
-                var regex = GetOrAddRegex(filter);
-                matches = regex.IsMatch(text) || regex.IsMatch(hex);
-            }
-            catch (Exception regexEx) { Debug.WriteLine($"Regex filter error: {regexEx.Message}"); matches = false; }
-        }
-        else
-        {
-            matches = text.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase)
-                || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
-        }
-        entry.IsSearchMatch = matches;
-        return matches;
-    }
+        => DataPanelFilter.FilterEntry(entry, filter, useRegex, showDirection, expressionEngine,
+            regexError => Debug.WriteLine($"Regex filter error: {regexError}"));
 
     public string GetFormattedCopyText(IEnumerable<LogEntry> entries, string direction)
-    {
-        var sb = new System.Text.StringBuilder();
-        foreach (var entry in entries)
-        {
-            var hex = entry.RawHex ?? "";
-            var text = entry.Text ?? "";
-            var time = entry.Timestamp.ToString("HH:mm:ss.fff");
-            if (!string.IsNullOrEmpty(hex))
-                sb.AppendLine($"[{time}][{direction}][HEX] {hex}");
-            if (!string.IsNullOrEmpty(text))
-                sb.AppendLine($"[{time}][{direction}][TXT] {text}");
-        }
-        return sb.ToString();
-    }
+        => EntryTextFormatter.Format(entries, direction);
 
     private void LoadParserFingerprints()
     {

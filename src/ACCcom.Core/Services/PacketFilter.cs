@@ -29,6 +29,89 @@ public class PacketFilterEngine
     }
 }
 
+/// <summary>Bounded, thread-safe cache of compiled regex filters. Lives in Core
+/// so both the data-panel filter path and the (future) CLI path share one pool;
+/// the cap prevents user-typed patterns from growing without limit.</summary>
+public static class RegexFilterCache
+{
+    private const int MaxEntries = 16;
+    private static readonly object _lock = new();
+    private static readonly Dictionary<string, System.Text.RegularExpressions.Regex> _cache = new(StringComparer.Ordinal);
+
+    /// <summary>Returns a cached compiled regex, compiling and evicting the
+    /// oldest entry (first key) when the pool is full. Callers must still catch
+    /// ArgumentException for invalid patterns — compiling can throw here.</summary>
+    public static System.Text.RegularExpressions.Regex Get(string pattern)
+    {
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(pattern, out var regex)) return regex;
+            regex = new System.Text.RegularExpressions.Regex(pattern,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+            if (_cache.Count >= MaxEntries)
+            {
+                // Drop an arbitrary old entry (first key) to stay bounded.
+                var oldest = System.Linq.Enumerable.First(_cache.Keys);
+                _cache.Remove(oldest);
+            }
+            _cache[pattern] = regex;
+            return regex;
+        }
+    }
+}
+
+/// <summary>Data-panel entry filter: combines the show/hide direction switch,
+/// an optional PacketFilter expression engine, and plain-text / regex search.
+/// Sets <see cref="LogEntry.IsSearchMatch"/> as a side effect (used by the
+/// F3/Shift+F3 jump-to-match navigator). Extracted from DataFlowViewModel so
+/// the filter semantics are unit-testable without the UI layer.</summary>
+public static class DataPanelFilter
+{
+    /// <summary>Evaluates whether <paramref name="entry"/> passes the filter.
+    /// <paramref name="errorSink"/> receives regex parse failures (the ViewModel
+    /// used Debug.WriteLine; tests inject a collector).</summary>
+    public static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine, Action<string>? errorSink = null)
+    {
+        if (!showDirection) return false;
+        if (expressionEngine != null)
+        {
+            // Expression filter mode: PacketFilter syntax handles everything,
+            // so the plain-text/regex path below is bypassed.
+            var exprMatch = expressionEngine.Matches(entry);
+            entry.IsSearchMatch = exprMatch;
+            return exprMatch;
+        }
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            entry.IsSearchMatch = false;
+            return true;
+        }
+        var text = entry.Text ?? "";
+        var hex = entry.RawHex ?? "";
+        bool matches;
+        if (useRegex)
+        {
+            try
+            {
+                var regex = RegexFilterCache.Get(filter);
+                matches = regex.IsMatch(text) || regex.IsMatch(hex);
+            }
+            catch (Exception regexEx)
+            {
+                errorSink?.Invoke(regexEx.Message);
+                matches = false;
+            }
+        }
+        else
+        {
+            matches = text.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase)
+                || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
+        }
+        entry.IsSearchMatch = matches;
+        return matches;
+    }
+}
+
 internal abstract class FilterNode
 {
     public abstract bool Evaluate(LogEntry entry);
