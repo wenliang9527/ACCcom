@@ -19,8 +19,11 @@ public class SerialConnectionManager : IDisposable
     /// If currently closed, opens the port with the given config.
     /// Returns true if the port is now open, false otherwise.
     /// </summary>
-    public bool ToggleConnection(ISerialService serial, SerialConfig? config, bool currentlyOpen)
+    public bool ToggleConnection(ISerialService? serial, SerialConfig? config, bool currentlyOpen)
     {
+        // A null service cannot open or close anything; fail cleanly.
+        if (serial == null) return false;
+
         if (currentlyOpen)
         {
             serial.Close();

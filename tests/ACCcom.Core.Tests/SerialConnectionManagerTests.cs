@@ -92,4 +92,14 @@ public class SerialConnectionManagerTests
         var result = mgr.ToggleConnection(serial, null, currentlyOpen: true);
         Assert.False(result);
     }
+
+    [Fact]
+    public void ToggleConnection_NullSerial_ReturnsFalse()
+    {
+        using var mgr = new SerialConnectionManager();
+
+        // A null service must not NRE in the close/open path; it fails cleanly.
+        Assert.False(mgr.ToggleConnection(null, null, currentlyOpen: false));
+        Assert.False(mgr.ToggleConnection(null, null, currentlyOpen: true));
+    }
 }
