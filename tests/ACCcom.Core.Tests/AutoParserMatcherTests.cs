@@ -243,4 +243,23 @@ public class AutoParserMatcherTests
         matcher.Clear();
         Assert.Equal(0, matcher.Count);
     }
+
+    [Fact]
+    public void Matcher_null_or_empty_name_is_noop()
+    {
+        var matcher = new AutoParserMatcher();
+
+        // A null/empty parser name must not throw (dictionary key lookup would
+        // otherwise ArgumentNullException) — just ignore it.
+        var exception = Record.Exception(() =>
+        {
+            matcher.UpdateFingerprint(null, new ParserFingerprint { Name = "X" });
+            matcher.UpdateFingerprint("", new ParserFingerprint { Name = "Y" });
+            matcher.RemoveFingerprint(null);
+            matcher.RemoveFingerprint("");
+        });
+
+        Assert.Null(exception);
+        Assert.Equal(0, matcher.Count);
+    }
 }

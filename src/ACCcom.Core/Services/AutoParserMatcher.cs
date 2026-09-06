@@ -16,8 +16,9 @@ public class AutoParserMatcher
         }
     }
 
-    public void UpdateFingerprint(string parserName, ParserFingerprint fingerprint)
+    public void UpdateFingerprint(string? parserName, ParserFingerprint fingerprint)
     {
+        if (string.IsNullOrEmpty(parserName)) return;
         lock (_lock)
         {
             _fingerprints[parserName] = fingerprint;
@@ -25,8 +26,9 @@ public class AutoParserMatcher
         }
     }
 
-    public void RemoveFingerprint(string parserName)
+    public void RemoveFingerprint(string? parserName)
     {
+        if (string.IsNullOrEmpty(parserName)) return;
         lock (_lock)
         {
             _fingerprints.Remove(parserName);
