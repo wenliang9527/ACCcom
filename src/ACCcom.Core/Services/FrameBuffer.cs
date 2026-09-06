@@ -58,6 +58,9 @@ public class FrameBuffer : IDisposable
     public void Write(byte[] data, int offset, int count)
     {
         if (_disposed || count == 0) return;
+        if (data == null) throw new ArgumentNullException(nameof(data));
+        if (offset < 0 || count < 0 || offset + count > data.Length)
+            throw new ArgumentOutOfRangeException(nameof(offset), "offset/count exceed the data buffer");
 
         lock (_lock)
         {
@@ -92,7 +95,11 @@ public class FrameBuffer : IDisposable
         ProcessBuffer();
     }
 
-    public void Write(byte[] data) => Write(data, 0, data.Length);
+    public void Write(byte[] data)
+    {
+        if (data == null) throw new ArgumentNullException(nameof(data));
+        Write(data, 0, data.Length);
+    }
 
     public void Reset()
     {

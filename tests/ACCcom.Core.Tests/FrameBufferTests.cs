@@ -210,4 +210,74 @@ public class FrameBufferTests
             MaxFrameSize = 16
         };
     }
+
+    // --- Write argument validation ---
+
+    [Fact]
+    public void Write_null_data_throws()
+    {
+        var buffer = Create(LengthField());
+
+        Assert.Throws<ArgumentNullException>(() => buffer.Write(null!, 0, 1));
+    }
+
+    [Fact]
+    public void Write_convenience_overload_null_data_throws()
+    {
+        var buffer = Create(LengthField());
+
+        Assert.Throws<ArgumentNullException>(() => buffer.Write(null!));
+    }
+
+    [Fact]
+    public void Write_negative_offset_throws()
+    {
+        var buffer = Create(LengthField());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => buffer.Write([0x01], -1, 1));
+    }
+
+    [Fact]
+    public void Write_negative_count_throws()
+    {
+        var buffer = Create(LengthField());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => buffer.Write([0x01], 0, -1));
+    }
+
+    [Fact]
+    public void Write_offset_plus_count_beyond_data_throws()
+    {
+        var buffer = Create(LengthField());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => buffer.Write([0x01, 0x02], 1, 2));
+    }
+
+    [Fact]
+    public void Write_zero_count_is_noop_even_with_null_data()
+    {
+        var buffer = Create(LengthField());
+        var frames = new List<byte[]>();
+        buffer.OnFrameAssembled += e => frames.Add(HexHelper.HexStringToBytes(e.RawHex));
+
+        // count == 0 short-circuits before the null check — matches the
+        // "no-op" contract and keeps the fast path cheap.
+        buffer.Write(null!, 0, 0);
+
+        Assert.Empty(frames);
+    }
+
+    [Fact]
+    public void Write_offset_subrange_only_consumes_that_range()
+    {
+        var buffer = Create(LengthField());
+        var frames = new List<byte[]>();
+        buffer.OnFrameAssembled += e => frames.Add(HexHelper.HexStringToBytes(e.RawHex));
+
+        // Frame is [03 AA BB]; offset 1 skips the leading 0xFF.
+        buffer.Write([0xFF, 0x03, 0xAA, 0xBB], 1, 3);
+
+        Assert.Single(frames);
+        Assert.Equal(new byte[] { 0x03, 0xAA, 0xBB }, frames[0]);
+    }
 }
