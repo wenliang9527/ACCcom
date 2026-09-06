@@ -1,3 +1,4 @@
+using System;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
@@ -12,6 +13,9 @@ public static class DiffEngine
 {
     public static (List<DiffRow> RowsA, List<DiffRow> RowsB, int Matching, int Different) BuildDiff(string[] linesA, string[] linesB)
     {
+        ArgumentNullException.ThrowIfNull(linesA);
+        ArgumentNullException.ThrowIfNull(linesB);
+
         int maxCount = Math.Max(linesA.Length, linesB.Length);
         var rowsA = new List<DiffRow>(maxCount);
         var rowsB = new List<DiffRow>(maxCount);

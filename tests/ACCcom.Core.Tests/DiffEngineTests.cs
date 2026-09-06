@@ -55,6 +55,14 @@ public class DiffEngineTests
     }
 
     [Fact]
+    public void Null_inputs_throw_argument_null()
+    {
+        Assert.Throws<ArgumentNullException>(() => DiffEngine.BuildDiff(null!, new[] { "a" }));
+        Assert.Throws<ArgumentNullException>(() => DiffEngine.BuildDiff(new[] { "a" }, null!));
+        Assert.Throws<ArgumentNullException>(() => DiffEngine.BuildDiff(null!, null!));
+    }
+
+    [Fact]
     public void Empty_inputs_produce_zero_rows()
     {
         var (rowsA, rowsB, matching, different) = DiffEngine.BuildDiff(Array.Empty<string>(), Array.Empty<string>());
