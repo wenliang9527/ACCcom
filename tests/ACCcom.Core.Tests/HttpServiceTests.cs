@@ -148,6 +148,14 @@ public class HttpServiceTests : IDisposable
     }
 
     [Fact]
+    public void OpenPort_null_or_empty_port_returns_false()
+    {
+        // A null/invalid request must not NRE on req.Port — it fails cleanly.
+        Assert.False(_service.OpenPort(null));
+        Assert.False(_service.OpenPort(new ACCcom.Core.Models.OpenPortRequest { Port = "" }));
+    }
+
+    [Fact]
     public async Task Parsers_ReturnsParserList()
     {
         // Act

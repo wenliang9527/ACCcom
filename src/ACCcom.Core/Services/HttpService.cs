@@ -81,9 +81,12 @@ public class HttpService : IDisposable
         return _serialService?.Send(data, isHex) ?? false;
     }
 
-    public bool OpenPort(OpenPortRequest req)
+    public bool OpenPort(OpenPortRequest? req)
     {
         if (_serialService == null) return false;
+        // A null/invalid request (e.g. JSON deserialization failure upstream)
+        // must not NRE on req.Port below.
+        if (req == null || string.IsNullOrEmpty(req.Port)) return false;
         if (_serialService.IsOpen) return true;
 
         var config = new SerialConfig
