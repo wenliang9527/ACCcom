@@ -133,7 +133,7 @@ public class TriggerViewModel : ObservableObject
                             var dir = Path.GetDirectoryName(resolved);
                             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                                 Directory.CreateDirectory(dir);
-                            var line = $"[{entry.Timestamp:HH:mm:ss.fff}] {entry.Direction} {entry.Text}";
+                            var line = TriggerLogLine.Format(entry);
                             File.AppendAllText(resolved, line + Environment.NewLine);
                         }
                         catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.SaveTriggersFailed"], ex.Message)); }
