@@ -182,7 +182,7 @@ public class ProtocolTestRunner
         if (matchMode.Equals("exact", StringComparison.OrdinalIgnoreCase))
             return string.Equals(actual, pattern, StringComparison.Ordinal);
         if (matchMode.Equals("regex", StringComparison.OrdinalIgnoreCase))
-            return TryRegexMatch(actual, pattern);
+            return PatternMatcher.TryRegexMatch(actual, pattern);
         if (matchMode.Equals("hex_contains", StringComparison.OrdinalIgnoreCase))
             return actual.Contains(pattern, StringComparison.OrdinalIgnoreCase);
         return actual.Contains(pattern, StringComparison.OrdinalIgnoreCase);
@@ -209,19 +209,6 @@ public class ProtocolTestRunner
             return true;
         }
         return false;
-    }
-
-    private static bool TryRegexMatch(string input, string pattern)
-    {
-        try
-        {
-            return System.Text.RegularExpressions.Regex.IsMatch(input, pattern,
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     /// <summary>
