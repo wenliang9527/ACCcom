@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using System.Windows;
 using ACCcom.Core.Models;
 using ACCcom.Helpers;
@@ -7,7 +6,6 @@ namespace ACCcom;
 
 public partial class AddShortcutDialog : Window
 {
-    private static readonly Regex HexPattern = new(@"^[0-9A-Fa-f\s]+$", RegexOptions.Compiled);
     private bool _updating;
 
     public string ShortcutName => NameBox.Text;
@@ -50,13 +48,15 @@ public partial class AddShortcutDialog : Window
         var text = CommandBox.Text;
         if (string.IsNullOrWhiteSpace(text)) { HexInfo.Text = ""; return; }
 
-        // 去除空格后检测是否为合法 HEX
-        var raw = text.Replace(" ", "");
-        if (HexPattern.IsMatch(raw) && raw.Length % 2 == 0)
+        // Centralize hex validation in the Core helper: it accepts the same
+        // whitespace set as the send box (incl. tabs/newlines), reports "incomplete"
+        // for an odd digit count and "invalid" for non-hex characters.
+        var validation = HexHelper.ValidateHexInput(text);
+        if (validation.IsValid)
         {
             _updating = true;
             var caret = CommandBox.CaretIndex;
-            var formatted = HexHelper.FormatHexSpaced(raw);
+            var formatted = HexHelper.FormatHexSpaced(text);
             if (formatted != text)
             {
                 CommandBox.Text = formatted;
@@ -67,9 +67,9 @@ public partial class AddShortcutDialog : Window
                 CommandBox.CaretIndex = Math.Min(caret + spacesBeforeCaret, formatted.Length);
             }
             _updating = false;
-            HexInfo.Text = string.Format(LanguageManager.Instance["AddShortcut.HexBytes"], HexHelper.CountHexBytes(raw));
+            HexInfo.Text = string.Format(LanguageManager.Instance["AddShortcut.HexBytes"], validation.ByteCount);
         }
-        else if (HexPattern.IsMatch(raw))
+        else if (validation.InvalidIndex >= text.Length)
         {
             HexInfo.Text = LanguageManager.Instance["AddShortcut.HexIncomplete"];
         }
@@ -85,15 +85,11 @@ public partial class AddShortcutDialog : Window
         {
             // 勾选 HEX 时，尝试将当前命令转为 HEX 格式
             var text = CommandBox.Text;
-            if (!string.IsNullOrWhiteSpace(text))
+            if (!string.IsNullOrWhiteSpace(text) && HexHelper.ValidateHexInput(text).IsValid)
             {
-                var raw = text.Replace(" ", "");
-                if (HexPattern.IsMatch(raw) && raw.Length % 2 == 0)
-                {
-                    _updating = true;
-                    CommandBox.Text = HexHelper.FormatHexSpaced(raw);
-                    _updating = false;
-                }
+                _updating = true;
+                CommandBox.Text = HexHelper.FormatHexSpaced(text);
+                _updating = false;
             }
         }
         else
