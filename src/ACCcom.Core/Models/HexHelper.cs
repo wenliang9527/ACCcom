@@ -16,10 +16,11 @@ public static class HexHelper
     {
         if (string.IsNullOrEmpty(hex)) return 0;
 
-        int count = 0;
+        int digitCount = 0;
         foreach (var c in hex.AsSpan())
-            if (c != ' ') count++;
-        return count / 2;
+            if (c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')
+                digitCount++;
+        return digitCount / 2;
     }
 
     public static byte[] HexStringToBytes(string? hex)

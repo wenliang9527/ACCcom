@@ -137,7 +137,7 @@ public class SerialController : WebApiController
                 return ApiResponse.Fail("发送数据不能为空");
 
             if (_service.SendToSerial(data, isHex))
-                return ApiResponse.Ok(new { sent = data, isHex, length = isHex ? data.Replace(" ", "").Length / 2 : data.Length });
+                return ApiResponse.Ok(new { sent = data, isHex, length = isHex ? HexHelper.CountHexBytes(data) : data.Length });
             else
                 return ApiResponse.Fail("发送失败，串口可能未打开");
         }

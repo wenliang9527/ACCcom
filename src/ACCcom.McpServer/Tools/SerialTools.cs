@@ -60,7 +60,7 @@ public class SerialTools
         if (string.IsNullOrEmpty(data))
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Data cannot be empty" }));
         if (_serial.Send(data, isHex))
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? data.Replace(" ", "").Length / 2 : data.Length } }));
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? HexHelper.CountHexBytes(data) : data.Length } }));
         return Task.FromResult(_ctx.RawJson(new { success = false, error = "Send failed, port may not be open" }));
     }
 

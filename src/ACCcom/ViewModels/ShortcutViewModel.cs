@@ -154,7 +154,7 @@ public class ShortcutViewModel : ObservableObject
         {
             df.TxCount++;
             df.RecordTxBytes(item.IsHex
-                ? toSend.Replace(" ", "").Length / 2
+                ? HexHelper.CountHexBytes(toSend)
                 : System.Text.Encoding.UTF8.GetByteCount(toSend));
             _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutSent"], item.Name));
         }

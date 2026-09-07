@@ -67,7 +67,7 @@ public partial class AddShortcutDialog : Window
                 CommandBox.CaretIndex = Math.Min(caret + spacesBeforeCaret, formatted.Length);
             }
             _updating = false;
-            HexInfo.Text = string.Format(LanguageManager.Instance["AddShortcut.HexBytes"], raw.Length / 2);
+            HexInfo.Text = string.Format(LanguageManager.Instance["AddShortcut.HexBytes"], HexHelper.CountHexBytes(raw));
         }
         else if (HexPattern.IsMatch(raw))
         {

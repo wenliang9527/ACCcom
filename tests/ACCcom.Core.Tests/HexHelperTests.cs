@@ -113,6 +113,23 @@ public class HexHelperTests
         Assert.Equal(0, HexHelper.CountHexBytes(null));
     }
 
+    [Fact]
+    public void CountHexBytes_TabSeparated_CountsDigitsOnly()
+    {
+        // Tabs/newlines are legal hex whitespace (ValidateHexInput accepts them);
+        // the old space-only parser counted them as digits and returned 2 for "AA\tBB".
+        Assert.Equal(2, HexHelper.CountHexBytes("AA\tBB"));
+        Assert.Equal(3, HexHelper.CountHexBytes("AA\tBB\r\nCC"));
+    }
+
+    [Fact]
+    public void CountHexBytes_NonHexChars_Skipped()
+    {
+        // Only hex digits are counted, matching TryHexStringToBytes/FormatHexSpaced.
+        Assert.Equal(1, HexHelper.CountHexBytes("AA ZZ"));
+        Assert.Equal(1, HexHelper.CountHexBytes("0xAA"));
+    }
+
     // ========== HexStringToBytes ==========
 
     [Fact]

@@ -128,6 +128,23 @@ public class AutoParserMatcherTests
     }
 
     [Fact]
+    public void Fingerprint_FromSchema_RejectsTrashHeader()
+    {
+        // A malformed header must not produce a non-zero HeaderLength: Matches()
+        // compares the header verbatim via Convert.ToHexString, so an odd digit run
+        // or non-hex characters can never match real data. Tab-separated bytes are
+        // legal and still parse to their byte count.
+        var odd = new ProtocolSchema { Name = "Odd", MinLength = 4, Frame = new FrameSchema { Header = "A5 5" } };
+        var trash = new ProtocolSchema { Name = "Trash", MinLength = 4, Frame = new FrameSchema { Header = "A5 <0xAA> ZZ" } };
+        var tabs = new ProtocolSchema { Name = "Tabs", MinLength = 4, AutoMatch = new AutoMatchConfig { HeaderPattern = "FF\tFE" } };
+
+        Assert.Equal(0, ParserFingerprint.FromSchema(odd).HeaderLength);
+        Assert.Equal(0, ParserFingerprint.FromSchema(trash).HeaderLength);
+        Assert.Equal(2, ParserFingerprint.FromSchema(tabs).HeaderLength);
+        Assert.Equal("FFFE", ParserFingerprint.FromSchema(tabs).HeaderHex);
+    }
+
+    [Fact]
     public void Matcher_ReturnsNull_WhenNoFingerprints()
     {
         var matcher = new AutoParserMatcher();
