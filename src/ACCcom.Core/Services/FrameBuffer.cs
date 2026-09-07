@@ -48,10 +48,15 @@ public class FrameBuffer : IDisposable
 
     public FrameBuffer(FrameBufferConfig config, AutoParserMatcher? matcher = null, ParserManager? parserManager = null)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         _config = config;
         _matcher = matcher;
         _parserManager = parserManager;
-        _ringBuf = new byte[config.BufferCapacity];
+        // A zero/negative capacity would throw from the array allocation or
+        // divide by zero in the ring wrap (_head % _ringBuf.Length). Clamp to a
+        // minimum so the assembler stays usable with any config.
+        _ringBuf = new byte[Math.Max(1, config.BufferCapacity)];
         _timeoutTimer = new Timer(CheckTimeout, null, 200, 200);
     }
 

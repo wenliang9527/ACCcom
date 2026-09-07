@@ -22,6 +22,22 @@ public class FrameBufferTests
     }
 
     [Fact]
+    public void Constructor_zero_capacity_does_not_throw()
+    {
+        // capacity 0 would divide by zero in the ring wrap; the constructor
+        // clamps to a minimum so the assembler stays usable.
+        using var buffer = Create(LengthField(capacity: 0));
+        buffer.Write([0x03, 0xAA, 0xBB]);
+    }
+
+    [Fact]
+    public void Constructor_negative_capacity_does_not_throw()
+    {
+        using var buffer = Create(LengthField(capacity: -10));
+        buffer.Write([0x03, 0xAA, 0xBB]);
+    }
+
+    [Fact]
     public void ByLengthField_ExtractsCompleteFrame()
     {
         // Length field value = total frame size including the length byte itself
