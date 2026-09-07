@@ -21,8 +21,11 @@ public class DataBufferService : IDisposable
 
     public DataBufferService(int capacity = 10000)
     {
-        _capacity = capacity;
-        _ringBuffer = new LogEntry?[capacity];
+        // A non-positive capacity would divide by zero on the ring wrap
+        // (_head % _capacity) or throw from the array allocation. Clamp to a
+        // minimum so the buffer always has room for at least one entry.
+        _capacity = Math.Max(1, capacity);
+        _ringBuffer = new LogEntry?[_capacity];
     }
 
     private void RingAdd(LogEntry entry)

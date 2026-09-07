@@ -36,6 +36,28 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void Constructor_zero_capacity_clamps_to_one()
+    {
+        // capacity 0 would divide by zero on ring wrap (_head % _capacity);
+        // the constructor clamps to a minimum of 1 so the buffer stays usable.
+        var sut = new DataBufferService(0);
+        sut.AddEntry(MakeEntry(1));
+        sut.AddEntry(MakeEntry(2));
+
+        Assert.Equal(1, sut.Count());
+        Assert.Equal(2, sut.GetEntriesSince(0)[0].Id); // most recent survives
+    }
+
+    [Fact]
+    public void Constructor_negative_capacity_clamps_to_one()
+    {
+        var sut = new DataBufferService(-5);
+        sut.AddEntry(MakeEntry(1));
+
+        Assert.Equal(1, sut.Count());
+    }
+
+    [Fact]
     public void AddEntry_then_GetEntriesSince_returns_only_newer()
     {
         // Arrange
