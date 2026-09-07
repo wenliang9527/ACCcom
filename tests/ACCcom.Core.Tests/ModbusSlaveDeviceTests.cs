@@ -10,6 +10,27 @@ public class ModbusSlaveDeviceTests
         => new(slaveId, coils: 16, discreteInputs: 16, holdingRegisters: 16, inputRegisters: 16);
 
     [Fact]
+    public void Constructor_negative_region_size_throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ModbusSlaveDevice(0x01, coils: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ModbusSlaveDevice(0x01, holdingRegisters: -5));
+    }
+
+    [Fact]
+    public void Constructor_zero_region_is_empty()
+    {
+        // Zero-sized regions are legal (an empty device shape); all reads must
+        // fail with an illegal-data response rather than indexing garbage.
+        var device = new ModbusSlaveDevice(0x01, coils: 0, discreteInputs: 0, holdingRegisters: 0, inputRegisters: 0);
+        Assert.Equal(0, device.CoilCount);
+        Assert.Equal(0, device.HoldingRegisterCount);
+
+        var resp = device.HandleRequest(0x01, [0x00, 0x00, 0x00, 0x01]); // read 1 coil
+        Assert.Equal(0x81, resp[0]);
+        Assert.Equal(0x02, resp[1]);
+    }
+
+    [Fact]
     public void FC01_ReadCoils_ReturnsCorrectBitPattern()
     {
         var device = CreateDevice();

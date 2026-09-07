@@ -22,6 +22,14 @@ public class ModbusSlaveDevice
         int coils = 1024, int discreteInputs = 1024,
         int holdingRegisters = 256, int inputRegisters = 256)
     {
+        // Negative region sizes are a caller bug: new bool[-1] throws deep
+        // inside the constructor. Zero is legal (an empty region is a valid
+        // device shape), so only reject negatives up front.
+        ArgumentOutOfRangeException.ThrowIfNegative(coils);
+        ArgumentOutOfRangeException.ThrowIfNegative(discreteInputs);
+        ArgumentOutOfRangeException.ThrowIfNegative(holdingRegisters);
+        ArgumentOutOfRangeException.ThrowIfNegative(inputRegisters);
+
         SlaveId = slaveId;
         _coils = new bool[coils];
         _discreteInputs = new bool[discreteInputs];
