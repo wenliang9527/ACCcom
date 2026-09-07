@@ -136,6 +136,15 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void CountWhere_null_predicate_throws()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+
+        Assert.Throws<ArgumentNullException>(() => sut.CountWhere(null!));
+    }
+
+    [Fact]
     public void CountDirection_tracks_incrementally()
     {
         // Arrange

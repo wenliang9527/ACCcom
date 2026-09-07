@@ -220,6 +220,8 @@ public class DataBufferService : IDisposable
 
     public int CountWhere(Func<LogEntry, bool> predicate)
     {
+        ArgumentNullException.ThrowIfNull(predicate);
+
         lock (_lock)
         {
             int c = 0;
