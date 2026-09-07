@@ -27,9 +27,12 @@ public class PortMonitorServiceTests
     public void Poll_InitialSnapshot_ReportsArrivedPorts()
     {
         using var monitor = new PortMonitorService();
-        // Start captures the (empty/live) snapshot; then inject COM3 as new.
+        // Start captures the live OS snapshot; then clear the baseline so the
+        // poll below compares against an empty set regardless of what ports
+        // the test machine actually has.
         monitor.Start(intervalMs: 1000);
         monitor.Stop(); // no timer ticks; we drive Poll manually
+        monitor.Poll([]);
 
         List<string>? arrived = null;
         List<string>? removed = null;
@@ -45,11 +48,29 @@ public class PortMonitorServiceTests
     }
 
     [Fact]
+    public void Start_ReportsExistingPortsAsArrived()
+    {
+        // A monitor started while a device is already connected must surface it
+        // immediately (arrived), not wait for the first timer tick.
+        using var monitor = new PortMonitorService();
+
+        List<string>? arrived = null;
+        monitor.PortsChanged += (a, _) => arrived = a;
+
+        monitor.Start(intervalMs: 1000);
+        monitor.Stop();
+
+        Assert.NotNull(arrived);
+        Assert.Contains("COM9", arrived);
+    }
+
+    [Fact]
     public void Poll_RemovedPort_ReportsRemoved()
     {
         using var monitor = new PortMonitorService();
         monitor.Start(intervalMs: 1000);
         monitor.Stop();
+        monitor.Poll([]); // clear live-OS baseline
 
         // Establish a baseline with COM3 present.
         monitor.Poll(["COM3"]);
@@ -73,6 +94,7 @@ public class PortMonitorServiceTests
         using var monitor = new PortMonitorService();
         monitor.Start(intervalMs: 1000);
         monitor.Stop();
+        monitor.Poll([]); // clear live-OS baseline
         monitor.Poll(["COM3"]);
 
         var raised = false;
@@ -89,6 +111,7 @@ public class PortMonitorServiceTests
         using var monitor = new PortMonitorService();
         monitor.Start(intervalMs: 1000);
         monitor.Stop();
+        monitor.Poll([]); // clear live-OS baseline
 
         monitor.Poll(["COM3"]);
         monitor.Poll([]); // removed
@@ -124,6 +147,7 @@ public class PortMonitorServiceTests
         using var monitor = new PortMonitorService();
         monitor.Start(intervalMs: 1000);
         monitor.Stop();
+        monitor.Poll([]); // clear live-OS baseline
 
         monitor.Poll(["COM3"]);
         var raised = false;

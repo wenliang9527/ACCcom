@@ -12,11 +12,13 @@ namespace ACCcom.Core.Services;
 public static class ModbusValueParser
 {
     /// <summary>Parses coil flags from a comma-separated string
-    /// ("1,0,true,on,no" → true,false,true,true,false). Empty/whitespace input
-    /// yields an empty array.</summary>
-    public static bool[] ParseCoilValues(string? input)
+    /// ("1,0,true,on,no" → true,false,true,true,false). Null/empty/whitespace
+    /// input yields null — the multi-write services reject null values with a
+    /// clear error, so an empty batch box surfaces at parse time instead of
+    /// producing an empty frame.</summary>
+    public static bool[]? ParseCoilValues(string? input)
     {
-        if (string.IsNullOrWhiteSpace(input)) return [];
+        if (string.IsNullOrWhiteSpace(input)) return null;
         return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s is "1" or "true" or "on" or "yes").ToArray();
     }
@@ -25,10 +27,10 @@ public static class ModbusValueParser
     /// prefixed with 0x (case-insensitive) are parsed as hex; everything else
     /// is parsed as a decimal ushort. Unparsable tokens become 0 rather than
     /// throwing, so a stray space or typo can't crash a batch write.
-    /// Empty/whitespace input yields an empty array.</summary>
-    public static ushort[] ParseRegisterValues(string? input)
+    /// Null/empty/whitespace input yields null.</summary>
+    public static ushort[]? ParseRegisterValues(string? input)
     {
-        if (string.IsNullOrWhiteSpace(input)) return [];
+        if (string.IsNullOrWhiteSpace(input)) return null;
         return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
                 ? ushort.Parse(s[2..], NumberStyles.HexNumber)

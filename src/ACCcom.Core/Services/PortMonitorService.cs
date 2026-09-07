@@ -28,10 +28,16 @@ public class PortMonitorService : IDisposable
             // 0/negative interval behaves as "poll as fast as possible" instead
             // of surfacing an ArgumentException to the caller.
             var effectiveInterval = Math.Max(1, intervalMs);
-            _lastPorts = new HashSet<string>(SafeGetPorts(), StringComparer.OrdinalIgnoreCase);
+            var initial = SafeGetPorts();
+            _lastPorts = new HashSet<string>(initial, StringComparer.OrdinalIgnoreCase);
             _timer = new System.Timers.Timer(effectiveInterval) { AutoReset = true };
             _timer.Elapsed += (_, _) => Poll();
             _timer.Start();
+            // Report the ports already present at startup as arrived, so a
+            // monitor started with a device connected surfaces it immediately
+            // instead of waiting for the first timer tick.
+            if (initial.Length > 0)
+                PortsChanged?.Invoke(initial.ToList(), []);
         }
     }
 
@@ -47,14 +53,18 @@ public class PortMonitorService : IDisposable
 
     // Internal for tests: runs one poll with an injected port snapshot instead
     // of the live OS list, so the arrived/removed diff logic is testable.
-    internal void Poll(IEnumerable<string> injectedPorts)
+    // Empty snapshot = cleared baseline, so tests that don't care about the
+    // live OS port list can establish a deterministic baseline.
+    internal void Poll(IEnumerable<string>? injectedPorts)
     {
         List<string> arrived = new(), removed = new();
         lock (_lock)
         {
             if (_disposed) return;
 
-            var current = new HashSet<string>(injectedPorts, StringComparer.OrdinalIgnoreCase);
+            var current = injectedPorts == null
+                ? new HashSet<string>(SafeGetPorts(), StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(injectedPorts, StringComparer.OrdinalIgnoreCase);
 
             foreach (var p in current)
                 if (!_lastPorts.Contains(p)) arrived.Add(p);

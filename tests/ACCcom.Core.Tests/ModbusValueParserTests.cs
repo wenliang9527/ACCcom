@@ -40,11 +40,13 @@ public class ModbusValueParserTests
     }
 
     [Fact]
-    public void ParseCoilValues_empty_or_whitespace_returns_empty()
+    public void ParseCoilValues_empty_or_whitespace_returns_null()
     {
-        Assert.Empty(ModbusValueParser.ParseCoilValues(""));
-        Assert.Empty(ModbusValueParser.ParseCoilValues("   "));
-        Assert.Empty(ModbusValueParser.ParseCoilValues(null));
+        // Null (not empty) surfaces the "values must not be null or empty" error
+        // at parse time, matching ModbusService's multi-write contract.
+        Assert.Null(ModbusValueParser.ParseCoilValues(""));
+        Assert.Null(ModbusValueParser.ParseCoilValues("   "));
+        Assert.Null(ModbusValueParser.ParseCoilValues(null));
     }
 
     // --- Registers ---
@@ -90,11 +92,11 @@ public class ModbusValueParserTests
     }
 
     [Fact]
-    public void ParseRegisterValues_empty_or_whitespace_returns_empty()
+    public void ParseRegisterValues_empty_or_whitespace_returns_null()
     {
-        Assert.Empty(ModbusValueParser.ParseRegisterValues(""));
-        Assert.Empty(ModbusValueParser.ParseRegisterValues("   "));
-        Assert.Empty(ModbusValueParser.ParseRegisterValues(null));
+        Assert.Null(ModbusValueParser.ParseRegisterValues(""));
+        Assert.Null(ModbusValueParser.ParseRegisterValues("   "));
+        Assert.Null(ModbusValueParser.ParseRegisterValues(null));
     }
 
     [Fact]

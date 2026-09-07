@@ -274,10 +274,10 @@ public class HttpService : IDisposable
         {
             "WriteSingleCoil" or "05" => await svc.WriteSingleCoilAsync(req.SlaveId, req.Address, req.Value != 0, req.TimeoutMs).ConfigureAwait(false),
             "WriteSingleRegister" or "06" => await svc.WriteSingleRegisterAsync(req.SlaveId, req.Address, req.Value, req.TimeoutMs).ConfigureAwait(false),
-            "WriteMultipleCoils" or "15" => await svc.WriteMultipleCoilsAsync(req.SlaveId, req.Address, ParseCoils(req.Values ?? ""), req.TimeoutMs).ConfigureAwait(false),
-            "WriteMultipleRegisters" or "16" => await svc.WriteMultipleRegistersAsync(req.SlaveId, req.Address, ParseRegisters(req.Values ?? ""), req.TimeoutMs).ConfigureAwait(false),
+            "WriteMultipleCoils" or "15" => await svc.WriteMultipleCoilsAsync(req.SlaveId, req.Address, ModbusValueParser.ParseCoilValues(req.Values), req.TimeoutMs).ConfigureAwait(false),
+            "WriteMultipleRegisters" or "16" => await svc.WriteMultipleRegistersAsync(req.SlaveId, req.Address, ModbusValueParser.ParseRegisterValues(req.Values), req.TimeoutMs).ConfigureAwait(false),
             "MaskWriteRegister" or "22" => await svc.MaskWriteRegisterAsync(req.SlaveId, req.Address, ParseHexOrZero(req.AndMask), ParseHexOrZero(req.OrMask), req.TimeoutMs).ConfigureAwait(false),
-            "ReadWriteMultipleRegisters" or "23" => await svc.ReadWriteMultipleRegistersAsync(req.SlaveId, req.Address, req.Value, req.Address, ParseRegisters(req.Values ?? ""), req.TimeoutMs).ConfigureAwait(false),
+            "ReadWriteMultipleRegisters" or "23" => await svc.ReadWriteMultipleRegistersAsync(req.SlaveId, req.Address, req.Value, req.Address, ModbusValueParser.ParseRegisterValues(req.Values), req.TimeoutMs).ConfigureAwait(false),
             _ => await svc.WriteSingleRegisterAsync(req.SlaveId, req.Address, req.Value, req.TimeoutMs).ConfigureAwait(false)
         };
     }
@@ -403,13 +403,6 @@ public class HttpService : IDisposable
         _ => RegisterType.HoldingRegister
     };
 
-    private static bool[] ParseCoils(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return [];
-        return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s is "1" or "true" or "on" or "yes").ToArray();
-    }
-
     private static ushort ParseHexOrZero(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return 0;
@@ -417,16 +410,6 @@ public class HttpService : IDisposable
         if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             return ushort.TryParse(s[2..], System.Globalization.NumberStyles.HexNumber, null, out var v) ? v : (ushort)0;
         return ushort.TryParse(s, out var dv) ? dv : (ushort)0;
-    }
-
-    private static ushort[] ParseRegisters(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return [];
-        return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                ? ushort.Parse(s[2..], System.Globalization.NumberStyles.HexNumber)
-                : ushort.TryParse(s, out var v) ? v : (ushort)0)
-            .ToArray();
     }
 
     public void Dispose()
