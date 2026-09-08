@@ -92,7 +92,9 @@
                             <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding PollIntervalMs}" Style="{StaticResource NumericBox}" />
                         </Grid>
 
-                        <TextBox Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,6,0,0" Foreground="{DynamicResource AccentBrush}"
+                        <!-- Selectable status line: Label targets TextBlock, which throws
+                             XamlParseException on a TextBox — inline its two properties. -->
+                        <TextBox Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center" Margin="0,6,0,0" Foreground="{DynamicResource AccentBrush}"
                                   IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
                     </StackPanel>
                 </Border>
@@ -150,7 +152,7 @@
                                                 <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                                         BorderThickness="0" Padding="{TemplateBinding Padding}"
                                                         Margin="{TemplateBinding Margin}">
-                                                    <ContentPresenter />
+                                                    <GridViewRowPresenter Content="{TemplateBinding Content}" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
@@ -201,7 +203,7 @@
                                                 <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                                         BorderThickness="0" Padding="{TemplateBinding Padding}"
                                                         Margin="{TemplateBinding Margin}">
-                                                    <ContentPresenter />
+                                                    <GridViewRowPresenter Content="{TemplateBinding Content}" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">

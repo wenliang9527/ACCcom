@@ -1071,6 +1071,39 @@
             </Style>
 
             <!-- ============================================== -->
+            <!-- GridView column headers (ListView.View)        -->
+            <!-- Default WPF chrome renders white bars with     -->
+            <!-- black text on every theme; re-skin with the    -->
+            <!-- active theme's brushes.                        -->
+            <!-- ============================================== -->
+            <Style TargetType="GridViewColumnHeader">
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Padding" Value="8,0" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="GridViewColumnHeader">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,0,1,1"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                      RecognizesAccessKey="True" />
+                                    <Thumb x:Name="PART_HeaderGripper" HorizontalAlignment="Right" Width="6"
+                                           Margin="0,0,-3,0" Background="Transparent" Cursor="SizeWE" />
+                                </Grid>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
             <!-- ScrollBar                                      -->
             <!-- ============================================== -->
             <Style TargetType="ScrollViewer">

@@ -8,6 +8,40 @@
         WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}">
 
+    <Window.Resources>
+        <!-- Default ListView row chrome uses system black text + light selection
+             highlight, which is illegible on the dark themes; re-skin rows with
+             the active theme's brushes. Column headers come from the app-level
+             implicit GridViewColumnHeader style. -->
+        <Style TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="0,2">
+                            <!-- Bare ContentPresenter would ToString() the row POCO under a
+                                 GridView; GridViewRowPresenter renders the column cells and
+                                 inherits this item's Foreground. -->
+                            <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                                  Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />
@@ -48,11 +82,6 @@
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling">
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    </Style>
-                </ListView.ItemContainerStyle>
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="{Binding [McpTraffic.Time], Source={x:Static local:LanguageManager.Instance}}" Width="90" DisplayMemberBinding="{Binding Time}" />

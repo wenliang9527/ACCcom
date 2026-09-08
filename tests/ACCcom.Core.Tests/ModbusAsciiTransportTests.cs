@@ -191,12 +191,13 @@ public class ModbusAsciiTransportTests
         var part1 = BitConverter.ToString(asciiBytes, 0, half).Replace("-", " ");
         var part2 = BitConverter.ToString(asciiBytes, half).Replace("-", " ");
 
-        // Start the request first, inject the first fragment immediately, then
-        // the second after a short gap (the fragmentation is the point of the
-        // test; the 10ms gap is functional, the pre-request delay was the race).
+        // Start the request first, then inject the two fragments as consecutive
+        // synchronous calls — reassembly across separate RX entries is the point
+        // of the test. (A wall-clock gap between the fragments only added a
+        // starvation race: under a loaded test run the Delay continuation could
+        // land after the 1000ms timeout had already fired.)
         var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
         serial.InjectRxData(part1);
-        await Task.Delay(10);
         serial.InjectRxData(part2);
 
         var result = await request;
