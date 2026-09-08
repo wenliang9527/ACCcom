@@ -60,7 +60,10 @@ public class SerialTools
         if (string.IsNullOrEmpty(data))
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Data cannot be empty" }));
         if (_serial.Send(data, isHex))
+        {
+            _ctx.TrafficLog.Record(0, "send", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data);
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? HexHelper.CountHexBytes(data) : data.Length } }));
+        }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = "Send failed, port may not be open" }));
     }
 
@@ -118,6 +121,8 @@ public class SerialTools
 
         if (!_serial.Send(data, isHex))
             return _ctx.RawJson(new { success = false, error = "Send failed, port may not be open" });
+
+        _ctx.TrafficLog.Record(0, "send_and_wait", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data);
 
         var entry = await waiterTask.ConfigureAwait(false);
         if (entry != null)

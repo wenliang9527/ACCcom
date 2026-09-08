@@ -189,6 +189,8 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenTriggerCommand { get; }
     public ICommand OpenShortcutsCommand { get; }
     public ICommand OpenRecordingsFolderCommand { get; }
+    public ICommand OpenMcpTrafficCommand { get; }
+    private McpTrafficWindow? _mcpTrafficWindow;
     public HighlightViewModel Highlights => _highlights;
     public ProtocolTestViewModel? ProtocolTest => _protocolTest;
 
@@ -262,6 +264,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenMacroCommand = new RelayCommand(_ => OpenMacroWindow());
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
         OpenRecordingsFolderCommand = new RelayCommand(_ => OpenRecordingsFolder());
+        OpenMcpTrafficCommand = new RelayCommand(_ => OpenMcpTrafficWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenDashboardCommand = new RelayCommand(_ => OpenDashboard());
@@ -457,6 +460,21 @@ public class MainViewModel : ObservableObject, IDisposable
         _triggerWindow.Closed += (_, _) => _triggerWindow = null;
         _triggerWindow.Show();
         StatusText = LanguageManager.Instance["Status.TriggersOpened"];
+    }
+
+    private void OpenMcpTrafficWindow()
+    {
+        if (_mcpTrafficWindow != null)
+        {
+            _mcpTrafficWindow.Activate();
+            return;
+        }
+        _mcpTrafficWindow = new McpTrafficWindow
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _mcpTrafficWindow.Closed += (_, _) => _mcpTrafficWindow = null;
+        _mcpTrafficWindow.Show();
     }
 
     private void OpenMacroWindow()

@@ -12,6 +12,7 @@ public class ToolContext
 {
     public ISerialService Serial { get; }
     public DataBufferService Buffer { get; } = new();
+    public McpTrafficLog TrafficLog { get; } = McpTrafficLog.Shared;
 
     public static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -22,7 +23,11 @@ public class ToolContext
     public ToolContext(ISerialService serial)
     {
         Serial = serial;
-        Serial.OnDataReceived += entry => Buffer.AddEntry(entry);
+        Serial.OnDataReceived += entry =>
+        {
+            Buffer.AddEntry(entry);
+            TrafficLog.Record(entry.Id, "rx", entry.Direction, entry.RawHex ?? "", entry.Text ?? "");
+        };
     }
 
     public string RawJson(object obj) =>
