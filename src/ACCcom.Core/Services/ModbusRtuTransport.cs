@@ -103,7 +103,7 @@ public class ModbusRtuTransport : IModbusTransport
 
     private static string MakeKey(byte slaveId, byte functionCode) => $"{slaveId}:{functionCode}";
 
-    private static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
+    internal static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
     {
         // slaveId (1) + functionCode (1) + pdu + CRC (2). The size matters:
         // a one-byte-short buffer made adu[^2] (CRC low) overwrite the PDU's

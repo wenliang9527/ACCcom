@@ -124,17 +124,12 @@ public class ModbusService : IDisposable
         });
     }
 
+    // RTU frame assembly lives in the transport (whose BuildAdu allocates the
+    // correct 2 + pdu.Length + 2 — a one-byte-short buffer made the CRC
+    // overwrite the PDU tail). This service-level copy is only used to render
+    // the request hex for transaction logs, and delegates to the same builder.
     private static byte[] BuildAdu(byte slaveId, ModbusFunctionCode function, byte[] pdu)
-    {
-        var adu = new byte[1 + pdu.Length + 2];
-        adu[0] = slaveId;
-        adu[1] = (byte)function;
-        Array.Copy(pdu, 0, adu, 2, pdu.Length);
-        var crc = CrcHelper.Crc16(adu.AsSpan(0, adu.Length - 2));
-        adu[^2] = (byte)(crc & 0xFF);
-        adu[^1] = (byte)((crc >> 8) & 0xFF);
-        return adu;
-    }
+        => ModbusRtuTransport.BuildAdu(slaveId, (byte)function, pdu);
 
     private static string BytesToHex(byte[] data)
         => HexHelper.BytesToHexSpaced(data, 0, data.Length);
