@@ -462,7 +462,9 @@ public class MainViewModel : ObservableObject, IDisposable
         StatusText = LanguageManager.Instance["Status.TriggersOpened"];
     }
 
-    private void OpenMcpTrafficWindow()
+    /// <summary>Opens (or focuses) the MCP traffic window. Called by the toolbar
+    /// command and by MainWindow when launched with --open-mcp-traffic.</summary>
+    public void OpenMcpTrafficWindow()
     {
         if (_mcpTrafficWindow != null)
         {

@@ -23,21 +23,21 @@
     <!-- Text hierarchy: pearl ivory -->
     <Color x:Key="InkPrimary">#F0EBDD</Color>
     <Color x:Key="InkSecondary">#B7B5AE</Color>
-    <Color x:Key="InkTertiary">#8B8B87</Color>
+    <Color x:Key="InkTertiary">#999995</Color>
 
     <!-- Accent: ultramarine-teal turban -->
-    <Color x:Key="Accent">#3E8E9E</Color>
+    <Color x:Key="Accent">#65A5B1</Color>
     <Color x:Key="AccentHover">#55A6B5</Color>
     <Color x:Key="AccentPressed">#48919E</Color>
     <Color x:Key="OnAccent">#1B1B1B</Color>
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#6FA8B8</Color>
-    <Color x:Key="StatusGray">#8B8B87</Color>
+    <Color x:Key="StatusGray">#999995</Color>
     <Color x:Key="StatusGreen">#8FAF7E</Color>
     <!-- Lemon yellow of the draped cloth -->
     <Color x:Key="StatusWarning">#E3C95F</Color>
-    <Color x:Key="StatusError">#D17362</Color>
+    <Color x:Key="StatusError">#D78475</Color>
     <!-- Danger button: deep red keeps white button text AA on every state -->
     <Color x:Key="BtnDanger">#C6513C</Color>
     <Color x:Key="BtnDangerHover">#BB4B36</Color>

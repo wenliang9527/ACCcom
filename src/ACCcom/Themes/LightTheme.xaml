@@ -25,7 +25,7 @@
     <!-- Text hierarchy (cool dark) -->
     <Color x:Key="InkPrimary">#1A1D24</Color>
     <Color x:Key="InkSecondary">#5A6070</Color>
-    <Color x:Key="InkTertiary">#6B7280</Color>
+    <Color x:Key="InkTertiary">#5E6471</Color>
 
     <!-- Accent: violet (darkened ramp so white button text meets AA) -->
     <Color x:Key="Accent">#7C3AED</Color>
@@ -35,12 +35,12 @@
 
     <!-- Status semantics (darkened for AA on white) -->
     <Color x:Key="StatusBlue">#7C3AED</Color>
-    <Color x:Key="StatusGray">#6B7280</Color>
-    <Color x:Key="StatusGreen">#15803D</Color>
-    <Color x:Key="StatusWarning">#A16207</Color>
-    <Color x:Key="StatusError">#DC2626</Color>
+    <Color x:Key="StatusGray">#5E6471</Color>
+    <Color x:Key="StatusGreen">#137638</Color>
+    <Color x:Key="StatusWarning">#945A06</Color>
+    <Color x:Key="StatusError">#C22121</Color>
     <!-- Danger button: deep red keeps white button text AA on every state -->
-    <Color x:Key="BtnDanger">#DC2626</Color>
+    <Color x:Key="BtnDanger">#C22121</Color>
     <Color x:Key="BtnDangerHover">#D02121</Color>
     <Color x:Key="BtnDangerPressed">#B61D1D</Color>
 

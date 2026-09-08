@@ -57,4 +57,32 @@ public class McpTrafficLogTests
         var line = Assert.Single(lines);
         Assert.Contains("\"text\":\"\"", line);
     }
+
+    [Fact]
+    public void Rotation_Respects_MaxLines_And_Uses_InstancePath()
+    {
+        var path = TempPath();
+        var oldMax = McpTrafficLog.MaxLines;
+        try
+        {
+            McpTrafficLog.MaxLines = 3;
+            using (var log = new McpTrafficLog(path))
+            {
+                log.Record(1, "send", "TX", "AA", "a");
+                log.Record(2, "send", "TX", "BB", "b");
+                log.Record(3, "send", "TX", "CC", "c"); // hits MaxLines → rotate
+            }
+
+            // After rotation the main file is fresh (0-1 lines), the old content
+            // moved to the .1 backup.
+            var mainLines = File.ReadAllLines(path);
+            var backupLines = File.ReadAllLines(path + ".1");
+            Assert.True(mainLines.Length <= 1, $"main should be fresh, got {mainLines.Length}");
+            Assert.Equal(3, backupLines.Length);
+        }
+        finally
+        {
+            McpTrafficLog.MaxLines = oldMax;
+        }
+    }
 }

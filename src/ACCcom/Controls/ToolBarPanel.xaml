@@ -55,9 +55,9 @@
         <Button Content="{Binding [Button.VirtualSerial], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenVirtualSerialCommand}"
                 Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
                 ToolTip="{Binding [Tip.OpenVirtualSerial], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="MCP Traffic" Command="{Binding OpenMcpTrafficCommand}"
+        <Button Content="{Binding [Button.McpTraffic], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenMcpTrafficCommand}"
                 Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="Live log of serial data sent/received by the MCP (AI) tools" />
+                ToolTip="{Binding [Tip.OpenMcpTraffic], Source={x:Static local:LanguageManager.Instance}}" />
 
         <Rectangle Style="{StaticResource ToolSeparator}" />
 

@@ -51,6 +51,14 @@
   "Button.OK": "确定",
   "Button.Cancel": "取消",
   "Button.SchemaEditor": "编辑器",
+  "Button.McpTraffic": "MCP 流量",
+  "McpTraffic.Title": "MCP 流量 — 共享串口日志",
+  "McpTraffic.Hint": "实时查看 MCP（AI）工具收发的串口数据。MCP 进程把每条收发追加到 mcp-traffic.jsonl，本窗口实时尾随显示。",
+  "McpTraffic.Clear": "清空日志",
+  "McpTraffic.Time": "时间",
+  "McpTraffic.Direction": "方向",
+  "McpTraffic.Tool": "工具",
+  "McpTraffic.Payload": "数据 / HEX",
 
 
   "Panel.ReceiveFull": "◀ 接收",
@@ -142,6 +150,7 @@
   "Tip.SearchTx": "搜索发送数据 (支持正则)  快捷键：Ctrl+2",
   "Tip.RegexMode": "正则表达式模式",
   "Tip.SchemaEditor": "协议可视化编辑器",
+  "Tip.OpenMcpTraffic": "实时查看 MCP（AI）工具收发的串口数据",
   "Tip.FrameAssemblyConfig": "多帧组包配置",
   "Tip.HexDiffCompare": "逐字节对比两段十六进制数据",
   "Tip.CompareFiles": "对比两个文本文件的行差异",

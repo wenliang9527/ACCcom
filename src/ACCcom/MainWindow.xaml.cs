@@ -33,6 +33,13 @@ public partial class MainWindow : Window
         // and the bind no longer blocks the first frame.
         Loaded += (_, _) => _vm.StartHttpAsync();
 
+        // When launched with --open-mcp-traffic (the MCP server does this when
+        // the AI starts using serial tools), surface the shared MCP traffic log
+        // window right after the first frame so the user can watch the AI's
+        // sends/receives without hunting for the toolbar button.
+        if (App.Args?.Contains("--open-mcp-traffic") == true)
+            Loaded += (_, _) => _vm.OpenMcpTrafficWindow();
+
         // Setup chromeless titlebar
         WindowHelper.SetupTitleBar(this, TitleBar);
 

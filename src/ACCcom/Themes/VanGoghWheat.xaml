@@ -23,7 +23,7 @@
     <!-- Text hierarchy: wheat cream -->
     <Color x:Key="InkPrimary">#EFEAD8</Color>
     <Color x:Key="InkSecondary">#B5B5A3</Color>
-    <Color x:Key="InkTertiary">#8A8F7E</Color>
+    <Color x:Key="InkTertiary">#939888</Color>
 
     <!-- Accent: ripe wheat gold under storm light -->
     <Color x:Key="Accent">#E0B33C</Color>
@@ -32,11 +32,11 @@
     <Color x:Key="OnAccent">#1B1B1B</Color>
 
     <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#6E93A3</Color>
-    <Color x:Key="StatusGray">#8A8F7E</Color>
+    <Color x:Key="StatusBlue">#7A9CAA</Color>
+    <Color x:Key="StatusGray">#939888</Color>
     <Color x:Key="StatusGreen">#7FA05C</Color>
     <Color x:Key="StatusWarning">#E0B33C</Color>
-    <Color x:Key="StatusError">#D36C57</Color>
+    <Color x:Key="StatusError">#D87E6B</Color>
     <!-- Danger button: deep red keeps white button text AA on every state -->
     <Color x:Key="BtnDanger">#C94E34</Color>
     <Color x:Key="BtnDangerHover">#BC4930</Color>

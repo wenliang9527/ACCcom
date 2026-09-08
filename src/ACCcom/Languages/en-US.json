@@ -51,6 +51,14 @@
   "Button.OK": "OK",
   "Button.Cancel": "Cancel",
   "Button.SchemaEditor": "Editor",
+  "Button.McpTraffic": "MCP Traffic",
+  "McpTraffic.Title": "MCP Traffic — shared serial log",
+  "McpTraffic.Hint": "Live view of serial traffic sent/received by the MCP (AI) tools. The MCP process appends each RX/TX exchange to mcp-traffic.jsonl and this window tails it.",
+  "McpTraffic.Clear": "Clear log",
+  "McpTraffic.Time": "Time",
+  "McpTraffic.Direction": "Dir",
+  "McpTraffic.Tool": "Tool",
+  "McpTraffic.Payload": "Text / Hex",
 
 
   "Panel.ReceiveFull": "◀ Receive",
@@ -142,6 +150,7 @@
   "Tip.SearchTx": "Search transmit data (regex supported)  Hotkey: Ctrl+2",
   "Tip.RegexMode": "Regex mode",
   "Tip.SchemaEditor": "Protocol Schema Editor",
+  "Tip.OpenMcpTraffic": "Live log of serial data sent/received by the MCP (AI) tools",
   "Tip.FrameAssemblyConfig": "Multi-frame assembly config",
   "Tip.HexDiffCompare": "Compare two hex frames byte-by-byte",
   "Tip.CompareFiles": "Compare line-by-line differences of two text files",

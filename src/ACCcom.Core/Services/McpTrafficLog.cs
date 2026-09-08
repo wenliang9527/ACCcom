@@ -20,6 +20,7 @@ public sealed class McpTrafficLog : IDisposable
     private readonly object _lock = new();
     private StreamWriter? _writer;
     private int _lineCount;
+    private readonly string _filePath;
     private bool _disposed;
 
     /// <summary>Where MCP traffic is mirrored. Fixed name so the GUI know exactly
@@ -29,16 +30,17 @@ public sealed class McpTrafficLog : IDisposable
         "ACCcom", "mcp-traffic.jsonl");
 
     /// <summary>Rotate when the log exceeds this many lines so it cannot grow
-    /// without bound across many MCP sessions.</summary>
-    public const int MaxLines = 5000;
+    /// without bound across many MCP sessions. Settable so the GUI / power users
+    /// can tune how much history is kept.</summary>
+    public static int MaxLines { get; set; } = 5000;
 
     public McpTrafficLog(string? filePath = null)
     {
-        var path = filePath ?? DefaultLogPath;
-        var dir = Path.GetDirectoryName(path);
+        _filePath = filePath ?? DefaultLogPath;
+        var dir = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
-        OpenWriter(path);
+        OpenWriter(_filePath);
     }
 
     /// <summary>Process-wide instance. The MCP server has exactly one
@@ -100,7 +102,9 @@ public sealed class McpTrafficLog : IDisposable
         _writer.WriteLine(line);
         _writer.Flush();
         _lineCount++;
-        if (_lineCount >= MaxLines)
+        // A non-positive MaxLines would rotate on every write; treat it as "no
+        // rotation" rather than thrashing the file.
+        if (MaxLines > 0 && _lineCount >= MaxLines)
             Rotate();
     }
 
@@ -113,7 +117,7 @@ public sealed class McpTrafficLog : IDisposable
         _writer?.Dispose();
         _writer = null;
 
-        var path = DefaultLogPath;
+        var path = _filePath;
         try
         {
             if (File.Exists(path + ".1"))
@@ -126,7 +130,8 @@ public sealed class McpTrafficLog : IDisposable
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
-        _writer = new StreamWriter(path, append: false, System.Text.Encoding.UTF8);
+        var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        _writer = new StreamWriter(fs, System.Text.Encoding.UTF8) { AutoFlush = true };
         _lineCount = 0;
     }
 

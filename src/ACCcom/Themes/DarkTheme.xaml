@@ -25,7 +25,7 @@
     <!-- Text hierarchy -->
     <Color x:Key="InkPrimary">#E4E4E9</Color>
     <Color x:Key="InkSecondary">#A0A0AB</Color>
-    <Color x:Key="InkTertiary">#84848F</Color>
+    <Color x:Key="InkTertiary">#8E8E98</Color>
 
     <!-- Accent: violet (OnAccent=dark so bright-violet buttons carry readable text) -->
     <Color x:Key="Accent">#A78BFA</Color>
@@ -35,7 +35,7 @@
 
     <!-- Status semantics -->
     <Color x:Key="StatusBlue">#A78BFA</Color>
-    <Color x:Key="StatusGray">#84848F</Color>
+    <Color x:Key="StatusGray">#8E8E98</Color>
     <Color x:Key="StatusGreen">#4ADE80</Color>
     <Color x:Key="StatusWarning">#FACC15</Color>
     <Color x:Key="StatusError">#F87171</Color>

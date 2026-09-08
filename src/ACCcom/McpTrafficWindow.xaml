@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:ACCcom"
-        Title="MCP Traffic" Height="420" Width="640"
+        Title="{Binding [McpTraffic.Title], Source={x:Static local:LanguageManager.Instance}}" Height="420" Width="640"
         MinHeight="260" MinWidth="420"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
@@ -18,13 +18,13 @@
         <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left"
-                           Text="MCP Traffic — shared serial log"
+                           Text="{Binding [McpTraffic.Title], Source={x:Static local:LanguageManager.Instance}}"
                            Foreground="{DynamicResource InkSecondaryBrush}"
                            FontSize="12" FontWeight="Medium"
                            VerticalAlignment="Center" Margin="12,0,0,0" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#xE74C;" Style="{StaticResource TitleBarButton}" FontSize="11" Width="46" Height="32" Click="Clear_Click" ToolTip="Clear log" />
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="Close" />
+                    <Button Content="&#xE74C;" Style="{StaticResource TitleBarButton}" FontSize="11" Width="46" Height="32" Click="Clear_Click" ToolTip="{Binding [McpTraffic.Clear], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -38,7 +38,7 @@
 
             <Border Grid.Row="0" Padding="6,2" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="4" Margin="0,0,0,4">
                 <TextBlock x:Name="HintText" FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
-                           Text="Live view of serial traffic sent/received by the MCP (AI) tools. The MCP process appends to mcp-traffic.jsonl and this window tails it." TextWrapping="Wrap" />
+                           Text="{Binding [McpTraffic.Hint], Source={x:Static local:LanguageManager.Instance}}" TextWrapping="Wrap" />
             </Border>
 
             <ListView x:Name="TrafficList" Grid.Row="1"
@@ -55,10 +55,32 @@
                 </ListView.ItemContainerStyle>
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="Time" Width="90" DisplayMemberBinding="{Binding Time}" />
-                        <GridViewColumn Header="Dir" Width="34" DisplayMemberBinding="{Binding Direction}" />
-                        <GridViewColumn Header="Tool" Width="90" DisplayMemberBinding="{Binding Tool}" />
-                        <GridViewColumn Header="Text / Hex" Width="420" DisplayMemberBinding="{Binding Payload}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Time], Source={x:Static local:LanguageManager.Instance}}" Width="90" DisplayMemberBinding="{Binding Time}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Direction], Source={x:Static local:LanguageManager.Instance}}" Width="40">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Direction}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Direction}" Value="RX">
+                                                        <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Direction}" Value="TX">
+                                                        <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="390" DisplayMemberBinding="{Binding Payload}" />
                     </GridView>
                 </ListView.View>
             </ListView>
