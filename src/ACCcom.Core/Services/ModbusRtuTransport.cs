@@ -105,7 +105,12 @@ public class ModbusRtuTransport : IModbusTransport
 
     private static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
     {
-        var adu = new byte[1 + pdu.Length + 2];
+        // slaveId (1) + functionCode (1) + pdu + CRC (2). The size matters:
+        // a one-byte-short buffer made adu[^2] (CRC low) overwrite the PDU's
+        // last byte and the CRC cover the wrong range — real devices rejected
+        // every RTU frame (the malformed frame was invisible to the virtual
+        // serial tests, which never assert the sent request bytes).
+        var adu = new byte[2 + pdu.Length + 2];
         adu[0] = slaveId;
         adu[1] = functionCode;
         Array.Copy(pdu, 0, adu, 2, pdu.Length);

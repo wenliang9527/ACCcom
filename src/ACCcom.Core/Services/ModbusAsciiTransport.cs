@@ -136,7 +136,10 @@ public class ModbusAsciiTransport : IModbusTransport
 
     private static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
     {
-        var adu = new byte[1 + pdu.Length + 1];
+        // slaveId (1) + functionCode (1) + pdu + LRC (1). Same fencepost as the
+        // RTU transport: a one-byte-short buffer would make adu[^1] (the LRC)
+        // overwrite the PDU's last byte.
+        var adu = new byte[2 + pdu.Length + 1];
         adu[0] = slaveId;
         adu[1] = functionCode;
         Array.Copy(pdu, 0, adu, 2, pdu.Length);

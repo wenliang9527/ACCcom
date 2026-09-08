@@ -262,4 +262,41 @@ public class ModbusServiceTests
         Assert.Contains("writeValues", result.ErrorMessage);
         Assert.Empty(virtualSerial.GetSentData());
     }
+
+    [Fact]
+    public async Task MaskWriteRegister_SendsCorrectPdu()
+    {
+        using var virtualSerial = new VirtualSerialService();
+        using var modbus = new ModbusService(virtualSerial);
+        virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        // addr=0x0004, andMask=0x00F2, orMask=0x0025 — the full ADU
+        // (slaveId + func 0x16 + 6-byte PDU + CRC) must carry the mask bytes
+        // intact; a shrinking-buffer bug previously let the CRC overwrite the
+        // PDU's last byte (0x25 became 0x4D).
+        var request = modbus.MaskWriteRegisterAsync(0x01, 0x0004, 0x00F2, 0x0025, timeoutMs: 2000);
+        virtualSerial.InjectRxData("01 16 00 04 00 F2 00 25 67 EE"); // echo response
+        var result = await request;
+
+        Assert.False(result.IsError);
+        Assert.Equal(0x01, result.SlaveId);
+        var sent = virtualSerial.GetSentData();
+        var pdu = Assert.Single(sent);
+        Assert.Equal("0116000400F2002567EE", pdu.RawHex);
+    }
+
+    [Fact]
+    public async Task MaskWriteRegister_ExceptionResponse_ReportsExceptionCode()
+    {
+        using var virtualSerial = new VirtualSerialService();
+        using var modbus = new ModbusService(virtualSerial);
+        virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        var request = modbus.MaskWriteRegisterAsync(0x01, 0x0004, 0x00F2, 0x0025, timeoutMs: 2000);
+        virtualSerial.InjectRxData("01 96 02 CE 61"); // 0x16 | 0x80, exception 0x02
+        var result = await request;
+
+        Assert.True(result.IsError);
+        Assert.Equal((byte)0x02, result.ExceptionCode!.Value);
+    }
 }

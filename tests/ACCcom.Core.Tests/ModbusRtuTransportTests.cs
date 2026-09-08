@@ -182,6 +182,24 @@ public class ModbusRtuTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_SendsFullAduWithCrc()
+    {
+        // Regression guard: the ADU buffer used to be allocated one byte short,
+        // so the CRC low byte overwrote the PDU's last byte (0x25 became 0x4D)
+        // and the CRC covered the wrong range — real devices rejected the frame.
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        var request = transport.SendReceiveAsync(0x01, 0x16, [0x00, 0x04, 0x00, 0xF2, 0x00, 0x25], 2000);
+        serial.InjectRxData("01 16 00 04 00 F2 00 25 67 EE");
+        await request;
+
+        var sent = serial.GetSentData();
+        var frame = Assert.Single(sent);
+        Assert.Equal("0116000400F2002567EE", frame.RawHex);
+    }
+
+    [Fact]
     public void HexStringToBytes_ParsesSpacedHex()
     {
         Assert.Equal(new byte[] { 0x01, 0x02, 0xAA },
