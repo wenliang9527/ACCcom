@@ -132,11 +132,23 @@ public class SerialTools
         var service = ServiceFor(tag);
         if (service == null)
             return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Port with tag {tag} is not open" }));
+
+        // Validate hex up front so a malformed string fails with a precise
+        // message instead of a generic "Send failed" from the port's own
+        // conversion. byteLength is then the actual decoded byte count.
+        int byteLength = data.Length;
+        if (isHex)
+        {
+            if (!HexHelper.TryHexStringToBytes(data, out var hexBytes))
+                return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid hex: '{data}'" }));
+            byteLength = hexBytes.Length;
+        }
+
         if (SendTo(tag, data, isHex))
         {
             NotifyGuiRequested();
             _ctx.TrafficLog.Record(0, "send", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data, tag ?? "");
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? HexHelper.CountHexBytes(data) : data.Length, tag = tag ?? "" } }));
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength, tag = tag ?? "" } }));
         }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = "Send failed, port may not be open" }));
     }
@@ -149,8 +161,13 @@ public class SerialTools
         [Description("Optional tag of the multi-port session to read (default single-port session if omitted)")] string? tag = null)
     {
         // Filtering and limit are folded into the buffer's single tail copy.
-        var entries = _ctx.BufferFor(tag).GetEntriesSince(sinceId, direction, limit);
-        return Task.FromResult(_ctx.RawJson(new { success = true, data = new { entries, count = entries.Count, latestId = entries.Count > 0 ? entries[^1].Id : sinceId, tag = tag ?? "" } }));
+        var entries = _ctx.BufferFor(tag).GetEntriesSince(sinceId, direction, limit, out var scannedMaxId);
+        // latestId must be the scanned max (not the last RETURNED entry's Id):
+        // with a direction filter + limit, the last returned entry can sit
+        // before higher-Id entries the filter skipped — using it would rewind
+        // the cursor and re-read them on the next poll.
+        var latestId = entries.Count > 0 ? Math.Max(entries[^1].Id, scannedMaxId) : scannedMaxId;
+        return Task.FromResult(_ctx.RawJson(new { success = true, data = new { entries, count = entries.Count, latestId, tag = tag ?? "" } }));
     }
 
     [McpServerTool, Description("Wait for data matching a pattern. Blocks until match or timeout. Parameters: pattern (string to match), timeoutMs (max wait in ms, default 5000, max 60000), matchMode (contains/regex/exact, default contains), matchHex (match against hex data instead of text, default false), direction (RX/TX filter, null for any), tag (optional name of a multi-port session; omit for the default single-port session).")]
@@ -194,6 +211,8 @@ public class SerialTools
         var service = ServiceFor(tag);
         if (service == null)
             return _ctx.RawJson(new { success = false, error = $"Port with tag {tag} is not open" });
+        if (isHex && !HexHelper.TryHexStringToBytes(data, out _))
+            return _ctx.RawJson(new { success = false, error = $"Invalid hex: '{data}'" });
 
         // Register waiter BEFORE sending to avoid race condition
         var timeout = Math.Clamp(timeoutMs, 100, 60000);

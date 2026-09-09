@@ -112,6 +112,60 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void GetEntriesSince_scannedMaxId_AdvancesCorrectly()
+    {
+        // Cursor semantics: with a direction filter + limit, the cursor advances
+        // to the last RETURNED entry (entries beyond the limit are still unread);
+        // when nothing is returned (the filter skipped the tail), it advances to
+        // the highest scanned Id so the next poll does not rescann skipped entries.
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+        sut.AddEntry(MakeEntry(4, direction: "TX"));
+
+        // TX filter + limit 1 returns [2]; beyond-limit TX (4) is still unread,
+        // so the cursor is 2 (last returned), not 4.
+        var limited = sut.GetEntriesSince(0, direction: "TX", limit: 1, out var limitedScan);
+        Assert.Equal(2, limited[0].Id);
+        Assert.Equal(2, limitedScan);
+
+        // Next poll from 2 picks up the remaining TX (4) — nothing lost.
+        var rest = sut.GetEntriesSince(limitedScan, direction: "TX", limit: 10, out var restScan);
+        Assert.Equal(4, rest[0].Id);
+        Assert.Equal(4, restScan);
+
+        // No filter, all consumed: cursor advances to the scan max.
+        var all = sut.GetEntriesSince(0, null, 10, out var allScan);
+        Assert.Equal(4, allScan);
+
+        // RX filter over the whole tail (not truncated): returns [1,3]; cursor
+        // advances to the scanned max (4) so the next poll skips the TX entries
+        // it already saw and does not rescann them.
+        var rx = sut.GetEntriesSince(0, "RX", 10, out var rxScan);
+        Assert.Equal(new[] { 1, 3 }, rx.Select(e => e.Id));
+        Assert.Equal(4, rxScan);
+        Assert.Empty(sut.GetEntriesSince(rxScan, "RX", 10));
+    }
+
+    [Fact]
+    public void GetEntriesSince_scannedMaxId_DefaultsToId_WhenEmptyOrAllConsumed()
+    {
+        var sut = new DataBufferService();
+
+        // Empty buffer: scannedMaxId stays at the requested id.
+        var empty = sut.GetEntriesSince(7, null, 0, out var emptyScan);
+        Assert.Empty(empty);
+        Assert.Equal(7, emptyScan);
+
+        // All consumed: stays at id.
+        sut.AddEntry(MakeEntry(1));
+        var done = sut.GetEntriesSince(1, null, 0, out var doneScan);
+        Assert.Empty(done);
+        Assert.Equal(1, doneScan);
+    }
+
+    [Fact]
     public void Clear_removes_all_entries()
     {
         // Arrange

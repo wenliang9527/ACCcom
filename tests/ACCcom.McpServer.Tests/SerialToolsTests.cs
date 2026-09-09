@@ -109,4 +109,36 @@ public class SerialToolsTests
         }
         finally { sp.Dispose(); }
     }
+
+    [Fact]
+    public async Task Send_InvalidHex_ReturnsPreciseError()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.Send("ZZ ZZ", isHex: true);
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Contains("Invalid hex", ToolContextFactory.ExtractError(result) ?? "");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_InvalidHex_ReturnsPreciseError()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.SendAndWait("ZZ ZZ", "OK", isHex: true);
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Contains("Invalid hex", ToolContextFactory.ExtractError(result) ?? "");
+        }
+        finally { sp.Dispose(); }
+    }
 }

@@ -101,9 +101,19 @@ public class DataBufferService : IDisposable
     /// 10k slots per poll. Direction and limit are folded into the single tail
     /// copy.</summary>
     public List<LogEntry> GetEntriesSince(int id, string? direction = null, int limit = 0)
+        => GetEntriesSince(id, direction, limit, out _);
+
+    /// <summary>Same as <see cref="GetEntriesSince(int,string?,int)"/> but also
+    /// reports the next polling cursor. It is the max Id actually consumed by
+    /// this call: the last returned entry's Id, or — when the direction filter
+    /// skipped a tail of higher-Id entries and nothing was returned — the
+    /// highest Id scanned, so the caller's next poll never rescans skipped
+    /// entries nor rewinds onto previously-returned ones.</summary>
+    public List<LogEntry> GetEntriesSince(int id, string? direction, int limit, out int scannedMaxId)
     {
         lock (_lock)
         {
+            scannedMaxId = id;
             if (_count == 0 || id >= _maxId) return EmptyBuffer;
 
             var start = (_head - _count + _capacity) % _capacity;
@@ -122,16 +132,31 @@ public class DataBufferService : IDisposable
 
             // Pre-size modestly; most polls return a small tail of new entries.
             var result = new List<LogEntry>(Math.Min(_count - lo, limit > 0 ? limit : 64));
+            int scanMax = id;
+            int returnedMax = id;
+            bool truncated = false;
             for (int i = lo; i < _count; i++)
             {
                 var entry = _ringBuffer[(start + i) % _capacity];
                 if (entry == null) continue;
+                if (entry.Id > scanMax) scanMax = entry.Id;
                 if (direction != null && !string.Equals(entry.Direction, direction, StringComparison.OrdinalIgnoreCase))
                     continue;
                 result.Add(entry);
+                if (entry.Id > returnedMax) returnedMax = entry.Id;
                 if (limit > 0 && result.Count >= limit)
+                {
+                    truncated = true;
                     break;
+                }
             }
+
+            // When the limit cut the tail, the entries beyond it are still
+            // unread — advance only to what was actually returned. When nothing
+            // was returned (direction filter skipped the whole tail) advance to
+            // the scan max so the next poll does not rescann those skipped
+            // entries. Otherwise advance to the returned max.
+            scannedMaxId = truncated ? returnedMax : scanMax;
             return result;
         }
     }

@@ -181,6 +181,32 @@ public class NetworkBridgeServiceTests
     }
 
     [Fact]
+    public async Task SendHex_InvalidHex_DoesNotDisconnect()
+    {
+        // An un-sendable hex string (illegal chars) must fail the send WITHOUT
+        // tearing down the link — the old path threw FormatException inside
+        // the try, which called HandleDisconnect and killed the connection.
+        using var server = new EchoTcpServer();
+        using var service = new NetworkBridgeService();
+
+        Assert.True(await service.ConnectTcp("127.0.0.1", server.Port));
+
+        Assert.False(service.SendHex("ZZ ZZ"));
+        Assert.True(service.IsConnected); // still connected after the bad send
+
+        // The connection still works for a subsequent valid send.
+        var echoed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.OnDataReceived += e =>
+        {
+            if (e.Direction == "RX") echoed.TrySetResult(e.RawHex.Replace(" ", ""));
+        };
+        service.SendHex("AA BB");
+
+        var hex = await echoed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("AABB", hex);
+    }
+
+    [Fact]
     public async Task Send_WhenServerCloses_Disconnects()
     {
         // A server that accepts, reads one message, then closes the connection.

@@ -107,8 +107,17 @@ public class NetworkBridgeService : IDisposable
             string hexForLog;
             if (isHex)
             {
+                // Validate BEFORE touching the connection: an invalid hex
+                // string (odd digits / illegal chars) must fail the send
+                // without tearing down the link — the old path threw
+                // FormatException inside the try, which called HandleDisconnect
+                // for input that was never sendable.
+                if (!HexHelper.TryHexStringToBytes(data, out bytes))
+                {
+                    OnError?.Invoke($"Network send failed: invalid hex '{data}'");
+                    return false;
+                }
                 hexForLog = data.Replace(" ", "");
-                bytes = Convert.FromHexString(hexForLog);
             }
             else
             {
