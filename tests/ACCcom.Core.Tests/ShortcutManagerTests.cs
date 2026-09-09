@@ -27,6 +27,15 @@ public class ShortcutManagerTests : IDisposable
     }
 
     [Fact]
+    public void Save_null_pages_throws_argument_null()
+    {
+        // Save lacked the null guard ExportToFile has; a null list would throw
+        // from new List<ShortcutPage>(null) with a confusing message.
+        var manager = new ShortcutManager();
+        Assert.Throws<ArgumentNullException>(() => manager.Save(null!));
+    }
+
+    [Fact]
     public async Task Save_ThenLoadAsync_RoundTripsPages()
     {
         // Arrange

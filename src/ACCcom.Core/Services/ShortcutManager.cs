@@ -45,6 +45,7 @@ public class ShortcutManager
 
     public void Save(IReadOnlyList<ShortcutPage> pages)
     {
+        ArgumentNullException.ThrowIfNull(pages);
         Directory.CreateDirectory(BaseDir);
         var store = new ShortcutStore { Version = FormatVersion, Pages = new List<ShortcutPage>(pages) };
         File.WriteAllText(ShortcutsFile, JsonSerializer.Serialize(store, IndentedOptions));
