@@ -69,6 +69,7 @@ public class ModbusAsciiTransport : IModbusTransport
         lock (_rxLock)
         {
             _rxBuffer.AddRange(rawBytes);
+            TrimRxBuffer();
             int crIndex = -1;
             for (int i = 0; i < _rxBuffer.Count; i++)
             {
@@ -132,6 +133,20 @@ public class ModbusAsciiTransport : IModbusTransport
         foreach (var b in data)
             lrc += b;
         return (byte)((~lrc) + 1);
+    }
+
+    // A peer that never sends CR/LF (or only sends plain data) would grow
+    // _rxBuffer without bound — every add is O(n) and the list can reach tens
+    // of MB. Cap it: drop the oldest bytes past the threshold while keeping
+    // the tail (where the next frame is most likely to complete).
+    private const int MaxRxBufferBytes = 64 * 1024;
+    private const int TrimKeepTailBytes = 1024;
+
+    private void TrimRxBuffer()
+    {
+        if (_rxBuffer.Count <= MaxRxBufferBytes) return;
+        var dropCount = _rxBuffer.Count - TrimKeepTailBytes;
+        _rxBuffer.RemoveRange(0, dropCount);
     }
 
     private static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)

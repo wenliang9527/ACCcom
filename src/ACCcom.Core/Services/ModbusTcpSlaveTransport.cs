@@ -99,12 +99,7 @@ public class ModbusTcpSlaveTransport : IDisposable
                 // the full response PDU starting with the function code, so
                 // unit id + responsePdu yields [unit][func][data...], which is
                 // exactly what ModbusTcpTransport (master) expects.
-                var respLen = 1 + responsePdu.Length;
-                var resp = new byte[6 + respLen];
-                resp[0] = tidHi; resp[1] = tidLo; resp[2] = 0; resp[3] = 0;
-                resp[4] = (byte)(respLen >> 8); resp[5] = (byte)respLen;
-                resp[6] = slaveId;
-                Array.Copy(responsePdu, 0, resp, 7, responsePdu.Length);
+                var resp = BuildResponseFrame(tidHi, tidLo, slaveId, responsePdu);
                 await stream.WriteAsync(resp, ct).ConfigureAwait(false);
             }
         }
@@ -115,4 +110,18 @@ public class ModbusTcpSlaveTransport : IDisposable
     }
 
     public void Dispose() { if (_disposed) return; _disposed = true; Stop(); }
+
+    // Internal for tests: MBAP response frame — 6-byte header ([tid hi][tid lo]
+    // [proto 0][proto 0][len hi][len lo]) + unit id + response PDU. Never
+    // network-visible in tests, so byte-exact assertions are safe.
+    internal static byte[] BuildResponseFrame(byte tidHi, byte tidLo, byte slaveId, byte[] responsePdu)
+    {
+        var respLen = 1 + responsePdu.Length;
+        var resp = new byte[6 + respLen];
+        resp[0] = tidHi; resp[1] = tidLo; resp[2] = 0; resp[3] = 0;
+        resp[4] = (byte)(respLen >> 8); resp[5] = (byte)respLen;
+        resp[6] = slaveId;
+        Array.Copy(responsePdu, 0, resp, 7, responsePdu.Length);
+        return resp;
+    }
 }

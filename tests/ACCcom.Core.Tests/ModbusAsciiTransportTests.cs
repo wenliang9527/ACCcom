@@ -257,4 +257,33 @@ public class ModbusAsciiTransportTests
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => task);
     }
+
+    [Fact]
+    public async Task RxBuffer_UnboundedGarbage_IsCappedAndFramesStillParse()
+    {
+        // A peer that never sends CR/LF would grow the RX buffer without bound;
+        // the cap must drop the oldest bytes yet keep the tail so a frame
+        // arriving after a flood of CR-free garbage still reassembles.
+        using var serial = new VirtualSerialService();
+        using var transport = new ModbusAsciiTransport(serial);
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
+
+        // HexStringToBytes halves the character count, so 140K '0's (hex 0x00)
+        // become 70KB of CR-free bytes — past the 64KB cap, and nowhere is 0x0D
+        // (the CR that would end an ASCII frame).
+        var garbage = new string('0', 140 * 1024);
+        serial.InjectRxData(garbage);
+
+        // Start a request, then reply with a valid ASCII frame: the trimmed
+        // buffer must still find the CR/LF and resolve the pending request.
+        var respAdu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
+        var respFull = new byte[respAdu.Length + 1];
+        Array.Copy(respAdu, respFull, respAdu.Length);
+        respFull[^1] = Lrc(respAdu);
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
+        serial.InjectRxData(AsciiFrameHex(respFull));
+
+        var result = await request;
+        Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, result);
+    }
 }

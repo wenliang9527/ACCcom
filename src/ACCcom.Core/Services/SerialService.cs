@@ -227,7 +227,18 @@ public class SerialService : ISerialService, IDisposable
                     RawHex = hex,
                     Text = text
                 };
-                OnDataReceived?.Invoke(entry);
+                try
+                {
+                    OnDataReceived?.Invoke(entry);
+                }
+                catch (Exception ex)
+                {
+                    // One misbehaving subscriber (e.g. a Modbus parser throwing on
+                    // malformed frames) must not kill the whole receive loop — the
+                    // exception would otherwise escape to the outer catch below and
+                    // this callback would never fire again. Log and keep draining.
+                    OnError?.Invoke($"[SerialService] Subscriber error: {ex.Message}");
+                }
             }
             finally
             {

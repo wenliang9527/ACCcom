@@ -181,7 +181,10 @@ public class ModbusTcpTransport : IModbusTransport
         }
     }
 
-    private static byte[] BuildMbap(ushort transactionId, byte slaveId, byte functionCode, byte[] pdu)
+    // Internal for tests: exact MBAP request framing (the R111 lesson — a
+    // one-byte-short buffer would make the length field lie and the PDU tail
+    // overwrite; byte-exact assertions lock the layout).
+    internal static byte[] BuildMbap(ushort transactionId, byte slaveId, byte functionCode, byte[] pdu)
     {
         // 6-byte MBAP header + unit id + function code + PDU.
         var adu = new byte[8 + pdu.Length];

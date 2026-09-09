@@ -143,4 +143,29 @@ public class ModbusTcpTransportTests
             slave.Stop();
         }
     }
+
+    // ── Byte-exact MBAP framing (the R111 lesson, TCP side) ──
+
+    [Fact]
+    public void BuildMbap_ExactRequestFraming()
+    {
+        // 6-byte MBAP header + unit id + function code + PDU. The length field
+        // is pdu.Length + 2 (unit id + function code), big-endian; a one-byte
+        // short buffer would make the length lie and the PDU tail overwrite.
+        var pdu = new byte[] { 0x00, 0x00, 0x00, 0x01 };
+        var frame = ModbusTcpTransport.BuildMbap(0x1234, 0x01, 0x03, pdu);
+
+        Assert.Equal(8 + pdu.Length, frame.Length);
+        Assert.Equal([0x12, 0x34, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01], frame);
+    }
+
+    [Fact]
+    public void BuildResponseFrame_ExactResponseFraming()
+    {
+        // MBAP header echoes the transaction id, then [unit][func][data...].
+        var resp = ModbusTcpSlaveTransport.BuildResponseFrame(0xAB, 0xCD, 0x02, new byte[] { 0x03, 0x00, 0x2A });
+
+        Assert.Equal(6 + 1 + 3, resp.Length);
+        Assert.Equal([0xAB, 0xCD, 0x00, 0x00, 0x00, 0x04, 0x02, 0x03, 0x00, 0x2A], resp);
+    }
 }
