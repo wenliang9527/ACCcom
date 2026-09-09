@@ -21,6 +21,9 @@ GuiNotifier.Attach();
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddSingleton<ISerialService, SerialService>();
+// Multi-port service: each non-empty tag owns an independent ISerialService.
+// The default single-port session (empty tag) is the ToolContext's Serial.
+builder.Services.AddSingleton(new MultiPortService(() => new SerialService()));
 builder.Services.AddSingleton<ToolContext>();
 
 // Register MCP tools

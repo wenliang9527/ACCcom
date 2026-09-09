@@ -14,6 +14,9 @@ internal static class ToolContextFactory
     {
         var services = new ServiceCollection();
         services.AddSingleton<ISerialService, VirtualSerialService>();
+        // Multi-port service with the same virtual factory; the default
+        // single-port session is the ToolContext's Serial.
+        services.AddSingleton(new MultiPortService(() => new VirtualSerialService()));
         services.AddSingleton<ToolContext>();
 
         var sp = services.BuildServiceProvider();

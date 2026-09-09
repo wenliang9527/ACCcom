@@ -20,6 +20,7 @@ public partial class McpTrafficWindow : Window
         public string Time { get; init; } = "";
         public string Direction { get; init; } = "";
         public string Tool { get; init; } = "";
+        public string Tag { get; init; } = "";
         public string Payload { get; init; } = "";
     }
 
@@ -98,11 +99,12 @@ public partial class McpTrafficWindow : Window
             if (time.Length >= 23) time = time[11..23]; // HH:mm:ss.fff
             var direction = root.TryGetProperty("direction", out var dir) ? dir.GetString() ?? "" : "";
             var tool = root.TryGetProperty("tool", out var tl) ? tl.GetString() ?? "" : "";
+            var tag = root.TryGetProperty("portTag", out var pt) ? pt.GetString() ?? "" : "";
             var rawHex = root.TryGetProperty("rawHex", out var hex) ? hex.GetString() ?? "" : "";
             var text = root.TryGetProperty("text", out var txt) ? txt.GetString() ?? "" : "";
             var payload = !string.IsNullOrEmpty(text) && text != rawHex ? $"{text}  [{rawHex}]" : rawHex;
 
-            _rows.Add(new TrafficRow { Time = time, Direction = direction, Tool = tool, Payload = payload });
+            _rows.Add(new TrafficRow { Time = time, Direction = direction, Tool = tool, Tag = tag, Payload = payload });
 
             // Keep the list bounded; drop oldest rows past 2000.
             if (_rows.Count > 2000)

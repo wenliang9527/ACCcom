@@ -59,6 +59,7 @@
   "McpTraffic.Direction": "Dir",
   "McpTraffic.Tool": "Tool",
   "McpTraffic.Payload": "Text / Hex",
+  "McpTraffic.Tag": "Port",
 
 
   "Panel.ReceiveFull": "◀ Receive",

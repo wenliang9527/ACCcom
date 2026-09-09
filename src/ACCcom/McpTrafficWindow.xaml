@@ -109,6 +109,7 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Tag], Source={x:Static local:LanguageManager.Instance}}" Width="70" DisplayMemberBinding="{Binding Tag}" />
                         <GridViewColumn Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="390" DisplayMemberBinding="{Binding Payload}" />
                     </GridView>
                 </ListView.View>

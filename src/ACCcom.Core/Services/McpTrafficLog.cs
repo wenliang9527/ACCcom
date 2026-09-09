@@ -51,8 +51,10 @@ public sealed class McpTrafficLog : IDisposable
     public static McpTrafficLog Shared => _shared ??= new McpTrafficLog();
 
     /// <summary>Appends one traffic exchange. Non-null entries only; null drops
-    /// silently (nothing meaningful to log).</summary>
-    public void Record(int id, string toolName, string direction, string rawHex, string text)
+    /// silently (nothing meaningful to log). The optional <paramref name="tag"/>
+    /// names the MCP multi-port session this exchange belongs to ("" = default
+    /// single-port session).</summary>
+    public void Record(int id, string toolName, string direction, string rawHex, string text, string tag = "")
     {
         if (_disposed) return;
         lock (_lock)
@@ -64,7 +66,8 @@ public sealed class McpTrafficLog : IDisposable
                 timestamp = DateTime.Now.ToString("o"),
                 direction,
                 rawHex,
-                text
+                text,
+                portTag = tag
             };
             WriteCore(JsonSerializer.Serialize(record, _jsonOpts));
         }

@@ -59,6 +59,7 @@
   "McpTraffic.Direction": "方向",
   "McpTraffic.Tool": "工具",
   "McpTraffic.Payload": "数据 / HEX",
+  "McpTraffic.Tag": "端口",
 
 
   "Panel.ReceiveFull": "◀ 接收",
