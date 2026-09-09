@@ -246,6 +246,18 @@ public class ModbusAsciiTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_NullPdu_ThrowsArgumentNull()
+    {
+        // A null PDU would NRE deep inside BuildAdu (pdu.Length); it must fail
+        // with ArgumentNullException at the entry point instead.
+        using var serial = new VirtualSerialService();
+        using var transport = new ModbusAsciiTransport(serial);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => transport.SendReceiveAsync(0x01, 0x03, null!, 1000));
+    }
+
+    [Fact]
     public async Task Dispose_FaultsPendingRequests()
     {
         using var serial = new VirtualSerialService();

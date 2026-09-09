@@ -22,6 +22,7 @@ public class ModbusAsciiTransport : IModbusTransport
     public async Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(pdu);
         var adu = BuildAdu(slaveId, functionCode, pdu);
         var asciiFrame = FormatAsciiFrame(adu);
         var key = MakeKey(slaveId, functionCode);

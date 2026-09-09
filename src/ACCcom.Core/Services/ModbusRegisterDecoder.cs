@@ -17,6 +17,7 @@ public static class ModbusRegisterDecoder
     /// than 2 bytes.</summary>
     public static List<RegisterItem> Decode(byte[] data, ushort baseAddr)
     {
+        ArgumentNullException.ThrowIfNull(data);
         var registers = new List<RegisterItem>();
         if (data.Length < 2) return registers;
 

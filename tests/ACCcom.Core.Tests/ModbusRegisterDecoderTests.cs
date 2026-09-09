@@ -102,4 +102,10 @@ public class ModbusRegisterDecoderTests
         Assert.Equal(0x3F40, result[31].Value);
         Assert.Equal(31, result[31].Address);
     }
+
+    [Fact]
+    public void Decode_null_data_throws_argument_null()
+    {
+        Assert.Throws<ArgumentNullException>(() => ModbusRegisterDecoder.Decode(null!, baseAddr: 0));
+    }
 }
