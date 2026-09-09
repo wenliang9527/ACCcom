@@ -167,6 +167,12 @@ public class SessionRecorder : BufferedFileWriter
         double speedMultiplier = 1.0,
         CancellationToken ct = default)
     {
+        // A null path throws from File.Exists with a confusing message; a null
+        // callback NREs mid-loop (onEntry(entries[i])) after several awaits.
+        // Reject both at the entry point.
+        ArgumentNullException.ThrowIfNull(filePath);
+        ArgumentNullException.ThrowIfNull(onEntry);
+
         if (!File.Exists(filePath))
             return;
 

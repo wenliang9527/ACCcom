@@ -353,4 +353,18 @@ public class SessionRecorderTests : IDisposable
         Assert.Equal("good", entries[0].Text);
         Assert.Equal("also-good", entries[1].Text);
     }
+
+    [Fact]
+    public async Task ReplaySessionAsync_null_arguments_throw()
+    {
+        // A null path throws from File.Exists with a confusing message; a null
+        // callback NREs mid-loop after several awaits. Both must fail fast.
+        using var recorder = new SessionRecorder();
+        var path = WriteRecording("a");
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => recorder.ReplaySessionAsync(null!, e => { }));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => recorder.ReplaySessionAsync(path, null!));
+    }
 }
