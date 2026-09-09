@@ -89,6 +89,41 @@ public class MultiPortServiceTests
     }
 
     [Fact]
+    public void GetPort_ReturnsPort_WhenOpen_ElseNull()
+    {
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+
+        Assert.Null(mps.GetPort("unknown"));
+        Assert.True(mps.OpenPort("sensor", config));
+
+        var port = mps.GetPort("sensor");
+        Assert.NotNull(port);
+        Assert.Equal("sensor", port!.Tag);
+        Assert.True(port.Service.IsOpen);
+        Assert.Null(mps.GetPort(""));
+        Assert.Null(mps.GetPort(null));
+    }
+
+    [Fact]
+    public void Ports_SnapshotDoesNotThrow_WhenClosedDuringEnumerate()
+    {
+        // Ports returns a copy, so closing while enumerating the snapshot is
+        // safe (a bare dictionary reference would throw InvalidOperationException).
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("a", config));
+        Assert.True(mps.OpenPort("b", config));
+
+        var snapshot = mps.Ports;
+        Assert.Equal(2, snapshot.Count);
+        // Close both AFTER taking the snapshot: the snapshot still enumerates.
+        mps.ClosePort("a");
+        mps.ClosePort("b");
+        Assert.Equal(2, snapshot.Count); // snapshot is a copy
+    }
+
+    [Fact]
     public void Dispose_ClosesAllPorts()
     {
         var mps = new MultiPortService();

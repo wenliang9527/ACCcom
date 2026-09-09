@@ -217,7 +217,7 @@ public class GuiTriggerContractTests
     }
 
     [Fact]
-    public async Task ClosePort_DoesNotRaise()
+    public async Task OpenPort_WithTag_Success_RaisesGuiRequest()
     {
         bool raised = false;
         void Handler() => raised = true;
@@ -228,9 +228,29 @@ public class GuiTriggerContractTests
             using (sp)
             {
                 var tools = new SerialTools(ctx);
-                await tools.OpenPort("COM10");
+                var result = await tools.OpenPort("COM10", 115200, 8, 1, 0, tag: "sensor_a");
+                Assert.True(ToolContextFactory.ExtractSuccess(result));
+                Assert.True(raised);
+            }
+        }
+        finally { SerialTools.GuiRequested -= Handler; }
+    }
+
+    [Fact]
+    public async Task ClosePort_WithTag_DoesNotRaise()
+    {
+        bool raised = false;
+        void Handler() => raised = true;
+        SerialTools.GuiRequested += Handler;
+        try
+        {
+            var (ctx, sp) = ToolContextFactory.Create();
+            using (sp)
+            {
+                var tools = new SerialTools(ctx);
+                await tools.OpenPort("COM10", tag: "sensor_a");
                 raised = false; // OpenPort raised; isolate ClosePort
-                var result = await tools.ClosePort();
+                var result = await tools.ClosePort(tag: "sensor_a");
                 Assert.True(ToolContextFactory.ExtractSuccess(result));
                 Assert.False(raised);
             }

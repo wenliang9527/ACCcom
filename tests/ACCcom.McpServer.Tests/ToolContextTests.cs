@@ -29,4 +29,39 @@ public class ToolContextTests
         }
         finally { sp.Dispose(); }
     }
+
+    [Fact]
+    public void RemoveBuffer_ClearsTaggedBuffer_CreatesFresh()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var a = ctx.BufferFor("a");
+            Assert.Same(a, ctx.BufferFor("a"));
+
+            // Remove, then BufferFor creates a NEW instance.
+            ctx.RemoveBuffer("a");
+            var fresh = ctx.BufferFor("a");
+            Assert.NotSame(a, fresh);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public void RemoveBuffer_EmptyOrUnknownTag_IsSafeNoOp()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            // Empty/null tags hit the default buffer — no removal.
+            var buffer = ctx.Buffer;
+            ctx.RemoveBuffer("");
+            ctx.RemoveBuffer(null);
+            Assert.Same(buffer, ctx.Buffer);
+
+            // Unknown tag: no throw.
+            ctx.RemoveBuffer("ghost");
+        }
+        finally { sp.Dispose(); }
+    }
 }
