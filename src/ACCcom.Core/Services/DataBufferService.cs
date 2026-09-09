@@ -276,6 +276,11 @@ public class DataBufferService : IDisposable
         int timeoutMs = 5000,
         CancellationToken ct = default)
     {
+        // A null pattern would otherwise throw deep inside MatchesPattern's
+        // contains branch (target.Contains(null)) — after the waiter is
+        // registered, surfacing as a hard-to-trace async exception. Reject it
+        // at the entry point.
+        ArgumentNullException.ThrowIfNull(pattern);
         var waiter = new DataBufferWaiter
         {
             Pattern = pattern,

@@ -319,6 +319,16 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public async Task WaitForMatchAsync_null_pattern_throws_argument_null()
+    {
+        // A null pattern would throw deep inside MatchesPattern's contains
+        // branch (target.Contains(null)) after the waiter is registered —
+        // reject it at the entry point.
+        var sut = new DataBufferService();
+        await Assert.ThrowsAsync<ArgumentNullException>(() => sut.WaitForMatchAsync(null!));
+    }
+
+    [Fact]
     public async Task WaitForMatchAsync_exact_mode()
     {
         // Arrange
