@@ -11,6 +11,13 @@ public class SerialTools
     private readonly ToolContext _ctx;
     private ISerialService _serial => _ctx.Serial;
 
+    /// <summary>Raised when the AI actually starts serial communication (opens a
+    /// port or sends data), so the host can surface the GUI traffic window.
+    /// List-only/read-only tool calls deliberately do not raise it.</summary>
+    public static event Action? GuiRequested;
+
+    private static void NotifyGuiRequested() => GuiRequested?.Invoke();
+
     public SerialTools(ToolContext ctx)
     {
         _ctx = ctx;
@@ -40,7 +47,10 @@ public class SerialTools
 
         var config = new SerialConfig { PortName = port, BaudRate = baudRate, DataBits = dataBits, StopBits = stopBits, Parity = parity, DtrEnable = dtr, RtsEnable = rts };
         if (_serial.Open(config))
+        {
+            NotifyGuiRequested();
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits } }));
+        }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Failed to open port {port}" }));
     }
 
@@ -61,6 +71,7 @@ public class SerialTools
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Data cannot be empty" }));
         if (_serial.Send(data, isHex))
         {
+            NotifyGuiRequested();
             _ctx.TrafficLog.Record(0, "send", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data);
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength = isHex ? HexHelper.CountHexBytes(data) : data.Length } }));
         }
@@ -122,6 +133,7 @@ public class SerialTools
         if (!_serial.Send(data, isHex))
             return _ctx.RawJson(new { success = false, error = "Send failed, port may not be open" });
 
+        NotifyGuiRequested();
         _ctx.TrafficLog.Record(0, "send_and_wait", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data);
 
         var entry = await waiterTask.ConfigureAwait(false);

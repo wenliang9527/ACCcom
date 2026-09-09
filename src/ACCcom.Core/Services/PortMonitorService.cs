@@ -19,7 +19,13 @@ public class PortMonitorService : IDisposable
     /// </summary>
     public event Action<List<string>, List<string>>? PortsChanged;
 
-    public void Start(int intervalMs = 2000)
+    public void Start(int intervalMs = 2000) => Start(intervalMs, injectedPorts: null);
+
+    // Internal for tests: seeds the startup snapshot with an injected port list
+    // instead of the live OS list, so "a device already connected at startup is
+    // reported arrived" is testable on any machine (mirrors Poll(injectedPorts)).
+    // null = use the live OS port list (production path).
+    internal void Start(int intervalMs, IEnumerable<string>? injectedPorts)
     {
         Stop();
         lock (_lock)
@@ -28,7 +34,9 @@ public class PortMonitorService : IDisposable
             // 0/negative interval behaves as "poll as fast as possible" instead
             // of surfacing an ArgumentException to the caller.
             var effectiveInterval = Math.Max(1, intervalMs);
-            var initial = SafeGetPorts();
+            var initial = injectedPorts == null
+                ? SafeGetPorts()
+                : injectedPorts.ToArray();
             _lastPorts = new HashSet<string>(initial, StringComparer.OrdinalIgnoreCase);
             _timer = new System.Timers.Timer(effectiveInterval) { AutoReset = true };
             _timer.Elapsed += (_, _) => Poll();

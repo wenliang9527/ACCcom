@@ -51,13 +51,15 @@ public class PortMonitorServiceTests
     public void Start_ReportsExistingPortsAsArrived()
     {
         // A monitor started while a device is already connected must surface it
-        // immediately (arrived), not wait for the first timer tick.
+        // immediately (arrived), not wait for the first timer tick. The startup
+        // snapshot is injected so the test does not depend on which ports the
+        // test machine actually has (same pattern as Poll(injectedPorts)).
         using var monitor = new PortMonitorService();
 
         List<string>? arrived = null;
         monitor.PortsChanged += (a, _) => arrived = a;
 
-        monitor.Start(intervalMs: 1000);
+        monitor.Start(intervalMs: 1000, injectedPorts: new[] { "COM9" });
         monitor.Stop();
 
         Assert.NotNull(arrived);
