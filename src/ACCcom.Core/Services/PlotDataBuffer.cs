@@ -38,6 +38,11 @@ public sealed class PlotDataBuffer
     /// evicted, since the evicted point might have been an extremum).</summary>
     public void Add(double value)
     {
+        // NaN can never be a valid plot point: it would poison the incremental
+        // min/max (NaN < x is always false) and render as garbage on the plot.
+        // Drop it, same as Histogram.Record.
+        if (double.IsNaN(value)) return;
+
         _values.Add(value);
 
         if (_values.Count > _maxPoints)

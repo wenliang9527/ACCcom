@@ -138,4 +138,32 @@ public class PlotDataBufferTests
         ((List<double>)snapshot).Add(99);
         Assert.Equal(2, buffer.Count);
     }
+
+    [Fact]
+    public void Add_NaN_IsDropped()
+    {
+        // NaN would poison the incremental min/max (NaN < x is always false)
+        // and render as garbage; it must be dropped, same as Histogram.Record.
+        var buffer = new PlotDataBuffer();
+        buffer.Add(1);
+        buffer.Add(double.NaN);
+        buffer.Add(3);
+
+        Assert.Equal(2, buffer.Count);
+        Assert.Equal(1, buffer.MinValue);
+        Assert.Equal(3, buffer.MaxValue);
+        Assert.Equal(new[] { 1.0, 3.0 }, buffer.GetSnapshot());
+    }
+
+    [Fact]
+    public void Add_OnlyNaN_LeavesBufferEmpty()
+    {
+        var buffer = new PlotDataBuffer();
+        buffer.Add(double.NaN);
+        buffer.Add(double.NaN);
+
+        Assert.Equal(0, buffer.Count);
+        Assert.Equal(0, buffer.MinValue);
+        Assert.Equal(0, buffer.MaxValue);
+    }
 }
