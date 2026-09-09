@@ -76,6 +76,18 @@ public class ToolContext
         }
     }
 
+    /// <summary>Drops a tag's per-tag buffer when its port is closed, so a later
+    /// reopen of the same tag starts with a clean buffer and does not surface
+    /// stale entries from the previous session.</summary>
+    public void RemoveBuffer(string? tag)
+    {
+        if (string.IsNullOrEmpty(tag)) return;
+        lock (Buffers)
+        {
+            Buffers.Remove(tag);
+        }
+    }
+
     public string RawJson(object obj) =>
         JsonSerializer.Serialize(obj, JsonOpts);
 }

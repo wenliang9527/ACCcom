@@ -190,4 +190,41 @@ public class MultiPortToolsTests
             Assert.Same(a, ctx.BufferFor("a")); // cached
         }
     }
+
+    [Fact]
+    public async Task ListOpenPorts_Empty_ReturnsZeroCount()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        using (sp)
+        {
+            var tools = new SerialTools(ctx);
+            var list = await tools.ListOpenPorts();
+            Assert.Contains("\"count\":0", list);
+            Assert.DoesNotContain("\"sensor_a\"", list);
+        }
+    }
+
+    [Fact]
+    public async Task ClosePort_ThenReopenSameTag_DoesNotLeakOldBuffer()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        using (sp)
+        {
+            var tools = new SerialTools(ctx);
+
+            // First session: open tag "a", receive some RX.
+            await tools.OpenPort("COM10", tag: "a");
+            var service1 = (VirtualSerialService)ctx.MultiPort.GetPort("a")!.Service;
+            service1.InjectRxData("41 42");
+            Assert.Contains("\"AB\"", await tools.ReadData(tag: "a"));
+
+            // Close, then reopen the SAME tag.
+            Assert.True(ToolContextFactory.ExtractSuccess(await tools.ClosePort(tag: "a")));
+            await tools.OpenPort("COM10", tag: "a");
+
+            // The stale "AB" from the first session must NOT be visible.
+            var after = await tools.ReadData(tag: "a");
+            Assert.DoesNotContain("\"AB\"", after);
+        }
+    }
 }

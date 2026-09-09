@@ -12,7 +12,27 @@ public class MultiPortService : IDisposable
     public event Action<string, string>? OnPortError;
     public event Action<string>? OnPortDisconnected;
 
-    public IReadOnlyDictionary<string, PortInstance> Ports => _ports;
+    /// <summary>Snapshot of currently open ports. Returns a copy so callers can
+    /// enumerate without holding the lock while another thread closes a port
+    /// (a bare dictionary reference would throw on concurrent mutation).</summary>
+    public IReadOnlyDictionary<string, PortInstance> Ports
+    {
+        get
+        {
+            lock (_lock) { return new Dictionary<string, PortInstance>(_ports); }
+        }
+    }
+
+    /// <summary>Thread-safe lookup of a single open port; returns null when the
+    /// tag is not open.</summary>
+    public PortInstance? GetPort(string? tag)
+    {
+        if (string.IsNullOrEmpty(tag)) return null;
+        lock (_lock)
+        {
+            return _ports.TryGetValue(tag, out var inst) ? inst : null;
+        }
+    }
 
     public MultiPortService() : this(() => new SerialService())
     {

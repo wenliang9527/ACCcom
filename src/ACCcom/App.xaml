@@ -1104,6 +1104,39 @@
             </Style>
 
             <!-- ============================================== -->
+            <!-- DataGrid (implicit: Macro/Trigger/Highlight)   -->
+            <!-- Same default-chrome problem as GridView above: -->
+            <!-- white header bars + black text + system-blue   -->
+            <!-- selection on every theme. Keyed FieldDataGrid  -->
+            <!-- styles (ProtocolTest/SchemaEditor) explicitly  -->
+            <!-- override this, so they are unaffected.         -->
+            <!-- ============================================== -->
+            <Style TargetType="DataGridColumnHeader">
+                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="Padding" Value="8,0" />
+                <Setter Property="BorderThickness" Value="0,0,1,1" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style TargetType="DataGridCell">
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="6,2" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- ============================================== -->
             <!-- ScrollBar                                      -->
             <!-- ============================================== -->
             <Style TargetType="ScrollViewer">

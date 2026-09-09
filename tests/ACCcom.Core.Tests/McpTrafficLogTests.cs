@@ -26,6 +26,21 @@ public class McpTrafficLogTests
         Assert.Equal("48 45 4C 4C 4F", root.GetProperty("rawHex").GetString());
         Assert.Equal("HELLO", root.GetProperty("text").GetString());
         Assert.True(root.TryGetProperty("timestamp", out _));
+        Assert.Equal("", root.GetProperty("portTag").GetString());
+    }
+
+    [Fact]
+    public void Record_WithTag_WritesPortTagField()
+    {
+        var path = TempPath();
+        using (var log = new McpTrafficLog(path))
+        {
+            log.Record(1, "send", "TX", "AA", "a", "sensor_a");
+        }
+
+        var line = File.ReadAllLines(path).Single();
+        using var doc = JsonDocument.Parse(line);
+        Assert.Equal("sensor_a", doc.RootElement.GetProperty("portTag").GetString());
     }
 
     [Fact]

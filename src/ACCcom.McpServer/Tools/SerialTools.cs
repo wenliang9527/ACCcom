@@ -31,7 +31,7 @@ public class SerialTools
     private ISerialService? ServiceFor(string? tag)
     {
         if (string.IsNullOrEmpty(tag)) return _serial;
-        return _ctx.MultiPort.Ports.TryGetValue(tag, out var inst) ? inst.Service : null;
+        return _ctx.MultiPort.GetPort(tag)?.Service;
     }
 
     /// <summary>Sends data to a tag's port; returns false if the send fails.</summary>
@@ -56,7 +56,7 @@ public class SerialTools
         // Default single-port session (empty tag) if open.
         if (_serial.IsOpen)
             ports.Add(new { tag = "", port = _serial.CurrentPort, baudRate = _serial.BaudRate });
-        foreach (var kv in _ctx.MultiPort.Ports)
+        foreach (var kv in _ctx.MultiPort.Ports) // snapshot; safe to enumerate
             ports.Add(new { tag = kv.Key, port = kv.Value.Service.CurrentPort, baudRate = kv.Value.Service.BaudRate });
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { ports, count = ports.Count } }));
     }
@@ -90,8 +90,9 @@ public class SerialTools
         }
 
         // Tagged multi-port open.
-        if (_ctx.MultiPort.Ports.ContainsKey(tag))
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port already open", tag, port = _ctx.MultiPort.Ports[tag].Service.CurrentPort } }));
+        var existing = _ctx.MultiPort.GetPort(tag);
+        if (existing != null)
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port already open", tag, port = existing.Service.CurrentPort } }));
         if (_ctx.MultiPort.OpenPort(tag, config))
         {
             NotifyGuiRequested();
@@ -111,7 +112,12 @@ public class SerialTools
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Failed to close port" }));
         }
         if (_ctx.MultiPort.ClosePort(tag))
+        {
+            // Drop the tag's buffer so a later reopen starts clean and cannot
+            // surface stale entries from the previous session.
+            _ctx.RemoveBuffer(tag);
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port closed", tag } }));
+        }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Failed to close port with tag {tag}" }));
     }
 
