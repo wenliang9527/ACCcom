@@ -27,6 +27,9 @@ public class VirtualSerialService : ISerialService, IDisposable
 
     public bool Open(SerialConfig config)
     {
+        // A null config would NRE at config.PortName; fail cleanly like the
+        // real SerialService.Open (which returns false for a null config).
+        if (config == null) return false;
         _currentPort = config.PortName;
         _baudRate = config.BaudRate;
         _isOpen = true;

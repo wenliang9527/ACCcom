@@ -137,4 +137,14 @@ public class VirtualSerialServiceTests
         svc.Close();
         Assert.False(svc.IsOpen);
     }
+
+    [Fact]
+    public void Open_null_config_returns_false()
+    {
+        // A null config would NRE at config.PortName; it must fail cleanly as
+        // a bool return like the real SerialService.Open.
+        var svc = new VirtualSerialService();
+        Assert.False(svc.Open(null!));
+        Assert.False(svc.IsOpen);
+    }
 }

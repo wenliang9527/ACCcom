@@ -53,4 +53,19 @@ public class ModbusConnectionManagerTests
         Assert.NotNull(svc);
         Assert.Equal(2, manager.GetActiveConnections().Count);
     }
+
+    [Fact]
+    public void Null_arguments_throw_argument_null()
+    {
+        using var manager = new ModbusConnectionManager();
+        using var serial = new VirtualSerialService();
+
+        // A null serial would NRE inside the transport constructor with an
+        // unclear message; fail at the entry point.
+        Assert.Throws<ArgumentNullException>(() => manager.GetDefaultService(null!));
+        Assert.Throws<ArgumentNullException>(() => manager.CreateAsciiConnection("a", null!));
+        Assert.Throws<ArgumentNullException>(() => manager.CreateAsciiConnection(null!, serial));
+        Assert.Throws<ArgumentNullException>(() => manager.CreateTcpConnection("t", null!, 502));
+        Assert.Throws<ArgumentNullException>(() => manager.CreateTcpConnection(null!, "host", 502));
+    }
 }

@@ -12,6 +12,9 @@ public class ModbusConnectionManager : IDisposable
 
     public ModbusService GetDefaultService(ISerialService serial)
     {
+        // A null serial would NRE inside ModbusRtuTransport's constructor
+        // (_serial.OnDataReceived +=) with an unclear message; fail at entry.
+        ArgumentNullException.ThrowIfNull(serial);
         var managed = _connections.GetOrAdd(DefaultConnectionId, _ =>
         {
             var transport = new ModbusRtuTransport(serial);
@@ -23,6 +26,8 @@ public class ModbusConnectionManager : IDisposable
 
     public ModbusService CreateTcpConnection(string connectionId, string host, int port)
     {
+        ArgumentNullException.ThrowIfNull(connectionId);
+        ArgumentNullException.ThrowIfNull(host);
         if (_connections.ContainsKey(connectionId))
             throw new InvalidOperationException($"Connection '{connectionId}' already exists");
 
@@ -36,6 +41,8 @@ public class ModbusConnectionManager : IDisposable
     /// (the same physical link the app's main serial service uses).</summary>
     public ModbusService CreateAsciiConnection(string connectionId, ISerialService serial)
     {
+        ArgumentNullException.ThrowIfNull(connectionId);
+        ArgumentNullException.ThrowIfNull(serial);
         if (_connections.ContainsKey(connectionId))
             throw new InvalidOperationException($"Connection '{connectionId}' already exists");
 
