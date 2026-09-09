@@ -18,7 +18,11 @@ public class AutoParserMatcher
 
     public void UpdateFingerprint(string? parserName, ParserFingerprint fingerprint)
     {
+        // A null parser name is ignored like RemoveFingerprint; a null
+        // fingerprint would be stored and then NRE deep inside MatchParser /
+        // GetAllMatches (kv.Value.Matches) on the next frame — reject it here.
         if (string.IsNullOrEmpty(parserName)) return;
+        ArgumentNullException.ThrowIfNull(fingerprint);
         lock (_lock)
         {
             _fingerprints[parserName] = fingerprint;

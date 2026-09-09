@@ -115,7 +115,9 @@ public class SerialController : WebApiController
             bool isHex = false;
 
             var contentType = HttpContext.Request.ContentType ?? "";
-            if (contentType.Contains("application/json"))
+            // Content-Type is case-insensitive per RFC 9110; a client sending
+            // "Application/JSON" must not fall into the raw-text branch.
+            if (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
             {
                 var req = await ReadBodyAsync<SendRequest>();
                 if (req == null)

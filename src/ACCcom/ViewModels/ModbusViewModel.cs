@@ -293,7 +293,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"MODBUS_Log_{DateTime.Now:yyyyMMdd_HHmmss}",
+            FileName = TimestampedFileName.Build("MODBUS_Log", DateTime.Now),
             DefaultExt = format.ToLower(),
             Filter = format switch
             {

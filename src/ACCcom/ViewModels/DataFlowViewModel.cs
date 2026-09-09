@@ -797,7 +797,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (entries.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"ACCCOM_{tag}_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
+            FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "txt"),
             Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
         };
         if (dialog.ShowDialog() == true)
@@ -809,7 +809,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (entries.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"ACCCOM_{tag}_{DateTime.Now:yyyyMMdd_HHmmss}.json",
+            FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "json"),
             Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
         };
         if (dialog.ShowDialog() == true)
@@ -821,7 +821,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (entries.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"ACCCOM_{tag}_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+            FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "csv"),
             Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
         };
         if (dialog.ShowDialog() == true)
@@ -836,7 +836,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (entries.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"ACCCOM_{tag}_{DateTime.Now:yyyyMMdd_HHmmss}.pcap",
+            FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "pcap"),
             Filter = "PCAP files (*.pcap)|*.pcap|All files (*.*)|*.*"
         };
         if (dialog.ShowDialog() != true) return;

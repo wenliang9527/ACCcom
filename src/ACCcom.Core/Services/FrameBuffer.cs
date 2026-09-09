@@ -262,7 +262,10 @@ public class FrameBuffer : IDisposable
             // HTTP/MCP polling); without it the dashboard never sees frame-path
             // entries because _maxId never advances past 0.
             Id = Interlocked.Increment(ref _entryIdSource),
-            Timestamp = DateTime.UtcNow,
+            // Local time, matching every other receive path (SerialService,
+            // ModbusService, NetworkBridgeService) so exports/replay/PCAP from
+            // this path don't carry a different timezone than the rest.
+            Timestamp = DateTime.Now,
             Direction = "RX",
             RawHex = hex,
             Text = text

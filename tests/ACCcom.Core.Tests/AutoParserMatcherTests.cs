@@ -199,6 +199,16 @@ public class AutoParserMatcherTests
     }
 
     [Fact]
+    public void UpdateFingerprint_NullFingerprint_ThrowsArgumentNull()
+    {
+        // A null fingerprint would be stored and then NRE inside MatchParser /
+        // GetAllMatches on the next frame — reject it at the write site.
+        var matcher = new AutoParserMatcher();
+        Assert.Throws<ArgumentNullException>(() => matcher.UpdateFingerprint("P", null!));
+        Assert.Equal(0, matcher.Count);
+    }
+
+    [Fact]
     public void Matcher_GetAllMatches_ReturnsSortedMatches()
     {
         var matcher = new AutoParserMatcher();

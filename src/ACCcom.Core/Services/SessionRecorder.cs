@@ -41,7 +41,7 @@ public class SessionRecorder : BufferedFileWriter
             if (string.IsNullOrEmpty(filePath))
             {
                 Directory.CreateDirectory(RecordingsDirectory);
-                filePath = Path.Combine(RecordingsDirectory, $"session_{DateTime.Now:yyyyMMdd_HHmmss}.jsonl");
+                filePath = Path.Combine(RecordingsDirectory, TimestampedFileName.Build("session", DateTime.Now, extension: "jsonl"));
             }
             else
             {
