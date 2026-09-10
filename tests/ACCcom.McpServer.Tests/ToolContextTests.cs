@@ -1,3 +1,4 @@
+using ACCcom.Core.Services;
 using ACCcom.McpServer.Tests.TestHelpers;
 using ACCcom.McpServer.Tools;
 
@@ -5,6 +6,16 @@ namespace ACCcom.McpServer.Tests;
 
 public class ToolContextTests
 {
+    [Fact]
+    public void Constructor_null_injections_throw()
+    {
+        // The constructor subscribes to both services' events; a null would NRE
+        // there instead of at the contract boundary.
+        Assert.Throws<ArgumentNullException>(() => new ToolContext(null!, new VirtualSerialService()));
+        var multiPort = new MultiPortService(() => new VirtualSerialService());
+        Assert.Throws<ArgumentNullException>(() => new ToolContext(multiPort, null!));
+    }
+
     [Fact]
     public void Create_InjectsSerialService()
     {

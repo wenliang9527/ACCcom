@@ -42,6 +42,8 @@ public class ToolContext
 
     public ToolContext(MultiPortService multiPort, ISerialService defaultSerial)
     {
+        ArgumentNullException.ThrowIfNull(multiPort);
+        ArgumentNullException.ThrowIfNull(defaultSerial);
         MultiPort = multiPort;
         Serial = defaultSerial;
 

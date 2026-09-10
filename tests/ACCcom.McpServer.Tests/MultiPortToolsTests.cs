@@ -81,6 +81,23 @@ public class MultiPortToolsTests
     }
 
     [Fact]
+    public async Task Send_NonAsciiUtf8_ReportsFullByteLength()
+    {
+        // "你好" is 2 chars but 6 UTF-8 bytes. byteLength in the response must
+        // reflect the actual bytes the port transmits, not the char count.
+        var (ctx, sp) = ToolContextFactory.Create();
+        using (sp)
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10", tag: "a");
+            var result = await tools.Send("你好", tag: "a");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = System.Text.Json.JsonDocument.Parse(result);
+            Assert.Equal(6, doc.RootElement.GetProperty("data").GetProperty("byteLength").GetInt32());
+        }
+    }
+
+    [Fact]
     public async Task ReadData_Tag_IsIsolatedFromDefaultBuffer()
     {
         var (ctx, sp) = ToolContextFactory.Create();

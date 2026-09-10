@@ -135,8 +135,10 @@ public class SerialTools
 
         // Validate hex up front so a malformed string fails with a precise
         // message instead of a generic "Send failed" from the port's own
-        // conversion. byteLength is then the actual decoded byte count.
-        int byteLength = data.Length;
+        // conversion. byteLength is then the actual decoded byte count; for
+        // text mode it is the UTF-8 byte count (a char count would under-report
+        // multi-byte characters like CJK).
+        int byteLength = isHex ? data.Length : System.Text.Encoding.UTF8.GetByteCount(data);
         if (isHex)
         {
             if (!HexHelper.TryHexStringToBytes(data, out var hexBytes))
@@ -147,7 +149,8 @@ public class SerialTools
         if (SendTo(tag, data, isHex))
         {
             NotifyGuiRequested();
-            _ctx.TrafficLog.Record(0, "send", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data, tag ?? "");
+            var txBytes = System.Text.Encoding.UTF8.GetBytes(data);
+            _ctx.TrafficLog.Record(0, "send", "TX", isHex ? data : HexHelper.BytesToHexSpaced(txBytes, 0, txBytes.Length), data, tag ?? "");
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { sent = data, isHex, byteLength, tag = tag ?? "" } }));
         }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = "Send failed, port may not be open" }));
@@ -222,7 +225,8 @@ public class SerialTools
             return _ctx.RawJson(new { success = false, error = "Send failed, port may not be open" });
 
         NotifyGuiRequested();
-        _ctx.TrafficLog.Record(0, "send_and_wait", "TX", isHex ? data : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length), data, tag ?? "");
+        var txBytes = System.Text.Encoding.UTF8.GetBytes(data);
+        _ctx.TrafficLog.Record(0, "send_and_wait", "TX", isHex ? data : HexHelper.BytesToHexSpaced(txBytes, 0, txBytes.Length), data, tag ?? "");
 
         var entry = await waiterTask.ConfigureAwait(false);
         if (entry != null)
