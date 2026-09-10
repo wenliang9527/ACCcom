@@ -14,6 +14,10 @@ public class AutoBaudDetector : IDisposable
     /// </summary>
     public async Task<int> DetectAsync(string portName, CancellationToken ct = default)
     {
+        // A null/empty port name cannot be probed; fail as "no baud found"
+        // instead of letting new SerialPort throw a low-level ArgumentException.
+        if (string.IsNullOrEmpty(portName)) return 0;
+
         foreach (var baudRate in CommonRates)
         {
             ct.ThrowIfCancellationRequested();
@@ -28,6 +32,9 @@ public class AutoBaudDetector : IDisposable
     /// </summary>
     public async Task<bool> TryBaudRateAsync(string portName, int baudRate, CancellationToken ct = default)
     {
+        // Same contract as DetectAsync: a null/empty port name is "not found".
+        if (string.IsNullOrEmpty(portName)) return false;
+
         SerialPort? port = null;
         try
         {

@@ -107,4 +107,23 @@ public class AutoBaudDetectorTests
         var exception = Record.Exception(() => detector.Dispose());
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task DetectAsync_null_or_empty_port_returns_zero_without_throwing()
+    {
+        // A null/empty port name used to reach new SerialPort and throw a
+        // low-level ArgumentException; it now fails as "no baud found" instead.
+        using var detector = new AutoBaudDetector();
+        Assert.Equal(0, await detector.DetectAsync(null!));
+        Assert.Equal(0, await detector.DetectAsync(""));
+        Assert.Equal(0, await detector.DetectAsync("   "));
+    }
+
+    [Fact]
+    public async Task TryBaudRateAsync_null_or_empty_port_returns_false_without_throwing()
+    {
+        using var detector = new AutoBaudDetector();
+        Assert.False(await detector.TryBaudRateAsync(null!, 115200));
+        Assert.False(await detector.TryBaudRateAsync("", 115200));
+    }
 }
