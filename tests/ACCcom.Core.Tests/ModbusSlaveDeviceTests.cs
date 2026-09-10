@@ -186,6 +186,14 @@ public class ModbusSlaveDeviceTests
 
 public class ModbusSlaveTransportTests
 {
+    [Fact]
+    public void RtuTransport_constructor_null_serial_throws()
+    {
+        // A null serial service would NRE at Start() (OnDataReceived +=) instead
+        // of at the explicit contract boundary.
+        Assert.Throws<ArgumentNullException>(() => new ModbusRtuSlaveTransport(null!));
+    }
+
     /// <summary>Polls <paramref name="get"/> until <paramref name="predicate"/>
     /// holds or a generous timeout elapses. Replaces fixed Task.Delay waits that
     /// flake under parallel load when the async chain runs slower than expected.</summary>

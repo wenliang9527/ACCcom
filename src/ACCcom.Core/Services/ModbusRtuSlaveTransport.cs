@@ -19,6 +19,7 @@ public class ModbusRtuSlaveTransport : IDisposable
 
     public ModbusRtuSlaveTransport(ISerialService serial)
     {
+        ArgumentNullException.ThrowIfNull(serial);
         _serial = serial;
         _dataHandler = OnSerialData;
     }
