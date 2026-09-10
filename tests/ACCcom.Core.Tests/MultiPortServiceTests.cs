@@ -22,6 +22,33 @@ public class MultiPortServiceTests
     }
 
     [Fact]
+    public void ClosePort_null_or_empty_tag_returns_true_without_throwing()
+    {
+        // Dictionary.TryGetValue(null) would throw ArgumentNullException; the
+        // tag-based API must treat a null/empty tag as "not open" instead.
+        using var mps = new MultiPortService();
+        var ex = Record.Exception(() => mps.ClosePort(null!));
+        Assert.Null(ex);
+        Assert.True(mps.ClosePort(""));
+    }
+
+    [Fact]
+    public void SendToPort_null_or_empty_tag_returns_false_without_throwing()
+    {
+        using var mps = new MultiPortService();
+        var ex = Record.Exception(() => mps.SendToPort(null!, "test"));
+        Assert.Null(ex);
+        Assert.False(mps.SendToPort(null!, "test"));
+        Assert.False(mps.SendToPort("", "test"));
+    }
+
+    [Fact]
+    public void Constructor_null_serviceFactory_throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new MultiPortService(null!));
+    }
+
+    [Fact]
     public void CloseAll_WhenEmpty_DoesNotThrow()
     {
         var mps = new MultiPortService();

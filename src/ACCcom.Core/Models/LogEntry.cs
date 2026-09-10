@@ -5,6 +5,11 @@ namespace ACCcom.Core.Models;
 
 public class LogEntry : INotifyPropertyChanged
 {
+    /// <summary>Display-level tag used by the UI when an entry arrives without a
+    /// per-port tag (e.g. from the default single-port session). Kept in Core so
+    /// the convention is shared by every UI surface that normalizes empty tags.</summary>
+    public const string MainPortTag = "main";
+
     public int Id { get; set; }
     public DateTime Timestamp { get; set; }
     public string Direction { get; set; } = ""; // "RX" or "TX"

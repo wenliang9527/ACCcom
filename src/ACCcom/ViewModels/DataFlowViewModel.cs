@@ -411,7 +411,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         try
         {
             if (string.IsNullOrEmpty(entry.PortTag))
-                entry.PortTag = "main";
+                entry.PortTag = LogEntry.MainPortTag;
 
             // Frame assembly enabled: route RX bytes through the FrameBuffer.
             // Assembled frames surface via OnFrameReady with the full pipeline
@@ -508,7 +508,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         try
         {
             if (string.IsNullOrEmpty(entry.PortTag))
-                entry.PortTag = "main";
+                entry.PortTag = LogEntry.MainPortTag;
 
             _http.AddEntry(entry);
             _triggerService.Evaluate(entry);

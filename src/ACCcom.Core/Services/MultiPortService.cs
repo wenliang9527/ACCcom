@@ -45,6 +45,7 @@ public class MultiPortService : IDisposable
     /// </summary>
     public MultiPortService(Func<ISerialService> serviceFactory)
     {
+        ArgumentNullException.ThrowIfNull(serviceFactory);
         _serviceFactory = serviceFactory;
     }
 
@@ -80,6 +81,11 @@ public class MultiPortService : IDisposable
 
     public bool ClosePort(string tag)
     {
+        // Null/empty tag falls through to the same "not open" no-op as any
+        // unknown tag: Dictionary.TryGetValue(null) would otherwise throw
+        // ArgumentNullException instead of returning the documented result.
+        if (string.IsNullOrEmpty(tag)) return true;
+
         lock (_lock)
         {
             if (!_ports.TryGetValue(tag, out var instance)) return true;
@@ -92,6 +98,11 @@ public class MultiPortService : IDisposable
 
     public bool SendToPort(string tag, string data, bool isHex = false)
     {
+        // Matches the OpenPort/GetPort contract: a null/empty tag is treated as
+        // "no such port" and fails cleanly instead of throwing from
+        // Dictionary.TryGetValue(null).
+        if (string.IsNullOrEmpty(tag)) return false;
+
         lock (_lock)
         {
             if (!_ports.TryGetValue(tag, out var instance)) return false;
