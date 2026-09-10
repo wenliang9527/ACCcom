@@ -40,6 +40,14 @@ public class ModbusScannerTests
     private static ModbusService MakeService(IModbusTransport transport) => new(transport);
 
     [Fact]
+    public void Constructor_null_modbus_throws()
+    {
+        // A null service would NRE inside ProbeDeviceAsync on the first scan;
+        // the guard must live at the constructor boundary.
+        Assert.Throws<ArgumentNullException>(() => new ModbusScanner(null!));
+    }
+
+    [Fact]
     public async Task ScanAsync_FindsOnlyOnlineSlaves()
     {
         // 0x03 and 0x10 respond; the rest of the 1..3 range do not.

@@ -17,6 +17,7 @@ public class ModbusScanner : IDisposable
 
     public ModbusScanner(ModbusService modbus)
     {
+        ArgumentNullException.ThrowIfNull(modbus);
         _modbus = modbus;
     }
 
