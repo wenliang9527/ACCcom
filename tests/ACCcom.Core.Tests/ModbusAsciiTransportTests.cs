@@ -15,6 +15,14 @@ public class ModbusAsciiTransportTests
     }
 
     [Fact]
+    public void Constructor_null_serial_throws()
+    {
+        // The ctor subscribes to OnDataReceived; a null service would NRE there
+        // instead of at the contract boundary.
+        Assert.Throws<ArgumentNullException>(() => new ModbusAsciiTransport(null!));
+    }
+
+    [Fact]
     public void CalculateLrc_KnownValue()
     {
         var data = new byte[] { 0x01, 0x03, 0x00, 0x00, 0x00, 0x0A };

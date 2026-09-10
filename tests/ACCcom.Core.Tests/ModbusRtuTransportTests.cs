@@ -19,6 +19,14 @@ public class ModbusRtuTransportTests
     }
 
     [Fact]
+    public void Constructor_null_serial_throws()
+    {
+        // The ctor subscribes to OnDataReceived; a null service would NRE there
+        // instead of at the contract boundary.
+        Assert.Throws<ArgumentNullException>(() => new ModbusRtuTransport(null!));
+    }
+
+    [Fact]
     public async Task SendReceiveAsync_WithValidResponse_ReturnsPdu()
     {
         using var serial = OpenVirtual();

@@ -12,6 +12,7 @@ public class ModbusRtuTransport : IModbusTransport
 
     public ModbusRtuTransport(ISerialService serial)
     {
+        ArgumentNullException.ThrowIfNull(serial);
         _serial = serial;
         _dataHandler = OnSerialData;
         _serial.OnDataReceived += _dataHandler;
