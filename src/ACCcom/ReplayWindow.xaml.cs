@@ -145,11 +145,8 @@ public partial class ReplayWindow : Window
         var exportService = new FileExportService();
         var (rxEntries, txEntries, parsed, _) = exportService.ReplayFromFile(_filePath, 1);
 
-        // Interleave RX and TX by timestamp
-        var allEntries = new List<LogEntry>();
-        allEntries.AddRange(rxEntries);
-        allEntries.AddRange(txEntries);
-        allEntries.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
+        // Interleave RX and TX by timestamp via the shared merger.
+        var allEntries = ReplayMerger.MergeByTimestamp(rxEntries, txEntries);
 
         int total = allEntries.Count;
         for (int i = 0; i < total; i++)

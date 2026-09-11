@@ -173,6 +173,12 @@ public class SessionRecorder : BufferedFileWriter
         ArgumentNullException.ThrowIfNull(filePath);
         ArgumentNullException.ThrowIfNull(onEntry);
 
+        // A non-positive speed would make ComputeDelay return Zero for every
+        // gap — the replay would run flat-out with no pacing. Normalize to 1x
+        // so the same contract ("positive speed scales the gaps") holds for
+        // every value, instead of quietly dropping the timing.
+        if (speedMultiplier <= 0) speedMultiplier = 1.0;
+
         if (!File.Exists(filePath))
             return;
 
