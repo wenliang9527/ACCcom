@@ -60,6 +60,11 @@
   "McpTraffic.Tool": "工具",
   "McpTraffic.Payload": "数据 / HEX",
   "McpTraffic.Tag": "端口",
+  "McpTraffic.HexToggleTip": "仅以 HEX 显示数据",
+  "McpTraffic.FilterAll": "全部",
+  "McpTraffic.FilterRx": "RX",
+  "McpTraffic.FilterTx": "TX",
+  "McpTraffic.FollowTail": "跟随滚动",
 
 
   "Panel.ReceiveFull": "◀ 接收",

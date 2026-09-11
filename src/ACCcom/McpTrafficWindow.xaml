@@ -67,6 +67,7 @@
         <Grid Grid.Row="1" Margin="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -75,7 +76,34 @@
                            Text="{Binding [McpTraffic.Hint], Source={x:Static local:LanguageManager.Instance}}" TextWrapping="Wrap" />
             </Border>
 
-            <ListView x:Name="TrafficList" Grid.Row="1"
+            <!-- Toolbar: HEX display toggle, direction filter, auto-scroll + row count -->
+            <Border Grid.Row="1" Padding="4,2" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="4" Margin="0,0,0,4">
+                <DockPanel>
+                    <ToggleButton x:Name="HexToggle" DockPanel.Dock="Left" IsChecked="False" Click="HexToggle_Click"
+                                  Content="HEX" FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}"
+                                  Background="{DynamicResource BgElevatedBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                                  Margin="0,0,4,0" Padding="10,2" MinWidth="46"
+                                  ToolTip="{Binding [McpTraffic.HexToggleTip], Source={x:Static local:LanguageManager.Instance}}" />
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <RadioButton x:Name="FilterAll" GroupName="DirFilter" IsChecked="True" Checked="DirectionFilter_Changed"
+                                     Content="{Binding [McpTraffic.FilterAll], Source={x:Static local:LanguageManager.Instance}}"
+                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="6,0,8,0" />
+                        <RadioButton x:Name="FilterRx" GroupName="DirFilter" Checked="DirectionFilter_Changed"
+                                     Content="{Binding [McpTraffic.FilterRx], Source={x:Static local:LanguageManager.Instance}}"
+                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <RadioButton x:Name="FilterTx" GroupName="DirFilter" Checked="DirectionFilter_Changed"
+                                     Content="{Binding [McpTraffic.FilterTx], Source={x:Static local:LanguageManager.Instance}}"
+                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    </StackPanel>
+                    <CheckBox x:Name="FollowTail" DockPanel.Dock="Right" IsChecked="True" Checked="FollowTail_Changed" Unchecked="FollowTail_Changed"
+                              Content="{Binding [McpTraffic.FollowTail], Source={x:Static local:LanguageManager.Instance}}"
+                              FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="RowCountText" DockPanel.Dock="Right" FontSize="11"
+                               Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                </DockPanel>
+            </Border>
+
+            <ListView x:Name="TrafficList" Grid.Row="2"
                       Background="{DynamicResource BgSurfaceBrush}"
                       BorderThickness="0"
                       FontFamily="Consolas" FontSize="12"

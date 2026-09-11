@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Data;
 using ACCcom.Core.Services;
 using ACCcom.Helpers;
 
@@ -21,14 +22,19 @@ public partial class McpTrafficWindow : Window
         public string Direction { get; init; } = "";
         public string Tool { get; init; } = "";
         public string Tag { get; init; } = "";
-        public string Payload { get; init; } = "";
+        public string Text { get; init; } = "";
+        public string Hex { get; init; } = "";
+        public string Payload { get; set; } = "";
     }
 
-    private readonly ObservableCollection<TrafficRow> _rows = new();
+    private readonly ObservableCollection<TrafficRow> _allRows = new();
+    private readonly ListCollectionView _filteredView;
     private readonly string _logPath;
     private readonly FileSystemWatcher? _watcher;
     private long _readOffset;
     private bool _scrolledToEnd = true;
+    private string _directionFilter = ""; // "", "RX", "TX"
+    private bool _hexMode;
 
     public McpTrafficWindow()
     {
@@ -38,7 +44,13 @@ public partial class McpTrafficWindow : Window
         WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "McpTrafficWindow");
 
-        TrafficList.ItemsSource = _rows;
+        // Filtered view on top of the raw collection so the direction filter
+        // and HEX toggle can re-render without touching the tail buffer.
+        _filteredView = (ListCollectionView)CollectionViewSource.GetDefaultView(_allRows);
+        _filteredView.Filter = row => _directionFilter.Length == 0
+            || ((TrafficRow)row).Direction == _directionFilter;
+        TrafficList.ItemsSource = _filteredView;
+        UpdateRowCount();
 
         // Load whatever is already in the log, then watch for new lines.
         LoadExistingLines();
@@ -102,26 +114,96 @@ public partial class McpTrafficWindow : Window
             var tag = root.TryGetProperty("portTag", out var pt) ? pt.GetString() ?? "" : "";
             var rawHex = root.TryGetProperty("rawHex", out var hex) ? hex.GetString() ?? "" : "";
             var text = root.TryGetProperty("text", out var txt) ? txt.GetString() ?? "" : "";
-            var payload = !string.IsNullOrEmpty(text) && text != rawHex ? $"{text}  [{rawHex}]" : rawHex;
 
-            _rows.Add(new TrafficRow { Time = time, Direction = direction, Tool = tool, Tag = tag, Payload = payload });
+            _allRows.Add(new TrafficRow
+            {
+                Time = time,
+                Direction = direction,
+                Tool = tool,
+                Tag = tag,
+                Text = text,
+                Hex = rawHex,
+                Payload = _hexMode ? rawHex : BuildPayload(text, rawHex)
+            });
 
             // Keep the list bounded; drop oldest rows past 2000.
-            if (_rows.Count > 2000)
-                _rows.RemoveAt(0);
+            if (_allRows.Count > 2000)
+                _allRows.RemoveAt(0);
 
+            UpdateRowCount();
             if (TrafficList.Items.Count > 0 && _scrolledToEnd)
                 TrafficList.ScrollIntoView(TrafficList.Items[^1]);
         }
         catch { /* malformed line — skip */ }
     }
 
+    /// <summary>Payload text for a row under the current display mode: HEX mode
+    /// shows the raw hex only; text mode shows text with the hex in brackets
+    /// (or just hex when the exchange has no text of its own).</summary>
+    private static string BuildPayload(string text, string hex)
+    {
+        if (!string.IsNullOrEmpty(text) && text != hex)
+            return $"{text}  [{hex}]";
+        return hex;
+    }
+
+    private void RefreshRows()
+    {
+        // Re-apply the filter (direction changed) and re-materialize the payload
+        // text (HEX toggle changed) by re-querying the rows.
+        _filteredView.Refresh();
+        UpdateRowCount();
+        if (TrafficList.Items.Count > 0 && _scrolledToEnd)
+            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
+    }
+
+    private void UpdateRowCount()
+    {
+        var visible = _filteredView.Count;
+        RowCountText.Text = _directionFilter.Length == 0
+            ? $"{visible}"
+            : $"{visible} / {_allRows.Count}";
+    }
+
+    private void HexToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _hexMode = HexToggle.IsChecked == true;
+        // Re-format each retained row's payload: HEX mode shows raw hex only,
+        // text mode shows "text  [hex]". Re-renders every visible row without
+        // touching the tail buffer.
+        foreach (var item in _allRows)
+            item.Payload = _hexMode ? item.Hex : BuildPayload(item.Text, item.Hex);
+        _filteredView.Refresh();
+    }
+
+    private void DirectionFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        // Radio buttons fire Checked during InitializeComponent, before the
+        // filtered view is built; the default state (All) is already correct.
+        if (_filteredView == null) return;
+        _directionFilter = FilterRx.IsChecked == true ? "RX"
+            : FilterTx.IsChecked == true ? "TX" : "";
+        _filteredView.Refresh();
+        UpdateRowCount();
+        if (TrafficList.Items.Count > 0 && _scrolledToEnd)
+            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
+    }
+
+    private void FollowTail_Changed(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList == null) return;
+        _scrolledToEnd = FollowTail.IsChecked == true;
+        if (_scrolledToEnd && TrafficList.Items.Count > 0)
+            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
+    }
+
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
-        _rows.Clear();
+        _allRows.Clear();
         try { if (File.Exists(_logPath)) File.Delete(_logPath); }
         catch { /* best effort */ }
         _readOffset = 0;
+        UpdateRowCount();
     }
 
     private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();

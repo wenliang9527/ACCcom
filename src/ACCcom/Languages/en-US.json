@@ -58,8 +58,13 @@
   "McpTraffic.Time": "Time",
   "McpTraffic.Direction": "Dir",
   "McpTraffic.Tool": "Tool",
-  "McpTraffic.Payload": "Text / Hex",
+  "McpTraffic.Payload": "Data / HEX",
   "McpTraffic.Tag": "Port",
+  "McpTraffic.HexToggleTip": "Show payload as HEX only",
+  "McpTraffic.FilterAll": "All",
+  "McpTraffic.FilterRx": "RX",
+  "McpTraffic.FilterTx": "TX",
+  "McpTraffic.FollowTail": "Follow tail",
 
 
   "Panel.ReceiveFull": "◀ Receive",
