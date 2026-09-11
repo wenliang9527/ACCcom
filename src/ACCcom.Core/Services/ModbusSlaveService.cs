@@ -54,6 +54,10 @@ public class ModbusSlaveService : IDisposable
 
     public void RemoveSlave(string slaveId)
     {
+        // A null/empty id would throw ArgumentNullException from Dictionary.
+        // TryGetValue(null); treat it as "no such slave" (safe no-op), matching
+        // the GetDevice/Write/Read contract below.
+        if (string.IsNullOrEmpty(slaveId)) return;
         lock (_lock) { if (_slaves.TryGetValue(slaveId, out var e)) { e.Transport.Dispose(); _slaves.Remove(slaveId); } }
     }
 
@@ -64,6 +68,9 @@ public class ModbusSlaveService : IDisposable
 
     public ModbusSlaveDevice? GetDevice(string slaveId)
     {
+        // Same null/empty guard as RemoveSlave: Dictionary.TryGetValue(null)
+        // would throw ArgumentNullException for input that simply has no device.
+        if (string.IsNullOrEmpty(slaveId)) return null;
         lock (_lock) { return _slaves.TryGetValue(slaveId, out var e) ? e.Device : null; }
     }
 

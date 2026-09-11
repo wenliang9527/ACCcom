@@ -9,6 +9,28 @@ namespace ACCcom.Core.Tests;
 public class ModbusSlaveServiceTests
 {
     [Fact]
+    public void GetDevice_null_or_empty_id_returns_null_without_throwing()
+    {
+        using var service = new ModbusSlaveService();
+        var ex = Record.Exception(() => service.GetDevice(null!));
+        Assert.Null(ex);
+        Assert.Null(service.GetDevice(null!));
+        Assert.Null(service.GetDevice(""));
+        Assert.Null(service.GetDevice("ghost"));
+    }
+
+    [Fact]
+    public void RemoveSlave_null_or_empty_id_is_safe_noop()
+    {
+        using var service = new ModbusSlaveService();
+        var ex = Record.Exception(() => service.RemoveSlave(null!));
+        Assert.Null(ex);
+        service.RemoveSlave(null!);
+        service.RemoveSlave("");
+        Assert.Empty(service.GetActiveSlaves());
+    }
+
+    [Fact]
     public void CreateSlave_Tcp_RegistersAndLists()
     {
         using var service = new ModbusSlaveService();
