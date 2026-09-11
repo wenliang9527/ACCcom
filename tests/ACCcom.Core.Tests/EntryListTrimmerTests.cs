@@ -80,6 +80,27 @@ public class EntryListTrimmerTests
     }
 
     [Fact]
+    public void ComputeRemoveCount_nonPositive_chunk_clamped_to_one()
+    {
+        // A zero/negative chunk used to divide by zero (or garbage); it now
+        // behaves as chunk 1 (trim one entry at a time).
+        Assert.Equal(3, EntryListTrimmer.ComputeRemoveCount(5, maxEntries: 2, chunkSize: 0));
+        Assert.Equal(3, EntryListTrimmer.ComputeRemoveCount(5, maxEntries: 2, chunkSize: -10));
+        Assert.Equal(1, EntryListTrimmer.ComputeRemoveCount(1, maxEntries: 0, chunkSize: 0));
+    }
+
+    [Fact]
+    public void Trim_nonPositive_chunk_removes_all_overflow()
+    {
+        var list = new List<string> { "a", "b", "c", "d", "e" };
+
+        EntryListTrimmer.Trim(list, maxEntries: 2, chunkSize: 0);
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal(new[] { "d", "e" }, list);
+    }
+
+    [Fact]
     public void ComputeRemoveCount_matches_original_semantics()
     {
         // Reproduce the pre-extraction formula for a range of inputs to ensure

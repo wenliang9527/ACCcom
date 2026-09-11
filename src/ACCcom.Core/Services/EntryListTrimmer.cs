@@ -21,6 +21,11 @@ public static class EntryListTrimmer
         var overflow = count - maxEntries;
         if (overflow <= 0) return 0;
 
+        // A non-positive chunk size would divide by zero (or produce a garbage
+        // result); clamp to 1 so trimming still happens in single-entry steps
+        // (the caller's const chunk is positive, this defends misuse).
+        if (chunkSize <= 0) chunkSize = 1;
+
         // ceil(overflow / chunkSize) * chunkSize — round up so the removal
         // happens in whole chunks, then clamp to the collection size.
         var rounded = ((overflow + chunkSize - 1) / chunkSize) * chunkSize;
