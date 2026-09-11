@@ -100,6 +100,19 @@
                               FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" />
                     <TextBlock x:Name="RowCountText" DockPanel.Dock="Right" FontSize="11"
                                Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <!-- Search box fills the space between the filters and the
+                         right-side controls; the placeholder overlays the empty
+                         box and Esc clears the filter. -->
+                    <Grid Margin="8,0,8,0" VerticalAlignment="Center">
+                        <TextBox x:Name="SearchBox" FontSize="11" Padding="6,2" VerticalContentAlignment="Center"
+                                 Background="{DynamicResource BgElevatedBrush}" Foreground="{DynamicResource InkPrimaryBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                 ToolTip="{Binding [McpTraffic.SearchHint], Source={x:Static local:LanguageManager.Instance}}"
+                                 TextChanged="SearchText_Changed" PreviewKeyDown="SearchBox_PreviewKeyDown" />
+                        <TextBlock x:Name="SearchPlaceholder" IsHitTestVisible="False" Margin="7,0,0,0" VerticalAlignment="Center"
+                                   FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                                   Text="{Binding [McpTraffic.SearchHint], Source={x:Static local:LanguageManager.Instance}}" />
+                    </Grid>
                 </DockPanel>
             </Border>
 

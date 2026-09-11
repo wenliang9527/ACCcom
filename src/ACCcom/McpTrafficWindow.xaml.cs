@@ -1,8 +1,9 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using ACCcom.Core.Services;
 using ACCcom.Helpers;
 
@@ -27,13 +28,19 @@ public partial class McpTrafficWindow : Window
         public string Payload { get; set; } = "";
     }
 
+    /// <summary>Retained row cap. Also the batch size for the startup load so a
+    /// pre-existing log can never grow the collection beyond it mid-load.</summary>
+    private const int MaxRows = 2000;
+
     private readonly ObservableCollection<TrafficRow> _allRows = new();
     private readonly ListCollectionView _filteredView;
     private readonly string _logPath;
     private readonly FileSystemWatcher? _watcher;
     private long _readOffset;
     private bool _scrolledToEnd = true;
+    private bool _loadingExisting;
     private string _directionFilter = ""; // "", "RX", "TX"
+    private string _searchText = "";
     private bool _hexMode;
 
     public McpTrafficWindow()
@@ -44,11 +51,11 @@ public partial class McpTrafficWindow : Window
         WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "McpTrafficWindow");
 
-        // Filtered view on top of the raw collection so the direction filter
-        // and HEX toggle can re-render without touching the tail buffer.
+        // Filtered view on top of the raw collection so the direction filter,
+        // the search box and the HEX toggle can re-render without touching the
+        // tail buffer.
         _filteredView = (ListCollectionView)CollectionViewSource.GetDefaultView(_allRows);
-        _filteredView.Filter = row => _directionFilter.Length == 0
-            || ((TrafficRow)row).Direction == _directionFilter;
+        _filteredView.Filter = row => Matches((TrafficRow)row);
         TrafficList.ItemsSource = _filteredView;
         UpdateRowCount();
 
@@ -67,18 +74,48 @@ public partial class McpTrafficWindow : Window
         }
     }
 
+    private bool Matches(TrafficRow row)
+    {
+        if (_directionFilter.Length > 0 && row.Direction != _directionFilter) return false;
+        if (_searchText.Length == 0) return true;
+        return row.Payload.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || row.Tool.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || row.Tag.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void LoadExistingLines()
     {
         if (!File.Exists(_logPath)) return;
+        _loadingExisting = true;
         try
         {
             using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             using var reader = new StreamReader(fs);
+            // Only the tail matters: a pre-existing log may hold up to rotation
+            // size, and trimming an ObservableCollection from the front per line
+            // is O(n²) — read the newest MaxRows lines and render them in one
+            // pass instead of stalling startup on a huge backlog.
+            var lines = new List<string>(MaxRows + 256);
             while (reader.ReadLine() is { } line)
-                AppendLine(line);
+            {
+                lines.Add(line);
+                if (lines.Count > MaxRows + 256)
+                    lines.RemoveRange(0, lines.Count - MaxRows);
+            }
+            if (lines.Count > MaxRows)
+                lines.RemoveRange(0, lines.Count - MaxRows);
             _readOffset = fs.Length;
+            foreach (var line in lines)
+                AppendLine(line);
         }
         catch { /* file may be locked or deleted mid-read; skip gracefully */ }
+        finally
+        {
+            _loadingExisting = false;
+            UpdateRowCount();
+            if (TrafficList.Items.Count > 0 && _scrolledToEnd)
+                TrafficList.ScrollIntoView(TrafficList.Items[^1]);
+        }
     }
 
     private void LoadNewLines()
@@ -102,39 +139,28 @@ public partial class McpTrafficWindow : Window
 
     private void AppendLine(string line)
     {
-        if (string.IsNullOrWhiteSpace(line)) return;
-        try
+        if (!TrafficLogParser.TryParseLine(line, out var entry)) return;
+        _allRows.Add(new TrafficRow
         {
-            using var doc = JsonDocument.Parse(line);
-            var root = doc.RootElement;
-            var time = root.TryGetProperty("timestamp", out var ts) ? ts.GetString() ?? "" : "";
-            if (time.Length >= 23) time = time[11..23]; // HH:mm:ss.fff
-            var direction = root.TryGetProperty("direction", out var dir) ? dir.GetString() ?? "" : "";
-            var tool = root.TryGetProperty("tool", out var tl) ? tl.GetString() ?? "" : "";
-            var tag = root.TryGetProperty("portTag", out var pt) ? pt.GetString() ?? "" : "";
-            var rawHex = root.TryGetProperty("rawHex", out var hex) ? hex.GetString() ?? "" : "";
-            var text = root.TryGetProperty("text", out var txt) ? txt.GetString() ?? "" : "";
+            Time = entry.Time,
+            Direction = entry.Direction,
+            Tool = entry.Tool,
+            Tag = entry.Tag,
+            Text = entry.Text,
+            Hex = entry.Hex,
+            Payload = _hexMode ? entry.Hex : BuildPayload(entry.Text, entry.Hex)
+        });
 
-            _allRows.Add(new TrafficRow
-            {
-                Time = time,
-                Direction = direction,
-                Tool = tool,
-                Tag = tag,
-                Text = text,
-                Hex = rawHex,
-                Payload = _hexMode ? rawHex : BuildPayload(text, rawHex)
-            });
+        // Keep the list bounded; drop oldest rows past MaxRows.
+        if (_allRows.Count > MaxRows)
+            _allRows.RemoveAt(0);
 
-            // Keep the list bounded; drop oldest rows past 2000.
-            if (_allRows.Count > 2000)
-                _allRows.RemoveAt(0);
-
-            UpdateRowCount();
-            if (TrafficList.Items.Count > 0 && _scrolledToEnd)
-                TrafficList.ScrollIntoView(TrafficList.Items[^1]);
-        }
-        catch { /* malformed line — skip */ }
+        // During the batch startup load the per-row count/scroll work is
+        // deferred to LoadExistingLines' finally block — one pass, not 2000.
+        if (_loadingExisting) return;
+        UpdateRowCount();
+        if (TrafficList.Items.Count > 0 && _scrolledToEnd)
+            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
     }
 
     /// <summary>Payload text for a row under the current display mode: HEX mode
@@ -149,8 +175,8 @@ public partial class McpTrafficWindow : Window
 
     private void RefreshRows()
     {
-        // Re-apply the filter (direction changed) and re-materialize the payload
-        // text (HEX toggle changed) by re-querying the rows.
+        // Re-apply the filter (direction/search changed) or re-materialize the
+        // payload text (HEX toggle changed), then re-sync count and tail-scroll.
         _filteredView.Refresh();
         UpdateRowCount();
         if (TrafficList.Items.Count > 0 && _scrolledToEnd)
@@ -160,7 +186,7 @@ public partial class McpTrafficWindow : Window
     private void UpdateRowCount()
     {
         var visible = _filteredView.Count;
-        RowCountText.Text = _directionFilter.Length == 0
+        RowCountText.Text = _directionFilter.Length == 0 && _searchText.Length == 0
             ? $"{visible}"
             : $"{visible} / {_allRows.Count}";
     }
@@ -173,7 +199,7 @@ public partial class McpTrafficWindow : Window
         // touching the tail buffer.
         foreach (var item in _allRows)
             item.Payload = _hexMode ? item.Hex : BuildPayload(item.Text, item.Hex);
-        _filteredView.Refresh();
+        RefreshRows();
     }
 
     private void DirectionFilter_Changed(object sender, RoutedEventArgs e)
@@ -183,10 +209,22 @@ public partial class McpTrafficWindow : Window
         if (_filteredView == null) return;
         _directionFilter = FilterRx.IsChecked == true ? "RX"
             : FilterTx.IsChecked == true ? "TX" : "";
-        _filteredView.Refresh();
-        UpdateRowCount();
-        if (TrafficList.Items.Count > 0 && _scrolledToEnd)
-            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
+        RefreshRows();
+    }
+
+    private void SearchText_Changed(object sender, TextChangedEventArgs e)
+    {
+        // TextChanged can fire while InitializeComponent is wiring the control.
+        if (_filteredView == null) return;
+        SearchPlaceholder.Visibility = string.IsNullOrEmpty(SearchBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        _searchText = SearchBox.Text ?? "";
+        RefreshRows();
+    }
+
+    private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape) SearchBox.Clear();
     }
 
     private void FollowTail_Changed(object sender, RoutedEventArgs e)

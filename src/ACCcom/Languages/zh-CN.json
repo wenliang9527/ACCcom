@@ -65,6 +65,7 @@
   "McpTraffic.FilterRx": "RX",
   "McpTraffic.FilterTx": "TX",
   "McpTraffic.FollowTail": "跟随滚动",
+  "McpTraffic.SearchHint": "按数据 / 工具 / 端口过滤 (Esc 清除)",
 
 
   "Panel.ReceiveFull": "◀ 接收",

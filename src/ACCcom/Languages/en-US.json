@@ -65,6 +65,7 @@
   "McpTraffic.FilterRx": "RX",
   "McpTraffic.FilterTx": "TX",
   "McpTraffic.FollowTail": "Follow tail",
+  "McpTraffic.SearchHint": "Filter payload / tool / port (Esc clears)",
 
 
   "Panel.ReceiveFull": "◀ Receive",
