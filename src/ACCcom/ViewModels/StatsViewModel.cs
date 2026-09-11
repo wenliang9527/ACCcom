@@ -35,21 +35,11 @@ public class StatsViewModel : ObservableObject
     private string _avgFrameInterval = "0.0";
     public string AvgFrameInterval { get => _avgFrameInterval; set => SetField(ref _avgFrameInterval, value); }
 
-    // TX rate tracking via sliding window
-    private readonly System.Collections.Concurrent.ConcurrentQueue<(DateTime Time, int Bytes)> _txSamples = new();
+    // TX rate tracking — sliding-window math lives in Core (TxThroughputWindow),
+    // mirroring the RX side's DataStatistics; this VM only formats.
+    private readonly ACCcom.Core.Services.TxThroughputWindow _txWindow = new();
 
-    public void RecordTx(int byteCount)
-    {
-        _txSamples.Enqueue((DateTime.Now, byteCount));
-        CleanupOldTxSamples();
-    }
-
-    private void CleanupOldTxSamples()
-    {
-        var cutoff = DateTime.Now - TimeSpan.FromSeconds(10);
-        while (_txSamples.TryPeek(out var oldest) && oldest.Time < cutoff)
-            _txSamples.TryDequeue(out _);
-    }
+    public void RecordTx(int byteCount) => _txWindow.Record(byteCount);
 
     public void Update(ACCcom.Core.Services.DataStatistics stats, long rxByteCount, long txByteCount, int rxCount, int txCount, string duration)
     {
@@ -63,31 +53,8 @@ public class StatsViewModel : ObservableObject
         ConnectionDuration = string.IsNullOrEmpty(duration) ? "--" : duration;
         AvgFrameInterval = $"{stats.AvgFrameIntervalMs:F1}";
 
-        CleanupOldTxSamples();
-        var now = DateTime.Now;
-        var cutoff = now - TimeSpan.FromSeconds(5);
-        long totalBytes = 0;
-        int frameCount = 0;
-        DateTime first = default;
-        foreach (var s in _txSamples)
-        {
-            if (s.Time >= cutoff)
-            {
-                if (frameCount == 0) first = s.Time;
-                totalBytes += s.Bytes;
-                frameCount++;
-            }
-        }
-        if (frameCount >= 2)
-        {
-            var span = (now - first).TotalSeconds;
-            TxBytesPerSec = span > 0 ? $"{totalBytes / span:F1}" : "0.0";
-            TxFramesPerSec = span > 0 ? $"{frameCount / span:F1}" : "0.0";
-        }
-        else
-        {
-            TxBytesPerSec = "0.0";
-            TxFramesPerSec = "0.0";
-        }
+        var (bytesPerSec, framesPerSec) = _txWindow.ComputeRate(DateTime.Now);
+        TxBytesPerSec = $"{bytesPerSec:F1}";
+        TxFramesPerSec = $"{framesPerSec:F1}";
     }
 }

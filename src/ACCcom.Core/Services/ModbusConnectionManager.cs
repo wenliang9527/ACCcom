@@ -54,6 +54,9 @@ public class ModbusConnectionManager : IDisposable
 
     public ModbusService? GetService(string connectionId)
     {
+        // ConcurrentDictionary.TryGetValue(null) throws; an unknown/blank id
+        // is just "no such connection" (same contract as ModbusSlaveService).
+        if (string.IsNullOrEmpty(connectionId)) return null;
         return _connections.TryGetValue(connectionId, out var managed) ? managed.Service : null;
     }
 

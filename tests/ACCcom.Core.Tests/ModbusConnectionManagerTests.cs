@@ -68,4 +68,16 @@ public class ModbusConnectionManagerTests
         Assert.Throws<ArgumentNullException>(() => manager.CreateTcpConnection("t", null!, 502));
         Assert.Throws<ArgumentNullException>(() => manager.CreateTcpConnection(null!, "host", 502));
     }
+
+    [Fact]
+    public void GetService_null_or_empty_id_returns_null_without_throwing()
+    {
+        using var manager = new ModbusConnectionManager();
+
+        // ConcurrentDictionary.TryGetValue(null) throws; a blank id is just
+        // "no such connection" (same contract as ModbusSlaveService).
+        Assert.Null(manager.GetService(null!));
+        Assert.Null(manager.GetService(""));
+        Assert.Null(manager.GetService("nope"));
+    }
 }
