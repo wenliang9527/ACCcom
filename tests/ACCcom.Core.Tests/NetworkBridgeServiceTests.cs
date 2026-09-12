@@ -47,6 +47,26 @@ public class NetworkBridgeServiceTests
     }
 
     [Fact]
+    public async Task ConnectTcp_null_host_or_nonpositive_port_throws()
+    {
+        using var service = new NetworkBridgeService();
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => service.ConnectTcp(null!, 502));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ConnectTcp("127.0.0.1", 0));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ConnectTcp("127.0.0.1", -1));
+    }
+
+    [Fact]
+    public void ConnectUdp_null_host_or_nonpositive_port_throws()
+    {
+        using var service = new NetworkBridgeService();
+
+        Assert.Throws<ArgumentNullException>(() => service.ConnectUdp(null!, 502));
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.ConnectUdp("127.0.0.1", 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => service.ConnectUdp("127.0.0.1", -1));
+    }
+
+    [Fact]
     public void Dispose_WhenNotConnected_DoesNotThrow()
     {
         // Arrange

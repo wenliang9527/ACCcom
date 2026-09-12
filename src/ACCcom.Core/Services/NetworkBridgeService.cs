@@ -33,6 +33,12 @@ public class NetworkBridgeService : IDisposable
 
     public async Task<bool> ConnectTcp(string host, int port)
     {
+        // A null host would throw from TcpClient.ConnectAsync with a confusing
+        // message (and be swallowed by the catch below as "TCP connect failed");
+        // a non-positive port is never a valid endpoint. Fail at the entry point.
+        ArgumentNullException.ThrowIfNull(host);
+        if (port <= 0) throw new ArgumentOutOfRangeException(nameof(port), "port must be positive");
+
         if (IsConnected) return true;
 
         try
@@ -65,6 +71,11 @@ public class NetworkBridgeService : IDisposable
 
     public bool ConnectUdp(string host, int port)
     {
+        // Same contract as ConnectTcp: null host / non-positive port are
+        // invalid at the entry point, not swallowed as "UDP connect failed".
+        ArgumentNullException.ThrowIfNull(host);
+        if (port <= 0) throw new ArgumentOutOfRangeException(nameof(port), "port must be positive");
+
         if (IsConnected) return true;
 
         try
