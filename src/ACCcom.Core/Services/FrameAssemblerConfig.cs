@@ -23,9 +23,13 @@ public class FrameAssemblerConfig
             LengthFieldOffset = LengthFieldOffset,
             LengthFieldSize = LengthFieldSize,
             LengthFieldIncludes = 0,
-            MaxFrameSize = MaxFrameSize,
+            // A non-positive max frame size would make every frame read as
+            // oversized and be dropped silently (frameLen > MaxFrameSize is
+            // always true); a non-positive timeout would fire immediately.
+            // Clamp to the defaults instead of propagating a broken config.
+            MaxFrameSize = MaxFrameSize > 0 ? MaxFrameSize : 4096,
             BufferCapacity = 65536,
-            PartialFrameTimeoutMs = PartialFrameTimeoutMs
+            PartialFrameTimeoutMs = PartialFrameTimeoutMs > 0 ? PartialFrameTimeoutMs : 2000
         };
 
     /// <summary>Parses a space-separated hex header string (e.g. "A5 5A") into

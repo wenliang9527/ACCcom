@@ -44,6 +44,30 @@ public class FrameAssemblerConfigTests
         Assert.Equal(2000, buffer.PartialFrameTimeoutMs);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ToFrameBufferConfig_nonpositive_max_frame_size_clamped_to_default(int maxFrameSize)
+    {
+        // A non-positive max frame size would make every frame read as
+        // oversized and be dropped silently — clamp to the default instead.
+        var config = new FrameAssemblerConfig { MaxFrameSize = maxFrameSize };
+
+        var buffer = config.ToFrameBufferConfig();
+
+        Assert.Equal(4096, buffer.MaxFrameSize);
+    }
+
+    [Fact]
+    public void ToFrameBufferConfig_nonpositive_timeout_clamped_to_default()
+    {
+        var config = new FrameAssemblerConfig { PartialFrameTimeoutMs = 0 };
+
+        var buffer = config.ToFrameBufferConfig();
+
+        Assert.Equal(2000, buffer.PartialFrameTimeoutMs);
+    }
+
     [Fact]
     public void ParseHeaderBytes_space_separated()
     {
