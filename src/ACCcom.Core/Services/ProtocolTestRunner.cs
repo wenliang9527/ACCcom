@@ -28,6 +28,12 @@ public class ProtocolTestRunner
         Func<string, string, bool, int, CancellationToken, Task<string?>> waitForResponse,
         CancellationToken ct = default)
     {
+        // A null script would NRE on script.Name immediately; null callbacks
+        // NRE inside the step loop after the first await. Fail at the entry.
+        ArgumentNullException.ThrowIfNull(script);
+        ArgumentNullException.ThrowIfNull(send);
+        ArgumentNullException.ThrowIfNull(waitForResponse);
+
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var token = _cts.Token;
 

@@ -557,4 +557,16 @@ public class ProtocolTestRunnerTests : IDisposable
 
         Assert.True(matched);
     }
+
+    [Fact]
+    public async Task RunAsync_null_arguments_throw()
+    {
+        var runner = new ProtocolTestRunner();
+        var send = MakeSendMock().send;
+        var wait = MakeWaitMock(null);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(null!, send, wait));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(MakeScript(), null!, wait));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(MakeScript(), send, null!));
+    }
 }
