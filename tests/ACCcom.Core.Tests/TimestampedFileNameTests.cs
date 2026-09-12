@@ -44,4 +44,16 @@ public class TimestampedFileNameTests
         var name = TimestampedFileName.Build("ACCCOM", now, "", "");
         Assert.Equal("ACCCOM_20260909_143000", name);
     }
+
+    [Fact]
+    public void Build_null_or_blank_prefix_throws()
+    {
+        var now = new DateTime(2026, 9, 9, 14, 30, 0);
+
+        // A null/blank prefix would NRE on prefix.Length or produce a filename
+        // starting with "_" — reject it at the entry point.
+        Assert.Throws<ArgumentNullException>(() => TimestampedFileName.Build(null!, now));
+        Assert.Throws<ArgumentException>(() => TimestampedFileName.Build("", now));
+        Assert.Throws<ArgumentException>(() => TimestampedFileName.Build("   ", now));
+    }
 }

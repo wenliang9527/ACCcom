@@ -10,9 +10,15 @@ namespace ACCcom.Core.Services;
 public static class TimestampedFileName
 {
     /// <summary>Builds "prefix[_tag]_yyyyMMdd_HHmmss[.extension]". The tag and
-    /// extension segments are omitted when null/empty.</summary>
+    /// extension segments are omitted when null/empty; a null/blank prefix is
+    /// rejected — an empty prefix would produce a filename that starts with
+    /// "_" and is meaningless for a save dialog.</summary>
     public static string Build(string prefix, DateTime now, string? tag = null, string? extension = null)
     {
+        ArgumentNullException.ThrowIfNull(prefix);
+        if (string.IsNullOrWhiteSpace(prefix))
+            throw new ArgumentException("prefix must not be empty or whitespace", nameof(prefix));
+
         var sb = new System.Text.StringBuilder(prefix.Length + 32);
         sb.Append(prefix);
         if (!string.IsNullOrEmpty(tag))
