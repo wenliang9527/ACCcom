@@ -72,6 +72,11 @@ public static class DataPanelFilter
     /// used Debug.WriteLine; tests inject a collector).</summary>
     public static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine, Action<string>? errorSink = null)
     {
+        // A null entry would NRE on entry.IsSearchMatch (and entry.Text inside
+        // the regex/expression paths); fail at the entry point, matching the
+        // other Core static filter helpers.
+        ArgumentNullException.ThrowIfNull(entry);
+
         if (!showDirection) return false;
         if (expressionEngine != null)
         {

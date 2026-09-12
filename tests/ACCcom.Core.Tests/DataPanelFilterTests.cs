@@ -28,6 +28,16 @@ public class DataPanelFilterTests
     }
 
     [Fact]
+    public void FilterEntry_null_entry_throws()
+    {
+        // A null entry would NRE on entry.IsSearchMatch inside the filter
+        // paths (empty-filter / regex / expression); fail at the entry point.
+        Assert.Throws<ArgumentNullException>(() => DataPanelFilter.FilterEntry(null!, "x", useRegex: false, showDirection: true, expressionEngine: null));
+        Assert.Throws<ArgumentNullException>(() => DataPanelFilter.FilterEntry(null!, "", useRegex: false, showDirection: true, expressionEngine: null));
+        Assert.Throws<ArgumentNullException>(() => DataPanelFilter.FilterEntry(null!, "x", useRegex: false, showDirection: false, expressionEngine: null));
+    }
+
+    [Fact]
     public void FilterEntry_empty_filter_matches_all_and_clears_match_flag()
     {
         var entry = MakeEntry();
