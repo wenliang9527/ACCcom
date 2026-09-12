@@ -72,6 +72,21 @@ public class SerialToolsTests
     }
 
     [Fact]
+    public async Task ReadData_NegativeLimitAndSinceId_StillSucceeds()
+    {
+        // Negative limit is "no limit" and a negative sinceId is "from the
+        // start" in the buffer — the tool must succeed, not throw or fail.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ReadData(-5, -1, null);
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
     public async Task WaitForResponse_RequiresPattern()
     {
         var (ctx, sp) = ToolContextFactory.Create();
