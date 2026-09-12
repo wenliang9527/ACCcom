@@ -30,6 +30,15 @@ public class TriggerServiceTests : IDisposable
     }
 
     [Fact]
+    public void AddRule_null_throws()
+    {
+        // A null rule would slip into the snapshot and NRE inside Evaluate →
+        // MatchesRule; fail at the entry point, matching HighlightService.
+        Assert.Throws<ArgumentNullException>(() => _sut.AddRule(null!));
+        Assert.Empty(_sut.Rules);
+    }
+
+    [Fact]
     public void TestRegexMatch()
     {
         var rule = new TriggerRule { Name = "r1", Pattern = "^hello.*world$", MatchMode = "regex", Enabled = true };

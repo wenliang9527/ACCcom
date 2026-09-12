@@ -13,6 +13,11 @@ public class TriggerService
 
     public void AddRule(TriggerRule rule)
     {
+        // A null rule would slip into the snapshot and NRE later inside
+        // Evaluate → MatchesRule (rule.Pattern); fail at the entry point,
+        // matching HighlightService.AddRule.
+        ArgumentNullException.ThrowIfNull(rule);
+
         lock (_lock)
         {
             _rules.Add(rule);
