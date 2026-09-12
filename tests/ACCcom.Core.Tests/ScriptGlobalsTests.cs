@@ -122,6 +122,16 @@ public class ScriptGlobalsTests
         Assert.Equal(0xFFFF, crc); // initial CRC value
     }
 
+    [Fact]
+    public void Crc16_OutOfBounds_ReturnsZero()
+    {
+        // Out-of-bounds ranges return 0 (not the empty-range initial 0xFFFF);
+        // the InBounds guard must not fall through to the CRC scan.
+        var g = CreateGlobals(new byte[] { 0x01, 0x03 });
+        Assert.Equal(0, g.Crc16(2, 2));   // past the end
+        Assert.Equal(0, g.Crc16(-1, 2));  // negative offset
+    }
+
     // === Sum8 ===
     [Fact]
     public void Sum8_SimpleSum()
@@ -137,6 +147,14 @@ public class ScriptGlobalsTests
         Assert.Equal((byte)1, g.Sum8(0, 2)); // 255+2=257, byte wraps to 1
     }
 
+    [Fact]
+    public void Sum8_OutOfBounds_ReturnsZero()
+    {
+        var g = CreateGlobals(new byte[] { 0x01, 0x02, 0x03 });
+        Assert.Equal((byte)0, g.Sum8(3, 2));  // past the end
+        Assert.Equal((byte)0, g.Sum8(-2, 2)); // negative offset
+    }
+
     // === Xor8 ===
     [Fact]
     public void Xor8_SimpleXor()
@@ -150,6 +168,14 @@ public class ScriptGlobalsTests
     {
         var g = CreateGlobals(new byte[] { 0xAA, 0xAA });
         Assert.Equal(0x00, g.Xor8(0, 2));
+    }
+
+    [Fact]
+    public void Xor8_OutOfBounds_ReturnsZero()
+    {
+        var g = CreateGlobals(new byte[] { 0x0F, 0xF0 });
+        Assert.Equal(0x00, g.Xor8(2, 2));   // past the end
+        Assert.Equal(0x00, g.Xor8(-1, 2));  // negative offset
     }
 
     // === Sum16 ===
