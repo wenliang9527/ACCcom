@@ -112,6 +112,23 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void GetEntriesSince_direction_filter_is_case_insensitive()
+    {
+        // The direction filter matches OrdinalIgnoreCase, so "rx"/"R x"
+        // variants must behave identically to "RX".
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+
+        var lower = sut.GetEntriesSince(0, direction: "rx");
+        var upper = sut.GetEntriesSince(0, direction: "RX");
+
+        Assert.Equal(new[] { 1, 3 }, lower.Select(e => e.Id));
+        Assert.Equal(new[] { 1, 3 }, upper.Select(e => e.Id));
+    }
+
+    [Fact]
     public void GetEntriesSince_scannedMaxId_AdvancesCorrectly()
     {
         // Cursor semantics: with a direction filter + limit, the cursor advances

@@ -119,6 +119,21 @@ public class DataStatisticsTests
     }
 
     [Fact]
+    public void AvgFrameIntervalMs_ReturnsZeroWithSingleFrame()
+    {
+        // A single frame produces exactly one interval; the average is only
+        // meaningful with two or more, so it must report 0 (CalculateAvgInterval
+        // requires snapshot.Count >= 2).
+        var stats = new DataStatistics();
+
+        stats.RecordRx(1);
+        Thread.Sleep(20);
+        stats.RecordRx(1);
+
+        Assert.Equal(0, stats.AvgFrameIntervalMs);
+    }
+
+    [Fact]
     public void AvgFrameIntervalMs_CalculatesAfterMultipleFrames()
     {
         // Arrange
