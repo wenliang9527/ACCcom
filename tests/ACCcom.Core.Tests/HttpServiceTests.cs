@@ -156,6 +156,24 @@ public class HttpServiceTests : IDisposable
     }
 
     [Fact]
+    public void ReadParserCode_without_parser_manager_returns_null()
+    {
+        // The default test service has no ParserManager injected; the read
+        // path must report "unavailable" as null rather than NRE.
+        Assert.Null(_service.ReadParserCode("any"));
+        Assert.Null(_service.ReadParserCode(null!));
+    }
+
+    [Fact]
+    public void WriteParserCode_without_parser_manager_returns_failure()
+    {
+        var (ok, error) = _service.WriteParserCode("any", "code");
+
+        Assert.False(ok);
+        Assert.Equal("ParserManager not available", error);
+    }
+
+    [Fact]
     public async Task Parsers_ReturnsParserList()
     {
         // Act
