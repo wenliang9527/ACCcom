@@ -34,6 +34,26 @@ public class BookmarkManagerTests
     }
 
     [Fact]
+    public void AddBookmark_null_bookmarks_throws()
+    {
+        // RemoveBookmark throws; the sibling must too, instead of NRE on
+        // bookmarks.Any().
+        Assert.Throws<ArgumentNullException>(() => _sut.AddBookmark(null!, MakeEntry(1)));
+    }
+
+    [Fact]
+    public void NavigateBookmark_null_collections_throw()
+    {
+        var bookmarks = new ObservableCollection<BookmarkItem>();
+        var rx = new ObservableCollection<LogEntry>();
+        var tx = new ObservableCollection<LogEntry>();
+
+        Assert.Throws<ArgumentNullException>(() => _sut.NavigateBookmark(null!, 0, 1, rx, tx));
+        Assert.Throws<ArgumentNullException>(() => _sut.NavigateBookmark(bookmarks, 0, 1, null!, tx));
+        Assert.Throws<ArgumentNullException>(() => _sut.NavigateBookmark(bookmarks, 0, 1, rx, null!));
+    }
+
+    [Fact]
     public void AddBookmark_adds_item_returns_true()
     {
         // Arrange

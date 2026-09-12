@@ -11,6 +11,7 @@ public class BookmarkManager
     /// </summary>
     public bool AddBookmark(ObservableCollection<BookmarkItem> bookmarks, LogEntry selectedEntry)
     {
+        ArgumentNullException.ThrowIfNull(bookmarks);
         if (selectedEntry == null) return false;
         if (bookmarks.Any(b => b.EntryId == selectedEntry.Id)) return false;
 
@@ -48,6 +49,12 @@ public class BookmarkManager
         ObservableCollection<LogEntry> rxEntries,
         ObservableCollection<LogEntry> txEntries)
     {
+        // A null collection would NRE on bookmarks.Count / rxEntries.FirstOrDefault
+        // — reject at the entry point, matching RemoveBookmark.
+        ArgumentNullException.ThrowIfNull(bookmarks);
+        ArgumentNullException.ThrowIfNull(rxEntries);
+        ArgumentNullException.ThrowIfNull(txEntries);
+
         if (bookmarks.Count == 0) return (currentIndex, null, null);
 
         int newIndex = currentIndex + direction;
