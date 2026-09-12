@@ -63,6 +63,16 @@ public class PresetManagerTests : IDisposable
     }
 
     [Fact]
+    public void Create_null_or_blank_port_throws()
+    {
+        // A null/blank port would silently build a corrupted preset named
+        // "@9600" — reject it at the entry point.
+        Assert.Throws<ArgumentNullException>(() => PresetManager.Create(null!, 9600, 8, 1, 0, true, false));
+        Assert.Throws<ArgumentException>(() => PresetManager.Create("", 9600, 8, 1, 0, true, false));
+        Assert.Throws<ArgumentException>(() => PresetManager.Create("   ", 9600, 8, 1, 0, true, false));
+    }
+
+    [Fact]
     public async Task LoadAsync_WithMissingFile_ReturnsEmptyList()
     {
         // Arrange: remove file if it exists

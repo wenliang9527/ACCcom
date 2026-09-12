@@ -9,6 +9,12 @@ public class PresetManager : JsonFilePersistenceManager<SerialPreset>
 
     public static SerialPreset Create(string port, int baudRate, int dataBits, int stopBits, int parity, bool dtr, bool rts)
     {
+        // A null/blank port would silently produce a corrupted preset named
+        // "@9600" (empty Name.Port); reject it at the entry point.
+        ArgumentNullException.ThrowIfNull(port);
+        if (string.IsNullOrWhiteSpace(port))
+            throw new ArgumentException("port must not be empty or whitespace", nameof(port));
+
         return new SerialPreset
         {
             Name = $"{port}@{baudRate}",
