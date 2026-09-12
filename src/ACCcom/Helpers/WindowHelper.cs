@@ -21,6 +21,12 @@ public static class WindowHelper
     private static Func<AppSettings>? _settingsProvider;
     public static void SetSettingsProvider(Func<AppSettings> provider) => _settingsProvider = provider;
 
+    /// <summary>The app's live AppSettings singleton, or null when the provider
+    /// has not been set yet (e.g. before MainWindow's constructor runs). Lets
+    /// secondary windows read/write persisted settings without threading the
+    /// settings object through every constructor.</summary>
+    public static AppSettings? GetSettings() => _settingsProvider?.Invoke();
+
     /// <summary>
     /// Sets up a chromeless titlebar for a Window: drag-to-move, double-click maximize/restore,
     /// and optional min/max/close buttons via code-behind.

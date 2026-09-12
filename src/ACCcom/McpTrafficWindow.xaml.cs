@@ -50,6 +50,7 @@ public partial class McpTrafficWindow : Window
         InitializeComponent();
         WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "McpTrafficWindow");
+        RestoreColumnWidths();
 
         // Filtered view on top of the raw collection so the direction filter,
         // the search box and the HEX toggle can re-render without touching the
@@ -246,8 +247,38 @@ public partial class McpTrafficWindow : Window
 
     private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 
+    private void RestoreColumnWidths()
+    {
+        if (TrafficList.View is not GridView view) return;
+        var settings = WindowHelper.GetSettings();
+        if (settings == null) return;
+
+        var defaults = new double[view.Columns.Count];
+        for (int i = 0; i < view.Columns.Count; i++)
+            defaults[i] = view.Columns[i].Width;
+
+        var resolved = TrafficColumnWidthStore.ResolveWidths(settings.McpTrafficColumnWidths, defaults);
+        for (int i = 0; i < resolved.Length; i++)
+            view.Columns[i].Width = resolved[i];
+    }
+
+    private void SaveColumnWidths()
+    {
+        var settings = WindowHelper.GetSettings();
+        if (settings == null || TrafficList.View is not GridView view) return;
+        if (view.Columns.Count == 0) return;
+
+        var widths = new double[view.Columns.Count];
+        for (int i = 0; i < view.Columns.Count; i++)
+            widths[i] = view.Columns[i].Width;
+        settings.McpTrafficColumnWidths = TrafficColumnWidthStore.CollectWidths(widths);
+    }
+
     protected override void OnClosed(System.EventArgs e)
     {
+        // Persist the user's column layout into the live settings object; the
+        // main window saves it to disk on app close.
+        SaveColumnWidths();
         _watcher?.Dispose();
         base.OnClosed(e);
     }

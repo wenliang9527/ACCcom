@@ -151,7 +151,30 @@
                         </GridViewColumn>
                         <GridViewColumn Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
                         <GridViewColumn Header="{Binding [McpTraffic.Tag], Source={x:Static local:LanguageManager.Instance}}" Width="70" DisplayMemberBinding="{Binding Tag}" />
-                        <GridViewColumn Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="390" DisplayMemberBinding="{Binding Payload}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="390">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Payload}">
+                                    <TextBlock.Style>
+                                        <!-- Same RX/TX colouring as the Direction
+                                             column, so a scan of the payload text
+                                             keeps the send/receive split obvious. -->
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Direction}" Value="RX">
+                                                    <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Direction}" Value="TX">
+                                                    <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                     </GridView>
                 </ListView.View>
             </ListView>

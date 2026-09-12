@@ -57,6 +57,11 @@ public class AppSettings
     // no Tag property, so we use the index instead. Missing / out-of-range = default.
     public Dictionary<int, double> FieldGridColumnWidths { get; set; } = new();
 
+    // Per-column widths (pixels) for the MCP traffic window's ListView, keyed by
+    // the column's zero-based index. Same index-keyed scheme as FieldGridColumnWidths
+    // — GridViewColumn has no Tag property.
+    public Dictionary<int, double> McpTrafficColumnWidths { get; set; } = new();
+
     // Restored position/size of secondary windows (StatsWindow, MacroWindow, …),
     // keyed by window class name. Missing key = window opens at its XAML default.
     public Dictionary<string, WindowRect> WindowStates { get; set; } = new();
