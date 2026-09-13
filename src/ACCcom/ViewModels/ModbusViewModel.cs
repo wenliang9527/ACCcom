@@ -242,15 +242,9 @@ public class ModbusViewModel : ObservableObject, IDisposable
     {
         System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
         {
-            TransactionLog.Insert(0, new TransactionLogItem
-            {
-                Timestamp = tx.Timestamp,
-                FunctionCode = tx.FunctionCode,
-                SlaveId = tx.SlaveId,
-                RequestHex = tx.RequestHex,
-                ResponseHex = tx.ResponseHex ?? "(timeout)",
-                Status = tx.IsSuccess ? "OK" : $"ERR: {tx.ErrorMessage}"
-            });
+            // Mapping lives in Core (ModbusTransactionMapper) so the timeout
+            // placeholder and OK/ERR status formatting are unit-tested.
+            TransactionLog.Insert(0, ModbusTransactionMapper.ToLogItem(tx));
 
             // Cap the log so long-running polls don't grow without bound.
             // Remove from the tail (oldest entries are at the end).
