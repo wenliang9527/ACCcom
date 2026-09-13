@@ -296,4 +296,15 @@ public class FrameBufferTests
         Assert.Single(frames);
         Assert.Equal(new byte[] { 0x03, 0xAA, 0xBB }, frames[0]);
     }
+
+    [Fact]
+    public void Dispose_twice_does_not_throw()
+    {
+        var buffer = Create(LengthField());
+
+        buffer.Dispose();
+        buffer.Dispose(); // the _disposed guard must make this a no-op
+
+        Assert.True(true); // reaching here means neither call threw
+    }
 }
