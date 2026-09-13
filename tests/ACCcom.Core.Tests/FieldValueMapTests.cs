@@ -40,6 +40,20 @@ public class FieldValueMapTests
     }
 
     [Fact]
+    public void Parse_value_containing_comma_splits_and_skips_rest()
+    {
+        // The format is comma-separated segments; a comma inside a value is
+        // therefore a segment break. "A=1,2" parses as A=1 with the bare "2"
+        // (no '=') skipped — lock the defined behavior.
+        var parsed = FieldValueMap.Parse("A=1,2");
+        Assert.NotNull(parsed);
+        var result = parsed!;
+
+        Assert.Single(result);
+        Assert.Equal("1", result["A"]);
+    }
+
+    [Fact]
     public void Parse_skips_empty_key()
     {
         var parsed = FieldValueMap.Parse("OK=0,=5");
