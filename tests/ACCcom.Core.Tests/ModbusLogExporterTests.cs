@@ -163,4 +163,32 @@ public class ModbusLogExporterTests
         Assert.Contains(new string('=', 80), txt);
         Assert.Contains(new string('-', 60), txt);
     }
+
+    [Fact]
+    public void EscapeCsv_backslash_unchanged()
+    {
+        // Backslashes are not CSV-special; only comma/quote/newline trigger quoting.
+        Assert.Equal(@"C:\logs\x", ModbusLogExporter.EscapeCsv(@"C:\logs\x"));
+    }
+
+    [Fact]
+    public void ExportJson_special_characters_are_escaped_and_parsable()
+    {
+        var item = MakeItem(request: @"AA ""BB""\CC", status: "ERR \"bad\"");
+        var json = ModbusLogExporter.ExportJson(new List<TransactionLogItem> { item });
+
+        // Escaped output must round-trip through a real JSON parser.
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement[0];
+        Assert.Equal(@"AA ""BB""\CC", root.GetProperty("requestHex").GetString());
+        Assert.Equal("ERR \"bad\"", root.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public void JsonEscape_escapes_quote_and_backslash()
+    {
+        Assert.Equal(@"AA \""BB\""\\CC", ModbusLogExporter.JsonEscape(@"AA ""BB""\CC"));
+        Assert.Equal("", ModbusLogExporter.JsonEscape(null));
+        Assert.Equal("", ModbusLogExporter.JsonEscape(""));
+    }
 }

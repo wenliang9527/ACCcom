@@ -47,15 +47,25 @@ public static class ModbusLogExporter
             sb.AppendLine("  {");
             sb.AppendLine($"    \"timestamp\": \"{item.Timestamp:yyyy-MM-dd HH:mm:ss}\",");
             sb.AppendLine($"    \"slaveId\": {item.SlaveId},");
-            sb.AppendLine($"    \"functionCode\": \"{item.FunctionCode}\",");
-            sb.AppendLine($"    \"requestHex\": \"{item.RequestHex}\",");
-            sb.AppendLine($"    \"responseHex\": \"{item.ResponseHex ?? ""}\",");
-            sb.AppendLine($"    \"status\": \"{item.Status}\"");
+            sb.AppendLine($"    \"functionCode\": \"{JsonEscape(item.FunctionCode.ToString())}\",");
+            sb.AppendLine($"    \"requestHex\": \"{JsonEscape(item.RequestHex)}\",");
+            sb.AppendLine($"    \"responseHex\": \"{JsonEscape(item.ResponseHex ?? "")}\",");
+            sb.AppendLine($"    \"status\": \"{JsonEscape(item.Status)}\"");
             sb.Append(i < items.Count - 1 ? "  }," : "  }");
             sb.AppendLine();
         }
         sb.AppendLine("]");
         return sb.ToString();
+    }
+
+    /// <summary>Escapes a string for embedding inside a JSON double-quoted
+    /// string: backslash and double quote are the two characters that would
+    /// otherwise break the hand-built JSON (control characters are not
+    /// expected in hex/status fields).</summary>
+    public static string JsonEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     public static string ExportTxt(List<TransactionLogItem> items)
