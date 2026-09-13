@@ -182,6 +182,20 @@ public class ModbusSlaveDeviceTests
         Assert.Equal(0x83, resp[0]);
         Assert.Equal(0x02, resp[1]);
     }
+
+    [Fact]
+    public void HandleRequest_EmptyPdu_ReturnsIllegalDataValue()
+    {
+        // An empty PDU on a known function reads pdu[0] → IndexOutOfRange,
+        // which the catch converts to an illegal-data exception (distinct from
+        // the null-PDU early return).
+        var device = CreateDevice();
+
+        var resp = device.HandleRequest(0x03, []);
+
+        Assert.Equal(0x83, resp[0]);
+        Assert.Equal(0x02, resp[1]);
+    }
 }
 
 public class ModbusSlaveTransportTests
