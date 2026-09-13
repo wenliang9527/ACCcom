@@ -39,6 +39,10 @@ public class ParserGenerator
     /// </summary>
     public (bool valid, List<string> errors) Validate(ProtocolSchema schema)
     {
+        // A null schema would NRE on schema.Name; fail at the entry point,
+        // matching ParseJson's null contract.
+        ArgumentNullException.ThrowIfNull(schema);
+
         var errors = new List<string>();
 
         if (string.IsNullOrWhiteSpace(schema.Name))

@@ -147,6 +147,14 @@ public class ParserGeneratorTests
     }
 
     [Fact]
+    public void Validate_null_schema_throws()
+    {
+        var generator = new ParserGenerator();
+
+        Assert.Throws<ArgumentNullException>(() => generator.Validate(null!));
+    }
+
+    [Fact]
     public void Validate_NoFields_ReturnsError()
     {
         var schema = new ProtocolSchema { Name = "test", Fields = new List<FieldSchema>() };
