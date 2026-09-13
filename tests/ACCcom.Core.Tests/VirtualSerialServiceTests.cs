@@ -85,6 +85,24 @@ public class VirtualSerialServiceTests
     }
 
     [Fact]
+    public void SendHex_invalid_hex_is_recorded_as_is()
+    {
+        // The simulator only records (never parses bytes), so an invalid hex
+        // string must NOT throw — spaces are stripped and the rest stored
+        // verbatim. This differs from the real SerialService, which validates
+        // via Convert.FromHexString and fails the send.
+        var svc = new VirtualSerialService();
+        svc.Open(new SerialConfig { PortName = "VIRTUAL", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
+
+        var result = svc.SendHex("ZZ GG");
+
+        Assert.True(result);
+        var sent = svc.GetSentData();
+        Assert.Single(sent);
+        Assert.Equal("ZZGG", sent[0].RawHex);
+    }
+
+    [Fact]
     public void InjectRxData_Fires_OnDataReceived()
     {
         var svc = new VirtualSerialService();
