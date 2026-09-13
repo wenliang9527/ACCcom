@@ -68,6 +68,22 @@ public class FrameAssemblerConfigTests
         Assert.Equal(2000, buffer.PartialFrameTimeoutMs);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(-1)]
+    public void ToFrameBufferConfig_unsupported_length_field_size_passthrough(int lengthFieldSize)
+    {
+        // Only 1 and 2 are meaningful to FrameBuffer.ReadLengthField (any other
+        // value reads 0 → no frame consumed, a safe no-op). The mapping passes
+        // it through rather than clamping — lock that it doesn't throw or mangle.
+        var config = new FrameAssemblerConfig { LengthFieldSize = lengthFieldSize };
+
+        var buffer = config.ToFrameBufferConfig();
+
+        Assert.Equal(lengthFieldSize, buffer.LengthFieldSize);
+    }
+
     [Fact]
     public void ParseHeaderBytes_space_separated()
     {
