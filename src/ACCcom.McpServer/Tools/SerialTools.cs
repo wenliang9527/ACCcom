@@ -138,13 +138,9 @@ public class SerialTools
         // conversion. byteLength is then the actual decoded byte count; for
         // text mode it is the UTF-8 byte count (a char count would under-report
         // multi-byte characters like CJK).
-        int byteLength = isHex ? data.Length : System.Text.Encoding.UTF8.GetByteCount(data);
-        if (isHex)
-        {
-            if (!HexHelper.TryHexStringToBytes(data, out var hexBytes))
-                return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid hex: '{data}'" }));
-            byteLength = hexBytes.Length;
-        }
+        if (isHex && !HexHelper.TryHexStringToBytes(data, out _))
+            return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Invalid hex: '{data}'" }));
+        int byteLength = HexHelper.CountSendBytes(data, isHex);
 
         if (SendTo(tag, data, isHex))
         {

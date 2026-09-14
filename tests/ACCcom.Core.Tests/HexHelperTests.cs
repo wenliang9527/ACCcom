@@ -396,4 +396,32 @@ public class HexHelperTests
     {
         Assert.Equal("AA BB", HexHelper.FormatHexSpaced("A A Z B B"));
     }
+
+    [Fact]
+    public void CountSendBytes_text_mode_uses_utf8_byte_count()
+    {
+        Assert.Equal(3, HexHelper.CountSendBytes("ABC", false));
+        // A CJK char is 3 UTF-8 bytes but 1 char — a char count would under-report.
+        Assert.Equal(3, HexHelper.CountSendBytes("中", false));
+        Assert.Equal(6, HexHelper.CountSendBytes("中中", false));
+    }
+
+    [Fact]
+    public void CountSendBytes_hex_mode_counts_decoded_bytes()
+    {
+        Assert.Equal(3, HexHelper.CountSendBytes("AA BB CC", true));
+        Assert.Equal(3, HexHelper.CountSendBytes("AABBCC", true));
+        // Non-hex digits are substituted with zero by the lenient parser, so the
+        // decoded byte count stays 2 for "AA ZZ" — same as the send path reports.
+        Assert.Equal(2, HexHelper.CountSendBytes("AA ZZ", true));
+    }
+
+    [Fact]
+    public void CountSendBytes_empty_or_null_returns_zero()
+    {
+        Assert.Equal(0, HexHelper.CountSendBytes("", true));
+        Assert.Equal(0, HexHelper.CountSendBytes("", false));
+        Assert.Equal(0, HexHelper.CountSendBytes(null, true));
+        Assert.Equal(0, HexHelper.CountSendBytes(null, false));
+    }
 }

@@ -184,6 +184,21 @@ public static class HexHelper
         });
     }
 
+    /// <summary>
+    /// Number of bytes a send payload will transmit: in hex mode the decoded
+    /// byte count of the hex string (invalid hex digits are skipped, matching
+    /// the lenient <see cref="HexStringToBytes"/> parser), otherwise the UTF-8
+    /// byte count — a char count would under-report multi-byte characters
+    /// (e.g. CJK). Shared by the UI send paths and the MCP tools so the
+    /// reported byte count is consistent across call sites.
+    /// </summary>
+    public static int CountSendBytes(string? data, bool isHex)
+    {
+        if (string.IsNullOrEmpty(data)) return 0;
+        return isHex ? HexStringToBytes(data).Length
+                     : System.Text.Encoding.UTF8.GetByteCount(data);
+    }
+
     public static string BytesToHexSpaced(byte[] bytes, int offset, int count)
     {
         if (count == 0) return string.Empty;

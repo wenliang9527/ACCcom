@@ -121,7 +121,7 @@ public class TriggerViewModel : ObservableObject
                         _serial.Send(rule.ActionParameter, false);
                         var df = _getDataFlow();
                         df.TxCount++;
-                        df.RecordTxBytes(System.Text.Encoding.UTF8.GetByteCount(rule.ActionParameter));
+                        df.RecordTxBytes(HexHelper.CountSendBytes(rule.ActionParameter, false));
                     }
                     break;
                 case TriggerAction.SaveToFile:
