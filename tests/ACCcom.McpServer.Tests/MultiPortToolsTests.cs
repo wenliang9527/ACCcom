@@ -97,6 +97,29 @@ public class MultiPortToolsTests
         }
     }
 
+    [Theory]
+    [InlineData(null, "AA BB CC", 3)]
+    [InlineData("a", "AA BB CC", 3)]
+    [InlineData(null, "aA\tBB\r\ncc", 3)]
+    [InlineData("a", "aA\tBB\r\ncc", 3)]
+    [InlineData(null, "\t\r\n", 0)]
+    [InlineData("a", "\t\r\n", 0)]
+    public async Task Send_Hex_ReportsStrictDecodedByteLength(string? tag, string payload, int expected)
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        using (sp)
+        {
+            var tools = new SerialTools(ctx);
+            Assert.True(ToolContextFactory.ExtractSuccess(await tools.OpenPort("COM10", tag: tag)));
+
+            var result = await tools.Send(payload, isHex: true, tag: tag);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = System.Text.Json.JsonDocument.Parse(result);
+            Assert.Equal(expected, doc.RootElement.GetProperty("data").GetProperty("byteLength").GetInt32());
+        }
+    }
+
     [Fact]
     public async Task ReadData_Tag_IsIsolatedFromDefaultBuffer()
     {
