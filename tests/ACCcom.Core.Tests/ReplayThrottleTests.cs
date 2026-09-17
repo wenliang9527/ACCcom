@@ -38,6 +38,34 @@ public class ReplayThrottleTests
         Assert.Equal(TimeSpan.Zero, ReplayThrottle.ComputeDelay(TimeSpan.FromMilliseconds(-5), 1.0));
     }
 
+    [Theory]
+    [InlineData(1L, double.Epsilon)]
+    [InlineData(10000000L, 1e-300)]
+    [InlineData(long.MaxValue, 1.0)]
+    public void ComputeDelay_extremeScaledGap_clampsBeforeIntegerConversion(long ticks, double speed)
+    {
+        Assert.Equal(ReplayThrottle.MaxDelay, ReplayThrottle.ComputeDelay(TimeSpan.FromTicks(ticks), speed));
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void ComputeDelay_nonFiniteSpeed_returnsZero(double speed)
+    {
+        Assert.Equal(TimeSpan.Zero, ReplayThrottle.ComputeDelay(TimeSpan.FromSeconds(1), speed));
+    }
+
+    [Theory]
+    [InlineData(1L, 2.0, 0L)]
+    [InlineData(3L, 2.0, 1L)]
+    [InlineData(49999999L, 1.0, 49999999L)]
+    [InlineData(50000000L, 1.0, 50000000L)]
+    public void ComputeDelay_tickPrecisionAndCeiling_arePreserved(long ticks, double speed, long expectedTicks)
+    {
+        Assert.Equal(TimeSpan.FromTicks(expectedTicks), ReplayThrottle.ComputeDelay(TimeSpan.FromTicks(ticks), speed));
+    }
+
     [Fact]
     public void ComputeDelay_nonPositiveSpeed_returnsZero()
     {

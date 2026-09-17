@@ -23,10 +23,13 @@ public static class ReplayThrottle
     /// </summary>
     public static TimeSpan ComputeDelay(TimeSpan interEntryGap, double speedMultiplier)
     {
-        if (speedMultiplier <= 0) return TimeSpan.Zero;
+        if (!(speedMultiplier > 0)) return TimeSpan.Zero;
         if (interEntryGap <= TimeSpan.Zero) return TimeSpan.Zero;
 
-        var adjusted = TimeSpan.FromTicks((long)(interEntryGap.Ticks / speedMultiplier));
-        return adjusted > MaxDelay ? MaxDelay : adjusted;
+        // Compare in double before the ticks cast: dividing by a tiny speed (or
+        // dividing max-length gaps) can exceed long.MaxValue, and the cast would
+        // wrap negative — clamp to the ceiling first, in floating point.
+        var scaledTicks = interEntryGap.Ticks / speedMultiplier;
+        return scaledTicks >= MaxDelay.Ticks ? MaxDelay : TimeSpan.FromTicks((long)scaledTicks);
     }
 }
