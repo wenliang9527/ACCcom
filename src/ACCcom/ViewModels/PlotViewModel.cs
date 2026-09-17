@@ -41,8 +41,8 @@ public class PlotViewModel : ObservableObject
     {
         lock (_lock)
         {
+            if (!_buffer.TryAdd(value)) return;
             _dataPoints.Add((DateTime.Now, value));
-            _buffer.Add(value);
 
             // Keep the UI snapshot list trimmed to the same capacity as the buffer.
             if (_dataPoints.Count > _buffer.MaxPoints)

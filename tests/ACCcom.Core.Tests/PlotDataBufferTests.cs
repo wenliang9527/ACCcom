@@ -155,6 +155,51 @@ public class PlotDataBufferTests
         Assert.Equal(new[] { 1.0, 3.0 }, buffer.GetSnapshot());
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void Add_NonFinite_DoesNotEvictOrChangeExtrema(double value)
+    {
+        var buffer = new PlotDataBuffer(10);
+        for (int i = 1; i <= 10; i++) buffer.Add(i);
+        var before = buffer.GetSnapshot();
+
+        buffer.Add(value);
+
+        Assert.Equal(before, buffer.GetSnapshot());
+        Assert.Equal(10, buffer.Count);
+        Assert.Equal(1, buffer.MinValue);
+        Assert.Equal(10, buffer.MaxValue);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void TryAdd_NonFinite_ReturnsFalseAndLeavesEmptyBufferUnchanged(double value)
+    {
+        var buffer = new PlotDataBuffer();
+
+        Assert.False(buffer.TryAdd(value));
+        Assert.Empty(buffer.GetSnapshot());
+        Assert.Equal(0, buffer.Count);
+        Assert.Equal(0, buffer.MinValue);
+        Assert.Equal(0, buffer.MaxValue);
+    }
+
+    [Fact]
+    public void TryAdd_FiniteValues_ReturnsTrueAndPreservesEviction()
+    {
+        var buffer = new PlotDataBuffer(10);
+        for (int i = 0; i <= 10; i++) Assert.True(buffer.TryAdd(i));
+
+        Assert.Equal(10, buffer.Count);
+        Assert.Equal(1, buffer.MinValue);
+        Assert.Equal(10, buffer.MaxValue);
+        Assert.Equal(Enumerable.Range(1, 10).Select(i => (double)i), buffer.GetSnapshot());
+    }
+
     [Fact]
     public void Add_OnlyNaN_LeavesBufferEmpty()
     {

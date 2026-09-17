@@ -36,12 +36,12 @@ public sealed class PlotDataBuffer
     /// <summary>Adds a value, trimming the oldest once the capacity is exceeded,
     /// and maintaining min/max incrementally (full rescan only when a point was
     /// evicted, since the evicted point might have been an extremum).</summary>
-    public void Add(double value)
+    public void Add(double value) => TryAdd(value);
+
+    /// <summary>Returns false for non-finite values without changing the series.</summary>
+    public bool TryAdd(double value)
     {
-        // NaN can never be a valid plot point: it would poison the incremental
-        // min/max (NaN < x is always false) and render as garbage on the plot.
-        // Drop it, same as Histogram.Record.
-        if (double.IsNaN(value)) return;
+        if (!double.IsFinite(value)) return false;
 
         _values.Add(value);
 
@@ -60,6 +60,7 @@ public sealed class PlotDataBuffer
             if (value < _minValue) _minValue = value;
             if (value > _maxValue) _maxValue = value;
         }
+        return true;
     }
 
     public void Clear()
