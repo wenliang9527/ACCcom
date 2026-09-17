@@ -141,6 +141,14 @@ public class SerialService : ISerialService, IDisposable
         if (string.IsNullOrEmpty(data))
             return false;
 
+        // Parse once before retrying: malformed input cannot be repaired by a retry.
+        byte[] hexBytes = Array.Empty<byte>();
+        if (isHex && !HexHelper.TryHexStringToBytes(data, out hexBytes))
+        {
+            OnError?.Invoke($"[SerialService] Send failed: invalid hex '{data}'");
+            return false;
+        }
+
         if (_port?.IsOpen != true)
         {
             OnError?.Invoke("[SerialService] Send failed: serial port not open");
@@ -162,10 +170,9 @@ public class SerialService : ISerialService, IDisposable
                 string hexStr;
                 if (isHex)
                 {
-                    hexStr = data.Replace(" ", "");
-                    var bytes = Convert.FromHexString(hexStr);
-                    _port.Write(bytes, 0, bytes.Length);
-                    sentBytes = bytes.Length;
+                    hexStr = data.Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\n", "");
+                    _port.Write(hexBytes, 0, hexBytes.Length);
+                    sentBytes = hexBytes.Length;
                 }
                 else
                 {

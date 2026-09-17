@@ -732,10 +732,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
         if (sent)
         {
-            // CountSendBytes: hex mode decodes the hex string, text mode uses
-            // UTF-8 byte count (a char count would under-report CJK). Same
-            // helper as Shortcut/Trigger/MCP so the status bar and logs agree.
-            var sentBytes = HexHelper.CountSendBytes(toSend, IsHexSend);
+            var sentBytes = IsHexSend
+                ? HexHelper.CountHexBytes(toSend)
+                : HexHelper.CountSendBytes(toSend, false);
             RecordSendHistory(SendText);
             // Mirror the manual-send bytes into DataStatistics so the TX throughput
             // indicator in the status bar reflects user activity (not just parser-

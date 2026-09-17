@@ -4,6 +4,20 @@ namespace ACCcom.Core.Tests;
 
 public class HexHelperTests
 {
+    [Theory]
+    [InlineData("aA\tBB\r\ncc", "AABBCC")]
+    [InlineData("\t\r\n", "")]
+    [InlineData("A\tA B\rB C\nC", "AABBCC")]
+    public void StrictSendPayload_ValidationAndCountAgreeWithDecodedBytes(string payload, string expectedHex)
+    {
+        Assert.True(HexHelper.TryHexStringToBytes(payload, out var bytes));
+        Assert.Equal(Convert.FromHexString(expectedHex), bytes);
+        var validation = HexHelper.ValidateHexInput(payload);
+        Assert.True(validation.IsValid);
+        Assert.Equal(bytes.Length, validation.ByteCount);
+        Assert.Equal(bytes.Length, HexHelper.CountHexBytes(payload));
+    }
+
     [Fact]
     public void BytesToHexSpaced_EmptyCount_ReturnsEmpty()
     {
