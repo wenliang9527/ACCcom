@@ -17,7 +17,6 @@ public class DataBufferService : IDisposable
     private readonly List<DataBufferWaiter> _waiters = new();
     private readonly object _waiterLock = new();
     private readonly MetricsCollector _metrics = MetricsCollector.Instance;
-    private static readonly List<LogEntry> EmptyBuffer = new(0);
 
     public DataBufferService(int capacity = 10000)
     {
@@ -114,7 +113,7 @@ public class DataBufferService : IDisposable
         lock (_lock)
         {
             scannedMaxId = id;
-            if (_count == 0 || id >= _maxId) return EmptyBuffer;
+            if (_count == 0 || id >= _maxId) return new List<LogEntry>();
 
             var start = (_head - _count + _capacity) % _capacity;
 

@@ -182,6 +182,34 @@ public class DataBufferServiceTests
         Assert.Equal(1, doneScan);
     }
 
+    [Theory]
+    [InlineData(false, 0, null)]
+    [InlineData(true, 1, null)]
+    [InlineData(true, 0, "TX")]
+    public void GetEntriesSince_empty_result_is_owned_by_caller(bool hasEntry, int cursor, string? direction)
+    {
+        using var sut = new DataBufferService();
+        using var other = new DataBufferService();
+        if (hasEntry) sut.AddEntry(MakeEntry(1, direction: "RX"));
+
+        var result = sut.GetEntriesSince(cursor, direction, 0, out var scanned);
+        Assert.Empty(result);
+        Assert.Equal(hasEntry ? 1 : cursor, scanned);
+        try
+        {
+            result.Add(MakeEntry(99));
+
+            Assert.Empty(sut.GetEntriesSince(cursor, direction));
+            Assert.Empty(other.GetEntriesSince(0));
+            Assert.Equal(hasEntry ? 1 : 0, sut.Count());
+            Assert.Equal(0, other.Count());
+        }
+        finally
+        {
+            result.Clear();
+        }
+    }
+
     [Fact]
     public void Clear_removes_all_entries()
     {
