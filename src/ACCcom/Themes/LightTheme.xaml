@@ -10,22 +10,24 @@
                       Opacity="0.04" Color="#1A1A2E" Direction="270" />
 
     <!-- ============================================== -->
-    <!-- Light Tech Minimal Palette                     -->
+    <!-- 昼白 Light — clean paper, violet accent          -->
     <!-- ============================================== -->
 
     <!-- Neutral base (clean white) -->
     <Color x:Key="BgBase">#FFFFFF</Color>
-    <Color x:Key="BgSurface">#F9FAFB</Color>
+    <Color x:Key="BgSurface">#F7F8FA</Color>
     <Color x:Key="BgElevated">#FFFFFF</Color>
-    <Color x:Key="BgHover">#F3F4F6</Color>
-    <Color x:Key="BgActive">#E5E7EB</Color>
-    <Color x:Key="BorderColor">#E5E7EB</Color>
-    <Color x:Key="BorderLight">#D1D5DB</Color>
+    <Color x:Key="BgHover">#EFF1F5</Color>
+    <Color x:Key="BgActive">#E3E6EC</Color>
+    <Color x:Key="BorderColor">#E4E7EC</Color>
+    <Color x:Key="BorderLight">#CBD1D9</Color>
 
-    <!-- Text hierarchy (cool dark) -->
-    <Color x:Key="InkPrimary">#1A1D24</Color>
-    <Color x:Key="InkSecondary">#5A6070</Color>
-    <Color x:Key="InkTertiary">#5E6471</Color>
+    <!-- Text hierarchy (cool dark). InkTertiary darkened from #6B7280 to
+         #5E6675: at 10-11px the old value was only 4.8:1 on #F7F8FA — just
+         above AA and visibly washed out for status-bar/label text. -->
+    <Color x:Key="InkPrimary">#16191F</Color>
+    <Color x:Key="InkSecondary">#4D5562</Color>
+    <Color x:Key="InkTertiary">#5E6675</Color>
 
     <!-- Accent: violet (darkened ramp so white button text meets AA) -->
     <Color x:Key="Accent">#7C3AED</Color>
@@ -33,28 +35,28 @@
     <Color x:Key="AccentPressed">#5B21B6</Color>
     <Color x:Key="OnAccent">#FFFFFF</Color>
 
-    <!-- Status semantics (darkened for AA on white) -->
-    <Color x:Key="StatusBlue">#7C3AED</Color>
-    <Color x:Key="StatusGray">#5E6471</Color>
-    <Color x:Key="StatusGreen">#137638</Color>
-    <Color x:Key="StatusWarning">#945A06</Color>
-    <Color x:Key="StatusError">#C22121</Color>
+    <!-- Status semantics (true blue, purified for signal clarity) -->
+    <Color x:Key="StatusBlue">#1D6FDC</Color>
+    <Color x:Key="StatusGray">#6B7280</Color>
+    <Color x:Key="StatusGreen">#15803D</Color>
+    <Color x:Key="StatusWarning">#B45309</Color>
+    <Color x:Key="StatusError">#DC2626</Color>
     <!-- Danger button: deep red keeps white button text AA on every state -->
-    <Color x:Key="BtnDanger">#C22121</Color>
-    <Color x:Key="BtnDangerHover">#D02121</Color>
-    <Color x:Key="BtnDangerPressed">#B61D1D</Color>
+    <Color x:Key="BtnDanger">#D92D20</Color>
+    <Color x:Key="BtnDangerHover">#C5281C</Color>
+    <Color x:Key="BtnDangerPressed">#A91F15</Color>
 
     <!-- Status background tints -->
     <Color x:Key="StatusWarningBg">#15EAB308</Color>
     <Color x:Key="StatusErrorBg">#10DC2626</Color>
 
     <!-- Connection badge -->
-    <Color x:Key="ConnBadgeBg">#0D22C55E</Color>
-    <Color x:Key="ConnBadgeBorder">#3322C55E</Color>
+    <Color x:Key="ConnBadgeBg">#0D15803D</Color>
+    <Color x:Key="ConnBadgeBorder">#3315803D</Color>
 
     <!-- Diff badge backgrounds -->
-    <Color x:Key="DiffMatchBg">#1A22C55E</Color>
-    <Color x:Key="DiffDiffBg">#15EF4444</Color>
+    <Color x:Key="DiffMatchBg">#1A15803D</Color>
+    <Color x:Key="DiffDiffBg">#15DC2626</Color>
     <Color x:Key="CompareDiffBg">#28FFC800</Color>
 
     <!-- Search highlight -->
@@ -80,6 +82,8 @@
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="StatusWarningBgBrush" Color="{StaticResource StatusWarningBg}" />
+    <SolidColorBrush x:Key="StatusErrorBgBrush" Color="{StaticResource StatusErrorBg}" />
     <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
     <SolidColorBrush x:Key="BtnDangerBrush" Color="{StaticResource BtnDanger}" />
     <SolidColorBrush x:Key="BtnDangerHoverBrush" Color="{StaticResource BtnDangerHover}" />
@@ -91,31 +95,12 @@
     <SolidColorBrush x:Key="DiffDiffBgBrush" Color="{StaticResource DiffDiffBg}" />
     <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
-    <SolidColorBrush x:Key="DividerBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#E4E7EC" />
 
     <!-- ScrollBar theme-local overrides -->
     <SolidColorBrush x:Key="ScrollTrackBrush" Color="#06000000" />
-    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#D1D5DB" />
-    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#B0B8C4" />
-    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#9CA3AF" />
-
-    <!-- Signature texture: canvas weave (default) -->
-    <DrawingBrush x:Key="CardTextureBrush" TileMode="Tile" Viewport="0,0,4,4"
-                  ViewportUnits="Absolute" Opacity="0.06">
-        <DrawingBrush.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing Geometry="M0,0 H4 V1 H0 Z">
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#000000" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-                <GeometryDrawing Geometry="M0,2 H2 V3 H0 Z">
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#FFFFFF" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#CBD1D9" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#B4BBC5" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#9AA3B0" />
 
 </ResourceDictionary>

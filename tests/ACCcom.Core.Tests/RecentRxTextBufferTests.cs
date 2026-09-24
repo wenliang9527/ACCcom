@@ -127,7 +127,12 @@ public class RecentRxTextBufferTests
     public async Task Concurrent_add_and_find_never_throws()
     {
         var sut = new RecentRxTextBuffer(cap: 64, trimChunk: 16);
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        using var cts = new CancellationTokenSource();
+        // Gate: both sides must demonstrably run before the soak ends. Under a
+        // saturated threadpool Task.Run can be delayed past a fixed time-box,
+        // leaving the buffer empty and failing the post-condition for
+        // scheduling reasons rather than a real race.
+        var producerRan = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var writer = Task.Run(() =>
         {
@@ -135,6 +140,8 @@ public class RecentRxTextBufferTests
             while (!cts.IsCancellationRequested)
             {
                 sut.Add($"msg {i++ % 100} with OK");
+                if (i == 200)
+                    producerRan.TrySetResult();
                 Thread.SpinWait(10);
             }
         });
@@ -148,6 +155,12 @@ public class RecentRxTextBufferTests
             }
         });
 
+        Assert.True(await Task.WhenAny(producerRan.Task, Task.Delay(TimeSpan.FromSeconds(10))) == producerRan.Task,
+            "Producer never ran: threadpool starvation, not a buffer bug.");
+
+        // Soak: hammer add/find concurrently, then stop and verify consistency.
+        await Task.Delay(300);
+        cts.Cancel();
         await Task.WhenAll(writer, reader);
 
         // Both completed without throwing; Add + trims stayed consistent.

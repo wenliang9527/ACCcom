@@ -110,29 +110,29 @@ public class ModbusRtuTransportTests
     }
 
     [Fact]
-    public void SendReceiveAsync_WhenSerialNotOpen_Throws()
+    public async Task SendReceiveAsync_WhenSerialNotOpen_Throws()
     {
         using var serial = new VirtualSerialService(); // never opened
         using var transport = new ModbusRtuTransport(serial);
 
-        Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
             transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 500));
     }
 
     [Fact]
-    public void SendReceiveAsync_NullPdu_ThrowsArgumentNull()
+    public async Task SendReceiveAsync_NullPdu_ThrowsArgumentNull()
     {
         // A null PDU would NRE deep inside BuildAdu (pdu.Length); it must fail
         // with ArgumentNullException at the entry point instead.
         using var serial = new VirtualSerialService();
         using var transport = new ModbusRtuTransport(serial);
 
-        Assert.ThrowsAsync<ArgumentNullException>(() =>
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             transport.SendReceiveAsync(0x01, 0x03, null!, 500));
     }
 
     [Fact]
-    public void Dispose_CancelsPendingRequests()
+    public async Task Dispose_CancelsPendingRequests()
     {
         using var serial = OpenVirtual();
         var transport = new ModbusRtuTransport(serial);
@@ -140,7 +140,7 @@ public class ModbusRtuTransportTests
         var task = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 10000);
         transport.Dispose();
 
-        Assert.ThrowsAnyAsync<ObjectDisposedException>(() => task);
+        await Assert.ThrowsAnyAsync<ObjectDisposedException>(() => task);
     }
 
     // ── ADU builders ──

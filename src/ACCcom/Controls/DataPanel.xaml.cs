@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ACCcom.Core.Collections;
@@ -9,8 +10,14 @@ namespace ACCcom.Controls;
 
 public partial class DataPanel : UserControl
 {
+    // Below this content width the split RX|TX layout cannot give both panes a
+    // usable ~280px floor; force the combined view instead (Phase C).
+    private const double SplitMinContentWidth = 700;
+
     private ScrollViewer? _rxScrollViewer;
     private ScrollViewer? _txScrollViewer;
+    private ScrollViewer? _allScrollViewer;
+    private bool _paneModeApplied;
 
     // Debounce timer for persisting field-grid column widths. The user drags a
     // header continuously; we wait for them to settle for 800ms before writing.
@@ -23,6 +30,16 @@ public partial class DataPanel : UserControl
         InitializeComponent();
         RxListBox.Loaded += (_, _) => _rxScrollViewer = FindVisualChild<ScrollViewer>(RxListBox);
         TxListBox.Loaded += (_, _) => _txScrollViewer = FindVisualChild<ScrollViewer>(TxListBox);
+        AllListBox.Loaded += (_, _) => _allScrollViewer = FindVisualChild<ScrollViewer>(AllListBox);
+
+        DataContextChanged += (_, e) =>
+        {
+            if (e.OldValue is ViewModels.MainViewModel oldVm)
+                oldVm.PropertyChanged -= OnVmPropertyChanged;
+            if (DataContext is ViewModels.MainViewModel vm)
+                vm.PropertyChanged += OnVmPropertyChanged;
+            ApplyPaneMode(force: true);
+        };
 
         _widthPersistTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -50,8 +67,55 @@ public partial class DataPanel : UserControl
 
     public ListBox RxListBoxControl => RxListBox;
     public ListBox TxListBoxControl => TxListBox;
+    public ListBox AllListBoxControl => AllListBox;
     public TextBox RxSearchBoxControl => RxSearchBox;
     public TextBox TxSearchBoxControl => TxSearchBox;
+    public TextBox AllSearchBoxControl => AllSearchBox;
+
+    /// <summary>True when the combined list is the active layout (user preference
+    /// AND enough horizontal room). Used by MainWindow for scroll/copy/F3 routing.</summary>
+    public bool IsCombinedActive =>
+        CombinedPane.Visibility == Visibility.Visible && SplitPane.Visibility == Visibility.Collapsed;
+
+    private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
+        => ApplyPaneMode();
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModels.MainViewModel.SplitDataPanes)
+            || e.PropertyName == nameof(ViewModels.MainViewModel.DataPaneSplitRatio))
+            ApplyPaneMode(force: true);
+    }
+
+    /// <summary>Shows combined vs split based on SplitDataPanes and content width.
+    /// Narrow windows always use combined so neither pane falls below its MinWidth.</summary>
+    private void ApplyPaneMode(bool force = false)
+    {
+        if (DataContext is not ViewModels.MainViewModel vm) return;
+        var wantSplit = vm.SplitDataPanes && ActualWidth >= SplitMinContentWidth;
+        if (!force && _paneModeApplied && wantSplit == (SplitPane.Visibility == Visibility.Visible))
+            return;
+        _paneModeApplied = true;
+        CombinedPane.Visibility = wantSplit ? Visibility.Collapsed : Visibility.Visible;
+        SplitPane.Visibility = wantSplit ? Visibility.Visible : Visibility.Collapsed;
+        if (wantSplit) ApplySplitRatio();
+    }
+
+    private void ApplySplitRatio()
+    {
+        if (DataContext is not ViewModels.MainViewModel vm) return;
+        var ratio = Math.Clamp(vm.DataPaneSplitRatio, 0.1, 0.9);
+        SplitRxColumn.Width = new GridLength(ratio, GridUnitType.Star);
+        SplitTxColumn.Width = new GridLength(1 - ratio, GridUnitType.Star);
+    }
+
+    private void PaneSplitter_DragCompleted(object? sender, DragCompletedEventArgs e)
+    {
+        if (DataContext is not ViewModels.MainViewModel vm) return;
+        var total = SplitRxColumn.ActualWidth + SplitTxColumn.ActualWidth;
+        if (total > 1)
+            vm.DataPaneSplitRatio = SplitRxColumn.ActualWidth / total;
+    }
 
     public void ScrollRxToEnd()
     {
@@ -70,6 +134,16 @@ public partial class DataPanel : UserControl
         var sv = _txScrollViewer ??= FindVisualChild<ScrollViewer>(TxListBox);
         if (sv == null) return;
         if (TxListBox.Items.Count == 0) return;
+        if (!ScrollPendulum.ShouldAutoScroll(sv.VerticalOffset, sv.ViewportHeight, sv.ExtentHeight))
+            return;
+        sv.ScrollToBottom();
+    }
+
+    public void ScrollAllToEnd()
+    {
+        var sv = _allScrollViewer ??= FindVisualChild<ScrollViewer>(AllListBox);
+        if (sv == null) return;
+        if (AllListBox.Items.Count == 0) return;
         if (!ScrollPendulum.ShouldAutoScroll(sv.VerticalOffset, sv.ViewportHeight, sv.ExtentHeight))
             return;
         sv.ScrollToBottom();
@@ -97,13 +171,21 @@ public partial class DataPanel : UserControl
         CopySelected(TxListBox, "TX");
     }
 
+    private void CopyAllSelected_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelected(AllListBox, null);
+    }
+
     /// <summary>Copies the currently selected RX entries (keyboard shortcut entry point).</summary>
     public void CopyRxSelected() => CopySelected(RxListBox, "RX");
 
     /// <summary>Copies the currently selected TX entries (keyboard shortcut entry point).</summary>
     public void CopyTxSelected() => CopySelected(TxListBox, "TX");
 
-    private static void CopySelected(ListBox listBox, string direction)
+    /// <summary>Copies the currently selected combined-view entries (keyboard shortcut entry point).</summary>
+    public void CopyAllSelected() => CopySelected(AllListBox, null);
+
+    private static void CopySelected(ListBox listBox, string? direction)
     {
         if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
         CopyToClipboard(vm.DataFlow.GetFormattedCopyText(listBox.SelectedItems.OfType<LogEntry>(), direction));
@@ -119,6 +201,11 @@ public partial class DataPanel : UserControl
         CopyAll(TxListBox, "TX");
     }
 
+    private void CopyAllEntries_Click(object sender, RoutedEventArgs e)
+    {
+        CopyAll(AllListBox, null);
+    }
+
     private void CopyRxHex_Click(object sender, RoutedEventArgs e)
     {
         CopySelectedHex(RxListBox);
@@ -129,6 +216,11 @@ public partial class DataPanel : UserControl
         CopySelectedHex(TxListBox);
     }
 
+    private void CopyAllHex_Click(object sender, RoutedEventArgs e)
+    {
+        CopySelectedHex(AllListBox);
+    }
+
     /// <summary>Copies the raw hex of the selected entries (space-separated).</summary>
     private static void CopySelectedHex(ListBox listBox)
     {
@@ -137,7 +229,7 @@ public partial class DataPanel : UserControl
         if (hex.Length > 0) CopyToClipboard(hex);
     }
 
-    private static void CopyAll(ListBox listBox, string direction)
+    private static void CopyAll(ListBox listBox, string? direction)
     {
         if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
         CopyToClipboard(vm.DataFlow.GetFormattedCopyText(listBox.Items.OfType<LogEntry>(), direction));

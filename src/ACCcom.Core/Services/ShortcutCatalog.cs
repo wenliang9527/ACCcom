@@ -42,6 +42,7 @@ public static class ShortcutCatalog
             new("F3 / Shift+F3", "Shortcuts.FindNext"),
             new("Ctrl+B", "Shortcuts.AddBookmark"),
             new("Ctrl+← / Ctrl+→", "Shortcuts.PrevNextBookmark"),
+            new("Ctrl+Q", "Shortcuts.ToggleQuickSend"),
         ]),
         new("Shortcuts.GroupTools",
         [

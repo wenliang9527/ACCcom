@@ -43,6 +43,12 @@ public class AppSettings
     public bool ShowQuickSendSidebar { get; set; } = true;
     public double QuickSendSidebarWidth { get; set; } = 260;
 
+    // Data panel: false = single combined RX+TX list (default); true = classic
+    // side-by-side split. DataPaneSplitRatio is the RX column's share (0..1)
+    // when split; values outside (0.05, 0.95) fall back to equal columns.
+    public bool SplitDataPanes { get; set; }
+    public double DataPaneSplitRatio { get; set; } = 0.5;
+
     // HTTP API security: when set, /api and /ws require the X-ACCcom-Token header
     // (or ?token= query parameter). Empty = token check disabled.
     public string HttpApiToken { get; set; } = "";

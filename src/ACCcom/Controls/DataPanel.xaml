@@ -1,409 +1,591 @@
-<UserControl x:Class="ACCcom.Controls.DataPanel"
+﻿<UserControl x:Class="ACCcom.Controls.DataPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:ACCcom.Core.Models;assembly=ACCcom.Core"
              xmlns:controls="clr-namespace:ACCcom.Controls"
              xmlns:local="clr-namespace:ACCcom"
-             x:Name="DataPanelControl">
+             x:Name="DataPanelControl"
+             SizeChanged="Root_SizeChanged">
 
     <Grid Margin="8,6,8,0">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="6" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <!-- ======== RX Panel ======== -->
-        <!-- Static shadow layer: an identical, content-free Border carries the
-             DropShadowEffect so the blur is never re-rasterized when the ListBox
-             content refreshes (a shadow on the card itself re-renders the whole
-             card, ListBox included, every 30ms flush tick). -->
-        <Grid Grid.Column="0">
-            <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                    Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
-            <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}"
-                    CornerRadius="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="3" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" MinHeight="0" />
-                </Grid.RowDefinitions>
+        <!-- ======== Shared toolbar: layout toggle + joint export ======== -->
+        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                Padding="8,4" Margin="0,0,0,6"
+                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
+            <DockPanel>
+                <ToggleButton DockPanel.Dock="Left" IsChecked="{Binding SplitDataPanes}"
+                              Style="{StaticResource MiniToggle}" Padding="6,2" Margin="0,0,0,0"
+                              ToolTip="{Binding [Tip.SplitPanes], Source={x:Static local:LanguageManager.Instance}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding [DataPanel.ToggleSplit], Source={x:Static local:LanguageManager.Instance}}"
+                                   FontSize="11" Margin="5,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AllCount, StringFormat='  #{0}'}"
+                               Foreground="{DynamicResource InkSecondaryBrush}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding [Label.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
+                               Foreground="{DynamicResource InkTertiaryBrush}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}"
+                            Command="{Binding SaveAllJsonCommand}" Style="{StaticResource HeaderButton}"
+                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}"
+                            Command="{Binding SaveAllCsvCommand}" Style="{StaticResource HeaderButton}"
+                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}"
+                            Command="{Binding SaveAllPcapCommand}" Style="{StaticResource HeaderButton}"
+                            ToolTip="{Binding [Tip.PcapExportAll], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="{Binding [Button.TXT], Source={x:Static local:LanguageManager.Instance}}"
+                            Command="{Binding SaveAllTxtCommand}" Style="{StaticResource HeaderButton}"
+                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-                <!-- Top accent stripe -->
-                <Rectangle Grid.Row="0" Fill="{DynamicResource StatusBlueBrush}" RadiusX="0" RadiusY="0"
-                           Height="3" VerticalAlignment="Stretch" />
+        <!-- ======== Content: combined card OR classic RX|TX split ======== -->
+        <Grid Grid.Row="1" x:Name="ContentHost">
+            <!-- Combined (default) -->
+            <Grid x:Name="CombinedPane">
+                <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                        Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
+                <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="3" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                <!-- Header -->
-                <Border Grid.Row="1" Padding="12,8,12,7"
-                        BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding [Panel.ReceiveFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}"
-                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding RxCount, StringFormat='  #{0}'}"
-                                       Foreground="{DynamicResource InkTertiaryBrush}"
-                                       FontSize="11" VerticalAlignment="Center" Margin="4,0,0,0" />
-                        </StackPanel>
-                        <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <!-- search group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                <TextBox x:Name="RxSearchBox" Width="110" FontSize="11" Padding="4,1"
-                                         Text="{Binding RxFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
-                                <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
-                                          ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
-                                <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
-                                              Style="{StaticResource MiniToggle}"
-                                              FontFamily="Consolas" FontSize="11" Padding="4,1"
-                                              ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
-                            </StackPanel>
-                            <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
-                            <!-- display group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" />
-                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
-                            </StackPanel>
-                            <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
-                            <!-- export group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxJsonCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCsvCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportRx], Source={x:Static local:LanguageManager.Instance}}" />
-                                <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
-                            </StackPanel>
-                        </WrapPanel>
-                    </DockPanel>
-                </Border>
+                        <!-- Dual-tone accent: blue RX half + gray TX half -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Rectangle Grid.Column="0" Fill="{DynamicResource StatusBlueBrush}" RadiusX="0" RadiusY="0" />
+                            <Rectangle Grid.Column="1" Fill="{DynamicResource StatusGrayBrush}" RadiusX="0" RadiusY="0" />
+                        </Grid>
 
-                 <!-- Data list -->
-                  <ListBox x:Name="RxListBox" Grid.Row="2"
-                           ItemsSource="{Binding FilteredRxEntries}" SelectedItem="{Binding SelectedEntry}"
-                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                           ScrollViewer.VerticalScrollBarVisibility="Auto"
-                           VirtualizingPanel.IsVirtualizing="True"
-                           VirtualizingPanel.VirtualizationMode="Recycling"
-                           VirtualizingPanel.ScrollUnit="Pixel"
-                           ScrollViewer.IsDeferredScrollingEnabled="True"
-                           Background="Transparent" BorderThickness="0"
-                           Padding="4,2,0,2"
-                           SelectionMode="Extended">
-                     <ListBox.Resources>
-                         <Style TargetType="ListBoxItem">
-                             <Style.Resources>
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent" />
-                             </Style.Resources>
-                         </Style>
-                     </ListBox.Resources>
-                     <ListBox.ContextMenu>
-                         <ContextMenu>
-                             <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxSelected_Click" InputGestureText="Ctrl+C" />
-                             <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxHex_Click" />
-                             <Separator />
-                             <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" />
-                             <MenuItem Header="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" />
-                         </ContextMenu>
-                     </ListBox.ContextMenu>
-                     <ListBox.ItemTemplate>
-                         <DataTemplate>
-                             <Border Padding="0" Margin="0">
-                                 <Border.Style>
-                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent" />
+                        <Border Grid.Row="1" Padding="12,8,12,7"
+                                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding [Panel.All], Source={x:Static local:LanguageManager.Instance}}"
+                                               Foreground="{DynamicResource StatusBlueBrush}"
+                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AllCount, StringFormat='  #{0}'}"
+                                               Foreground="{DynamicResource InkSecondaryBrush}"
+                                               FontSize="11" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                </StackPanel>
+                                <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                   VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBox x:Name="AllSearchBox" MinWidth="80" MaxWidth="180" FontSize="11" Padding="4,1"
+                                                 Text="{Binding AllFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                        <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
+                                                  ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}"
+                                                  FontFamily="Consolas" FontSize="11" />
+                                        <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                                      Style="{StaticResource MiniToggle}"
+                                                      FontFamily="Consolas" FontSize="11" Padding="4,1"
+                                                      ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}"
+                                                  IsChecked="{Binding EnableTimestampAll}" />
+                                        <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayAll}" Margin="8,0,0,0" />
+                                        <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollAll}"
+                                                      ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}"
+                                                      Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}"
+                                                Click="CopyAllEntries_Click" Style="{StaticResource HeaderButton}" />
+                                    </StackPanel>
+                                </WrapPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <ListBox x:Name="AllListBox" Grid.Row="2"
+                                 ItemsSource="{Binding FilteredAllEntries}" SelectedItem="{Binding SelectedEntry}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Pixel"
+                                 ScrollViewer.IsDeferredScrollingEnabled="True"
+                                 Background="Transparent" BorderThickness="0"
+                                 Padding="4,2,0,2"
+                                 SelectionMode="Extended">
+                            <ListBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyAllSelected_Click" InputGestureText="Ctrl+C" />
+                                    <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyAllHex_Click" />
+                                    <Separator />
+                                    <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveAllTxtCommand}" />
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0" Margin="0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource SearchHighlightBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid MinHeight="26">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0">
+                                                <Rectangle.Style>
+                                                    <Style TargetType="Rectangle">
+                                                        <Setter Property="Width" Value="3" />
+                                                        <Setter Property="RadiusX" Value="1.5" />
+                                                        <Setter Property="RadiusY" Value="1.5" />
+                                                        <Setter Property="Margin" Value="0,3,10,3" />
+                                                        <Setter Property="Fill" Value="{DynamicResource StatusGrayBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Direction}" Value="RX">
+                                                                <Setter Property="Fill" Value="{DynamicResource StatusBlueBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Rectangle.Style>
+                                            </Rectangle>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Direction}"
+                                                       FontFamily="Consolas" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource InkTertiaryBrush}"
+                                                       Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Id, StringFormat='#{0}'}"
+                                                       FontFamily="Consolas" FontSize="11"
+                                                       Foreground="{DynamicResource InkTertiaryBrush}"
+                                                       Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                                                       FontFamily="Consolas" FontSize="11"
+                                                       Foreground="{DynamicResource InkSecondaryBrush}"
+                                                       Margin="0,0,14,0" VerticalAlignment="Center"
+                                                       Visibility="{Binding DataContext.EnableTimestampAll, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding RawHex}" TextTrimming="CharacterEllipsis"
+                                                       FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,3,10,3"
+                                                       ToolTip="{Binding RawHex}"
+                                                       Visibility="{Binding DataContext.IsHexDisplayAll, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                                       FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,3,10,3"
+                                                       ToolTip="{Binding Text}"
+                                                       Visibility="{Binding DataContext.IsHexDisplayAll, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Grid.Row="2" Visibility="Collapsed">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasItems, ElementName=AllListBox}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </controls:PaintedCard>
+            </Grid>
+
+            <!-- Split (RX | splitter | TX) -->
+            <Grid x:Name="SplitPane" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="280" x:Name="SplitRxColumn" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="280" x:Name="SplitTxColumn" />
+                </Grid.ColumnDefinitions>
+
+                <!-- ======== RX Panel ======== -->
+                <Grid Grid.Column="0">
+                    <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                            Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
+                    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="3" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Rectangle Grid.Row="0" Fill="{DynamicResource StatusBlueBrush}" RadiusX="0" RadiusY="0"
+                                       Height="3" VerticalAlignment="Stretch" />
+
+                            <Border Grid.Row="1" Padding="12,8,12,7"
+                                    BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding [Panel.ReceiveFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}"
+                                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding RxCount, StringFormat='  #{0}'}"
+                                                   Foreground="{DynamicResource InkSecondaryBrush}"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                    <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                            <TextBox x:Name="RxSearchBox" MinWidth="80" MaxWidth="160" FontSize="11" Padding="4,1"
+                                                     Text="{Binding RxFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
+                                                      ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
+                                            <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                                          Style="{StaticResource MiniToggle}"
+                                                          FontFamily="Consolas" FontSize="11" Padding="4,1"
+                                                          ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
+                                        </StackPanel>
+                                        <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" />
+                                            <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="8,0,0,0" />
+                                            <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
+                                        </StackPanel>
+                                        <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxJsonCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <ListBox x:Name="RxListBox" Grid.Row="2"
+                                     ItemsSource="{Binding FilteredRxEntries}" SelectedItem="{Binding SelectedEntry}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                     ScrollViewer.IsDeferredScrollingEnabled="True"
+                                     Background="Transparent" BorderThickness="0"
+                                     Padding="4,2,0,2"
+                                     SelectionMode="Extended">
+                                <ListBox.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxSelected_Click" InputGestureText="Ctrl+C" />
+                                        <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxHex_Click" />
+                                        <Separator />
+                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" />
+                                        <MenuItem Header="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" />
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="0" Margin="0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SearchHighlightBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid MinHeight="26">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Rectangle Grid.Column="0" Style="{StaticResource RxAccent}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Id, StringFormat='#{0}'}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource InkTertiaryBrush}"
+                                                           Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource InkSecondaryBrush}"
+                                                           Margin="0,0,14,0" VerticalAlignment="Center"
+                                                           Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,3,10,3"
+                                                           ToolTip="{Binding RawHex}"
+                                                           Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,3,10,3"
+                                                           ToolTip="{Binding Text}"
+                                                           Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock Grid.Row="2" Visibility="Collapsed">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SearchHighlightBrush}" />
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=RxListBox}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </Border.Style>
-                                <Grid MinHeight="26">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Rectangle Grid.Column="0" Style="{StaticResource RxAccent}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding Id, StringFormat='#{0}'}"
-                                               FontFamily="Consolas" FontSize="11"
-                                               Foreground="{DynamicResource InkTertiaryBrush}"
-                                               Margin="0,0,8,0" VerticalAlignment="Center" />
-                                     <TextBlock Grid.Column="2"
-                                                Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                                FontFamily="Consolas" FontSize="11"
-                                                Foreground="{DynamicResource InkSecondaryBrush}"
-                                                Margin="0,0,14,0" VerticalAlignment="Center"
-                                                Visibility="{Binding DataContext.EnableRxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextTrimming="CharacterEllipsis"
-                                                FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
-                                                Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
-                                                VerticalAlignment="Center"
-                                                Margin="0,3,10,3"
-                                                ToolTip="{Binding RawHex}"
-                                                Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBlock Grid.Column="3" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
-                                                FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
-                                                Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
-                                                VerticalAlignment="Center"
-                                                Margin="0,3,10,3"
-                                                ToolTip="{Binding Text}"
-                                                Visibility="{Binding DataContext.IsHexDisplayRx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
-                                  </Grid>
-                              </Border>
-                          </DataTemplate>
-                      </ListBox.ItemTemplate>
-                  </ListBox>
-                  <TextBlock Grid.Row="2" Visibility="Collapsed">
-                      <TextBlock.Style>
-                          <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
-                              <Style.Triggers>
-                                  <DataTrigger Binding="{Binding HasItems, ElementName=RxListBox}" Value="False">
-                                      <Setter Property="Visibility" Value="Visible" />
-                                  </DataTrigger>
-                              </Style.Triggers>
-                          </Style>
-                      </TextBlock.Style>
-                  </TextBlock>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </controls:PaintedCard>
+                </Grid>
 
-                 <!-- Field splitter -->
-                <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                              Background="Transparent" ResizeBehavior="PreviousAndNext"
-                              Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
+                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
+                              VerticalAlignment="Stretch" Background="Transparent"
+                              ResizeBehavior="PreviousAndNext" Margin="0,8"
+                              DragCompleted="PaneSplitter_DragCompleted">
                     <GridSplitter.Template>
                         <ControlTemplate TargetType="GridSplitter">
-                            <Grid Background="Transparent" Cursor="SizeNS">
+                            <Grid Background="Transparent">
                                 <Border Background="{DynamicResource BorderBrush}" CornerRadius="2"
-                                        Height="2" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4" />
+                                        Width="3" HorizontalAlignment="Center" Opacity="0.25" />
                             </Grid>
                         </ControlTemplate>
                     </GridSplitter.Template>
                 </GridSplitter>
 
-                <!-- Field annotation table -->
-                <Border Grid.Row="4" Background="{DynamicResource BgElevatedBrush}"
-                        BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}"
-                        MaxHeight="200"
-                        Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
-                    <DataGrid x:Name="FieldGrid" Style="{StaticResource FieldDataGrid}"
-                              ItemsSource="{Binding SelectedEntry.Fields}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn x:Name="FieldColOffset"
-                                Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset}" Width="55" />
-                            <DataGridTextColumn x:Name="FieldColName"
-                                Header="{Binding [Column.Name], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" MinWidth="80" Width="Auto" />
-                            <DataGridTextColumn x:Name="FieldColLength"
-                                Header="{Binding [Column.Length], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Length}" Width="40" />
-                            <DataGridTextColumn x:Name="FieldColRawHex"
-                                Header="{Binding [Column.RawHex], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RawHex}" MinWidth="80" Width="Auto" />
-                            <DataGridTextColumn x:Name="FieldColValue"
-                                Header="{Binding [Column.Value], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding DisplayValue}" MinWidth="80" Width="*" />
-                            <DataGridTextColumn x:Name="FieldColSeverity"
-                                Header="{Binding [Column.Severity], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Severity}" Width="65">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="SemiBold" />
+                <!-- ======== TX Panel ======== -->
+                <Grid Grid.Column="2">
+                    <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
+                            Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
+                    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="3" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Rectangle Grid.Row="0" Fill="{DynamicResource StatusGrayBrush}" RadiusX="0" RadiusY="0"
+                                       Height="3" VerticalAlignment="Stretch" />
+
+                            <Border Grid.Row="1" Padding="12,8,12,7"
+                                    BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding [Panel.TransmitFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkSecondaryBrush}"
+                                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding TxCount, StringFormat='  #{0}'}"
+                                                   Foreground="{DynamicResource InkSecondaryBrush}"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                    <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                            <TextBox x:Name="TxSearchBox" MinWidth="80" MaxWidth="160" FontSize="11" Padding="4,1"
+                                                     Text="{Binding TxFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
+                                                      ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
+                                            <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
+                                                          Style="{StaticResource MiniToggle}"
+                                                          FontFamily="Consolas" FontSize="11" Padding="4,1"
+                                                          ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
+                                        </StackPanel>
+                                        <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" />
+                                            <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="8,0,0,0" />
+                                            <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
+                                        </StackPanel>
+                                        <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxJsonCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCsvCommand}" Style="{StaticResource HeaderButton}" />
+                                            <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <ListBox x:Name="TxListBox" Grid.Row="2"
+                                     ItemsSource="{Binding FilteredTxEntries}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                     ScrollViewer.IsDeferredScrollingEnabled="True"
+                                     Background="Transparent" BorderThickness="0"
+                                     Padding="4,2,0,2"
+                                     SelectionMode="Extended">
+                                <ListBox.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxSelected_Click" InputGestureText="Ctrl+C" />
+                                        <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxHex_Click" />
+                                        <Separator />
+                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" />
+                                        <MenuItem Header="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" />
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="0" Margin="0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SearchHighlightBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid MinHeight="26">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Rectangle Grid.Column="0" Style="{StaticResource TxAccent}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Id, StringFormat='#{0}'}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource InkTertiaryBrush}"
+                                                           Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
+                                                           FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{DynamicResource InkSecondaryBrush}"
+                                                           Margin="0,0,14,0" VerticalAlignment="Center"
+                                                           Visibility="{Binding DataContext.EnableTxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,3,10,3"
+                                                           ToolTip="{Binding RawHex}"
+                                                           Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, ConverterParameter=readable}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,3,10,3"
+                                                           ToolTip="{Binding Text}"
+                                                           Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock Grid.Row="2" Visibility="Collapsed">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Warning}">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Error}">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=TxListBox}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Border>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </controls:PaintedCard>
+                </Grid>
             </Grid>
-            </controls:PaintedCard>
-            </Grid>
+        </Grid>
 
-        <!-- Vertical splitter -->
-        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
-                      VerticalAlignment="Stretch" Background="Transparent"
-                      ResizeBehavior="PreviousAndNext" Margin="0,8">
+        <!-- ======== Shared field annotation table (both layouts) ======== -->
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                      Background="Transparent" ResizeBehavior="PreviousAndNext"
+                      Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
-                    <Grid Background="Transparent">
+                    <Grid Background="Transparent" Cursor="SizeNS">
                         <Border Background="{DynamicResource BorderBrush}" CornerRadius="2"
-                                Width="3" HorizontalAlignment="Center" Opacity="0.25" />
+                                Height="2" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4" />
                     </Grid>
                 </ControlTemplate>
             </GridSplitter.Template>
         </GridSplitter>
 
-        <!-- ======== TX Panel ======== -->
-        <Grid Grid.Column="2">
-            <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                    Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
-            <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}"
-                    CornerRadius="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="3" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- Top accent stripe -->
-                <Rectangle Grid.Row="0" Fill="{DynamicResource StatusGrayBrush}" RadiusX="0" RadiusY="0"
-                           Height="3" VerticalAlignment="Stretch" />
-
-                <!-- Header -->
-                <Border Grid.Row="1" Padding="12,8,12,7"
-                        BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding [Panel.TransmitFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkSecondaryBrush}"
-                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding TxCount, StringFormat='  #{0}'}"
-                                       Foreground="{DynamicResource InkTertiaryBrush}"
-                                       FontSize="11" VerticalAlignment="Center" Margin="4,0,0,0" />
-                        </StackPanel>
-                        <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <!-- search group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                <TextBox x:Name="TxSearchBox" Width="110" FontSize="11" Padding="4,1"
-                                         Text="{Binding TxFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
-                                <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
-                                          ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
-                                <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
-                                              Style="{StaticResource MiniToggle}"
-                                              FontFamily="Consolas" FontSize="11" Padding="4,1"
-                                              ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
-                            </StackPanel>
-                            <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
-                            <!-- display group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" />
-                                <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="8,0,0,0" />
-                                <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="12" Padding="4,0" />
-                            </StackPanel>
-                            <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
-                            <!-- export group -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="{Binding [Button.Clear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxJsonCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCsvCommand}" Style="{StaticResource HeaderButton}" />
-                                <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxPcapCommand}" Style="{StaticResource HeaderButton}" ToolTip="{Binding [Tip.PcapExportTx], Source={x:Static local:LanguageManager.Instance}}" />
-                                <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxAll_Click" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
-                            </StackPanel>
-                        </WrapPanel>
-                    </DockPanel>
-                </Border>
-
-                <!-- TX Data -->
-                   <ListBox x:Name="TxListBox" Grid.Row="2"
-                            ItemsSource="{Binding FilteredTxEntries}"
-                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                            ScrollViewer.VerticalScrollBarVisibility="Auto"
-                            VirtualizingPanel.IsVirtualizing="True"
-                            VirtualizingPanel.VirtualizationMode="Recycling"
-                            VirtualizingPanel.ScrollUnit="Pixel"
-                            ScrollViewer.IsDeferredScrollingEnabled="True"
-                            Background="Transparent" BorderThickness="0"
-                            Padding="4,2,0,2"
-                            SelectionMode="Extended">
-                     <ListBox.Resources>
-                         <Style TargetType="ListBoxItem">
-                             <Style.Resources>
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="Transparent" />
-                                 <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent" />
-                             </Style.Resources>
-                         </Style>
-                     </ListBox.Resources>
-                     <ListBox.ContextMenu>
-                         <ContextMenu>
-                             <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxSelected_Click" InputGestureText="Ctrl+C" />
-                             <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxHex_Click" />
-                             <Separator />
-                             <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" />
-                             <MenuItem Header="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" />
-                         </ContextMenu>
-                     </ListBox.ContextMenu>
-                     <ListBox.ItemTemplate>
-                         <DataTemplate>
-                             <Border Padding="0" Margin="0">
-                                 <Border.Style>
-                                     <Style TargetType="Border">
-                                         <Setter Property="Background" Value="Transparent" />
-                                         <Style.Triggers>
-                                             <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                                                 <Setter Property="Background" Value="{DynamicResource SearchHighlightBrush}" />
-                                             </DataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </Border.Style>
-                                 <Grid MinHeight="26">
-                                     <Grid.ColumnDefinitions>
-                                         <ColumnDefinition Width="Auto" />
-                                         <ColumnDefinition Width="Auto" />
-                                         <ColumnDefinition Width="Auto" />
-                                         <ColumnDefinition Width="*" />
-                                     </Grid.ColumnDefinitions>
-                                     <Rectangle Grid.Column="0" Style="{StaticResource TxAccent}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding Id, StringFormat='#{0}'}"
-                                               FontFamily="Consolas" FontSize="11"
-                                               Foreground="{DynamicResource InkTertiaryBrush}"
-                                               Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2"
-                                               Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
-                                               FontFamily="Consolas" FontSize="11"
-                                               Foreground="{DynamicResource InkSecondaryBrush}"
-                                               Margin="0,0,14,0" VerticalAlignment="Center"
-                                               Visibility="{Binding DataContext.EnableTxTimestamp, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                      <TextBlock Grid.Column="3" Text="{Binding RawHex}" TextTrimming="CharacterEllipsis"
-                                                FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
-                                                Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
-                                                VerticalAlignment="Center"
-                                                Margin="0,3,10,3"
-                                                ToolTip="{Binding RawHex}"
-                                                Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibility}}" />
-                                       <TextBlock Grid.Column="3" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
-                                                 FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
-                                                 Foreground="{Binding HighlightColor, Converter={StaticResource HexToBrush}, TargetNullValue={DynamicResource InkPrimaryBrush}}"
-                                                 VerticalAlignment="Center"
-                                                 Margin="0,3,10,3"
-                                                 ToolTip="{Binding Text}"
-                                                 Visibility="{Binding DataContext.IsHexDisplayTx, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BoolToVisibilityInverted}}" />
-                                   </Grid>
-                               </Border>
-                           </DataTemplate>
-                       </ListBox.ItemTemplate>
-                   </ListBox>
-                   <TextBlock Grid.Row="2" Visibility="Collapsed">
-                       <TextBlock.Style>
-                           <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
-                               <Style.Triggers>
-                                   <DataTrigger Binding="{Binding HasItems, ElementName=TxListBox}" Value="False">
-                                       <Setter Property="Visibility" Value="Visible" />
-                                   </DataTrigger>
-                               </Style.Triggers>
-                           </Style>
-                       </TextBlock.Style>
-                   </TextBlock>
-
-            </Grid>
-            </controls:PaintedCard>
-            </Grid>
+        <Border Grid.Row="3" Background="{DynamicResource BgElevatedBrush}"
+                BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}"
+                MaxHeight="200"
+                Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
+            <DataGrid x:Name="FieldGrid" Style="{StaticResource FieldDataGrid}"
+                      ItemsSource="{Binding SelectedEntry.Fields}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn x:Name="FieldColOffset"
+                        Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset}" Width="55" />
+                    <DataGridTextColumn x:Name="FieldColName"
+                        Header="{Binding [Column.Name], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" MinWidth="80" Width="Auto" />
+                    <DataGridTextColumn x:Name="FieldColLength"
+                        Header="{Binding [Column.Length], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Length}" Width="40" />
+                    <DataGridTextColumn x:Name="FieldColRawHex"
+                        Header="{Binding [Column.RawHex], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RawHex}" MinWidth="80" Width="Auto" />
+                    <DataGridTextColumn x:Name="FieldColValue"
+                        Header="{Binding [Column.Value], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding DisplayValue}" MinWidth="80" Width="*" />
+                    <DataGridTextColumn x:Name="FieldColSeverity"
+                        Header="{Binding [Column.Severity], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Severity}" Width="65">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Warning}">
+                                        <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Error}">
+                                        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
     </Grid>
 </UserControl>

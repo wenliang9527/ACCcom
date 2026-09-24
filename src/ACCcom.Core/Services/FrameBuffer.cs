@@ -324,5 +324,6 @@ public class FrameBuffer : IDisposable
         _disposed = true;
         _timeoutTimer?.Dispose();
         _timeoutTimer = null;
+        _parseGate.Dispose();
     }
 }

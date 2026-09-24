@@ -2,70 +2,65 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ============================================== -->
-    <!-- 莫奈《日出·印象》1872                            -->
-    <!-- 雾蓝灰底 + 橙日倒影，冷暖对撞的晨雾感             -->
+    <!-- Effects                                       -->
+    <!-- ============================================== -->
+    <DropShadowEffect x:Key="CardShadow" BlurRadius="16" ShadowDepth="2"
+                      Opacity="0.07" Color="#1A2438" Direction="270" />
+    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
+                      Opacity="0.05" Color="#1A2438" Direction="270" />
+
+    <!-- ============================================== -->
+    <!-- 莫奈《日出·印象》1872 — 亮色                    -->
+    <!-- 晨雾纸白 + 雾蓝 + 日出橙                        -->
     <!-- ============================================== -->
 
-    <DropShadowEffect x:Key="CardShadow" BlurRadius="18" ShadowDepth="3"
-                      Opacity="0.35" Color="#0A1220" Direction="270" />
-    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
-                      Opacity="0.22" Color="#0A1220" Direction="270" />
+    <!-- Neutral base: Le Havre harbor morning fog -->
+    <Color x:Key="BgBase">#F4F6F9</Color>
+    <Color x:Key="BgSurface">#EBF0F5</Color>
+    <Color x:Key="BgElevated">#FFFFFF</Color>
+    <Color x:Key="BgHover">#E0E7EF</Color>
+    <Color x:Key="BgActive">#D2DBE7</Color>
+    <Color x:Key="BorderColor">#D0D8E4</Color>
+    <Color x:Key="BorderLight">#AEB9C9</Color>
 
-    <!-- Neutral base: Le Havre harbor fog -->
-    <Color x:Key="BgBase">#333F52</Color>
-    <Color x:Key="BgSurface">#3B485E</Color>
-    <Color x:Key="BgElevated">#44536B</Color>
-    <Color x:Key="BgHover">#4E5F7A</Color>
-    <Color x:Key="BgActive">#596C88</Color>
-    <Color x:Key="BorderColor">#46556D</Color>
-    <Color x:Key="BorderLight">#5A6B85</Color>
+    <!-- Text hierarchy: cool harbor ink -->
+    <Color x:Key="InkPrimary">#16202E</Color>
+    <Color x:Key="InkSecondary">#455468</Color>
+    <Color x:Key="InkTertiary">#5E6B7C</Color>
 
-    <!-- Text hierarchy: warm mist -->
-    <Color x:Key="InkPrimary">#EDEAE2</Color>
-    <Color x:Key="InkSecondary">#B8BCC4</Color>
-    <Color x:Key="InkTertiary">#B6BDCA</Color>
-
-    <!-- Accent: the rising sun through mist -->
-    <Color x:Key="Accent">#F1AF92</Color>
-    <Color x:Key="AccentHover">#F2916A</Color>
-    <Color x:Key="AccentPressed">#D06235</Color>
-    <Color x:Key="OnAccent">#111827</Color>
+    <!-- Accent: rising sun through mist (darkened for AA button text) -->
+    <Color x:Key="Accent">#C4550A</Color>
+    <Color x:Key="AccentHover">#A84908</Color>
+    <Color x:Key="AccentPressed">#8F3E06</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
 
     <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#A5C2D9</Color>
-    <Color x:Key="StatusGray">#B6BBC5</Color>
-    <Color x:Key="StatusGreen">#A4C8A8</Color>
-    <Color x:Key="StatusWarning">#E8B84A</Color>
-    <Color x:Key="StatusError">#F1AB9D</Color>
-    <!-- Danger button: deep red keeps white button text AA on every state -->
-    <Color x:Key="BtnDanger">#D83E1F</Color>
-    <Color x:Key="BtnDangerHover">#CA3A1D</Color>
-    <Color x:Key="BtnDangerPressed">#AF3219</Color>
+    <Color x:Key="StatusBlue">#1D6FDC</Color>
+    <Color x:Key="StatusGray">#5E6B7C</Color>
+    <Color x:Key="StatusGreen">#15803D</Color>
+    <Color x:Key="StatusWarning">#B45309</Color>
+    <Color x:Key="StatusError">#DC2626</Color>
+    <Color x:Key="BtnDanger">#D92D20</Color>
+    <Color x:Key="BtnDangerHover">#C5281C</Color>
+    <Color x:Key="BtnDangerPressed">#A91F15</Color>
 
-    <Color x:Key="StatusWarningBg">#18E8B84A</Color>
-    <Color x:Key="StatusErrorBg">#18D97064</Color>
+    <Color x:Key="StatusWarningBg">#15EAB308</Color>
+    <Color x:Key="StatusErrorBg">#10DC2626</Color>
 
-    <Color x:Key="ConnBadgeBg">#0D86B58B</Color>
-    <Color x:Key="ConnBadgeBorder">#3386B58B</Color>
+    <Color x:Key="ConnBadgeBg">#0D15803D</Color>
+    <Color x:Key="ConnBadgeBorder">#3315803D</Color>
 
-    <Color x:Key="DiffMatchBg">#3386B58B</Color>
-    <Color x:Key="DiffDiffBg">#33D97064</Color>
-    <Color x:Key="CompareDiffBg">#33E8B84A</Color>
+    <Color x:Key="DiffMatchBg">#1A15803D</Color>
+    <Color x:Key="DiffDiffBg">#15DC2626</Color>
+    <Color x:Key="CompareDiffBg">#28F2762E</Color>
 
-    <!-- Sun glow on water -->
-    <Color x:Key="SearchHighlight">#38E89A50</Color>
+    <!-- Sun disc on pale water -->
+    <Color x:Key="SearchHighlight">#50F2762E</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}" />
-    <!-- Surface carries a faint vertical drift, like fog settling on water -->
-    <LinearGradientBrush x:Key="BgSurfaceBrush" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#3E4C63" Offset="0" />
-        <GradientStop Color="#394659" Offset="1" />
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="BgElevatedBrush" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#485872" Offset="0" />
-        <GradientStop Color="#42506A" Offset="1" />
-    </LinearGradientBrush>
+    <SolidColorBrush x:Key="BgSurfaceBrush" Color="{StaticResource BgSurface}" />
+    <SolidColorBrush x:Key="BgElevatedBrush" Color="{StaticResource BgElevated}" />
     <SolidColorBrush x:Key="BgHoverBrush" Color="{StaticResource BgHover}" />
     <SolidColorBrush x:Key="BgActiveBrush" Color="{StaticResource BgActive}" />
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
@@ -82,6 +77,8 @@
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="StatusWarningBgBrush" Color="{StaticResource StatusWarningBg}" />
+    <SolidColorBrush x:Key="StatusErrorBgBrush" Color="{StaticResource StatusErrorBg}" />
     <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
     <SolidColorBrush x:Key="BtnDangerBrush" Color="{StaticResource BtnDanger}" />
     <SolidColorBrush x:Key="BtnDangerHoverBrush" Color="{StaticResource BtnDangerHover}" />
@@ -93,41 +90,11 @@
     <SolidColorBrush x:Key="DiffDiffBgBrush" Color="{StaticResource DiffDiffBg}" />
     <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
-    <SolidColorBrush x:Key="DividerBrush" Color="#46556D" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#D0D8E4" />
 
-    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#15FFFFFF" />
-    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#5A6B85" />
-    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#6A7B95" />
-    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#7A8BA5" />
-
-    <!-- ============================================== -->
-    <!-- Signature texture: 水波纹 (harbor water ripples) -->
-    <!-- Large-scale misty swells + faint orange glint   -->
-    <!-- ============================================== -->
-    <DrawingBrush x:Key="CardTextureBrush" TileMode="Tile" Viewport="0,0,64,36"
-                  ViewportUnits="Absolute" Opacity="0.045">
-        <DrawingBrush.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing Geometry="M0,12 C10,4 22,4 32,12 C42,20 54,20 64,12">
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#AFC9DE" Thickness="1" />
-                    </GeometryDrawing.Pen>
-                </GeometryDrawing>
-                <GeometryDrawing Geometry="M0,27 C10,20.5 22,20.5 32,27 C42,33.5 54,33.5 64,27">
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#8FB0CC" Thickness="0.8" />
-                    </GeometryDrawing.Pen>
-                </GeometryDrawing>
-                <GeometryDrawing>
-                    <GeometryDrawing.Geometry>
-                        <EllipseGeometry Center="52,7" RadiusX="4.6" RadiusY="1.9" />
-                    </GeometryDrawing.Geometry>
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#E89A50" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#06000000" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#C5CEDA" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#AEB9C9" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#97A4B7" />
 
 </ResourceDictionary>

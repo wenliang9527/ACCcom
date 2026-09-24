@@ -263,24 +263,37 @@ public class SchemaEditorViewModel : ObservableObject
         Fields.Clear();
         Fields.Add(new FieldItemViewModel
         {
-            Name = "帧头", Offset = 0, Length = 2, Type = "hex",
+            Name = "帧头",
+            Offset = 0,
+            Length = 2,
+            Type = "hex",
             Color = "#22C55E"
         });
         Fields.Add(new FieldItemViewModel
         {
-            Name = "长度", Offset = 2, Length = 1, Type = "uint8",
+            Name = "长度",
+            Offset = 2,
+            Length = 1,
+            Type = "uint8",
             Color = "#3478F6"
         });
         Fields.Add(new FieldItemViewModel
         {
-            Name = "命令码", Offset = 3, Length = 1, Type = "enum",
+            Name = "命令码",
+            Offset = 3,
+            Length = 1,
+            Type = "enum",
             ValuesText = "0x01=读取,0x02=写入,0x03=状态",
             Color = "#F59E0B"
         });
         Fields.Add(new FieldItemViewModel
         {
-            Name = "数据", Offset = 4, Length = 1, Type = "uint8",
-            Unit = "", Color = "#3478F6"
+            Name = "数据",
+            Offset = 4,
+            Length = 1,
+            Type = "uint8",
+            Unit = "",
+            Color = "#3478F6"
         });
 
         Generate();

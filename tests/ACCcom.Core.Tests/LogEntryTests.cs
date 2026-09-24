@@ -21,4 +21,19 @@ public class LogEntryTests
         // string scattered across UI code paths.
         Assert.Equal("main", LogEntry.MainPortTag);
     }
+
+    [Fact]
+    public void NotifyHighlightChanged_raises_PropertyChanged_for_HighlightColor()
+    {
+        // The HighlightColor setter is a plain auto-property on the hot path;
+        // batch recomputes (rule edits, theme switches) rely on this explicit
+        // notification so the Foreground binding re-runs its converter.
+        var entry = new LogEntry { HighlightColor = "#FF6B6B" };
+        string? raised = null;
+        entry.PropertyChanged += (_, e) => raised = e.PropertyName;
+
+        entry.NotifyHighlightChanged();
+
+        Assert.Equal(nameof(LogEntry.HighlightColor), raised);
+    }
 }

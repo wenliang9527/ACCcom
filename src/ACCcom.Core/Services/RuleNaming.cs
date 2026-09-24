@@ -27,14 +27,23 @@ public static class RuleNaming
     /// comparison). <paramref name="prefix"/> may be empty.
     /// </summary>
     public static string NextName(IEnumerable<string> existingNames, string prefix)
+        => NextName(existingNames, prefix, "");
+
+    /// <summary>
+    /// Returns a fresh default name of the form "&lt;prefix>&lt;separator>N"
+    /// that is not present in <paramref name="existingNames"/> (ordinal
+    /// comparison). Shared core so Rule/Macro naming cannot drift.
+    /// </summary>
+    public static string NextName(IEnumerable<string> existingNames, string prefix, string separator)
     {
         ArgumentNullException.ThrowIfNull(existingNames);
         ArgumentNullException.ThrowIfNull(prefix);
+        ArgumentNullException.ThrowIfNull(separator);
 
         var used = new HashSet<string>(existingNames, StringComparer.Ordinal);
         int n = 1;
         string candidate;
-        do { candidate = $"{prefix}{n++}"; } while (used.Contains(candidate));
+        do { candidate = $"{prefix}{separator}{n++}"; } while (used.Contains(candidate));
         return candidate;
     }
 }

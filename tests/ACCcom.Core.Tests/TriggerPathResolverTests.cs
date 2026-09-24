@@ -71,6 +71,21 @@ public class TriggerPathResolverTests : IDisposable
         Assert.Equal(Path.Combine(TriggerPathResolver.DataDirectory, "nested", "out.log"), resolved);
     }
 
+    [Fact]
+    public void TryResolve_TraversalOutsideBase_ReturnsFalse()
+    {
+        Assert.False(TriggerPathResolver.TryResolve(Path.Combine("..", "evil.log"), out _));
+        Assert.False(TriggerPathResolver.TryResolve(Path.Combine("..", "..", "evil.log"), out _));
+        Assert.Equal("", TriggerPathResolver.Resolve(Path.Combine("..", "evil.log")));
+    }
+
+    [Fact]
+    public void TryResolve_RelativePath_StaysInsideBase()
+    {
+        Assert.True(TriggerPathResolver.TryResolve("payloads.log", out var resolved));
+        Assert.Equal(Path.Combine(TriggerPathResolver.DataDirectory, "payloads.log"), resolved);
+    }
+
     /// <summary>SaveRules/LoadRules round-trip through a resolver-style path
     /// (DataDirectory/triggers.json is what the ViewModel now persists to).</summary>
     [Fact]

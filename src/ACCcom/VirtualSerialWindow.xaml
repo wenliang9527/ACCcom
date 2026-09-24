@@ -8,7 +8,8 @@
         MinHeight="480" MinWidth="600"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{DynamicResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -27,9 +28,9 @@
                            FontSize="12" FontWeight="Medium"
                            VerticalAlignment="Center" Margin="12,0,0,0" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" />
-                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" />
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" />
+                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="{Binding [TitleBar.Minimize], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="{Binding [TitleBar.Maximize], Source={x:Static local:LanguageManager.Instance}}" />
+                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -97,7 +98,7 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Text="{Binding [VirtualSerial.Log], Source={x:Static local:LanguageManager.Instance}}"
                        Style="{StaticResource SectionHeader}" Margin="0,0,0,4" />
-            <ListBox Grid.Row="1" ItemsSource="{Binding Entries}" VirtualizingPanel.IsVirtualizing="True"
+            <ListBox x:Name="LogList" Grid.Row="1" ItemsSource="{Binding Entries}" VirtualizingPanel.IsVirtualizing="True"
                      VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.IsDeferredScrollingEnabled="True">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -127,6 +128,17 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+            <TextBlock Grid.Row="1" Visibility="Collapsed">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=LogList}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
         </Grid>
     </Grid>
 </Window>

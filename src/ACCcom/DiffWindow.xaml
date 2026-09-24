@@ -5,7 +5,8 @@
         Title="{Binding [DiffWindow.Title], Source={x:Static local:LanguageManager.Instance}}" Height="520" Width="900"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        Background="{DynamicResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />

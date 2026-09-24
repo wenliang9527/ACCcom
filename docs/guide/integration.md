@@ -241,20 +241,20 @@ curl http://127.0.0.1:8899/api/slaves
 
 ## 主题系统
 
-基于 WPF ResourceDictionary 的主题切换，共 7 款（`Ctrl+D` 循环切换，或标题栏下拉选择）：
+基于 WPF ResourceDictionary 的主题切换，共 7 款（`Ctrl+D` 循环切换，或点标题栏主题按钮打开画廊挑选，每款附实时预览与一句话说明）：
 
-| 主题 | 灵感 | 风格 |
-|------|------|------|
-| `LightTheme` | — | 浅色 |
-| `DarkTheme` | — | 深色极简 |
-| `MonetSunrise` | 莫奈《日出·印象》 | 雾蓝灰 + 橙日倒影，冷暖对撞的晨雾感 |
-| `VanGoghWheat` | 梵高《麦田群鸦》 | 风暴蓝绿 + 麦金 + 乌鸦黑，戏剧张力 |
-| `KlimtKiss` | 克里姆特《吻》 | 拜占庭金箔 + 深绿黑，奢华装饰风 |
-| `HokusaiWave` | 葛饰北斋《神奈川冲浪》 | 普鲁士蓝 + 浪花白 + 赭黄，浮世绘版画感 |
-| `VermeerPearl` | 维米尔《戴珍珠耳环的少女》 | 青金头巾 + 柠檬黄 + 深墨背景，古典油画 |
+| 主题 | 灵感 | 风格 | 强调色 |
+|------|------|------|--------|
+| `LightTheme`（昼白） | — | 纸白底 + 罗兰紫，日间默认 | 紫 `#7C3AED` |
+| `DarkTheme`（墨） | — | 中性锌灰暗色，夜间默认 | 亮紫 `#A78BFA` |
+| `MonetSunrise` | 莫奈《日出·印象》 | 晨雾纸白 + 日出橙，明亮的日间印象派 | 橙 `#C4550A` |
+| `VanGoghWheat` | 梵高《麦田群鸦》 | 麦浪奶油底 + 炽麦金，田野日光 | 金 `#C99700` |
+| `KlimtKiss` | 克里姆特《吻》 | 暖夜黑 + 吻之绯红 + 金箔质感（深色） | 红 `#E5484D` |
+| `HokusaiWave` | 葛饰北斋《神奈川冲浪里》 | 和纸米白 + 普鲁士蓝，版画清朗亮色 | 蓝 `#1D4E89` |
+| `VermeerPearl` | 维米尔《戴珍珠耳环的少女》 | 深墨底 + 珍珠青 + 柠檬黄点缀（深色） | 青 `#2FBFA5` |
 
 - 资源文件存放于 `src/ACCcom/Themes/` 目录，每个主题定义同一套资源键
-- 卡片表面使用微渐变 + 画布纹理叠加（`CanvasWeaveBrush`），呈现油画质感
+- 卡片表面使用微渐变顶光，呈现干净的油画质感（不再叠加平铺底纹）
 - 运行时无缝切换，无需重启；选择持久化到 `settings.json` 的 `Theme` 字段
 - Modbus 窗口主题适配
 
@@ -262,7 +262,7 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 8 个基础串口工具，无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 9 个基础串口工具（list_ports / list_open_ports / open_port / close_port / send / read_data / wait_for_response / send_and_wait / clear_buffer），无需 HTTP 配置。
 
 **运行模式：**
 
@@ -270,14 +270,14 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 
 **连接编程工具（AI 客户端）：**
 
-所有支持 MCP 的编程工具都通过同一个 stdio 协议接入。推荐直接使用**编译后的 exe**（比 `dotnet run` 启动快 10 倍以上）：
+所有支持 MCP 的编程工具都通过同一个 stdio 协议接入。推荐直接使用**编译后的 exe**（比 `dotnet run` 启动快 10 倍以上）。下例中 `<repo-root>` 指仓库根目录，请替换为你本机的实际路径：
 
 ```json
 {
   "mcpServers": {
     "acccom": {
-      "command": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
-      "cwd": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom"
+      "command": "<repo-root>\\src\\ACCcom.McpServer\\bin\\Release\\net8.0\\ACCcom.McpServer.exe",
+      "cwd": "<repo-root>"
     }
   }
 }
@@ -308,7 +308,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
         "type": "stdio",
         "command": "powershell",
         "args": ["-ExecutionPolicy", "Bypass", "-File", "launch_acccom.ps1"],
-        "cwd": "D:\\WORK_VSCODE\\Vibe-coding\\Xcom"
+        "cwd": "<repo-root>"
       }
     }
   }
@@ -333,11 +333,12 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
   → read_data(sinceId=0, direction="RX")        # 读取响应
 ```
 
-**可用 MCP Tools（8 个）：**
+**可用 MCP Tools（9 个）：**
 
 | Tool | 说明 |
 |------|------|
 | `list_ports` | 列出可用串口 |
+| `list_open_ports` | 列出已打开会话 |
 | `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |

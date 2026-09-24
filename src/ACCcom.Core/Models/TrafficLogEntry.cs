@@ -6,6 +6,7 @@ namespace ACCcom.Core.Models;
 /// field after construction.</summary>
 public sealed class TrafficLogEntry
 {
+    public int Id { get; set; }
     public string Time { get; set; } = "";
     public string Direction { get; set; } = "";
     public string Tool { get; set; } = "";

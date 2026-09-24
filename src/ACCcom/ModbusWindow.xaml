@@ -140,7 +140,7 @@
                                 </GridView>
                             </ListView.View>
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="FontFamily" Value="Consolas" />
@@ -189,7 +189,7 @@
                                 </GridView>
                             </ListView.View>
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="FontFamily" Value="Consolas" />
@@ -282,7 +282,7 @@
                         </GridView>
                     </ListView.View>
                     <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                             <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                             <Setter Property="Background" Value="Transparent" />
                             <Setter Property="FontFamily" Value="Consolas" />

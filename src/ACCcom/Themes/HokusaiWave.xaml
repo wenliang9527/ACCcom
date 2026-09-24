@@ -2,70 +2,65 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ============================================== -->
-    <!-- 葛饰北斋《神奈川冲浪》1831                        -->
-    <!-- 普鲁士蓝 + 浪花白 + 赭黄，浮世绘版画感             -->
+    <!-- Effects                                       -->
+    <!-- ============================================== -->
+    <DropShadowEffect x:Key="CardShadow" BlurRadius="16" ShadowDepth="2"
+                      Opacity="0.07" Color="#1A2838" Direction="270" />
+    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
+                      Opacity="0.05" Color="#1A2838" Direction="270" />
+
+    <!-- ============================================== -->
+    <!-- 葛饰北斋《神奈川冲浪里》1831 — 亮色              -->
+    <!-- 和纸米白 + 普鲁士蓝 + 赭黄渔船                    -->
     <!-- ============================================== -->
 
-    <DropShadowEffect x:Key="CardShadow" BlurRadius="18" ShadowDepth="3"
-                      Opacity="0.40" Color="#020A14" Direction="270" />
-    <DropShadowEffect x:Key="SubtleShadow" BlurRadius="8" ShadowDepth="1"
-                      Opacity="0.25" Color="#020A14" Direction="270" />
+    <!-- Neutral base: washi paper ground -->
+    <Color x:Key="BgBase">#F7F2E6</Color>
+    <Color x:Key="BgSurface">#F0E9D8</Color>
+    <Color x:Key="BgElevated">#FBF8F0</Color>
+    <Color x:Key="BgHover">#E6DDC8</Color>
+    <Color x:Key="BgActive">#DAD0B8</Color>
+    <Color x:Key="BorderColor">#E0D6C0</Color>
+    <Color x:Key="BorderLight">#C4B89E</Color>
 
-    <!-- Neutral base: deep Prussian blue sea -->
-    <Color x:Key="BgBase">#16283E</Color>
-    <Color x:Key="BgSurface">#1D334E</Color>
-    <Color x:Key="BgElevated">#254060</Color>
-    <Color x:Key="BgHover">#2E4E72</Color>
-    <Color x:Key="BgActive">#385C83</Color>
-    <Color x:Key="BorderColor">#24405F</Color>
-    <Color x:Key="BorderLight">#3D5F84</Color>
+    <!-- Text hierarchy: sumi ink on paper -->
+    <Color x:Key="InkPrimary">#1A2333</Color>
+    <Color x:Key="InkSecondary">#4A5568</Color>
+    <Color x:Key="InkTertiary">#636E7F</Color>
 
-    <!-- Text hierarchy: foam white -->
-    <Color x:Key="InkPrimary">#EDF3F6</Color>
-    <Color x:Key="InkSecondary">#AFC3D3</Color>
-    <Color x:Key="InkTertiary">#8DA5B9</Color>
+    <!-- Accent: Prussian blue of the great wave -->
+    <Color x:Key="Accent">#1D4E89</Color>
+    <Color x:Key="AccentHover">#163D6D</Color>
+    <Color x:Key="AccentPressed">#12335A</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
 
-    <!-- Accent: ochre fishing boats riding the swell -->
-    <Color x:Key="Accent">#E3B04B</Color>
-    <Color x:Key="AccentHover">#EFC268</Color>
-    <Color x:Key="AccentPressed">#C99637</Color>
-    <Color x:Key="OnAccent">#1B1B1B</Color>
+    <!-- Status semantics (ochre boat as the warning) -->
+    <Color x:Key="StatusBlue">#1D4E89</Color>
+    <Color x:Key="StatusGray">#636E7F</Color>
+    <Color x:Key="StatusGreen">#15803D</Color>
+    <Color x:Key="StatusWarning">#A16207</Color>
+    <Color x:Key="StatusError">#B91C1C</Color>
+    <Color x:Key="BtnDanger">#D92D20</Color>
+    <Color x:Key="BtnDangerHover">#C5281C</Color>
+    <Color x:Key="BtnDangerPressed">#A91F15</Color>
 
-    <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#7BAACB</Color>
-    <Color x:Key="StatusGray">#8DA5B9</Color>
-    <Color x:Key="StatusGreen">#7FB08A</Color>
-    <Color x:Key="StatusWarning">#E3B04B</Color>
-    <Color x:Key="StatusError">#E5897C</Color>
-    <!-- Danger button: deep red keeps white button text AA on every state -->
-    <Color x:Key="BtnDanger">#D5412B</Color>
-    <Color x:Key="BtnDangerHover">#C83C27</Color>
-    <Color x:Key="BtnDangerPressed">#AF3422</Color>
+    <Color x:Key="StatusWarningBg">#15EAB308</Color>
+    <Color x:Key="StatusErrorBg">#10DC2626</Color>
 
-    <Color x:Key="StatusWarningBg">#18E3B04B</Color>
-    <Color x:Key="StatusErrorBg">#18D96D5F</Color>
+    <Color x:Key="ConnBadgeBg">#0D15803D</Color>
+    <Color x:Key="ConnBadgeBorder">#3315803D</Color>
 
-    <Color x:Key="ConnBadgeBg">#0D7FB08A</Color>
-    <Color x:Key="ConnBadgeBorder">#337FB08A</Color>
-
-    <Color x:Key="DiffMatchBg">#337FB08A</Color>
-    <Color x:Key="DiffDiffBg">#33D96D5F</Color>
-    <Color x:Key="CompareDiffBg">#33E3B04B</Color>
+    <Color x:Key="DiffMatchBg">#1A15803D</Color>
+    <Color x:Key="DiffDiffBg">#15DC2626</Color>
+    <Color x:Key="CompareDiffBg">#28E8B93E</Color>
 
     <!-- Foam crest catching light -->
-    <Color x:Key="SearchHighlight">#38EFC268</Color>
+    <Color x:Key="SearchHighlight">#507EB3E8</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource BgBase}" />
-    <!-- Surface: banded waves, woodblock print layering -->
-    <LinearGradientBrush x:Key="BgSurfaceBrush" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#213854" Offset="0" />
-        <GradientStop Color="#1C3049" Offset="1" />
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="BgElevatedBrush" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="#2A4767" Offset="0" />
-        <GradientStop Color="#243E5B" Offset="1" />
-    </LinearGradientBrush>
+    <SolidColorBrush x:Key="BgSurfaceBrush" Color="{StaticResource BgSurface}" />
+    <SolidColorBrush x:Key="BgElevatedBrush" Color="{StaticResource BgElevated}" />
     <SolidColorBrush x:Key="BgHoverBrush" Color="{StaticResource BgHover}" />
     <SolidColorBrush x:Key="BgActiveBrush" Color="{StaticResource BgActive}" />
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
@@ -82,6 +77,8 @@
     <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}" />
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusError}" />
+    <SolidColorBrush x:Key="StatusWarningBgBrush" Color="{StaticResource StatusWarningBg}" />
+    <SolidColorBrush x:Key="StatusErrorBgBrush" Color="{StaticResource StatusErrorBg}" />
     <SolidColorBrush x:Key="RedErrorBrush" Color="{StaticResource StatusError}" />
     <SolidColorBrush x:Key="BtnDangerBrush" Color="{StaticResource BtnDanger}" />
     <SolidColorBrush x:Key="BtnDangerHoverBrush" Color="{StaticResource BtnDangerHover}" />
@@ -93,58 +90,11 @@
     <SolidColorBrush x:Key="DiffDiffBgBrush" Color="{StaticResource DiffDiffBg}" />
     <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
-    <SolidColorBrush x:Key="DividerBrush" Color="#24405F" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#E0D6C0" />
 
-    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#15FFFFFF" />
-    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#3D5F84" />
-    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#4D6F94" />
-    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#5D7FA4" />
-
-    <!-- ============================================== -->
-    <!-- Signature texture: 浪花纹 (great-wave claws)     -->
-    <!-- Scalloped foam crests + ochre boat specks       -->
-    <!-- ============================================== -->
-    <DrawingBrush x:Key="CardTextureBrush" TileMode="Tile" Viewport="0,0,56,32"
-                  ViewportUnits="Absolute" Opacity="0.055">
-        <DrawingBrush.Drawing>
-            <DrawingGroup>
-                <!-- claw-crest scallops, woodblock line style -->
-                <GeometryDrawing Geometry="M0,22 A13,13 0 0 1 26,22 M29,22 A13,13 0 0 1 55,22">
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#CFE3EE" Thickness="1.2" />
-                    </GeometryDrawing.Pen>
-                </GeometryDrawing>
-                <!-- second swell below -->
-                <GeometryDrawing Geometry="M14,30 A11,11 0 0 1 36,30 M39,30 A11,11 0 0 1 61,30">
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#9DBDD3" Thickness="1" />
-                    </GeometryDrawing.Pen>
-                </GeometryDrawing>
-                <!-- spray dots thrown from the crest -->
-                <GeometryDrawing>
-                    <GeometryDrawing.Geometry>
-                        <EllipseGeometry Center="13,4.4" RadiusX="1.8" RadiusY="1.8" />
-                    </GeometryDrawing.Geometry>
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#EDF3F6" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-                <GeometryDrawing>
-                    <GeometryDrawing.Geometry>
-                        <EllipseGeometry Center="42,6.8" RadiusX="1.5" RadiusY="1.5" />
-                    </GeometryDrawing.Geometry>
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#CFE3EE" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-                <!-- an ochre fishing boat riding the swell -->
-                <GeometryDrawing Geometry="M46,14 Q50,17.2 54,14 L52.8,16 H47.2 Z">
-                    <GeometryDrawing.Brush>
-                        <SolidColorBrush Color="#E3B04B" />
-                    </GeometryDrawing.Brush>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#06000000" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#D0C4AA" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#C4B89E" />
+    <SolidColorBrush x:Key="ScrollThumbPressBrush" Color="#B3A68A" />
 
 </ResourceDictionary>

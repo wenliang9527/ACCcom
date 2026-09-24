@@ -240,12 +240,7 @@ public class ParserManager : IDisposable
         try
         {
             var json = File.ReadAllText(schemaPath);
-            return JsonSerializer.Deserialize<ProtocolSchema>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                ReadCommentHandling = JsonCommentHandling.Skip,
-                AllowTrailingCommas = true
-            });
+            return JsonSerializer.Deserialize<ProtocolSchema>(json, ProtocolSchema.JsonOptions);
         }
         catch
         {

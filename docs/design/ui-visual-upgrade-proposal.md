@@ -1,5 +1,7 @@
 # ACCcom 界面视觉升级方案
 
+> **归档注记（2026-09-24）**：本文数值基于早期主题快照（如 Dark `InkTertiary #6B6B76`、`BgSurface #121214`），与当前代码已不一致，仅作历史参考。现行 Token 以 `src/ACCcom/Themes/*.xaml` 为准；本轮「看不清关键信息」修复（列表选中态、高亮色对比度补偿、Light `InkTertiary #5E6675`、状态栏字号等）未沿用本文的建议值。
+
 > 分析范围：`MainWindow.xaml`、`App.xaml`、`DarkTheme.xaml`、`LightTheme.xaml`、`ModbusWindow.xaml`、`PlotWindow.xaml`、`StatsWindow.xaml`
 >
 > 策略：在现有 Tech Blue 配色基础上精调，不改变整体布局结构

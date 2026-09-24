@@ -389,4 +389,19 @@ public class HighlightServiceTests : IDisposable
         // Reader completed without throwing; final state is a valid rule.
         Assert.NotNull(_sut.GetHighlightColor(MakeEntry(1, text: "hello")));
     }
+
+    [Fact]
+    public void GetHighlightColor_InvalidRegex_ReturnsNullInsteadOfThrowing()
+    {
+        _sut.AddRule(new HighlightRule { Name = "Bad", Pattern = "([", Color = "#FF0000", MatchType = HighlightMatchType.Regex });
+        var ex = Record.Exception(() => _sut.GetHighlightColor(MakeEntry(1, text: "hello")));
+        Assert.Null(ex);
+        Assert.Null(_sut.GetHighlightColor(MakeEntry(1, text: "hello")));
+    }
+
+    [Fact]
+    public void GetHighlightColor_NullEntry_ReturnsNull()
+    {
+        Assert.Null(_sut.GetHighlightColor(null!));
+    }
 }

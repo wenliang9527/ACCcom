@@ -107,6 +107,83 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_WithCorruptedJson_SetsLastError()
+    {
+        // Arrange
+        var path = GetTempSettingsPath();
+        File.WriteAllText(path, "{ not valid json !!!");
+        var service = new SettingsService(path);
+
+        // Act
+        service.Load();
+
+        // Assert
+        Assert.StartsWith("Settings file corrupted:", service.LastError);
+    }
+
+    [Fact]
+    public void Load_AfterFailureSuccess_ClearsLastError()
+    {
+        // Arrange: first a corrupted file, then a valid one on the same instance
+        var path = GetTempSettingsPath();
+        File.WriteAllText(path, "{ not valid json !!!");
+        var service = new SettingsService(path);
+        service.Load();
+        Assert.NotNull(service.LastError);
+
+        // Act
+        File.WriteAllText(path, """{ "LastPort": "COM9" }""");
+        var settings = service.Load();
+
+        // Assert
+        Assert.Equal("COM9", settings.LastPort);
+        Assert.Null(service.LastError);
+    }
+
+    [Fact]
+    public void Load_LockedFile_ReturnsDefaultsAndSetsLastError()
+    {
+        // Arrange: deny all sharing so File.ReadAllText throws IOException
+        var path = GetTempSettingsPath();
+        File.WriteAllText(path, """{ "LastPort": "COM3" }""");
+        var service = new SettingsService(path);
+
+        // Act
+        AppSettings settings;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            settings = service.Load();
+        }
+
+        // Assert
+        Assert.Equal("", settings.LastPort);
+        Assert.StartsWith("Failed to read settings file:", service.LastError);
+    }
+
+    [Fact]
+    public void Save_ToReadOnlyFile_ReturnsFalseAndSetsLastError()
+    {
+        // Arrange
+        var path = GetTempSettingsPath();
+        File.WriteAllText(path, "{}");
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        var service = new SettingsService(path);
+        try
+        {
+            // Act
+            var ok = service.Save(new AppSettings { LastPort = "COM3" });
+
+            // Assert
+            Assert.False(ok);
+            Assert.StartsWith("Access denied to settings file:", service.LastError);
+        }
+        finally
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
     public void DefaultSettingsPath_IsUnderLocalAppData()
     {
         // Arrange

@@ -38,6 +38,23 @@ public class EntryTextFormatterTests
     }
 
     [Fact]
+    public void Format_null_direction_uses_each_entry_direction()
+    {
+        // Combined RX+TX copy path: empty/null direction keeps per-entry labels.
+        var rx = MakeEntry(1, text: "from-rx");
+        rx.Direction = "RX";
+        var tx = MakeEntry(2, text: "from-tx");
+        tx.Direction = "TX";
+
+        var result = EntryTextFormatter.Format(new[] { rx, tx }, null);
+
+        Assert.Equal(
+            "[14:30:45.123][RX][TXT] from-rx" + Environment.NewLine +
+            "[14:30:45.123][TX][TXT] from-tx" + Environment.NewLine,
+            result);
+    }
+
+    [Fact]
     public void Format_hex_only_entry()
     {
         var entry = MakeEntry(1, hex: "AA BB CC");

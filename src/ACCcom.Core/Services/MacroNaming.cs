@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace ACCcom.Core.Services;
 
@@ -15,14 +13,5 @@ public static class MacroNaming
     /// present in <paramref name="existingNames"/> (ordinal comparison), starting at 1.
     /// </summary>
     public static string NextName(IEnumerable<string> existingNames, string prefix = "Macro")
-    {
-        ArgumentNullException.ThrowIfNull(existingNames);
-        ArgumentNullException.ThrowIfNull(prefix);
-
-        var used = new HashSet<string>(existingNames, StringComparer.Ordinal);
-        int n = 1;
-        string candidate;
-        do { candidate = $"{prefix} {n++}"; } while (used.Contains(candidate));
-        return candidate;
-    }
+        => RuleNaming.NextName(existingNames, prefix, " ");
 }

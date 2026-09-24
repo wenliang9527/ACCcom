@@ -12,7 +12,7 @@ public static class EntryTextFormatter
 {
     /// <summary>Writes each entry's non-empty hex and text representations as
     /// separate lines (an entry carrying both produces two lines).</summary>
-    public static string Format(IEnumerable<LogEntry> entries, string direction)
+    public static string Format(IEnumerable<LogEntry> entries, string? direction)
     {
         ArgumentNullException.ThrowIfNull(entries);
         var sb = new StringBuilder();
@@ -20,7 +20,7 @@ public static class EntryTextFormatter
         return sb.ToString();
     }
 
-    public static void Format(IEnumerable<LogEntry> entries, string direction, StringBuilder target)
+    public static void Format(IEnumerable<LogEntry> entries, string? direction, StringBuilder target)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(target);
@@ -30,10 +30,13 @@ public static class EntryTextFormatter
             var hex = entry.RawHex ?? "";
             var text = entry.Text ?? "";
             var time = entry.Timestamp.ToString("HH:mm:ss.fff");
+            // Empty/null direction = combined RX+TX copy: use each entry's own
+            // Direction so mixed selections keep their RX/TX labels.
+            var dir = string.IsNullOrEmpty(direction) ? entry.Direction : direction;
             if (!string.IsNullOrEmpty(hex))
-                target.AppendLine($"[{time}][{direction}][HEX] {hex}");
+                target.AppendLine($"[{time}][{dir}][HEX] {hex}");
             if (!string.IsNullOrEmpty(text))
-                target.AppendLine($"[{time}][{direction}][TXT] {text}");
+                target.AppendLine($"[{time}][{dir}][TXT] {text}");
         }
     }
 }

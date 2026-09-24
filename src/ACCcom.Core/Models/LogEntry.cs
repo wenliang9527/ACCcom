@@ -31,6 +31,16 @@ public class LogEntry : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Raises PropertyChanged for <see cref="HighlightColor"/>. The setter is a
+    /// plain auto-property on the receive hot path (no notify per packet); the
+    /// UI calls this after a batch recompute — highlight-rule edits and theme
+    /// switches — so visible rows re-run their Foreground converter even when
+    /// the hex string itself did not change (the converter's output depends on
+    /// the active theme's background).
+    /// </summary>
+    public void NotifyHighlightChanged() => OnPropertyChanged(nameof(HighlightColor));
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

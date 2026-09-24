@@ -1,3 +1,4 @@
+using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 using Xunit;
 
@@ -285,5 +286,243 @@ return result;
 
         Assert.False(success);
         Assert.Contains("null", error);
+    }
+
+    private static ProtocolSchema CreateValidSchema(string name) => new()
+    {
+        Name = name,
+        MinLength = 5,
+        Frame = new FrameSchema
+        {
+            Header = "AA 55",
+            Checksum = new ChecksumSchema { Type = "xor8" }
+        },
+        Fields = new List<FieldSchema>
+        {
+            new() { Name = "帧头", Offset = 0, Length = 2, Type = "hex", Value = "AA 55" },
+            new() { Name = "命令", Offset = 2, Length = 1, Type = "uint8" }
+        }
+    };
+
+    [Fact]
+    public void GenerateParser_InvalidSchema_ReturnsValidationErrors()
+    {
+        // Arrange: empty name + no fields fails Validate on two rules.
+        using var manager = new ParserManager(_tempDir);
+        var schema = new ProtocolSchema { Name = "", Fields = new List<FieldSchema>() };
+
+        // Act
+        var (success, error) = manager.GenerateParser(schema);
+
+        // Assert
+        Assert.False(success);
+        Assert.Contains("Name is required", error);
+        Assert.Contains("At least one field is required", error);
+    }
+
+    [Fact]
+    public void GenerateParser_ValidSchema_WritesCsxAndActivates()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var (success, error) = manager.GenerateParser(CreateValidSchema("gen_mgr_test"));
+
+        // Assert: file written, list refreshed, generated code loads.
+        Assert.True(success, error);
+        Assert.Null(error);
+        Assert.True(File.Exists(Path.Combine(_tempDir, "gen_mgr_test.csx")));
+        Assert.Contains("gen_mgr_test", manager.AvailableParsers);
+        Assert.True(manager.Activate("gen_mgr_test"));
+        Assert.Equal("gen_mgr_test", manager.ActiveParserName);
+    }
+
+    [Fact]
+    public void GenerateParser_TraversalName_ReturnsInvalidNameError()
+    {
+        // Arrange: passes Validate but must not escape the parser directory.
+        using var manager = new ParserManager(_tempDir);
+        var schema = CreateValidSchema("../evil");
+
+        // Act
+        var (success, error) = manager.GenerateParser(schema);
+
+        // Assert
+        Assert.False(success);
+        Assert.Contains("Invalid parser name", error);
+        Assert.False(File.Exists(Path.Combine(_tempDir, "evil.csx")));
+    }
+
+    [Fact]
+    public void GenerateParserFromJson_InvalidJson_ReturnsError()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var (success, error) = manager.GenerateParserFromJson("{ nope");
+
+        // Assert
+        Assert.False(success);
+        Assert.Contains("Invalid JSON schema", error);
+    }
+
+    [Fact]
+    public void GenerateParserFromJson_ValidJson_WritesFile()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+        var json = """{ "Name": "gen_json_test", "MinLength": 2, "Fields": [{ "Name": "f", "Offset": 0, "Length": 1, "Type": "uint8" }] }""";
+
+        // Act
+        var (success, error) = manager.GenerateParserFromJson(json);
+
+        // Assert
+        Assert.True(success, error);
+        Assert.True(File.Exists(Path.Combine(_tempDir, "gen_json_test.csx")));
+    }
+
+    [Fact]
+    public void GetSchema_MissingFile_ReturnsNull()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var schema = manager.GetSchema("nope");
+
+        // Assert
+        Assert.Null(schema);
+    }
+
+    [Fact]
+    public void GetSchema_ValidFile_ReturnsSchema()
+    {
+        // Arrange
+        File.WriteAllText(Path.Combine(_tempDir, "s1.schema.json"),
+            """{ "Name": "s1", "MinLength": 5, "Fields": [{ "Name": "f", "Offset": 0, "Length": 1, "Type": "uint8" }] }""");
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var schema = manager.GetSchema("s1");
+
+        // Assert
+        Assert.NotNull(schema);
+        Assert.Equal("s1", schema!.Name);
+        Assert.Equal(5, schema.MinLength);
+    }
+
+    [Fact]
+    public void GetSchema_CorruptedFile_ReturnsNull()
+    {
+        // Arrange
+        File.WriteAllText(Path.Combine(_tempDir, "bad.schema.json"), "{ nope");
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var schema = manager.GetSchema("bad");
+
+        // Assert
+        Assert.Null(schema);
+    }
+
+    [Fact]
+    public void GetFingerprint_NoSchema_ReturnsNull()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var fp = manager.GetFingerprint("nope");
+
+        // Assert
+        Assert.Null(fp);
+    }
+
+    [Fact]
+    public void GetFingerprint_WithSchema_ReturnsFingerprint()
+    {
+        // Arrange
+        File.WriteAllText(Path.Combine(_tempDir, "fp1.schema.json"),
+            """{ "Name": "fp1", "MinLength": 4, "Fields": [{ "Name": "f", "Offset": 0, "Length": 1, "Type": "uint8" }], "AutoMatch": { "Enabled": true, "Priority": 3, "HeaderPattern": "AA 55" } }""");
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var fp = manager.GetFingerprint("fp1");
+
+        // Assert
+        Assert.NotNull(fp);
+        Assert.Equal("AA55", fp!.HeaderHex);
+        Assert.Equal(2, fp.HeaderLength);
+        Assert.Equal(4, fp.MinLength);
+        Assert.Equal(3, fp.Priority);
+    }
+
+    [Fact]
+    public void TryResolveParserFile_RejectsNonPlainNames()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act & Assert: null / empty / (None) / traversal all rejected.
+        Assert.False(manager.TryResolveParserFile(null, ".csx", out _));
+        Assert.False(manager.TryResolveParserFile("  ", ".csx", out _));
+        Assert.False(manager.TryResolveParserFile(ParserManager.NoParserName, ".csx", out _));
+        Assert.False(manager.TryResolveParserFile("../evil", ".csx", out _));
+        Assert.False(manager.TryResolveParserFile("sub/dir", ".csx", out _));
+    }
+
+    [Fact]
+    public void TryResolveParserFile_ValidName_ResolvesUnderParserDir()
+    {
+        // Arrange
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var ok = manager.TryResolveParserFile("good_name", ".csx", out var path);
+
+        // Assert
+        Assert.True(ok);
+        Assert.Equal(Path.Combine(_tempDir, "good_name.csx"), path);
+    }
+
+    [Fact]
+    public void LastError_ReflectsFailedActivate()
+    {
+        // Arrange: script that does not compile.
+        File.WriteAllText(Path.Combine(_tempDir, "broken.csx"), "this is not valid C# !!!");
+        using var manager = new ParserManager(_tempDir);
+
+        // Act
+        var ok = manager.Activate("broken");
+
+        // Assert: activation fails and the engine error surfaces via LastError.
+        Assert.False(ok);
+        Assert.False(string.IsNullOrEmpty(manager.LastError));
+    }
+
+    [Fact]
+    public async Task HotReload_CustomDispatcher_IsUsedForReload()
+    {
+        // Arrange: activate a parser with a dispatch recorder.
+        var parserPath = Path.Combine(_tempDir, "dp.csx");
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var manager = new ParserManager(_tempDir, dispatch: action =>
+        {
+            dispatched.TrySetResult();
+            action();
+        });
+        Assert.True(manager.Activate("dp"));
+        var reloaded = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        manager.OnParserReloaded += name => reloaded.TrySetResult(name);
+
+        // Act: touch the file to trigger the debounced reload.
+        File.WriteAllText(parserPath, "return new List<FieldAnnotation>();");
+
+        // Assert: reload ran and went through the custom dispatcher.
+        Assert.Equal("dp", await reloaded.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 }

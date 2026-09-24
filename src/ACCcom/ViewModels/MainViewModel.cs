@@ -95,14 +95,61 @@ public class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>false = single combined RX+TX list (default); true = classic split.
+    /// Persisted immediately so the next launch opens in the same layout.</summary>
+    public bool SplitDataPanes
+    {
+        get => _dataFlow.SplitDataPanes;
+        set
+        {
+            if (_dataFlow.SplitDataPanes == value) return;
+            _dataFlow.SplitDataPanes = value;
+            _settings.SplitDataPanes = value;
+            _settingsService.Save(_settings);
+        }
+    }
+
+    private double _dataPaneSplitRatio = 0.5;
+    /// <summary>RX column share of the split data panes (0..1). Written by the
+    /// pane GridSplitter on drag end; persisted on window close.</summary>
+    public double DataPaneSplitRatio
+    {
+        get => _dataPaneSplitRatio;
+        set => SetField(ref _dataPaneSplitRatio, double.IsNaN(value) ? 0.5 : Math.Clamp(value, 0.1, 0.9));
+    }
+
     private bool _isDarkTheme;
     public bool IsDarkTheme { get => _isDarkTheme; set => SetField(ref _isDarkTheme, value); }
 
     // ===== Theme selection =====
-    public sealed record ThemeOption(string Id, string Name, System.Windows.Media.Color Accent);
+    public sealed record ThemeOption(
+        string Id,
+        string Name,
+        string Description,
+        System.Windows.Media.Color Accent,
+        System.Windows.Media.Color Bg,
+        System.Windows.Media.Color Surface,
+        System.Windows.Media.Color Ink,
+        System.Windows.Media.Color InkSoft,
+        System.Windows.Media.Color Good,
+        System.Windows.Media.Color Bad);
 
     private ObservableCollection<ThemeOption> _themes = new();
     public ObservableCollection<ThemeOption> Themes => _themes;
+
+    private string _selectedThemeName = "";
+    public string SelectedThemeName
+    {
+        get => _selectedThemeName;
+        private set => SetField(ref _selectedThemeName, value);
+    }
+
+    private System.Windows.Media.Color _selectedThemeAccent = System.Windows.Media.Colors.Gray;
+    public System.Windows.Media.Color SelectedThemeAccent
+    {
+        get => _selectedThemeAccent;
+        private set => SetField(ref _selectedThemeAccent, value);
+    }
 
     private string _selectedTheme = "Dark";
     public string SelectedTheme
@@ -123,16 +170,37 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.Theme = _selectedTheme;
         _settings.IsDarkTheme = IsDarkTheme;
         _settingsService.Save(_settings);
+        // Highlight foregrounds are contrast-compensated against the theme
+        // background at convert time; re-notify buffered rows so their
+        // Foreground bindings re-run under the freshly swapped dictionary.
+        _highlights.RefreshExisting();
     }
 
     private void BuildThemeOptions()
     {
         var selected = _selectedTheme;
         _themes = new ObservableCollection<ThemeOption>(
-            Helpers.ThemeManager.ThemeIds.Select(id => new ThemeOption(
-                id,
-                Helpers.ThemeManager.GetDisplayName(id),
-                Helpers.ThemeManager.GetAccent(id))));
+            Helpers.ThemeManager.ThemeIds.Select(id =>
+            {
+                var preview = Helpers.ThemeManager.GetPreview(id);
+                return new ThemeOption(
+                    id,
+                    Helpers.ThemeManager.GetDisplayName(id),
+                    Helpers.ThemeManager.GetDescription(id),
+                    preview.Accent,
+                    preview.Bg,
+                    preview.Surface,
+                    preview.Ink,
+                    preview.InkSoft,
+                    preview.Good,
+                    preview.Bad);
+            }));
+        var current = _themes.FirstOrDefault(t => t.Id == selected) ?? _themes.FirstOrDefault();
+        if (current != null)
+        {
+            SelectedThemeName = current.Name;
+            SelectedThemeAccent = current.Accent;
+        }
         OnPropertyChanged(nameof(Themes));
         OnPropertyChanged(nameof(SelectedTheme));
     }
@@ -182,6 +250,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
     public ICommand ToggleThemeCommand { get; }
     public ICommand ToggleRecordingCommand { get; }
+    public ICommand ToggleQuickSendSidebarCommand { get; }
     public ICommand OpenHighlightCommand { get; }
     public ICommand OpenProtocolTestCommand { get; }
     public ICommand OpenVirtualSerialCommand { get; }
@@ -190,6 +259,8 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenShortcutsCommand { get; }
     public ICommand OpenRecordingsFolderCommand { get; }
     public ICommand OpenMcpTrafficCommand { get; }
+    public ICommand OpenThemeGalleryCommand { get; }
+    private ThemeGalleryWindow? _themeGalleryWindow;
     private McpTrafficWindow? _mcpTrafficWindow;
     public HighlightViewModel Highlights => _highlights;
     public ProtocolTestViewModel? ProtocolTest => _protocolTest;
@@ -256,6 +327,7 @@ public class MainViewModel : ObservableObject, IDisposable
 
         ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
         ToggleRecordingCommand = new RelayCommand(_ => ToggleRecording());
+        ToggleQuickSendSidebarCommand = new RelayCommand(_ => ShowQuickSendSidebar = !ShowQuickSendSidebar);
         OpenHighlightCommand = new RelayCommand(_ => OpenHighlightWindow());
         OpenProtocolTestCommand = new RelayCommand(_ => OpenProtocolTestWindow());
         OpenVirtualSerialCommand = new RelayCommand(_ => OpenVirtualSerialWindow());
@@ -265,6 +337,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenShortcutsCommand = new RelayCommand(_ => OpenShortcutsWindow());
         OpenRecordingsFolderCommand = new RelayCommand(_ => OpenRecordingsFolder());
         OpenMcpTrafficCommand = new RelayCommand(_ => OpenMcpTrafficWindow());
+        OpenThemeGalleryCommand = new RelayCommand(_ => OpenThemeGalleryWindow());
 
         OpenFrameAssemblerConfigCommand = new RelayCommand(_ => OpenFrameAssemblerConfig());
         OpenDashboardCommand = new RelayCommand(_ => OpenDashboard());
@@ -348,6 +421,9 @@ public class MainViewModel : ObservableObject, IDisposable
         EnableRxTimestamp = _settings.EnableRxTimestamp;
         EnableTxTimestamp = _settings.EnableTxTimestamp;
         IsDarkTheme = _settings.IsDarkTheme;
+        _dataPaneSplitRatio = double.IsNaN(_settings.DataPaneSplitRatio) || _settings.DataPaneSplitRatio <= 0
+            ? 0.5
+            : Math.Clamp(_settings.DataPaneSplitRatio, 0.1, 0.9);
         // Restore theme: new string setting wins; fall back to legacy bool.
         _selectedTheme = !string.IsNullOrEmpty(_settings.Theme) && Helpers.ThemeManager.Exists(_settings.Theme)
             ? _settings.Theme
@@ -360,6 +436,7 @@ public class MainViewModel : ObservableObject, IDisposable
             if (e.PropertyName is "Item[]" or "Item") BuildThemeOptions();
         };
         _showQuickSendSidebar = _settings.ShowQuickSendSidebar;
+        _dataFlow.SplitDataPanes = _settings.SplitDataPanes;
         _connection.SelectedLanguage = _settings.Language;
         LanguageManager.Instance.LoadLanguage(_settings.Language);
         Stage("language");
@@ -411,6 +488,27 @@ public class MainViewModel : ObservableObject, IDisposable
                     StatusText = string.Format(LanguageManager.Instance["Status.HttpStartFailed"], ex.Message));
             }
         });
+    }
+
+    /// <summary>Opens the theme gallery (or focuses it). A fresh view-model is
+    /// built on every open so names/descriptions always match the current
+    /// language; picking a card applies the theme live via SelectedTheme.
+    /// </summary>
+    private void OpenThemeGalleryWindow()
+    {
+        if (_themeGalleryWindow != null)
+        {
+            _themeGalleryWindow.Activate();
+            return;
+        }
+        _themeGalleryWindow = new ThemeGalleryWindow(
+            new ThemeGalleryViewModel(Themes, SelectedTheme, id => SelectedTheme = id))
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        _themeGalleryWindow.Closed += (_, _) => _themeGalleryWindow = null;
+        _themeGalleryWindow.Show();
+        StatusText = LanguageManager.Instance["Status.ThemeGalleryOpened"];
     }
 
     private void OpenShortcutsWindow()
@@ -635,6 +733,7 @@ public class MainViewModel : ObservableObject, IDisposable
     public string FrameInterval { get => _dataFlow.FrameInterval; set => _dataFlow.FrameInterval = value; }
     public string RxFilterText { get => _dataFlow.RxFilterText; set => _dataFlow.RxFilterText = value; }
     public string TxFilterText { get => _dataFlow.TxFilterText; set => _dataFlow.TxFilterText = value; }
+    public string AllFilterText { get => _dataFlow.AllFilterText; set => _dataFlow.AllFilterText = value; }
     public bool IsRegexFilter { get => _dataFlow.IsRegexFilter; set => _dataFlow.IsRegexFilter = value; }
     public bool UseExpressionFilter { get => _dataFlow.UseExpressionFilter; set => _dataFlow.UseExpressionFilter = value; }
     public bool JumpToRxMatch(bool forward) => _dataFlow.JumpToMatch(forward);
@@ -642,8 +741,13 @@ public class MainViewModel : ObservableObject, IDisposable
     public bool ShowTx { get => _dataFlow.ShowTx; set => _dataFlow.ShowTx = value; }
     public ListCollectionView? FilteredRxEntries => _dataFlow.FilteredRxEntries;
     public ListCollectionView? FilteredTxEntries => _dataFlow.FilteredTxEntries;
+    public ListCollectionView? FilteredAllEntries => _dataFlow.FilteredAllEntries;
     public bool AutoScrollRx { get => _dataFlow.AutoScrollRx; set => _dataFlow.AutoScrollRx = value; }
     public bool AutoScrollTx { get => _dataFlow.AutoScrollTx; set => _dataFlow.AutoScrollTx = value; }
+    public bool AutoScrollAll { get => _dataFlow.AutoScrollAll; set => _dataFlow.AutoScrollAll = value; }
+    public bool IsHexDisplayAll { get => _dataFlow.IsHexDisplayAll; set => _dataFlow.IsHexDisplayAll = value; }
+    public bool EnableTimestampAll { get => _dataFlow.EnableTimestampAll; set => _dataFlow.EnableTimestampAll = value; }
+    public int AllCount => _dataFlow.AllCount;
     public string SelectedParser { get => _dataFlow.SelectedParser; set => _dataFlow.SelectedParser = value; }
     public ObservableCollection<string> AvailableParsers => _dataFlow.AvailableParsers;
     public LogEntry? SelectedEntry { get => _dataFlow.SelectedEntry; set => _dataFlow.SelectedEntry = value; }
@@ -683,6 +787,10 @@ public class MainViewModel : ObservableObject, IDisposable
     public ICommand SaveTxCsvCommand => _dataFlow.SaveTxCsvCommand;
     public ICommand SaveRxPcapCommand => _dataFlow.SaveRxPcapCommand;
     public ICommand SaveTxPcapCommand => _dataFlow.SaveTxPcapCommand;
+    public ICommand SaveAllTxtCommand => _dataFlow.SaveAllTxtCommand;
+    public ICommand SaveAllJsonCommand => _dataFlow.SaveAllJsonCommand;
+    public ICommand SaveAllCsvCommand => _dataFlow.SaveAllCsvCommand;
+    public ICommand SaveAllPcapCommand => _dataFlow.SaveAllPcapCommand;
     public ICommand OpenParserDirCommand => _dataFlow.OpenParserDirCommand;
     public ICommand CompareFramesCommand => _dataFlow.CompareFramesCommand;
     public ICommand OpenFrameAssemblerConfigCommand { get; }
@@ -842,6 +950,8 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.IsHexDisplayTx = _dataFlow.IsHexDisplayTx;
         _settings.EnableRxTimestamp = _dataFlow.EnableRxTimestamp;
         _settings.EnableTxTimestamp = _dataFlow.EnableTxTimestamp;
+        _settings.SplitDataPanes = _dataFlow.SplitDataPanes;
+        _settings.DataPaneSplitRatio = DataPaneSplitRatio;
         // Persist the in-memory send history (newest last) back to settings.
         _dataFlow.PersistSendHistory();
         _settingsService.Save(_settings);

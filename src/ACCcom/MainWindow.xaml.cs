@@ -78,12 +78,20 @@ public partial class MainWindow : Window
         {
             // FlushPendingEntries appends a whole batch per 30ms tick; scrolling
             // once here instead of once per added item avoids N ScrollToBottom +
-            // layout passes per frame. Each side still respects its auto-follow
-            // switch and the sticky-bottom check inside ScrollRxToEnd.
-            if (_vm.AutoScrollRx)
-                DataPanelControl.ScrollRxToEnd();
-            if (_vm.AutoScrollTx)
-                DataPanelControl.ScrollTxToEnd();
+            // layout passes per frame. Combined mode scrolls the merged list;
+            // split mode still respects each side's auto-follow switch and the
+            // sticky-bottom check inside Scroll*ToEnd.
+            if (_vm.DataFlow.SplitDataPanes)
+            {
+                if (_vm.AutoScrollRx)
+                    DataPanelControl.ScrollRxToEnd();
+                if (_vm.AutoScrollTx)
+                    DataPanelControl.ScrollTxToEnd();
+            }
+            else if (_vm.AutoScrollAll)
+            {
+                DataPanelControl.ScrollAllToEnd();
+            }
         };
     }
 
@@ -133,6 +141,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Ctrl+Q: Toggle the quick-send sidebar (same as the toolbar ☰ toggle).
+        if (mods == ModifierKeys.Control && e.Key == Key.Q)
+        {
+            _vm.ShowQuickSendSidebar = !_vm.ShowQuickSendSidebar;
+            e.Handled = true;
+            return;
+        }
+
         // Alt+1~9: Send quick command by index
         if (mods == ModifierKeys.Alt)
         {
@@ -157,9 +173,15 @@ public partial class MainWindow : Window
             }
         }
 
-        // Ctrl+C: Copy selected entries
+        // Ctrl+C: Copy selected entries (active list: combined, RX, or TX)
         if (e.Key == Key.C && mods == ModifierKeys.Control)
         {
+            if (DataPanelControl.AllListBoxControl.IsKeyboardFocusWithin && DataPanelControl.AllListBoxControl.SelectedItems.Count > 0)
+            {
+                DataPanelControl.CopyAllSelected();
+                e.Handled = true;
+                return;
+            }
             if (DataPanelControl.RxListBoxControl.IsKeyboardFocusWithin && DataPanelControl.RxListBoxControl.SelectedItems.Count > 0)
             {
                 DataPanelControl.CopyRxSelected();
@@ -204,13 +226,13 @@ public partial class MainWindow : Window
             _vm.DataFlow.IsHexSend = !_vm.DataFlow.IsHexSend;
             e.Handled = true;
         }
-        // F3 / Shift+F3: Jump to the next / previous RX entry that matches the
-        // current search filter. Mirrors the standard editor find-next behaviour.
+        // F3 / Shift+F3: Jump to the next / previous matching entry. Combined
+        // mode searches the merged list; split mode keeps the classic RX jump.
         else if (e.Key == Key.F3 && mods == ModifierKeys.None)
         {
             if (_vm.JumpToRxMatch(forward: true))
             {
-                DataPanelControl.RxListBoxControl.ScrollIntoView(_vm.DataFlow.SelectedEntry);
+                ScrollJumpIntoView();
                 e.Handled = true;
             }
         }
@@ -218,7 +240,7 @@ public partial class MainWindow : Window
         {
             if (_vm.JumpToRxMatch(forward: false))
             {
-                DataPanelControl.RxListBoxControl.ScrollIntoView(_vm.DataFlow.SelectedEntry);
+                ScrollJumpIntoView();
                 e.Handled = true;
             }
         }
@@ -316,18 +338,30 @@ public partial class MainWindow : Window
 
     private void ApplySidebarVisibility()
     {
+        // Drive both hosts from one place so the sidebar and the collapsed rail
+        // can never show at the same time (they share Grid.Column 2).
         if (!_vm.ShowQuickSendSidebar)
         {
-            // Remember the dragged width before collapsing.
-            if (!double.IsNaN(SidebarColumn.ActualWidth) && SidebarColumn.ActualWidth > 0)
+            // Remember the dragged width before collapsing to the rail.
+            if (!double.IsNaN(SidebarColumn.ActualWidth) && SidebarColumn.ActualWidth > 40)
                 _vm.Settings.QuickSendSidebarWidth = SidebarColumn.ActualWidth;
-            SidebarColumn.Width = new GridLength(0);
+            SidebarColumn.Width = new GridLength(28);
+            SidebarSplitter.Visibility = Visibility.Collapsed;
+            QuickSendSidebarHost.Visibility = Visibility.Collapsed;
+            QuickSendRail.Visibility = Visibility.Visible;
         }
         else
         {
-            SidebarColumn.Width = new GridLength(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260);
+            SidebarColumn.Width = new GridLength(
+                Math.Clamp(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260, 180, 420));
+            SidebarSplitter.Visibility = Visibility.Visible;
+            QuickSendSidebarHost.Visibility = Visibility.Visible;
+            QuickSendRail.Visibility = Visibility.Collapsed;
         }
     }
+
+    private void QuickSendRail_Click(object sender, MouseButtonEventArgs e)
+        => _vm.ShowQuickSendSidebar = true;
 
     protected override void OnClosed(EventArgs e)
     {
@@ -362,16 +396,36 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Used by Ctrl+1 / Ctrl+2 to move keyboard focus to the appropriate
-    /// data-panel search box. The ListBox itself is focused first to ensure the
-    /// panel scrolls into view on a tiny window, then the search box takes focus
-    /// with the existing text selected so the user can start typing immediately.</summary>
+    /// data-panel search box. Combined mode focuses the merged search; split mode
+    /// keeps RX/TX. The ListBox itself is focused first to ensure the panel
+    /// scrolls into view on a tiny window, then the search box takes focus with
+    /// the existing text selected so the user can start typing immediately.</summary>
     private void FocusDataPanelSearch(bool rx)
     {
+        if (!_vm.DataFlow.SplitDataPanes)
+        {
+            DataPanelControl.AllListBoxControl.Focus();
+            DataPanelControl.AllSearchBoxControl.Focus();
+            DataPanelControl.AllSearchBoxControl.SelectAll();
+            return;
+        }
         var listBox = rx ? DataPanelControl.RxListBoxControl : DataPanelControl.TxListBoxControl;
         var search = rx ? DataPanelControl.RxSearchBoxControl : DataPanelControl.TxSearchBoxControl;
         listBox.Focus();
         search.Focus();
         search.SelectAll();
+    }
+
+    /// <summary>Scrolls the list that owns the current JumpToMatch selection
+    /// (merged list when unsplit, RX list when split).</summary>
+    private void ScrollJumpIntoView()
+    {
+        var selected = _vm.DataFlow.SelectedEntry;
+        if (selected == null) return;
+        if (_vm.DataFlow.SplitDataPanes)
+            DataPanelControl.RxListBoxControl.ScrollIntoView(selected);
+        else
+            DataPanelControl.AllListBoxControl.ScrollIntoView(selected);
     }
 
     private void HistoryItem_Click(object sender, RoutedEventArgs e)

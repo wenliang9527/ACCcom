@@ -170,7 +170,7 @@ public class SerialService : ISerialService, IDisposable
                 string hexStr;
                 if (isHex)
                 {
-                    hexStr = data.Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\n", "");
+                    hexStr = HexHelper.BytesToHexSpaced(hexBytes, 0, hexBytes.Length);
                     _port.Write(hexBytes, 0, hexBytes.Length);
                     sentBytes = hexBytes.Length;
                 }

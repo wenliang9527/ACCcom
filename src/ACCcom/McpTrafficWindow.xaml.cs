@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using ACCcom.Core.Services;
 using ACCcom.Helpers;
 
@@ -19,6 +21,7 @@ public partial class McpTrafficWindow : Window
 {
     private sealed class TrafficRow
     {
+        public int Id { get; init; }
         public string Time { get; init; } = "";
         public string Direction { get; init; } = "";
         public string Tool { get; init; } = "";
@@ -32,16 +35,32 @@ public partial class McpTrafficWindow : Window
     /// pre-existing log can never grow the collection beyond it mid-load.</summary>
     private const int MaxRows = 2000;
 
+    /// <summary>Coalescing interval for FileSystemWatcher bursts: the MCP process
+    /// flushes per line, so a fast AI session raises dozens of Changed events per
+    /// second. Batching keeps the UI thread to ~5 refreshes/sec.</summary>
+    private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(200);
+
     private readonly ObservableCollection<TrafficRow> _allRows = new();
     private readonly ListCollectionView _filteredView;
+    private readonly ObservableCollection<string> _tagOptions = new();
+    private readonly HashSet<string> _knownTags = new(StringComparer.Ordinal);
     private readonly string _logPath;
     private readonly FileSystemWatcher? _watcher;
+    private readonly DispatcherTimer _debounceTimer;
     private long _readOffset;
     private bool _scrolledToEnd = true;
     private bool _loadingExisting;
+    private bool _paused;
+    private bool _loadPending;
     private string _directionFilter = ""; // "", "RX", "TX"
+    private string _tagFilter = ""; // "" = all tags
     private string _searchText = "";
     private bool _hexMode;
+    private DateTime _lastUpdateUtc = DateTime.MinValue;
+    private bool _updatingFollow;
+    private string? _flashText;
+
+    private readonly DispatcherTimer _flashTimer;
 
     public McpTrafficWindow()
     {
@@ -52,16 +71,44 @@ public partial class McpTrafficWindow : Window
         WindowHelper.AttachWindowState(this, "McpTrafficWindow");
         RestoreColumnWidths();
 
+        _flashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
+        _flashTimer.Tick += (_, _) =>
+        {
+            _flashTimer.Stop();
+            _flashText = null;
+            UpdateStatus();
+        };
+
         // Filtered view on top of the raw collection so the direction filter,
         // the search box and the HEX toggle can re-render without touching the
         // tail buffer.
         _filteredView = (ListCollectionView)CollectionViewSource.GetDefaultView(_allRows);
         _filteredView.Filter = row => Matches((TrafficRow)row);
         TrafficList.ItemsSource = _filteredView;
-        UpdateRowCount();
+        // ScrollChanged is raised by the inner ScrollViewer and bubbles; ListBox
+        // doesn't expose it as a CLR event, so hook it via AddHandler.
+        TrafficList.AddHandler(ScrollViewer.ScrollChangedEvent,
+            new ScrollChangedEventHandler(TrafficList_ScrollChanged));
+        RebuildTagOptions();
+        UpdateStatus();
 
         // Load whatever is already in the log, then watch for new lines.
         LoadExistingLines();
+
+        _debounceTimer = new DispatcherTimer { Interval = DebounceInterval };
+        _debounceTimer.Tick += (_, _) =>
+        {
+            _debounceTimer.Stop();
+            if (_loadPending && !_paused)
+            {
+                _loadPending = false;
+                LoadNewLines();
+            }
+            else
+            {
+                _loadPending = false;
+            }
+        };
 
         var dir = Path.GetDirectoryName(_logPath);
         if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
@@ -70,18 +117,50 @@ public partial class McpTrafficWindow : Window
             {
                 NotifyFilter = NotifyFilters.Size | NotifyFilters.LastWrite
             };
-            _watcher.Changed += (_, _) => Dispatcher.BeginInvoke(LoadNewLines);
+            _watcher.Changed += (_, _) => Dispatcher.BeginInvoke(RequestDebouncedLoad);
             _watcher.EnableRaisingEvents = true;
         }
+    }
+
+    private void RequestDebouncedLoad()
+    {
+        if (_paused) return;
+        _loadPending = true;
+        // Restart the window so a burst of writes produces one refresh.
+        _debounceTimer.Stop();
+        _debounceTimer.Start();
     }
 
     private bool Matches(TrafficRow row)
     {
         if (_directionFilter.Length > 0 && row.Direction != _directionFilter) return false;
+        if (_tagFilter.Length > 0 && row.Tag != _tagFilter) return false;
         if (_searchText.Length == 0) return true;
         return row.Payload.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
             || row.Tool.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-            || row.Tag.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+            || row.Tag.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || row.Time.Contains(_searchText, StringComparison.Ordinal)
+            || row.Id.ToString().Contains(_searchText, StringComparison.Ordinal);
+    }
+
+    /// <summary>Rebuilds the tag dropdown: the All placeholder plus one entry per
+    /// port tag seen so far. Preserves the current selection.</summary>
+    private void RebuildTagOptions()
+    {
+        var allLabel = LanguageManager.Instance["McpTraffic.TagAll"];
+        _tagOptions.Clear();
+        _tagOptions.Add(allLabel);
+        foreach (var tag in _knownTags.OrderBy(t => t, StringComparer.Ordinal))
+            _tagOptions.Add(string.IsNullOrEmpty(tag) ? allLabel : tag);
+        if (TagFilterBox.ItemsSource == null)
+            TagFilterBox.ItemsSource = _tagOptions;
+        TagFilterBox.SelectedIndex = string.IsNullOrEmpty(_tagFilter) ? 0 : Math.Max(0, _tagOptions.IndexOf(_tagFilter));
+    }
+
+    private void NoteTag(string tag)
+    {
+        if (_knownTags.Add(tag))
+            RebuildTagOptions();
     }
 
     private void LoadExistingLines()
@@ -106,14 +185,13 @@ public partial class McpTrafficWindow : Window
             if (lines.Count > MaxRows)
                 lines.RemoveRange(0, lines.Count - MaxRows);
             _readOffset = fs.Length;
-            foreach (var line in lines)
-                AppendLine(line);
+            AddRowsBatch(lines);
         }
         catch { /* file may be locked or deleted mid-read; skip gracefully */ }
         finally
         {
             _loadingExisting = false;
-            UpdateRowCount();
+            UpdateStatus();
             if (TrafficList.Items.Count > 0 && _scrolledToEnd)
                 TrafficList.ScrollIntoView(TrafficList.Items[^1]);
         }
@@ -121,13 +199,20 @@ public partial class McpTrafficWindow : Window
 
     private void LoadNewLines()
     {
+        if (_paused) return;
+        List<string> lines;
         try
         {
             using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            // Rotation truncates the file: a stale offset past EOF means the log
+            // was rotated — re-read from the start.
+            if (_readOffset > fs.Length)
+                _readOffset = 0;
             fs.Seek(_readOffset, SeekOrigin.Begin);
             using var reader = new StreamReader(fs);
+            lines = new List<string>(256);
             while (reader.ReadLine() is { } line)
-                AppendLine(line);
+                lines.Add(line);
             _readOffset = fs.Length;
         }
         catch
@@ -135,7 +220,58 @@ public partial class McpTrafficWindow : Window
             // Rotation deletes the file between events; drop the stale offset and
             // re-read from the start on the next event.
             _readOffset = 0;
+            return;
         }
+        if (lines.Count == 0) return;
+        AddRowsBatch(lines);
+    }
+
+    /// <summary>Parses lines and appends them to the tail buffer. Tag dropdown
+    /// rebuild is deferred to after the mutations: ListCollectionView throws
+    /// "cannot change or check contents during deferred Refresh" if a CollectionChanged
+    /// (or a re-entrant Refresh/Count from SelectionChanged) runs inside DeferRefresh,
+    /// which previously left the view stale until an explicit HEX Refresh.</summary>
+    private void AddRowsBatch(List<string> lines)
+    {
+        var added = 0;
+        var sawNewTag = false;
+        foreach (var line in lines)
+        {
+            if (!TrafficLogParser.TryParseLine(line, out var entry)) continue;
+            _allRows.Add(new TrafficRow
+            {
+                Id = entry.Id,
+                Time = entry.Time,
+                Direction = entry.Direction,
+                Tool = entry.Tool,
+                Tag = entry.Tag,
+                Text = entry.Text,
+                Hex = entry.Hex,
+                Payload = _hexMode ? entry.Hex : BuildPayload(entry.Text, entry.Hex)
+            });
+            // Only record the tag here; rebuilding the ComboBox mid-batch fires
+            // SelectionChanged → RefreshRows → Count/Refresh while the view may
+            // still be processing the add above.
+            if (_knownTags.Add(entry.Tag)) sawNewTag = true;
+            added++;
+        }
+
+        // Keep the list bounded; drop oldest rows past MaxRows in one pass.
+        var overflow = _allRows.Count - MaxRows;
+        for (var i = 0; i < overflow; i++)
+            _allRows.RemoveAt(0);
+
+        if (sawNewTag) RebuildTagOptions();
+
+        if (added == 0) return;
+        _lastUpdateUtc = DateTime.UtcNow;
+
+        // During the batch startup load the per-row count/scroll work is
+        // deferred to LoadExistingLines' finally block — one pass, not 2000.
+        if (_loadingExisting) return;
+        UpdateStatus();
+        if (TrafficList.Items.Count > 0 && _scrolledToEnd)
+            TrafficList.ScrollIntoView(TrafficList.Items[^1]);
     }
 
     private void AppendLine(string line)
@@ -143,6 +279,7 @@ public partial class McpTrafficWindow : Window
         if (!TrafficLogParser.TryParseLine(line, out var entry)) return;
         _allRows.Add(new TrafficRow
         {
+            Id = entry.Id,
             Time = entry.Time,
             Direction = entry.Direction,
             Tool = entry.Tool,
@@ -151,6 +288,7 @@ public partial class McpTrafficWindow : Window
             Hex = entry.Hex,
             Payload = _hexMode ? entry.Hex : BuildPayload(entry.Text, entry.Hex)
         });
+        NoteTag(entry.Tag);
 
         // Keep the list bounded; drop oldest rows past MaxRows.
         if (_allRows.Count > MaxRows)
@@ -159,7 +297,8 @@ public partial class McpTrafficWindow : Window
         // During the batch startup load the per-row count/scroll work is
         // deferred to LoadExistingLines' finally block — one pass, not 2000.
         if (_loadingExisting) return;
-        UpdateRowCount();
+        _lastUpdateUtc = DateTime.UtcNow;
+        UpdateStatus();
         if (TrafficList.Items.Count > 0 && _scrolledToEnd)
             TrafficList.ScrollIntoView(TrafficList.Items[^1]);
     }
@@ -184,13 +323,217 @@ public partial class McpTrafficWindow : Window
             TrafficList.ScrollIntoView(TrafficList.Items[^1]);
     }
 
-    private void UpdateRowCount()
+    private void UpdateStatus()
     {
         var visible = _filteredView.Count;
-        RowCountText.Text = _directionFilter.Length == 0 && _searchText.Length == 0
-            ? $"{visible}"
-            : $"{visible} / {_allRows.Count}";
+        RowCountText.Text = _directionFilter.Length == 0 && _tagFilter.Length == 0 && _searchText.Length == 0
+            ? string.Format(LanguageManager.Instance["McpTraffic.RowsAll"], visible)
+            : string.Format(LanguageManager.Instance["McpTraffic.RowsFiltered"], visible, _allRows.Count);
+
+        if (ExportButton != null)
+            ExportButton.IsEnabled = visible > 0;
+
+        var rx = 0;
+        var tx = 0;
+        foreach (var row in _allRows)
+        {
+            if (row.Direction == "RX") rx++;
+            else if (row.Direction == "TX") tx++;
+        }
+        var rxTxPart = $"RX {rx} · TX {tx} · ";
+
+        string filePart;
+        try
+        {
+            var info = new FileInfo(_logPath);
+            filePart = info.Exists ? $"{info.Length / 1024.0:F1} KB" : "—";
+        }
+        catch
+        {
+            filePart = "—";
+        }
+
+        var updatedPart = _lastUpdateUtc == DateTime.MinValue
+            ? LanguageManager.Instance["McpTraffic.NeverUpdated"]
+            : _lastUpdateUtc.ToLocalTime().ToString("HH:mm:ss");
+        var pausedPart = _paused ? $" · {LanguageManager.Instance["McpTraffic.Paused"]}" : "";
+        var text = $"{rxTxPart}{filePart} · {updatedPart}{pausedPart}";
+        StatusText.Text = _flashText == null ? text : $"{_flashText} · {text}";
+
+        var statusKey = _paused ? "StatusWarningBrush" : "InkTertiaryBrush";
+        if (TryFindResource(statusKey) is Brush brush)
+            StatusText.Foreground = brush;
     }
+
+    private void FlashStatus(string text)
+    {
+        _flashText = text;
+        UpdateStatus();
+        _flashTimer.Stop();
+        _flashTimer.Start();
+    }
+
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
+
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var mods = Keyboard.Modifiers;
+
+        // Ctrl+F: focus the filter box (skip when already typing in a text field
+        // so SelectAll doesn't fight the caret).
+        if (e.Key == Key.F && mods == ModifierKeys.Control)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        // Esc: clear the filter when it has text (also handled inside the box;
+        // this covers Esc from anywhere else in the window).
+        if (e.Key == Key.Escape && mods == ModifierKeys.None && !string.IsNullOrEmpty(SearchBox.Text))
+        {
+            SearchBox.Clear();
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+C: copy the selected row — but leave native TextBox copy alone.
+        if (e.Key == Key.C && mods == ModifierKeys.Control)
+        {
+            if (Keyboard.FocusedElement is TextBox) return;
+            if (TrafficList.SelectedItem is TrafficRow row)
+            {
+                CopyRowPayload(row);
+                e.Handled = true;
+            }
+            return;
+        }
+
+        // Ctrl+E: export the filtered view.
+        if (e.Key == Key.E && mods == ModifierKeys.Control)
+        {
+            Export_Click(sender, e);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Scroll position drives the follow-tail checkbox: scrolling away
+    /// from the bottom unchecks it, scrolling back re-enables live tailing.
+    /// Extent-only changes (rows appended below) are ignored so a live tail
+    /// doesn't flicker off between the append and the follow-scroll.</summary>
+    private void TrafficList_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_updatingFollow) return;
+        if (e.VerticalChange == 0 && e.ViewportHeightChange == 0) return;
+        var atBottom = e.ExtentHeight - e.VerticalOffset - e.ViewportHeight <= 2;
+        if ((FollowTail.IsChecked == true) == atBottom) return;
+        _updatingFollow = true;
+        try
+        {
+            FollowTail.IsChecked = atBottom;
+            _scrolledToEnd = atBottom;
+        }
+        finally
+        {
+            _updatingFollow = false;
+        }
+    }
+
+    private void TrafficList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+            CopyRowPayload(row);
+    }
+
+    /// <summary>Right-click selects the row under the cursor so the context menu
+    /// acts on what the user pointed at, not the previous selection.</summary>
+    private void TrafficList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (TrafficList.InputHitTest(e.GetPosition(TrafficList)) is not DependencyObject hit) return;
+        DependencyObject? dep = hit;
+        while (dep != null && dep is not ListViewItem)
+            dep = VisualTreeHelper.GetParent(dep);
+        if (dep is ListViewItem item)
+        {
+            item.Focus();
+            item.IsSelected = true;
+        }
+    }
+
+    private void TrafficContext_Opened(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is not TrafficRow row)
+        {
+            CtxFilterTag.IsEnabled = false;
+            return;
+        }
+        CtxFilterTag.IsEnabled = !string.IsNullOrEmpty(row.Tag);
+        CtxFilterTag.Header = string.Format(
+            LanguageManager.Instance["McpTraffic.FilterByTagFormat"], row.Tag);
+    }
+
+    private void CtxCopyText_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+            TryCopyToClipboard(row.Text);
+    }
+
+    private void CtxCopyHex_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+            TryCopyToClipboard(row.Hex);
+    }
+
+    private void CtxCopyRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+            TryCopyToClipboard(AssembledRowText(row));
+    }
+
+    private void CtxFilterTag_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is not TrafficRow row || string.IsNullOrEmpty(row.Tag)) return;
+        var idx = _tagOptions.IndexOf(row.Tag);
+        if (idx >= 0)
+            TagFilterBox.SelectedIndex = idx;
+    }
+
+    private void CopyDetailText_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(DetailTextBox.Text))
+            TryCopyToClipboard(DetailTextBox.Text);
+    }
+
+    private void CopyDetailHex_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(DetailHexBox.Text))
+            TryCopyToClipboard(DetailHexBox.Text);
+    }
+
+    /// <summary>Clipboard write + brief status flash; shared by every copy path.</summary>
+    private void TryCopyToClipboard(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        try
+        {
+            Clipboard.SetText(text);
+            FlashStatus(LanguageManager.Instance["McpTraffic.Copied"]);
+        }
+        catch { /* clipboard busy — best effort */ }
+    }
+
+    private static string AssembledRowText(TrafficRow row) =>
+        $"[{row.Time}] {row.Direction} {row.Tool} {row.Tag} {row.Payload}";
+
+    private string RowPayloadForCopy(TrafficRow row) =>
+        _hexMode
+            ? row.Hex
+            : $"{row.Text}{(string.IsNullOrEmpty(row.Text) || row.Text == row.Hex ? "" : $"  [{row.Hex}]")}";
+
+    private void UpdateRowCount() => UpdateStatus();
 
     private void HexToggle_Click(object sender, RoutedEventArgs e)
     {
@@ -213,6 +556,107 @@ public partial class McpTrafficWindow : Window
         RefreshRows();
     }
 
+    private void TagFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_filteredView == null || TagFilterBox.SelectedIndex < 0) return;
+        // Index 0 is the All placeholder; otherwise the item text is the tag.
+        _tagFilter = TagFilterBox.SelectedIndex == 0 ? "" : TagFilterBox.SelectedItem as string ?? "";
+        // The default session logs an empty tag; its dropdown entry reuses the
+        // All label, so map it back to the empty filter.
+        if (_tagFilter == LanguageManager.Instance["McpTraffic.TagAll"])
+            _tagFilter = "";
+        RefreshRows();
+    }
+
+    private void PauseToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _paused = PauseToggle.IsChecked == true;
+        if (_paused)
+        {
+            _debounceTimer.Stop();
+            _loadPending = false;
+        }
+        else
+        {
+            // Catch up on anything appended while paused.
+            LoadNewLines();
+        }
+        // Swap the label through a live binding so a later language switch
+        // still tracks the current state.
+        var key = _paused ? "McpTraffic.Resume" : "McpTraffic.Pause";
+        PauseToggle.SetBinding(ContentControl.ContentProperty,
+            new Binding($"[{key}]") { Source = LanguageManager.Instance });
+        UpdateStatus();
+    }
+
+    private void TrafficList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+        {
+            DetailTextBox.Text = row.Text;
+            DetailHexBox.Text = row.Hex;
+            var parts = new List<string> { $"#{row.Id}", row.Time, row.Direction };
+            if (!string.IsNullOrEmpty(row.Tool)) parts.Add(row.Tool);
+            if (!string.IsNullOrEmpty(row.Tag)) parts.Add(row.Tag);
+            DetailMetaText.Text = string.Join(" · ", parts);
+            DetailHint.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            DetailTextBox.Text = "";
+            DetailHexBox.Text = "";
+            DetailMetaText.Text = "";
+            DetailHint.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void Copy_Click(object sender, RoutedEventArgs e)
+    {
+        if (TrafficList.SelectedItem is TrafficRow row)
+        {
+            CopyRowPayload(row);
+        }
+        else if (!string.IsNullOrEmpty(DetailTextBox.Text) || !string.IsNullOrEmpty(DetailHexBox.Text))
+        {
+            TryCopyToClipboard($"{DetailTextBox.Text}  [{DetailHexBox.Text}]");
+        }
+    }
+
+    private void CopyRowPayload(TrafficRow row) => TryCopyToClipboard(RowPayloadForCopy(row));
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        if (_filteredView.Count == 0) return;
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"mcp-traffic-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            Filter = "CSV files (*.csv)|*.csv|Text files (*.txt)|*.txt|All files (*.*)|*.*"
+        };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var isCsv = dialog.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase);
+            using var writer = new StreamWriter(dialog.FileName, false, System.Text.Encoding.UTF8);
+            if (isCsv)
+                writer.WriteLine("Id,Time,Direction,Tool,Tag,Text,Hex");
+            foreach (TrafficRow row in _filteredView)
+            {
+                if (isCsv)
+                    writer.WriteLine($"{row.Id},{CsvCell(row.Time)},{CsvCell(row.Direction)},{CsvCell(row.Tool)},{CsvCell(row.Tag)},{CsvCell(row.Text)},{CsvCell(row.Hex)}");
+                else
+                    writer.WriteLine($"[{row.Time}] {row.Direction} {row.Tool} {row.Tag} {row.Payload}");
+            }
+        }
+        catch { /* surfacing export errors via dialog is overkill; skip gracefully */ }
+    }
+
+    private static string CsvCell(string value)
+    {
+        if (value.Contains('"') || value.Contains(',') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
     private void SearchText_Changed(object sender, TextChangedEventArgs e)
     {
         // TextChanged can fire while InitializeComponent is wiring the control.
@@ -230,7 +674,7 @@ public partial class McpTrafficWindow : Window
 
     private void FollowTail_Changed(object sender, RoutedEventArgs e)
     {
-        if (TrafficList == null) return;
+        if (TrafficList == null || _updatingFollow) return;
         _scrolledToEnd = FollowTail.IsChecked == true;
         if (_scrolledToEnd && TrafficList.Items.Count > 0)
             TrafficList.ScrollIntoView(TrafficList.Items[^1]);
@@ -239,10 +683,24 @@ public partial class McpTrafficWindow : Window
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
         _allRows.Clear();
-        try { if (File.Exists(_logPath)) File.Delete(_logPath); }
+        _knownTags.Clear();
+        _tagFilter = "";
+        RebuildTagOptions();
+        DetailTextBox.Text = "";
+        DetailHexBox.Text = "";
+        DetailMetaText.Text = "";
+        DetailHint.Visibility = Visibility.Visible;
+        try
+        {
+            // Truncate instead of deleting: the MCP process holds the file open
+            // for append, and a delete/recreate cycle races with its handle.
+            using var fs = new FileStream(_logPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+            fs.SetLength(0);
+            _readOffset = 0;
+        }
         catch { /* best effort */ }
-        _readOffset = 0;
-        UpdateRowCount();
+        _lastUpdateUtc = DateTime.MinValue;
+        UpdateStatus();
     }
 
     private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
@@ -279,6 +737,8 @@ public partial class McpTrafficWindow : Window
         // Persist the user's column layout into the live settings object; the
         // main window saves it to disk on app close.
         SaveColumnWidths();
+        _debounceTimer.Stop();
+        _flashTimer.Stop();
         _watcher?.Dispose();
         base.OnClosed(e);
     }

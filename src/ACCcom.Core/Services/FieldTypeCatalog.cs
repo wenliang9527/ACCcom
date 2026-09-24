@@ -29,10 +29,18 @@ public static class FieldTypeCatalog
     /// TypeLengthMap behavior.</summary>
     private static readonly Dictionary<string, int> TypeLengthMap = new()
     {
-        ["uint8"] = 1, ["int8"] = 1, ["bcd"] = 1, ["hex"] = 1,
-        ["string"] = 1, ["enum"] = 1, ["bitfield"] = 1,
-        ["uint16"] = 2, ["int16"] = 2,
-        ["uint32"] = 4, ["int32"] = 4, ["float"] = 4,
+        ["uint8"] = 1,
+        ["int8"] = 1,
+        ["bcd"] = 1,
+        ["hex"] = 1,
+        ["string"] = 1,
+        ["enum"] = 1,
+        ["bitfield"] = 1,
+        ["uint16"] = 2,
+        ["int16"] = 2,
+        ["uint32"] = 4,
+        ["int32"] = 4,
+        ["float"] = 4,
         ["double"] = 8
     };
 

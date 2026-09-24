@@ -23,6 +23,10 @@ public partial class ShortcutsWindow : Window
         DataContext = this;
     }
 
+    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
+
+    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
+
     private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 
     private static List<ShortcutGroupDisplay> BuildGroups()

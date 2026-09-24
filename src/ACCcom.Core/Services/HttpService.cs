@@ -225,20 +225,30 @@ public class HttpService : IDisposable
 
     // ========== Multi-Port ==========
 
-    public bool MultiPortOpen(MultiPortOpenRequest req)
+    public bool MultiPortOpen(MultiPortOpenRequest? req)
     {
         if (_multiPort == null) return false;
+        if (req == null || string.IsNullOrEmpty(req.Port) || string.IsNullOrEmpty(req.Tag)) return false;
         var config = new SerialConfig
         {
-            PortName = req.Port, BaudRate = req.BaudRate, DataBits = req.DataBits,
-            StopBits = req.StopBits, Parity = req.Parity, DtrEnable = req.Dtr, RtsEnable = req.Rts
+            PortName = req.Port,
+            BaudRate = req.BaudRate,
+            DataBits = req.DataBits,
+            StopBits = req.StopBits,
+            Parity = req.Parity,
+            DtrEnable = req.Dtr,
+            RtsEnable = req.Rts
         };
         return _multiPort.OpenPort(req.Tag, config);
     }
 
-    public bool MultiPortClose(string tag) => _multiPort?.ClosePort(tag) ?? false;
+    public bool MultiPortClose(string? tag) => !string.IsNullOrEmpty(tag) && (_multiPort?.ClosePort(tag) ?? false);
 
-    public bool MultiPortSend(string tag, string data, bool isHex) => _multiPort?.SendToPort(tag, data, isHex) ?? false;
+    public bool MultiPortSend(string? tag, string? data, bool isHex)
+    {
+        if (string.IsNullOrEmpty(tag) || string.IsNullOrEmpty(data)) return false;
+        return _multiPort?.SendToPort(tag, data, isHex) ?? false;
+    }
 
     // ========== Modbus ==========
 
@@ -297,32 +307,36 @@ public class HttpService : IDisposable
         }).ToList();
     }
 
-    public string? SlaveCreate(SlaveCreateRequest req)
+    public string? SlaveCreate(SlaveCreateRequest? req)
     {
         if (_slaveService == null) return null;
+        if (req == null || string.IsNullOrEmpty(req.Transport)) return null;
         return _slaveService.CreateSlave(req.SlaveId, req.Transport, req.ConnectionParam, req.Coils, req.DiscreteInputs, req.HoldingRegisters, req.InputRegisters);
     }
 
-    public bool SlaveRemove(string slaveId)
+    public bool SlaveRemove(string? slaveId)
     {
         if (_slaveService == null) return false;
+        if (string.IsNullOrEmpty(slaveId)) return false;
         _slaveService.RemoveSlave(slaveId);
         return true;
     }
 
     public List<SlaveInfo>? SlaveList() => _slaveService?.GetActiveSlaves().ToList();
 
-    public bool SlaveWrite(SlaveWriteRequest req)
+    public bool SlaveWrite(SlaveWriteRequest? req)
     {
         if (_slaveService == null) return false;
+        if (req == null || string.IsNullOrEmpty(req.SlaveId)) return false;
         var rt = MapRegisterType(req.Type);
         _slaveService.WriteRegister(req.SlaveId, rt, req.Address, req.Value);
         return true;
     }
 
-    public (ushort value, bool ok) SlaveRead(SlaveReadRequest req)
+    public (ushort value, bool ok) SlaveRead(SlaveReadRequest? req)
     {
         if (_slaveService == null) return (0, false);
+        if (req == null || string.IsNullOrEmpty(req.SlaveId)) return (0, false);
         var rt = MapRegisterType(req.Type);
         return (_slaveService.ReadRegister(req.SlaveId, rt, req.Address), true);
     }
@@ -359,12 +373,14 @@ public class HttpService : IDisposable
     public (bool ok, string? file, string? error) RecordingStart(string? filename)
     {
         if (_recorder == null) return (false, null, "Recorder not available");
+        string? resolvedPath = null;
         if (!string.IsNullOrWhiteSpace(filename))
         {
-            if (!SafePath.TryResolveRecordingPath(filename, out _))
+            if (!SafePath.TryResolveRecordingPath(filename, out var path))
                 return (false, null, $"Invalid recording filename: '{filename}'. Use a plain file name without path separators.");
+            resolvedPath = path;
         }
-        if (_recorder.StartRecording(filename))
+        if (_recorder.StartRecording(resolvedPath ?? filename))
             return (true, _recorder.CurrentFile, null);
         return (false, _recorder.CurrentFile, null);
     }

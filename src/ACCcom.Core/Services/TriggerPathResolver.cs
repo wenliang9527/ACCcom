@@ -20,7 +20,23 @@ public static class TriggerPathResolver
     /// input is returned as an empty string so callers can short-circuit.</summary>
     public static string Resolve(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "";
-        return Path.IsPathRooted(path) ? path : Path.Combine(DataDirectory, path);
+        return TryResolve(path, out var resolved) ? resolved : "";
+    }
+
+    /// <summary>Tries to resolve <paramref name="path"/> without throwing.
+    /// Relative paths that would escape <see cref="DataDirectory"/> (e.g.
+    /// `../../evil.log`) are rejected with false.</summary>
+    public static bool TryResolve(string? path, out string resolved)
+    {
+        resolved = "";
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        if (Path.IsPathRooted(path)) { resolved = path; return true; }
+        var combined = Path.GetFullPath(Path.Combine(DataDirectory, path));
+        var baseFull = Path.GetFullPath(DataDirectory);
+        if (!combined.StartsWith(baseFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(combined, baseFull, StringComparison.OrdinalIgnoreCase))
+            return false;
+        resolved = combined;
+        return true;
     }
 }

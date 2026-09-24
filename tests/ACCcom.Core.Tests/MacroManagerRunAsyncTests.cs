@@ -271,7 +271,11 @@ public class MacroManagerRunAsyncTests : IDisposable
             s => s,
             _ => { });
 
-        await Task.Delay(100);
+        // Condition-based wait for at least 2 sends (a fixed delay flakes
+        // under parallel load when each step runs slower).
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (Volatile.Read(ref sendCount) < 2 && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
         manager.Stop();
         await task;
 

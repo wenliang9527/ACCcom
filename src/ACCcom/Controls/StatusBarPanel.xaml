@@ -32,7 +32,7 @@
         <!-- RX 计数块（点击重置） -->
         <StatusBarItem>
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                <TextBlock FontSize="11" FontFamily="Consolas" Cursor="Hand"
                            ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonUp="OnCounterClick"
                            TextDecorations="Underline">
@@ -50,8 +50,8 @@
                     <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
-                <TextBlock Text="{Binding RxRate}" FontSize="10" FontFamily="Consolas"
-                           Foreground="{DynamicResource InkTertiaryBrush}"
+                <TextBlock Text="{Binding RxRate}" FontSize="11" FontFamily="Consolas"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
                            ToolTip="{Binding [StatusBar.RxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
         </StatusBarItem>
@@ -63,7 +63,7 @@
         <!-- TX 计数块（点击重置） -->
         <StatusBarItem>
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+                <TextBlock FontSize="11" FontFamily="Consolas" Cursor="Hand"
                            ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonUp="OnCounterClick"
                            TextDecorations="Underline">
@@ -81,8 +81,8 @@
                     <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
-                <TextBlock Text="{Binding TxRate}" FontSize="10" FontFamily="Consolas"
-                           Foreground="{DynamicResource InkTertiaryBrush}"
+                <TextBlock Text="{Binding TxRate}" FontSize="11" FontFamily="Consolas"
+                           Foreground="{DynamicResource InkSecondaryBrush}"
                            ToolTip="{Binding [StatusBar.TxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
         </StatusBarItem>
@@ -93,7 +93,7 @@
 
         <!-- 错误帧计数（点击重置） -->
         <StatusBarItem>
-            <TextBlock FontSize="10" FontFamily="Consolas" Cursor="Hand"
+            <TextBlock FontSize="11" FontFamily="Consolas" Cursor="Hand"
                        ToolTip="{Binding [StatusBar.Errors], Source={x:Static local:LanguageManager.Instance}}"
                        MouseLeftButtonUp="OnCounterClick"
                        TextDecorations="Underline">
@@ -118,7 +118,7 @@
 
 <!-- 连接时长（无点击行为，纯显示） -->
         <StatusBarItem>
-            <TextBlock Text="{Binding ConnectionDuration}" FontSize="10" FontFamily="Consolas"
+            <TextBlock Text="{Binding ConnectionDuration}" FontSize="11" FontFamily="Consolas"
                        ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}"
                        Foreground="{DynamicResource InkSecondaryBrush}">
                 <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
@@ -171,7 +171,7 @@
                         </Style>
                     </Ellipse.Style>
                 </Ellipse>
-                <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{DynamicResource RedErrorBrush}" FontWeight="SemiBold">
+                <TextBlock FontSize="11" FontFamily="Consolas" Foreground="{DynamicResource RedErrorBrush}" FontWeight="SemiBold">
                     <Run Text="REC " />
                     <Run Text="{Binding RecordedCount, Mode=OneWay}" />
                 </TextBlock>
@@ -196,7 +196,7 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-                <TextBlock Text="{Binding HttpUrl}" FontSize="10" Cursor="Hand"
+                <TextBlock Text="{Binding HttpUrl}" FontSize="11" Cursor="Hand"
                            Foreground="{DynamicResource InkTertiaryBrush}"
                            ToolTip="{Binding [StatusBar.HttpUrl], Source={x:Static local:LanguageManager.Instance}}"
                            MouseLeftButtonDown="OnHttpUrlClick" />

@@ -1,5 +1,7 @@
 ## ACCCOM MCP 服务器设计文档
 
+> **⚠️ 归档文档**：本文为 MCP 服务器早期（2026-06-09）设计记录，部分内容已过时：代理模式（`--proxy`）已移除、`--parsers-dir` 参数已取消、工具已裁剪为 9 个（非 39 个），配置示例中的绝对路径请替换为本机实际路径。以 [README.md](../../README.md) 和 [集成指南](../guide/integration.md) 为准。
+
 ### 1. 目标
 
 将 ACCCOM 串口调试工具改造为标准 MCP（Model Context Protocol）服务器，让 AI 客户端（Claude Desktop、Cursor、QoderWork 等）能够：

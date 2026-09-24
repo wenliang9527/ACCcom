@@ -24,10 +24,10 @@ dotnet run --project src\ACCcom\ACCcom.csproj
 dotnet run --project src\ACCcom.McpServer\ACCcom.McpServer.csproj
 
 # 发布 WPF 单文件
-dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o dist\
+dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist\
 
 # 发布 MCP Server
-dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x64 --self-contained true -o dist-mcp\
+dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x64 --self-contained true -o dist\
 ```
 
 ## 快捷键
@@ -37,14 +37,18 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 | Enter | 发送输入框内容 |
 | Ctrl+Enter | 发送（换行用 Shift+Enter） |
 | Ctrl+S / Ctrl+Shift+S | 保存 RX / TX 数据 |
-| Ctrl+L / Ctrl+Shift+L | 清空 RX / TX 面板 |
+| Ctrl+L | 清空 RX 面板 |
+| Ctrl+Shift+L | 清空 TX 面板 |
 | Ctrl+F | 聚焦 RX 搜索框 |
-| Ctrl+D | 切换主题（7 款主题循环，也可在标题栏下拉选择） |
+| Ctrl+D | 切换主题（7 款主题循环，也可点标题栏主题按钮在画廊里挑选） |
 | Ctrl+H | 切换 HEX 显示 |
 | Ctrl+B | 添加书签 |
 | Ctrl+Left/Right | 书签前后导航 |
 | ESC | 停止循环发送 |
+| Alt+1~Alt+9 | 快捷发送当前可见列表第 1~9 条指令（受过滤影响） |
+| Ctrl+Q | 开关快捷发送侧边栏（收起后可点右侧竖条展开） |
 | F5 | 刷新可用串口列表 |
+| F1 | 打开完整快捷键窗口（以 `ShortcutCatalog` 为准） |
 
 ## 相关文档
 

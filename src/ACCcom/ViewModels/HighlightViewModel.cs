@@ -55,14 +55,30 @@ public class HighlightViewModel : ObservableObject
     public string? GetColor(LogEntry entry) => _service.GetHighlightColor(entry);
 
     /// <summary>Recompute HighlightColor for everything currently visible in
-    /// the RX / TX buffers. Called when the user finishes editing a rule so
-    /// the data panel reflects the new colors without losing scroll position.</summary>
+    /// the RX / TX buffers. Called when the user finishes editing a rule — and
+    /// after a theme switch — so the data panel reflects the new colors
+    /// without losing scroll position. HighlightColor is a plain auto-property
+    /// (hot path), so visible rows are notified explicitly; the notification is
+    /// skipped only when both the old and new value are null, because null
+    /// rows bind to a DynamicResource that already tracks the theme.</summary>
     public void RefreshExisting()
     {
         var df = _getDataFlow();
         if (df == null) return;
-        foreach (var entry in df.RxEntries) entry.HighlightColor = _service.GetHighlightColor(entry);
-        foreach (var entry in df.TxEntries) entry.HighlightColor = _service.GetHighlightColor(entry);
+        Refresh(df.RxEntries);
+        Refresh(df.TxEntries);
+
+        void Refresh(IEnumerable<LogEntry> entries)
+        {
+            foreach (var entry in entries)
+            {
+                var updated = _service.GetHighlightColor(entry);
+                var previous = entry.HighlightColor;
+                entry.HighlightColor = updated;
+                if (updated != null || previous != null)
+                    entry.NotifyHighlightChanged();
+            }
+        }
     }
 
     /// <summary>Persists an in-place-edited rule and recolors the buffered

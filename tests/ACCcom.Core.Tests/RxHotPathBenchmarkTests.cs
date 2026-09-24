@@ -11,6 +11,9 @@ namespace ACCcom.Core.Tests;
 /// slow machines or under load never flakes, while a real regression — e.g.
 /// reintroducing a lock or per-frame allocation — that cuts throughput by an
 /// order of magnitude still trips the bound.
+/// NOTE: never run these under coverage collection (coverlet instruments the
+/// measured hot loop itself and trips the bounds); CI runs them in a separate
+/// step without --collect (see .github/workflows/ci.yml).
 /// </summary>
 [Collection("SerialTcp")]
 public class RxHotPathBenchmarkTests

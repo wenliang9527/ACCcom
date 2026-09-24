@@ -29,7 +29,7 @@ public partial class PromptDialog : Window
     public static string? Show(string title, string message, string initialValue = "")
     {
         var dlg = new PromptDialog(title, message, initialValue)
-            { Owner = Application.Current.MainWindow };
+        { Owner = Application.Current.MainWindow };
         return dlg.ShowDialog() == true ? dlg.InputValue : null;
     }
 

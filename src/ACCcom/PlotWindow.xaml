@@ -6,7 +6,8 @@
         MinHeight="300" MinWidth="500"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{DynamicResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
 
     <Grid>
         <Grid.RowDefinitions>

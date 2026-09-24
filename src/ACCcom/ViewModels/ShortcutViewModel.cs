@@ -15,6 +15,7 @@ public class ShortcutViewModel : ObservableObject
     private readonly Action<string> _setStatus;
     private bool _loading;
     private ShortcutPage? _currentPage;
+    private ShortcutItem? _selectedCommand;
 
     public ObservableCollection<ShortcutPage> Pages { get; } = new();
 
@@ -27,8 +28,10 @@ public class ShortcutViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CurrentCommands));
                 OnPropertyChanged(nameof(PageIndicator));
+                OnPropertyChanged(nameof(CommandCount));
                 OnPropertyChanged(nameof(CanGoPrev));
                 OnPropertyChanged(nameof(CanGoNext));
+                SelectedCommand = null;
                 RebuildVisibleCommands();
             }
         }
@@ -36,8 +39,15 @@ public class ShortcutViewModel : ObservableObject
 
     public ObservableCollection<ShortcutItem>? CurrentCommands => CurrentPage?.Commands;
 
+    /// <summary>Selected row (insert-after target for Add, move anchor).</summary>
+    public ShortcutItem? SelectedCommand
+    {
+        get => _selectedCommand;
+        set => SetField(ref _selectedCommand, value);
+    }
+
     private string _filterText = "";
-    /// <summary>Search filter applied to command names (case-insensitive substring). Empty = show all.</summary>
+    /// <summary>Search filter applied to command name or body (case-insensitive substring). Empty = show all.</summary>
     public string FilterText
     {
         get => _filterText;
@@ -53,21 +63,101 @@ public class ShortcutViewModel : ObservableObject
     /// <summary>Filtered view of <see cref="CurrentCommands"/>. Rebuilt when filter or page changes.</summary>
     public ObservableCollection<ShortcutItem> VisibleCommands { get; } = new();
 
+    public bool HasVisibleCommands => VisibleCommands.Count > 0;
+
+    /// <summary>One entry in the send-bar loop-source dropdown: either the send box
+    /// itself (<see cref="Item"/> is null) or a quick command from any page.</summary>
+    public sealed record LoopSourceOption(string Label, ShortcutItem? Item);
+
+    /// <summary>All loop sources: "发送框" first, then every command across all pages.</summary>
+    public ObservableCollection<LoopSourceOption> LoopSources { get; } = new();
+
+    private LoopSourceOption? _selectedLoopSource;
+    private bool _rebuildingLoopSources;
+
+    /// <summary>Selected send-bar loop source. Picking a quick command fills the send box
+    /// (and restarts the loop when the shared loop sender is already running).</summary>
+    public LoopSourceOption? SelectedLoopSource
+    {
+        get => _selectedLoopSource;
+        set
+        {
+            if (!SetField(ref _selectedLoopSource, value) || _rebuildingLoopSources) return;
+            if (value?.Item is not { } item) return;
+            LoadToSender(item);
+            if (GetIsLoopActive?.Invoke() == true)
+                StartLoopFrom?.Invoke(item.IsHex ? item.Command : _getDataFlow().ExpandVariables(item.Command), item.IsHex);
+        }
+    }
+
+    /// <summary>Wired by ToolViewModel: true while the shared send-bar loop is running.</summary>
+    public Func<bool>? GetIsLoopActive { get; set; }
+
+    private void RebuildLoopSources()
+    {
+        var keepItem = _selectedLoopSource?.Item;
+        _rebuildingLoopSources = true;
+        try
+        {
+            LoopSources.Clear();
+            LoopSources.Add(new LoopSourceOption(LanguageManager.Instance["Loop.SendBox"], null));
+            foreach (var page in Pages)
+                foreach (var cmd in page.Commands)
+                    LoopSources.Add(new LoopSourceOption($"{page.Name} · {cmd.Name}", cmd));
+
+            var restored = keepItem == null
+                ? LoopSources[0]
+                : LoopSources.FirstOrDefault(s => ReferenceEquals(s.Item, keepItem)) ?? LoopSources[0];
+            _selectedLoopSource = restored;
+            OnPropertyChanged(nameof(SelectedLoopSource));
+        }
+        finally
+        {
+            _rebuildingLoopSources = false;
+        }
+    }
+
+    /// <summary>Keeps the send-bar loop-source dropdown in sync with a context-menu loop start.</summary>
+    private void SyncLoopSource(ShortcutItem item)
+    {
+        var match = LoopSources.FirstOrDefault(s => ReferenceEquals(s.Item, item));
+        if (match == null) return;
+        _selectedLoopSource = match;
+        OnPropertyChanged(nameof(SelectedLoopSource));
+    }
+
+    /// <summary>Header counter: total on current page, or "visible/total" while filtering.</summary>
+    public string CommandCount
+    {
+        get
+        {
+            int total = CurrentCommands?.Count ?? 0;
+            if (string.IsNullOrEmpty(_filterText)) return total.ToString();
+            return $"{VisibleCommands.Count}/{total}";
+        }
+    }
+
     private void RebuildVisibleCommands()
     {
         VisibleCommands.Clear();
         var source = CurrentCommands;
-        if (source == null) return;
-        if (string.IsNullOrEmpty(_filterText))
+        if (source != null)
         {
-            foreach (var cmd in source) VisibleCommands.Add(cmd);
-            return;
+            if (string.IsNullOrEmpty(_filterText))
+            {
+                foreach (var cmd in source) VisibleCommands.Add(cmd);
+            }
+            else
+            {
+                foreach (var cmd in source)
+                {
+                    if (ShortcutFilter.IsMatch(cmd, _filterText))
+                        VisibleCommands.Add(cmd);
+                }
+            }
         }
-        foreach (var cmd in source)
-        {
-            if (ShortcutFilter.IsMatch(cmd, _filterText))
-                VisibleCommands.Add(cmd);
-        }
+        OnPropertyChanged(nameof(HasVisibleCommands));
+        OnPropertyChanged(nameof(CommandCount));
     }
 
     public string PageIndicator
@@ -91,6 +181,10 @@ public class ShortcutViewModel : ObservableObject
     public ICommand ExportAllCommand { get; }
     public ICommand ExportCurrentPageCommand { get; }
     public ICommand ImportCommand { get; }
+
+    /// <summary>Wired by ToolViewModel: load payload into send box and start the
+    /// shared send-bar loop sender (循环 checkbox).</summary>
+    public Action<string, bool>? StartLoopFrom { get; set; }
 
     public ShortcutViewModel(
         ISerialService serial,
@@ -129,6 +223,7 @@ public class ShortcutViewModel : ObservableObject
                 AttachPage(new ShortcutPage { Name = ShortcutManager.DefaultPageName });
 
             CurrentPage = Pages[0];
+            RebuildLoopSources();
         }
         catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.LoadShortcutsFailed"], ex.Message)); }
         finally
@@ -164,11 +259,12 @@ public class ShortcutViewModel : ObservableObject
         }
     }
 
-    /// <summary>Sends the command at the given position on the current page (Alt+1~9 hotkey entry point).</summary>
+    /// <summary>Sends the command at the given position in the *visible* (filtered)
+    /// list so Alt+1~9 matches the AltN labels shown on each row.</summary>
     public void SendByIndex(int index)
     {
-        if (CurrentCommands == null || index < 0 || index >= CurrentCommands.Count) return;
-        SendShortcut(CurrentCommands[index]);
+        if (index < 0 || index >= VisibleCommands.Count) return;
+        SendShortcut(VisibleCommands[index]);
     }
 
     /// <summary>Fills the send box with the command without transmitting.</summary>
@@ -180,12 +276,31 @@ public class ShortcutViewModel : ObservableObject
         _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutLoaded"], item.Name));
     }
 
+    /// <summary>Context-menu entry: load this command and start send-bar loop send.</summary>
+    public void StartLoop(ShortcutItem item)
+    {
+        if (StartLoopFrom == null) return;
+        var df = _getDataFlow();
+        var text = item.IsHex ? item.Command : df.ExpandVariables(item.Command);
+        StartLoopFrom(text, item.IsHex);
+        SyncLoopSource(item);
+    }
+
     public void AddShortcut()
     {
         if (CurrentCommands == null) return;
         var dlg = new AddShortcutDialog { Owner = System.Windows.Application.Current.MainWindow };
-        if (dlg.ShowDialog() == true)
-            CurrentCommands.Add(new ShortcutItem { Name = dlg.ShortcutName, Command = dlg.ShortcutCommand, IsHex = dlg.ShortcutIsHex });
+        if (dlg.ShowDialog() != true) return;
+
+        var item = new ShortcutItem { Name = dlg.ShortcutName, Command = dlg.ShortcutCommand, IsHex = dlg.ShortcutIsHex };
+        int insertAt = CurrentCommands.Count;
+        if (SelectedCommand != null)
+        {
+            int sel = CurrentCommands.IndexOf(SelectedCommand);
+            if (sel >= 0) insertAt = sel + 1;
+        }
+        CurrentCommands.Insert(insertAt, item);
+        SelectedCommand = item;
     }
 
     /// <summary>Edits an existing shortcut in place (double-click entry point).</summary>
@@ -193,16 +308,35 @@ public class ShortcutViewModel : ObservableObject
     {
         if (CurrentCommands == null) return;
         var dlg = new AddShortcutDialog(item.Name, item.Command, item.IsHex, isEdit: true)
-            { Owner = System.Windows.Application.Current.MainWindow };
+        { Owner = System.Windows.Application.Current.MainWindow };
         if (dlg.ShowDialog() != true) return;
 
         var index = CurrentCommands.IndexOf(item);
         if (index >= 0)
+        {
             CurrentCommands[index] = new ShortcutItem
-                { Name = dlg.ShortcutName, Command = dlg.ShortcutCommand, IsHex = dlg.ShortcutIsHex };
+            { Name = dlg.ShortcutName, Command = dlg.ShortcutCommand, IsHex = dlg.ShortcutIsHex };
+            RebuildLoopSources();
+        }
     }
 
-    public void DeleteShortcut(ShortcutItem item) => CurrentCommands?.Remove(item);
+    public void DeleteShortcut(ShortcutItem item)
+    {
+        if (CurrentCommands == null) return;
+        var confirm = string.Format(LanguageManager.Instance["Confirm.DeleteShortcut"], item.Name);
+        var result = System.Windows.MessageBox.Show(confirm,
+            LanguageManager.Instance["Confirm.Title"],
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
+        if (ReferenceEquals(SelectedCommand, item)) SelectedCommand = null;
+        if (ReferenceEquals(_selectedLoopSource?.Item, item))
+        {
+            _selectedLoopSource = null;
+            OnPropertyChanged(nameof(SelectedLoopSource));
+        }
+        CurrentCommands.Remove(item);
+    }
 
     /// <summary>Copies the command text to the clipboard. Useful when the user wants
     /// to paste the command into an external terminal or other app without first
@@ -234,6 +368,17 @@ public class ShortcutViewModel : ObservableObject
         };
         _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutToggledHex"],
             item.Name, CurrentCommands[index].IsHex ? "HEX" : "TXT"));
+    }
+
+    /// <summary>Moves a command one slot up/down on the current page (context menu).</summary>
+    public void MoveShortcut(ShortcutItem item, int direction)
+    {
+        if (CurrentCommands == null) return;
+        int idx = CurrentCommands.IndexOf(item);
+        int newIdx = idx + direction;
+        if (idx < 0 || newIdx < 0 || newIdx >= CurrentCommands.Count) return;
+        CurrentCommands.Move(idx, newIdx);
+        SelectedCommand = item;
     }
 
     // ===== Page operations =====
@@ -273,6 +418,7 @@ public class ShortcutViewModel : ObservableObject
         var idx = Pages.IndexOf(page);
         Pages[idx] = page;
         CurrentPage = page;
+        RebuildLoopSources();
         _setStatus(string.Format(LanguageManager.Instance["Status.PageRenamed"], page.Name));
     }
 
@@ -292,6 +438,7 @@ public class ShortcutViewModel : ObservableObject
         var removedIndex = Math.Max(0, Pages.IndexOf(CurrentPage) - 1);
         Pages.Remove(CurrentPage);
         CurrentPage = Pages[Math.Min(removedIndex, Pages.Count - 1)];
+        RebuildLoopSources();
         SaveShortcuts();
         _setStatus(string.Format(LanguageManager.Instance["Status.PageDeleted"], name));
     }
@@ -354,6 +501,7 @@ public class ShortcutViewModel : ObservableObject
             }
 
             CurrentPage = Pages[^1];
+            RebuildLoopSources();
         }
         finally
         {
@@ -380,6 +528,7 @@ public class ShortcutViewModel : ObservableObject
     private void OnCommandsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RebuildVisibleCommands();
+        RebuildLoopSources();
         SaveShortcuts();
     }
 

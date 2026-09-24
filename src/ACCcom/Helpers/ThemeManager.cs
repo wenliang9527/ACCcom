@@ -32,6 +32,35 @@ public static class ThemeManager
     public static string GetDisplayName(string themeId)
         => LanguageManager.Instance[$"Theme.{themeId}"];
 
+    /// <summary>Localized one-line description for a theme id, shown in the
+    /// theme gallery under the name.</summary>
+    public static string GetDescription(string themeId)
+        => LanguageManager.Instance[$"Theme.{themeId}.Desc"];
+
+    /// <summary>Signature colors of a theme for gallery preview cards:
+    /// background, surface, accent, primary/secondary ink, good/bad signals.
+    /// Read from the cached dictionary so no extra parsing happens.</summary>
+    public static (Color Bg, Color Surface, Color Accent, Color Ink, Color InkSoft, Color Good, Color Bad) GetPreview(string themeId)
+    {
+        try
+        {
+            var d = GetDictionary(themeId);
+            Color C(string key, Color fallback) => d[key] is Color c ? c : fallback;
+            return (
+                C("BgBase", Colors.White),
+                C("BgSurface", Colors.WhiteSmoke),
+                C("Accent", Colors.Gray),
+                C("InkPrimary", Colors.Black),
+                C("InkSecondary", Colors.Gray),
+                C("StatusGreen", Colors.Green),
+                C("StatusError", Colors.Red));
+        }
+        catch
+        {
+            return (Colors.White, Colors.WhiteSmoke, Colors.Gray, Colors.Black, Colors.Gray, Colors.Green, Colors.Red);
+        }
+    }
+
     /// <summary>Returns the next theme id in the cycle (for Ctrl+D cycling).</summary>
     public static string NextOf(string themeId)
     {

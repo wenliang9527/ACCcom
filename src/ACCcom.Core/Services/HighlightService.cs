@@ -127,9 +127,23 @@ public class HighlightService
         {
             HighlightMatchType.Contains => target.Contains(pattern, StringComparison.OrdinalIgnoreCase),
             HighlightMatchType.Exact => target.Equals(pattern, StringComparison.OrdinalIgnoreCase),
-            HighlightMatchType.Regex => GetOrAddRegex(pattern).IsMatch(target),
+            HighlightMatchType.Regex => TryRegexMatch(target, pattern),
             _ => false
         };
+    }
+
+    private static bool TryRegexMatch(string target, string pattern)
+    {
+        var regex = GetOrAddRegex(pattern);
+        if (regex == null) return false;
+        try
+        {
+            return regex.IsMatch(target);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 
     // Regex.IsMatch(target, pattern) falls back to a process-wide 15-entry
@@ -137,12 +151,21 @@ public class HighlightService
     // patterns explicitly as compiled expressions and drop the whole set when
     // the cap is hit (rule lists are tiny, so a full reset is cheaper than LRU).
     private const int MaxRegexCacheEntries = 64;
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
     private static readonly ConcurrentDictionary<string, Regex> RegexCache = new();
 
-    private static Regex GetOrAddRegex(string pattern)
+    private static Regex? GetOrAddRegex(string pattern)
     {
         if (RegexCache.TryGetValue(pattern, out var cached)) return cached;
-        var regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        Regex regex;
+        try
+        {
+            regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant, RegexTimeout);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
         if (RegexCache.Count >= MaxRegexCacheEntries)
             RegexCache.Clear();
         RegexCache[pattern] = regex;

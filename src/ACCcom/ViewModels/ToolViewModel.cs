@@ -98,7 +98,11 @@ public class ToolViewModel : ObservableObject, IDisposable
 
         Shortcuts = new ShortcutViewModel(serial, shortcutManager, getDataFlow, setStatus, networkBridge);
         PresetsVm = new PresetViewModel(presetManager, getConnection, setStatus);
-        LoopSend = new LoopSendViewModel(serial, getIsOpen, getDataFlow, setStatus);
+        LoopSend = new LoopSendViewModel(serial, getIsOpen, getDataFlow, setStatus,
+            getBaudRate: () => serial.BaudRate > 0 ? serial.BaudRate : getConnection().SelectedBaudRate,
+            networkBridge: networkBridge);
+        Shortcuts.StartLoopFrom = (text, isHex) => LoopSend.StartLoopFrom(text, isHex);
+        Shortcuts.GetIsLoopActive = () => LoopSend.IsLoopSend || LoopSend.IsLooping;
         MultiPort = new MultiPortViewModel(multiPort, setStatus);
         Triggers = new TriggerViewModel(serial, triggerService, getDataFlow, setStatus, _logger);
         BookmarksVm = new BookmarkViewModel(bookmarkManager, getDataFlow, setStatus);

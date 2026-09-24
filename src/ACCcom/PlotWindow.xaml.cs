@@ -11,6 +11,10 @@ public partial class PlotWindow : Window
 {
     private readonly PlotViewModel _viewModel;
     private bool _renderPending;
+    private Brush? _accentBrush;
+    private Brush? _gridBrush;
+    private Brush? _textBrush;
+    private static readonly FontFamily ConsolasFont = new("Consolas");
 
     public PlotWindow(PlotViewModel viewModel)
     {
@@ -91,9 +95,10 @@ public partial class PlotWindow : Window
         DrawGrid(canvasW, canvasH, yMin, yMax, yRange);
 
         // Build polyline points
+        _accentBrush ??= (Brush)FindResource("AccentBrush");
         var polyline = new Polyline
         {
-            Stroke = (Brush)FindResource("AccentBrush"),
+            Stroke = _accentBrush,
             StrokeThickness = 1.5,
             StrokeLineJoin = PenLineJoin.Round,
         };
@@ -116,14 +121,18 @@ public partial class PlotWindow : Window
 
     private void DrawGrid(double canvasW, double canvasH, double yMin, double yMax, double yRange)
     {
-        var gridBrush = (Brush)FindResource("DividerBrush");
+        _gridBrush ??= (Brush)FindResource("DividerBrush");
+        var gridBrush = _gridBrush;
         int gridLines = 5;
         for (int i = 0; i <= gridLines; i++)
         {
             double y = canvasH * i / gridLines;
             var line = new Line
             {
-                X1 = 0, Y1 = y, X2 = canvasW, Y2 = y,
+                X1 = 0,
+                Y1 = y,
+                X2 = canvasW,
+                Y2 = y,
                 Stroke = gridBrush,
                 StrokeThickness = 0.5,
                 StrokeDashArray = new DoubleCollection { 4, 2 },
@@ -134,7 +143,8 @@ public partial class PlotWindow : Window
 
     private void DrawYAxisLabels(double canvasH, double yMin, double yMax)
     {
-        var textBrush = (Brush)FindResource("InkTertiaryBrush");
+        _textBrush ??= (Brush)FindResource("InkTertiaryBrush");
+        var textBrush = _textBrush;
         int labelCount = 5;
         double yRange = yMax - yMin;
         for (int i = 0; i <= labelCount; i++)
@@ -145,7 +155,7 @@ public partial class PlotWindow : Window
             {
                 Text = value.ToString("F1"),
                 FontSize = 10,
-                FontFamily = new FontFamily("Consolas"),
+                FontFamily = ConsolasFont,
                 Foreground = textBrush,
             };
             Canvas.SetLeft(tb, 2);

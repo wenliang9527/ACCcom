@@ -212,4 +212,38 @@ public class HttpServiceTests : IDisposable
         Assert.Single(entries);
         Assert.Equal("hello", entries[0].Text);
     }
+
+    [Fact]
+    public void MultiPortOpen_NullRequest_ReturnsFalse()
+    {
+        Assert.False(_service.MultiPortOpen(null));
+    }
+
+    [Fact]
+    public void MultiPortSend_NullArgs_ReturnsFalse()
+    {
+        Assert.False(_service.MultiPortSend(null, "data", false));
+        Assert.False(_service.MultiPortSend("tag", null, false));
+    }
+
+    [Fact]
+    public void SlaveCreate_NullRequest_ReturnsNull()
+    {
+        Assert.Null(_service.SlaveCreate(null));
+    }
+
+    [Fact]
+    public void SlaveRemove_NullOrEmpty_ReturnsFalse()
+    {
+        Assert.False(_service.SlaveRemove(null));
+        Assert.False(_service.SlaveRemove(""));
+    }
+
+    [Fact]
+    public void RecordingStart_TraversalName_Rejected()
+    {
+        var (ok, _, error) = _service.RecordingStart("../evil.jsonl");
+        Assert.False(ok);
+        Assert.NotNull(error);
+    }
 }

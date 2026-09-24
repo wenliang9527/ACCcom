@@ -49,6 +49,36 @@ public class DataPanelFilterTests
     }
 
     [Fact]
+    public void FilterEntry_setSearchMatch_false_leaves_flag_untouched()
+    {
+        // Combined-view filter must not clobber F3 highlighting owned by the
+        // active RX/TX list (and vice versa when the combined pane is active).
+        var entry = MakeEntry(text: "hello world");
+        entry.IsSearchMatch = true;
+
+        var result = DataPanelFilter.FilterEntry(
+            entry, "zzz", useRegex: false, showDirection: true, expressionEngine: null,
+            errorSink: null, setSearchMatch: false);
+
+        Assert.False(result);
+        Assert.True(entry.IsSearchMatch);
+    }
+
+    [Fact]
+    public void FilterEntry_empty_filter_setSearchMatch_false_keeps_flag()
+    {
+        var entry = MakeEntry();
+        entry.IsSearchMatch = true;
+
+        var result = DataPanelFilter.FilterEntry(
+            entry, "", useRegex: false, showDirection: true, expressionEngine: null,
+            errorSink: null, setSearchMatch: false);
+
+        Assert.True(result);
+        Assert.True(entry.IsSearchMatch);
+    }
+
+    [Fact]
     public void FilterEntry_plain_contains_case_insensitive()
     {
         var entry = MakeEntry(text: "HELLO World");

@@ -8,7 +8,8 @@
         MinHeight="500" MinWidth="700"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{DynamicResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
 
     <Window.Resources>
         <converters:FieldValuesTemplateSelector x:Key="FieldValuesSelector">

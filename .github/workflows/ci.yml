@@ -1,5 +1,9 @@
 name: CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [master, main]
@@ -22,6 +26,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+          cache: true
 
       - name: Restore
         run: dotnet restore
@@ -29,8 +34,27 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Format check
+        run: |
+          dotnet format ACCcom.sln whitespace --verify-no-changes --no-restore
+          dotnet format ACCcom.sln style --verify-no-changes --no-restore
+          dotnet format ACCcom.sln analyzers --verify-no-changes --no-restore
+
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger trx --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        # 吞吐基准（RxHotPathBenchmarkTests）不在覆盖率采集下跑：插桩会把
+        # 被测热循环拖慢一个数量级，测出来的是插桩开销而非回归，见下 Benchmarks。
+        run: dotnet test --configuration Release --no-build --logger trx --collect:"XPlat Code Coverage" --results-directory ./TestResults --filter "FullyQualifiedName!~RxHotPathBenchmarkTests"
+
+      - name: Benchmarks (no coverage)
+        run: dotnet test tests/ACCcom.Core.Tests/ACCcom.Core.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~RxHotPathBenchmarkTests"
+
+      - name: Coverage gate (Core >= 80%)
+        run: |
+          dotnet test tests/ACCcom.Core.Tests/ACCcom.Core.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults/Coverage --filter "FullyQualifiedName!~RxHotPathBenchmarkTests"
+          $xml = [xml](Get-Content (Get-ChildItem ./TestResults/Coverage -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1 -ExpandProperty FullName))
+          $rate = [double]$xml.coverage.'lines-covered' / [double]$xml.coverage.'lines-valid'
+          Write-Host ("Core line coverage: {0:P1} ({1}/{2})" -f $rate, $xml.coverage.'lines-covered', $xml.coverage.'lines-valid')
+          if ($rate -lt 0.80) { throw "Core line coverage below 0.80 gate" }
 
       - name: Upload test results
         if: always()

@@ -69,8 +69,11 @@ public static class DataPanelFilter
 {
     /// <summary>Evaluates whether <paramref name="entry"/> passes the filter.
     /// <paramref name="errorSink"/> receives regex parse failures (the ViewModel
-    /// used Debug.WriteLine; tests inject a collector).</summary>
-    public static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine, Action<string>? errorSink = null)
+    /// used Debug.WriteLine; tests inject a collector). When
+    /// <paramref name="setSearchMatch"/> is false the shared
+    /// <see cref="LogEntry.IsSearchMatch"/> flag is left untouched — used by the
+    /// combined (non-active) view so only the active list owns F3 highlighting.</summary>
+    public static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine, Action<string>? errorSink = null, bool setSearchMatch = true)
     {
         // A null entry would NRE on entry.IsSearchMatch (and entry.Text inside
         // the regex/expression paths); fail at the entry point, matching the
@@ -83,12 +86,12 @@ public static class DataPanelFilter
             // Expression filter mode: PacketFilter syntax handles everything,
             // so the plain-text/regex path below is bypassed.
             var exprMatch = expressionEngine.Matches(entry);
-            entry.IsSearchMatch = exprMatch;
+            if (setSearchMatch) entry.IsSearchMatch = exprMatch;
             return exprMatch;
         }
         if (string.IsNullOrWhiteSpace(filter))
         {
-            entry.IsSearchMatch = false;
+            if (setSearchMatch) entry.IsSearchMatch = false;
             return true;
         }
         var text = entry.Text ?? "";
@@ -112,7 +115,7 @@ public static class DataPanelFilter
             matches = text.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase)
                 || hex.AsSpan().Contains(filter.AsSpan(), StringComparison.OrdinalIgnoreCase);
         }
-        entry.IsSearchMatch = matches;
+        if (setSearchMatch) entry.IsSearchMatch = matches;
         return matches;
     }
 }

@@ -36,10 +36,15 @@ public class LanguageManager : INotifyPropertyChanged
     /// </summary>
     public string this[string key] => _strings.TryGetValue(key, out var v) ? v : key;
 
+    private static bool IsSupportedLanguage(string langCode) =>
+        string.Equals(langCode, "zh-CN", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(langCode, "en-US", StringComparison.OrdinalIgnoreCase);
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void LoadLanguage(string langCode)
     {
+        if (!IsSupportedLanguage(langCode)) return;
         _currentLanguage = langCode;
         var basePath = Path.Combine(AppContext.BaseDirectory, "Languages");
         var filePath = Path.Combine(basePath, $"{langCode}.json");

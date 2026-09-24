@@ -18,6 +18,29 @@ public class TrafficLogParserTests
         Assert.Equal("a", entry.Tag);
         Assert.Equal("48 65 6C 6C 6F", entry.Hex);
         Assert.Equal("Hello", entry.Text);
+        Assert.Equal(7, entry.Id);
+    }
+
+    [Fact]
+    public void Parse_SysSessionLine_ExtractsToolAndTag()
+    {
+        const string line = "{\"id\":0,\"tool\":\"open_port\",\"timestamp\":\"2026-09-11T08:30:12.345+08:00\",\"direction\":\"SYS\",\"rawHex\":\"\",\"text\":\"COM3\",\"portTag\":\"a\"}";
+
+        Assert.True(TrafficLogParser.TryParseLine(line, out var entry));
+        Assert.Equal("SYS", entry.Direction);
+        Assert.Equal("open_port", entry.Tool);
+        Assert.Equal("a", entry.Tag);
+        Assert.Equal("COM3", entry.Text);
+        Assert.Equal(0, entry.Id);
+    }
+
+    [Fact]
+    public void Parse_MissingId_DefaultsToZero()
+    {
+        const string line = "{\"direction\":\"RX\",\"rawHex\":\"00 FF\"}";
+
+        Assert.True(TrafficLogParser.TryParseLine(line, out var entry));
+        Assert.Equal(0, entry.Id);
     }
 
     [Fact]

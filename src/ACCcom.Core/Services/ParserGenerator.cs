@@ -9,12 +9,7 @@ namespace ACCcom.Core.Services;
 /// </summary>
 public class ParserGenerator
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = ProtocolSchema.JsonOptions;
 
     /// <summary>
     /// 从 JSON 字符串反序列化
@@ -50,7 +45,7 @@ public class ParserGenerator
 
         if (schema.Fields == null)
             schema.Fields = new List<FieldSchema>();
-        
+
         if (schema.Fields.Count == 0)
             errors.Add("At least one field is required");
 

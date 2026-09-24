@@ -3,7 +3,8 @@ root = true
 [*]
 indent_style = space
 indent_size = 4
-end_of_line = lf
+# 行尾由 Git（.gitattributes text=auto + autocrlf）管理，此处不强制，
+# 否则 dotnet format 会要求把全仓 CRLF 改写成 LF。
 insert_final_newline = true
 trim_trailing_whitespace = true
 

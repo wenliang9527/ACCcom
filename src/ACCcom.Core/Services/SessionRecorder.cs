@@ -43,6 +43,14 @@ public class SessionRecorder : BufferedFileWriter
                 Directory.CreateDirectory(RecordingsDirectory);
                 filePath = Path.Combine(RecordingsDirectory, TimestampedFileName.Build("session", DateTime.Now, extension: "jsonl"));
             }
+            else if (SafePath.TryResolveRecordingPath(Path.GetFileName(filePath), out var anchored)
+                && string.Equals(Path.GetFileName(filePath), filePath, StringComparison.Ordinal))
+            {
+                // Plain file name from API/MCP: anchor under the recordings dir
+                // instead of the process CWD so the default location contract holds.
+                Directory.CreateDirectory(RecordingsDirectory);
+                filePath = anchored;
+            }
             else
             {
                 var dir = Path.GetDirectoryName(filePath);
@@ -76,7 +84,11 @@ public class SessionRecorder : BufferedFileWriter
             _channel?.Writer.TryComplete();
         }
 
-        try { _drainTask?.GetAwaiter().GetResult(); } catch { }
+        try { _drainTask?.GetAwaiter().GetResult(); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SessionRecorder] Drain wait failed: {ex.Message}");
+        }
 
         lock (SyncLock)
         {
@@ -121,10 +133,11 @@ public class SessionRecorder : BufferedFileWriter
                 WriteCore(JsonSerializer.Serialize(record, _jsonOpts));
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow drain failures: recording should never take the app down;
-            // StopRecording still completes the writer.
+            // Recording must never take the app down; StopRecording still
+            // completes the writer. Keep a diagnostic trace instead of silence.
+            System.Diagnostics.Debug.WriteLine($"[SessionRecorder] Drain failed: {ex.Message}");
         }
     }
 
@@ -153,8 +166,9 @@ public class SessionRecorder : BufferedFileWriter
                 };
                 entries.Add(entry);
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[SessionRecorder] Skipped corrupt replay line: {ex.Message}");
             }
         }
         return entries;

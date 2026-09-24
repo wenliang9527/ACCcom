@@ -72,6 +72,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     public ObservableRangeCollection<LogEntry> RxEntries { get; } = new();
     public ObservableRangeCollection<LogEntry> TxEntries { get; } = new();
+    /// <summary>Chronologically merged RX+TX buffer backing the combined view.
+    /// Same LogEntry instances as Rx/Tx (one allocation, shared IsSearchMatch);
+    /// trimmed independently to <see cref="MaxEntries"/>.</summary>
+    public ObservableRangeCollection<LogEntry> AllEntries { get; } = new();
 
     private string _sendText = "";
     public string SendText
@@ -181,8 +185,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private string _txFilterText = "";
     public string TxFilterText { get => _txFilterText; set { if (SetField(ref _txFilterText, value)) DebounceFilter(); } }
 
+    private string _allFilterText = "";
+    public string AllFilterText { get => _allFilterText; set { if (SetField(ref _allFilterText, value)) DebounceFilter(); } }
+
     private bool _isRegexFilter;
-    public bool IsRegexFilter { get => _isRegexFilter; set { if (SetField(ref _isRegexFilter, value)) { FilteredRxEntries?.Refresh(); FilteredTxEntries?.Refresh(); } } }
+    public bool IsRegexFilter { get => _isRegexFilter; set { if (SetField(ref _isRegexFilter, value)) RefreshAllViews(); } }
 
     private bool _useExpressionFilter;
     /// <summary>Filter matching via PacketFilter expression syntax ("text contains OK and direction==RX").</summary>
@@ -194,23 +201,31 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (SetField(ref _useExpressionFilter, value))
             {
                 RebuildFilterEngines();
-                FilteredRxEntries?.Refresh();
-                FilteredTxEntries?.Refresh();
+                RefreshAllViews();
             }
         }
     }
 
     private PacketFilterEngine? _rxExpressionEngine;
     private PacketFilterEngine? _txExpressionEngine;
+    private PacketFilterEngine? _allExpressionEngine;
 
     private void RebuildFilterEngines()
     {
         _rxExpressionEngine = _useExpressionFilter && !string.IsNullOrWhiteSpace(_rxFilterText) ? new PacketFilterEngine(_rxFilterText) : null;
         _txExpressionEngine = _useExpressionFilter && !string.IsNullOrWhiteSpace(_txFilterText) ? new PacketFilterEngine(_txFilterText) : null;
+        _allExpressionEngine = _useExpressionFilter && !string.IsNullOrWhiteSpace(_allFilterText) ? new PacketFilterEngine(_allFilterText) : null;
+    }
+
+    private void RefreshAllViews()
+    {
+        FilteredRxEntries?.Refresh();
+        FilteredTxEntries?.Refresh();
+        FilteredAllEntries?.Refresh();
     }
 
     private bool _showRx = true;
-    public bool ShowRx { get => _showRx; set { if (SetField(ref _showRx, value)) FilteredRxEntries?.Refresh(); } }
+    public bool ShowRx { get => _showRx; set { if (SetField(ref _showRx, value)) RefreshAllViews(); } }
 
     private void DebounceFilter()
     {
@@ -220,16 +235,39 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     }
 
     private bool _showTx = true;
-    public bool ShowTx { get => _showTx; set { if (SetField(ref _showTx, value)) FilteredTxEntries?.Refresh(); } }
+    public bool ShowTx { get => _showTx; set { if (SetField(ref _showTx, value)) RefreshAllViews(); } }
+
+    private bool _splitDataPanes;
+    /// <summary>false = single combined list (default); true = classic RX|TX split.
+    /// The inactive view's filter leaves <see cref="LogEntry.IsSearchMatch"/> alone
+    /// so only the visible list owns F3 jump highlighting.</summary>
+    public bool SplitDataPanes
+    {
+        get => _splitDataPanes;
+        set { if (SetField(ref _splitDataPanes, value)) RefreshAllViews(); }
+    }
 
     public ListCollectionView? FilteredRxEntries { get; private set; }
     public ListCollectionView? FilteredTxEntries { get; private set; }
+    public ListCollectionView? FilteredAllEntries { get; private set; }
 
     private bool _autoScrollRx = true;
     public bool AutoScrollRx { get => _autoScrollRx; set => SetField(ref _autoScrollRx, value); }
 
     private bool _autoScrollTx = true;
     public bool AutoScrollTx { get => _autoScrollTx; set => SetField(ref _autoScrollTx, value); }
+
+    private bool _autoScrollAll = true;
+    public bool AutoScrollAll { get => _autoScrollAll; set => SetField(ref _autoScrollAll, value); }
+
+    private bool _isHexDisplayAll;
+    public bool IsHexDisplayAll { get => _isHexDisplayAll; set => SetField(ref _isHexDisplayAll, value); }
+
+    private bool _enableTimestampAll = true;
+    public bool EnableTimestampAll { get => _enableTimestampAll; set => SetField(ref _enableTimestampAll, value); }
+
+    /// <summary>Combined RX+TX total shown in the merged header (#count).</summary>
+    public int AllCount => RxCount + TxCount;
 
     private string _selectedParser = ParserManager.NoParserName;
     public string SelectedParser
@@ -266,8 +304,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// which mirrors how the data panel already highlights matches.</summary>
     public bool JumpToMatch(bool forward)
     {
-        if (FilteredRxEntries == null) return false;
-        var target = MatchIndexNavigator.Step(FilteredRxEntries.Cast<LogEntry>(), e => e.IsSearchMatch, SelectedEntry, forward);
+        // Active view owns IsSearchMatch: combined list when unsplit, else RX.
+        var view = _splitDataPanes ? FilteredRxEntries : FilteredAllEntries;
+        if (view == null) return false;
+        var target = MatchIndexNavigator.Step(view.Cast<LogEntry>(), e => e.IsSearchMatch, SelectedEntry, forward);
         if (target == null) return false;
         SelectedEntry = target;
         return true;
@@ -289,6 +329,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public ICommand SaveTxCsvCommand { get; }
     public ICommand SaveRxPcapCommand { get; }
     public ICommand SaveTxPcapCommand { get; }
+    public ICommand SaveAllTxtCommand { get; }
+    public ICommand SaveAllJsonCommand { get; }
+    public ICommand SaveAllCsvCommand { get; }
+    public ICommand SaveAllPcapCommand { get; }
     public ICommand OpenParserDirCommand { get; }
     public ICommand CompareFramesCommand { get; }
     public ICommand ResetCountersCommand { get; }
@@ -347,8 +391,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             _filterDebounce.IsEnabled = false;
             RebuildFilterEngines();
-            FilteredRxEntries?.Refresh();
-            FilteredTxEntries?.Refresh();
+            RefreshAllViews();
         };
 
         _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -363,11 +406,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearRx"])) return;
             FlushPendingEntries(); RxEntries.Clear(); RxCount = 0; RxByteCount = 0;
+            RebuildAllEntries();
         });
         ClearTxCommand = new RelayCommand(_ =>
         {
             if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearTx"])) return;
             FlushPendingEntries(); TxEntries.Clear(); TxCount = 0; TxByteCount = 0;
+            RebuildAllEntries();
         });
         SaveRxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(RxEntries, "RX"); });
         SaveTxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(TxEntries, "TX"); });
@@ -377,6 +422,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         SaveTxCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(TxEntries, "TX"); });
         SaveRxPcapCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToPcap(RxEntries, "RX"); });
         SaveTxPcapCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToPcap(TxEntries, "TX"); });
+        SaveAllTxtCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(MergeAllEntries(), "All"); });
+        SaveAllJsonCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToJson(MergeAllEntries(), "All"); });
+        SaveAllCsvCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToCsv(MergeAllEntries(), "All"); });
+        SaveAllPcapCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToPcap(MergeAllEntries(), "All"); });
         OpenParserDirCommand = new RelayCommand(_ => OpenParserDir());
         CompareFramesCommand = new RelayCommand(_ => OpenDiffWindow());
         ResetCountersCommand = new RelayCommand(_ =>
@@ -401,9 +450,43 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         }
 
         FilteredRxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(RxEntries);
-        FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx, _rxExpressionEngine);
+        FilteredRxEntries.Filter = o => FilterEntry((LogEntry)o, _rxFilterText, _isRegexFilter, _showRx, _rxExpressionEngine, setSearchMatch: _splitDataPanes);
         FilteredTxEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(TxEntries);
-        FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx, _txExpressionEngine);
+        FilteredTxEntries.Filter = o => FilterEntry((LogEntry)o, _txFilterText, _isRegexFilter, _showTx, _txExpressionEngine, setSearchMatch: _splitDataPanes);
+        FilteredAllEntries = (ListCollectionView)CollectionViewSource.GetDefaultView(AllEntries);
+        FilteredAllEntries.Filter = o => FilterAllEntry((LogEntry)o);
+    }
+
+    /// <summary>Combined-view filter: direction gate uses ShowRx/ShowTx per entry;
+    /// search text is the merged AllFilterText. Only owns IsSearchMatch when the
+    /// combined pane is the active view (SplitDataPanes == false).</summary>
+    private bool FilterAllEntry(LogEntry entry)
+    {
+        var showDirection = entry.Direction == "TX" ? _showTx : _showRx;
+        return FilterEntry(entry, _allFilterText, _isRegexFilter, showDirection, _allExpressionEngine, setSearchMatch: !_splitDataPanes);
+    }
+
+    /// <summary>RX ∪ TX sorted by Timestamp for joint export (not the UI's
+    /// trimmed AllEntries — export always covers the full live buffers).</summary>
+    private List<LogEntry> MergeAllEntries()
+    {
+        var list = new List<LogEntry>(RxEntries.Count + TxEntries.Count);
+        list.AddRange(RxEntries);
+        list.AddRange(TxEntries);
+        if (RxEntries.Count > 0 && TxEntries.Count > 0)
+            list.Sort(static (a, b) => a.Timestamp.CompareTo(b.Timestamp));
+        return list;
+    }
+
+    /// <summary>Rebuilds the combined buffer from the surviving RX/TX entries
+    /// after a clear (removing only one direction's rows).</summary>
+    private void RebuildAllEntries()
+    {
+        AllEntries.Clear();
+        if (RxEntries.Count == 0 && TxEntries.Count == 0) return;
+        var merged = MergeAllEntries();
+        AllEntries.AddRange(merged);
+        TrimBuffer(AllEntries);
     }
 
     public void OnSerialData(LogEntry entry)
@@ -471,7 +554,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 ArrayPool<byte>.Shared.Return(buffer);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[DataFlow] FeedFrameBuffer failed: {ex.Message}");
+        }
     }
 
     /// <summary>(Re)builds the FrameBuffer from the current FrameAssemblerConfig.
@@ -650,6 +736,27 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 OnEntryProcessed?.Invoke(txBatch[i], txBytes![i]);
             TrimBuffer(TxEntries);
         }
+        // Combined view: interleave this tick's RX+TX by timestamp after both
+        // side buffers are updated so Rebuild-style ordering stays local to the
+        // batch (entries within a flush share ~ms of wall time).
+        if (rxBatch != null || txBatch != null)
+        {
+            if (rxBatch != null && txBatch != null)
+            {
+                var merged = new List<LogEntry>(rxBatch.Count + txBatch.Count);
+                int i = 0, j = 0;
+                while (i < rxBatch.Count && j < txBatch.Count)
+                    merged.Add(rxBatch[i].Timestamp <= txBatch[j].Timestamp ? rxBatch[i++] : txBatch[j++]);
+                while (i < rxBatch.Count) merged.Add(rxBatch[i++]);
+                while (j < txBatch.Count) merged.Add(txBatch[j++]);
+                AllEntries.AddRange(merged);
+            }
+            else
+            {
+                AllEntries.AddRange(rxBatch ?? txBatch!);
+            }
+            TrimBuffer(AllEntries);
+        }
         BatchFlushed?.Invoke();
     }
 
@@ -663,6 +770,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TxCount));
         OnPropertyChanged(nameof(TxByteCount));
         OnPropertyChanged(nameof(ErrorFrameCount));
+        OnPropertyChanged(nameof(AllCount));
     }
 
     /// <summary>
@@ -789,48 +897,73 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     public string ExpandVariables(string input)
         => _variableExpander.Expand(input);
 
-    private void SaveToFile(ObservableCollection<LogEntry> entries, string tag)
+    private void SaveToFile(IEnumerable<LogEntry> entries, string tag)
     {
-        if (entries.Count == 0) return;
+        var list = entries as IReadOnlyList<LogEntry> ?? entries.ToList();
+        if (list.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "txt"),
             Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
         };
-        if (dialog.ShowDialog() == true)
-            _fileExportService.ExportToText(entries, dialog.FileName);
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            _fileExportService.ExportToText(list, dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
     }
 
-    private void SaveToJson(ObservableCollection<LogEntry> entries, string tag)
+    private void SaveToJson(IEnumerable<LogEntry> entries, string tag)
     {
-        if (entries.Count == 0) return;
+        var list = entries as IReadOnlyList<LogEntry> ?? entries.ToList();
+        if (list.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "json"),
             Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
         };
-        if (dialog.ShowDialog() == true)
-            _fileExportService.ExportToJson(entries, dialog.FileName);
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            _fileExportService.ExportToJson(list, dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
     }
 
-    private void SaveToCsv(ObservableCollection<LogEntry> entries, string tag)
+    private void SaveToCsv(IEnumerable<LogEntry> entries, string tag)
     {
-        if (entries.Count == 0) return;
+        var list = entries as IReadOnlyList<LogEntry> ?? entries.ToList();
+        if (list.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "csv"),
             Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
         };
-        if (dialog.ShowDialog() == true)
-            FileExportService.ExportToCsv(entries, dialog.FileName);
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            FileExportService.ExportToCsv(list, dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            _setStatus(string.Format(LanguageManager.Instance["Status.ErrorProcessingData"], ex.Message));
+        }
     }
 
     /// <summary>Exports entries to a Wireshark-readable .pcap file. Each packet
     /// carries a direction prefix byte (0x01 TX / 0x02 RX) so the capture can be
     /// split back out later.</summary>
-    private void SaveToPcap(ObservableCollection<LogEntry> entries, string tag)
+    private void SaveToPcap(IEnumerable<LogEntry> entries, string tag)
     {
-        if (entries.Count == 0) return;
+        var list = entries as IReadOnlyList<LogEntry> ?? entries.ToList();
+        if (list.Count == 0) return;
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             FileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, tag, "pcap"),
@@ -839,8 +972,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (dialog.ShowDialog() != true) return;
         try
         {
-            _pcapExportService.ExportToPcap(entries, dialog.FileName);
-            _setStatus(string.Format(LanguageManager.Instance["Status.PcapExported"], entries.Count, Path.GetFileName(dialog.FileName)));
+            _pcapExportService.ExportToPcap(list, dialog.FileName);
+            _setStatus(string.Format(LanguageManager.Instance["Status.PcapExported"], list.Count, Path.GetFileName(dialog.FileName)));
         }
         catch (Exception ex)
         {
@@ -874,11 +1007,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _setStatus(LanguageManager.Instance["Status.DiffWindowOpened"]);
     }
 
-    private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine)
+    private static bool FilterEntry(LogEntry entry, string filter, bool useRegex, bool showDirection, PacketFilterEngine? expressionEngine, bool setSearchMatch = true)
         => DataPanelFilter.FilterEntry(entry, filter, useRegex, showDirection, expressionEngine,
-            regexError => Debug.WriteLine($"Regex filter error: {regexError}"));
+            regexError => Debug.WriteLine($"Regex filter error: {regexError}"), setSearchMatch);
 
-    public string GetFormattedCopyText(IEnumerable<LogEntry> entries, string direction)
+    public string GetFormattedCopyText(IEnumerable<LogEntry> entries, string? direction)
         => EntryTextFormatter.Format(entries, direction);
 
     private void LoadParserFingerprints()

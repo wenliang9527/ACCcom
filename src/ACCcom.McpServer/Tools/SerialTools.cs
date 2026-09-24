@@ -84,6 +84,7 @@ public class SerialTools
             if (_serial.Open(config))
             {
                 NotifyGuiRequested();
+                _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, "");
                 return Task.FromResult(_ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag = "" } }));
             }
             return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Failed to open port {port}" }));
@@ -96,6 +97,7 @@ public class SerialTools
         if (_ctx.MultiPort.OpenPort(tag, config))
         {
             NotifyGuiRequested();
+            _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, tag);
             return Task.FromResult(_ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag } }));
         }
         return Task.FromResult(_ctx.RawJson(new { success = false, error = $"Failed to open port {port} with tag {tag}" }));
@@ -108,11 +110,15 @@ public class SerialTools
         if (string.IsNullOrEmpty(tag))
         {
             if (_serial.Close())
+            {
+                _ctx.TrafficLog.Record(0, "close_port", "SYS", "", "", "");
                 return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port closed" } }));
+            }
             return Task.FromResult(_ctx.RawJson(new { success = false, error = "Failed to close port" }));
         }
         if (_ctx.MultiPort.ClosePort(tag))
         {
+            _ctx.TrafficLog.Record(0, "close_port", "SYS", "", "", tag);
             // Drop the tag's buffer so a later reopen starts clean and cannot
             // surface stale entries from the previous session.
             _ctx.RemoveBuffer(tag);

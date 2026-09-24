@@ -30,4 +30,15 @@ public class ShortcutFilterTests
         Assert.False(ShortcutFilter.IsMatch(Item("Send"), "receive"));
         Assert.False(ShortcutFilter.IsMatch(Item("Send"), "zzz"));
     }
+
+    [Fact]
+    public void IsMatch_MatchesCommandBody_CaseInsensitive()
+    {
+        Assert.True(ShortcutFilter.IsMatch(
+            new ShortcutItem { Name = "Query", Command = "AT+GMR" }, "gmr"));
+        Assert.True(ShortcutFilter.IsMatch(
+            new ShortcutItem { Name = "Query", Command = "01 03 00 00" }, "00 00"));
+        Assert.False(ShortcutFilter.IsMatch(
+            new ShortcutItem { Name = "Query", Command = "AT+GMR" }, "status"));
+    }
 }

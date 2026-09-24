@@ -41,16 +41,16 @@ public class ProtocolTestRunnerTests : IDisposable
     private static TestStep WithExpectation(
         string name, string cmd, string pattern, string mode = "contains",
         int timeoutMs = 3000, int retryCount = 0, int retryDelayMs = 0) => new()
-    {
-        Name = name,
-        Command = cmd,
-        IsHex = false,
-        ExpectedPattern = pattern,
-        MatchMode = mode,
-        ResponseTimeoutMs = timeoutMs,
-        RetryCount = retryCount,
-        RetryDelayMs = retryDelayMs
-    };
+        {
+            Name = name,
+            Command = cmd,
+            IsHex = false,
+            ExpectedPattern = pattern,
+            MatchMode = mode,
+            ResponseTimeoutMs = timeoutMs,
+            RetryCount = retryCount,
+            RetryDelayMs = retryDelayMs
+        };
 
     // --- Mock helpers ---
 

@@ -15,46 +15,19 @@
             <converters:BoolToOpenTextConverter x:Key="BoolToOpenText" />
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <converters:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted" />
-            <converters:SeverityToColorConverter x:Key="SeverityToColor" />
             <converters:NullToVisibilityConverter x:Key="NullToVisibility" />
             <converters:BoolToThemeIconConverter x:Key="BoolToThemeIcon" />
             <converters:BoolInverterConverter x:Key="BoolInverter" />
             <converters:HotkeyIndexConverter x:Key="HotkeyIndex" />
             <converters:HexToBrushConverter x:Key="HexToBrush" />
 
-            <!-- ============================================== -->
-            <!-- Canvas grain texture (theme-independent)       -->
-            <!-- ============================================== -->
-            <DrawingBrush x:Key="CanvasWeaveBrush" TileMode="Tile" Viewport="0,0,4,4"
-                          ViewportUnits="Absolute" Opacity="0.045">
-                <DrawingBrush.Drawing>
-                    <DrawingGroup>
-                        <GeometryDrawing Geometry="M0,0 H4 V1 H0 Z">
-                            <GeometryDrawing.Brush>
-                                <SolidColorBrush Color="#FFFFFF" />
-                            </GeometryDrawing.Brush>
-                        </GeometryDrawing>
-                        <GeometryDrawing Geometry="M0,2 H2 V3 H0 Z">
-                            <GeometryDrawing.Brush>
-                                <SolidColorBrush Color="#000000" />
-                            </GeometryDrawing.Brush>
-                        </GeometryDrawing>
-                    </DrawingGroup>
-                </DrawingBrush.Drawing>
-            </DrawingBrush>
-
-            <!-- PaintedCard: card surface with theme signature texture overlay
-                 (CardTextureBrush is defined per-theme: water ripples, wheat ear,
-                 gold mosaic, linen weave...) plus a varnish-like top sheen -->
+            <!-- PaintedCard: clean card surface with a varnish-like top sheen -->
             <Style TargetType="controls:PaintedCard">
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="controls:PaintedCard">
                             <Grid>
                                 <Border Background="{TemplateBinding Background}"
-                                        CornerRadius="{TemplateBinding CornerRadius}" />
-                                <Border Background="{DynamicResource CardTextureBrush}"
-                                        IsHitTestVisible="False"
                                         CornerRadius="{TemplateBinding CornerRadius}" />
                                 <Border IsHitTestVisible="False"
                                         CornerRadius="{TemplateBinding CornerRadius}">
@@ -179,11 +152,14 @@
                         <Style TargetType="DataGridRow">
                             <Setter Property="Background" Value="Transparent" />
                             <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                </Trigger>
                                 <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Warning}">
-                                    <Setter Property="Background" Value="{DynamicResource StatusWarningBg}" />
+                                    <Setter Property="Background" Value="{DynamicResource StatusWarningBgBrush}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Severity}" Value="{x:Static models:FieldSeverity.Error}">
-                                    <Setter Property="Background" Value="{DynamicResource StatusErrorBg}" />
+                                    <Setter Property="Background" Value="{DynamicResource StatusErrorBgBrush}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -211,7 +187,7 @@
                             <Setter Property="VerticalAlignment" Value="Center" />
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Background" Value="{DynamicResource BgActiveBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                                 </Trigger>
                             </Style.Triggers>
@@ -1040,7 +1016,9 @@
             </Style>
 
             <!-- ============================================== -->
-            <!-- ListBoxItem (clean, no highlight)              -->
+            <!-- ListBoxItem: hover tint + selected surface with -->
+            <!-- an accent edge so the selected row is unmistakable -->
+            <!-- even when the tint alone is subtle (light theme) -->
             <!-- ============================================== -->
             <Style TargetType="ListBoxItem">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
@@ -1051,18 +1029,72 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    BorderThickness="0"
-                                    Padding="{TemplateBinding Padding}"
-                                    Margin="{TemplateBinding Margin}">
-                                <ContentPresenter Opacity="1" />
-                            </Border>
+                            <Grid>
+                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                        BorderThickness="0"
+                                        Padding="{TemplateBinding Padding}"
+                                        Margin="{TemplateBinding Margin}">
+                                    <ContentPresenter Opacity="1" />
+                                </Border>
+                                <Rectangle x:Name="SelBar" Width="3" RadiusX="1.5" RadiusY="1.5"
+                                           Fill="{DynamicResource AccentBrush}"
+                                           HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                           Margin="0,4,0,4" Visibility="Collapsed"
+                                           IsHitTestVisible="False" />
+                            </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Setter TargetName="SelBar" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ============================================== -->
+            <!-- ListViewItem (implicit: default chrome uses the -->
+            <!-- system blue highlight + white text, which is    -->
+            <!-- illegible on six of seven themes; re-skin with  -->
+            <!-- the same hover/selection treatment as           -->
+            <!-- ListBoxItem. Local styles BasedOn this type     -->
+            <!-- inherit the theme-aware template.)              -->
+            <!-- ============================================== -->
+            <Style TargetType="ListViewItem">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="6,2" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Grid>
+                                <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <!-- GridViewRowPresenter lays out the column cells;
+                                         a bare ContentPresenter would ToString() the row POCO. -->
+                                    <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                </Border>
+                                <Rectangle x:Name="SelBar" Width="3" RadiusX="1.5" RadiusY="1.5"
+                                           Fill="{DynamicResource AccentBrush}"
+                                           HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                           Margin="0,4,0,4" Visibility="Collapsed"
+                                           IsHitTestVisible="False" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Setter TargetName="SelBar" Property="Visibility" Value="Visible" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -1433,6 +1465,8 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+                <Setter Property="UseLayoutRounding" Value="True" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
             </Style>
 
             <Style x:Key="WindowStyle" TargetType="Window">
@@ -1441,6 +1475,8 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+                <Setter Property="UseLayoutRounding" Value="True" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
             </Style>
 
             <!-- ============================================== -->

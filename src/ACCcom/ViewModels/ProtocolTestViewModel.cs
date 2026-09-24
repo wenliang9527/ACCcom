@@ -113,7 +113,11 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
         try
         {
             Directory.CreateDirectory(ScriptsDir);
-            var path = Path.Combine(ScriptsDir, SafeFileName(ScriptName) + ".json");
+            if (!SafePath.TryCombineUnder(ScriptsDir, SafeFileName(ScriptName) + ".json", out var path))
+            {
+                _setStatus(string.Format(LanguageManager.Instance["Status.ProtocolTestSaveFailed"], "Invalid script name"));
+                return;
+            }
             var script = BuildScript();
             ProtocolTestRunner.SaveScript(script, path);
             _setStatus(string.Format(LanguageManager.Instance["Status.ProtocolTestSaved"], Path.GetFileName(path)));

@@ -3,125 +3,137 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:ACCcom">
 
-    <!-- Toolbar line 2 (left): views / rx-tx display / advanced toggles -->
-    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+    <!-- Toolbar line 2 (left): views / rx-tx display / advanced toggles.
+         Buttons live in atomic horizontal groups so a wrap moves a whole group
+         instead of stranding a separator or half a cluster on the next row. -->
+    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
 
-        <Button Content="{Binding [Button.Diff], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding CompareFramesCommand}"
-                Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
-                ToolTip="{Binding [Tip.HexDiffCompare], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.Compare], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenCompareCommand}"
-                Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
-                ToolTip="{Binding [Tip.CompareFiles], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.Plot], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenPlotCommand}"
-                Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
-                ToolTip="{Binding [Tip.OpenRealtimePlot], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.Stats], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenStatsCommand}"
-                Style="{StaticResource OutlineButton}" Margin="0,0,5,0"
-                ToolTip="{Binding [Tip.OpenDataStats], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.Modbus], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenModbusCommand}"
-                Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
-                ToolTip="{Binding [Tip.ModbusMaster], Source={x:Static local:LanguageManager.Instance}}" />
+        <!-- Compare / analysis -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
+            <Button Content="{Binding [Button.Diff], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding CompareFramesCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.HexDiffCompare], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.Compare], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenCompareCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.CompareFiles], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.Plot], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenPlotCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenRealtimePlot], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.Stats], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenStatsCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenDataStats], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.Modbus], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenModbusCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                    ToolTip="{Binding [Tip.ModbusMaster], Source={x:Static local:LanguageManager.Instance}}" />
+        </StackPanel>
 
-        <Button Command="{Binding OpenDashboardCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenDashboard], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
+        <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,4,6" />
 
-        <Button Command="{Binding OpenHighlightCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenHighlights], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
+        <!-- Dashboards / windows -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
+            <Button Command="{Binding OpenDashboardCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenDashboard], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding OpenHighlightCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenHighlights], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding OpenProtocolTestCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenProtocolTest], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding OpenTriggerCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenTriggers], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding OpenMacroCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                    ToolTip="{Binding [Tip.OpenMacros], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+        </StackPanel>
 
-        <Rectangle Style="{StaticResource ToolSeparator}" />
-        <Button Command="{Binding OpenProtocolTestCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
-                ToolTip="{Binding [Tip.OpenProtocolTest], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
-        <Button Command="{Binding OpenTriggerCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenTriggers], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
-        <Button Command="{Binding OpenMacroCommand}" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenMacros], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
+        <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,4,6" />
 
-        <Button Content="{Binding [Button.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenSchemaEditorCommand}"
-                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.Replay], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ReplayFileCommand}"
-                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.Replay], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.VirtualSerial], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenVirtualSerialCommand}"
-                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenVirtualSerial], Source={x:Static local:LanguageManager.Instance}}" />
-        <Button Content="{Binding [Button.McpTraffic], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenMcpTrafficCommand}"
-                Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.OpenMcpTraffic], Source={x:Static local:LanguageManager.Instance}}" />
+        <!-- Editors / replay -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
+            <Button Content="{Binding [Button.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenSchemaEditorCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.SchemaEditor], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.Replay], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ReplayFileCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.Replay], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.VirtualSerial], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenVirtualSerialCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.OpenVirtualSerial], Source={x:Static local:LanguageManager.Instance}}" />
+            <Button Content="{Binding [Button.McpTraffic], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding OpenMcpTrafficCommand}"
+                    Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                    ToolTip="{Binding [Tip.OpenMcpTraffic], Source={x:Static local:LanguageManager.Instance}}" />
+        </StackPanel>
 
-        <Rectangle Style="{StaticResource ToolSeparator}" />
+        <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,4,6" />
 
-        <!-- Bookmarks: mark a moment in the RX stream and jump back to it later.
-             Hotkeys: Ctrl+B (add), Ctrl+Left / Ctrl+Right (prev / next). The
-             list button opens all bookmarks: click jumps, right-click deletes. -->
-        <Button Command="{Binding AddBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
-                ToolTip="{Binding [Tip.AddBookmark], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
-        <Button Command="{Binding PrevBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
-                ToolTip="{Binding [Tip.PrevBookmark], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
-        <Button Command="{Binding NextBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
-                ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
-        <Button x:Name="BookmarkListButton" Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}" Margin="4,0,0,0"
-                ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
-        </Button>
+        <!-- Bookmarks: Ctrl+B add, Ctrl+←/→ prev/next. List button opens all. -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
+            <Button Command="{Binding AddBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.AddBookmark], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding PrevBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.PrevBookmark], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button Command="{Binding NextBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+            <Button x:Name="BookmarkListButton" Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
+                    ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+            </Button>
+        </StackPanel>
 
-        <Rectangle Style="{StaticResource ToolSeparator}" />
+        <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,4,6" />
 
-        <!-- Recording toggle. Mirrors IsRecording so the glyph flips between a
-             red dot (● recording) and a hollow square (■ idle). The tooltip
-             also reflects the current state via the Status.* keys. -->
-        <Button Command="{Binding ToggleRecordingCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
-                ToolTip="{Binding [Tip.ToggleRecording], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock x:Name="RecordGlyph" FontFamily="Segoe MDL2 Assets" FontSize="14">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="&#xE71A;" />
-                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                <Setter Property="Text" Value="&#xEA3F;" />
-                                <Setter Property="Foreground" Value="{DynamicResource RedErrorBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-        </Button>
+        <!-- Recording + display toggles + prefs -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <Button Command="{Binding ToggleRecordingCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    ToolTip="{Binding [Tip.ToggleRecording], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock x:Name="RecordGlyph" FontFamily="Segoe MDL2 Assets" FontSize="14">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="&#xE71A;" />
+                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                    <Setter Property="Text" Value="&#xEA3F;" />
+                                    <Setter Property="Foreground" Value="{DynamicResource RedErrorBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Button>
 
-        <Rectangle Style="{StaticResource ToolSeparator}" />
+            <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"
+                      Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" Margin="4,0,4,0" />
+            <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}"
+                      Foreground="{DynamicResource InkSecondaryBrush}" FontSize="11" Margin="0,0,4,0" />
 
-        <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"
-                  Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" />
-        <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}"
-                  Foreground="{DynamicResource InkSecondaryBrush}" FontSize="11" Margin="8,0,0,0" />
+            <ToggleButton x:Name="AdvancedToggle" Style="{StaticResource ToolToggle}" IsChecked="{Binding ShowAdvanced}"
+                          ToolTip="{Binding [Tip.AdvancedParams], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+            </ToggleButton>
 
-        <Rectangle Style="{StaticResource ToolSeparator}" />
-
-        <ToggleButton x:Name="AdvancedToggle" Style="{StaticResource ToolToggle}" IsChecked="{Binding ShowAdvanced}"
-                      ToolTip="{Binding [Tip.AdvancedParams], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
-        </ToggleButton>
-
-        <ToggleButton Style="{StaticResource ToolToggle}" Margin="4,0,0,0"
-                      IsChecked="{Binding ShowQuickSendSidebar}"
-                      ToolTip="{Binding [QuickSend.Toggle], Source={x:Static local:LanguageManager.Instance}}">
-            <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
-        </ToggleButton>
-    </StackPanel>
+            <ToggleButton Style="{StaticResource ToolToggle}" Margin="4,0,0,0"
+                          IsChecked="{Binding ShowQuickSendSidebar}"
+                          ToolTip="{Binding [QuickSend.ToggleHint], Source={x:Static local:LanguageManager.Instance}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+                    <TextBlock Text="{Binding [QuickSend.ToggleLabel], Source={x:Static local:LanguageManager.Instance}}"
+                               FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
+        </StackPanel>
+    </WrapPanel>
 </UserControl>

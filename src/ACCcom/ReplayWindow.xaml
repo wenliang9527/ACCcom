@@ -8,6 +8,7 @@
         ResizeMode="NoResize"
         WindowStyle="None"
         Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}"
         Closing="Window_Closing">
 
     <Grid>

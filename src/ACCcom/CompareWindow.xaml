@@ -5,7 +5,8 @@
         Title="{Binding [CompareWindow.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        Background="{DynamicResource BgBaseBrush}">
+        Background="{DynamicResource BgBaseBrush}"
+        Style="{StaticResource WindowStyle}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="32" />

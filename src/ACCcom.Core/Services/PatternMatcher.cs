@@ -69,6 +69,8 @@ public static class PatternMatcher
     /// <summary>
     /// 获取或编译正则表达式（带缓存）
     /// </summary>
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+
     private static Regex? GetOrCompileRegex(string pattern)
     {
         var cacheKey = "regex_" + pattern;
@@ -79,7 +81,7 @@ public static class PatternMatcher
         Regex? regex;
         try
         {
-            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, RegexTimeout);
         }
         catch (ArgumentException)
         {

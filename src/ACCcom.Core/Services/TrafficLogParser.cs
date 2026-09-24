@@ -20,6 +20,7 @@ public static class TrafficLogParser
         {
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
+            entry.Id = GetInt(root, "id");
             entry.Time = SliceTime(GetString(root, "timestamp"));
             entry.Direction = GetString(root, "direction");
             entry.Tool = GetString(root, "tool");
@@ -34,6 +35,9 @@ public static class TrafficLogParser
 
     private static string GetString(JsonElement root, string name)
         => root.TryGetProperty(name, out var prop) ? prop.GetString() ?? "" : "";
+
+    private static int GetInt(JsonElement root, string name)
+        => root.TryGetProperty(name, out var prop) && prop.TryGetInt32(out var v) ? v : 0;
 
     /// <summary>ISO timestamps are kept full in the log; the traffic view shows
     /// only the wall-clock part ("2026-09-11T08:30:12.3456789+08:00" → "08:30:12.345").</summary>
