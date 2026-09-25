@@ -239,6 +239,10 @@ public class MainViewModel : ObservableObject, IDisposable
     private string _httpUrl = HttpService.DefaultUrl;
     public string HttpUrl { get => _httpUrl; set => SetField(ref _httpUrl, value); }
 
+    private string _bufferUsageText = "0%";
+    /// <summary>Ring-buffer fill percentage shown in the status bar (updated at 1Hz).</summary>
+    public string BufferUsageText { get => _bufferUsageText; set => SetField(ref _bufferUsageText, value); }
+
     public AppSettings Settings => _settings;
 
     /// <summary>True while the SessionRecorder is writing RX/TX entries to disk.
@@ -344,7 +348,7 @@ public class MainViewModel : ObservableObject, IDisposable
         OpenModbusCommand = new RelayCommand(_ =>
         {
             try { OpenModbusWindow(); }
-            catch (Exception ex) { System.Windows.MessageBox.Show($"MODBUS error:\n{ex}"); }
+            catch (Exception ex) { System.Windows.MessageBox.Show(string.Format(LanguageManager.Instance["Status.ModbusErrorTitle"], ex)); }
         });
 
         _serialDataHandler = _dataFlow.OnSerialData;
@@ -399,15 +403,36 @@ public class MainViewModel : ObservableObject, IDisposable
         // Poll the recorder so IsRecording / RecordedCount surface in the UI.
         // The recorder doesn't raise change notifications of its own; a low-rate
         // timer keeps the binding fresh without coupling the service to WPF.
+        // Only fire PropertyChanged when a value actually changed — the old
+        // unconditional 3 raises per 500ms kept three binding chains dirty
+        // forever while idle.
         _recordingPollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(500)
         };
+        bool lastRecording = false;
+        int lastCount = -1;
+        string? lastFile = null;
         _recordingPollTimer.Tick += (_, _) =>
         {
-            OnPropertyChanged(nameof(IsRecording));
-            OnPropertyChanged(nameof(RecordedCount));
-            OnPropertyChanged(nameof(RecordingFile));
+            var recording = _sessionRecorder.IsRecording;
+            var count = _sessionRecorder.RecordedCount;
+            var file = _sessionRecorder.CurrentFile;
+            if (recording != lastRecording)
+            {
+                lastRecording = recording;
+                OnPropertyChanged(nameof(IsRecording));
+            }
+            if (count != lastCount)
+            {
+                lastCount = count;
+                OnPropertyChanged(nameof(RecordedCount));
+            }
+            if (!string.Equals(file, lastFile, StringComparison.Ordinal))
+            {
+                lastFile = file;
+                OnPropertyChanged(nameof(RecordingFile));
+            }
         };
         _recordingPollTimer.Start();
 
@@ -442,6 +467,7 @@ public class MainViewModel : ObservableObject, IDisposable
         Stage("language");
         if (!string.IsNullOrEmpty(_settings.LastPort) && _connection.AvailablePorts.Contains(_settings.LastPort))
             _connection.SelectedPort = _settings.LastPort;
+        RestoreConnectionSettings();
 
         _statsTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _statsTimer.Tick += (_, _) =>
@@ -450,6 +476,10 @@ public class MainViewModel : ObservableObject, IDisposable
             TxRate = StatusLineFormatter.FormatThroughput(_stats.TxBytesPerSecond, _stats.TxFramesPerSecond);
             ErrorRate = StatusLineFormatter.FormatErrorRate(_stats.ErrorRate);
             FrameInterval = StatusLineFormatter.FormatFrameInterval(_stats.AvgFrameIntervalMs);
+            // Buffer occupancy is written by DataBufferService on the hot path;
+            // surface the latest gauge at 1Hz so the status bar can show fill %.
+            var ratio = MetricsCollector.Instance.GetGauge("acccom_buffer_usage_ratio");
+            BufferUsageText = $"{Math.Clamp(ratio, 0, 1):P0}";
             // Counters accumulate silently on 30ms flushes; surface them here at
             // 1Hz so the status bar bindings don't re-layout on every flush tick.
             _dataFlow.NotifyCountsChanged();
@@ -932,12 +962,34 @@ public class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void SaveSettings(double windowX, double windowY, double windowWidth, double windowHeight, double sidebarWidth)
+    /// <summary>Restores connection-panel values that have no other source
+    /// (stop bits, parity, DTR/RTS, auto-reconnect, connection type, network
+    /// endpoint) so a reconnect workflow doesn't retype them every launch.
+    /// Values are validated against the option lists before assignment.</summary>
+    private void RestoreConnectionSettings()
+    {
+        if (_settings.LastStopBits is >= 0 and < 3)
+            _connection.SelectedStopBits = _settings.LastStopBits;
+        if (_settings.LastParity is >= 0 and < 3)
+            _connection.SelectedParity = _settings.LastParity;
+        _connection.DtrEnable = _settings.LastDtrEnable;
+        _connection.RtsEnable = _settings.LastRtsEnable;
+        _connection.AutoReconnect = _settings.LastAutoReconnect;
+        if (_connection.ConnectionTypes.Contains(_settings.LastConnectionType))
+            _connection.SelectedConnectionType = _settings.LastConnectionType;
+        if (!string.IsNullOrWhiteSpace(_settings.LastNetworkHost))
+            _connection.NetworkHost = _settings.LastNetworkHost;
+        if (_settings.LastNetworkPort is > 0 and <= 65535)
+            _connection.NetworkPort = _settings.LastNetworkPort;
+    }
+
+    public void SaveSettings(double windowX, double windowY, double windowWidth, double windowHeight, double sidebarWidth, bool maximized = false)
     {
         _settings.WindowX = windowX;
         _settings.WindowY = windowY;
         _settings.WindowWidth = windowWidth;
         _settings.WindowHeight = windowHeight;
+        _settings.WindowMaximized = maximized;
         _settings.QuickSendSidebarWidth = sidebarWidth > 0 ? sidebarWidth : _settings.QuickSendSidebarWidth;
         _settings.Theme = _selectedTheme;
         _settings.IsDarkTheme = IsDarkTheme;
@@ -945,6 +997,14 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.LastPort = _connection.SelectedPort;
         _settings.LastBaudRate = _connection.SelectedBaudRate;
         _settings.LastDataBits = _connection.SelectedDataBits;
+        _settings.LastStopBits = _connection.SelectedStopBits;
+        _settings.LastParity = _connection.SelectedParity;
+        _settings.LastDtrEnable = _connection.DtrEnable;
+        _settings.LastRtsEnable = _connection.RtsEnable;
+        _settings.LastAutoReconnect = _connection.AutoReconnect;
+        _settings.LastConnectionType = _connection.SelectedConnectionType;
+        _settings.LastNetworkHost = _connection.NetworkHost;
+        _settings.LastNetworkPort = _connection.NetworkPort;
         _settings.IsHexSend = _dataFlow.IsHexSend;
         _settings.IsHexDisplayRx = _dataFlow.IsHexDisplayRx;
         _settings.IsHexDisplayTx = _dataFlow.IsHexDisplayTx;

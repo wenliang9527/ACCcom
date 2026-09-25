@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ACCcom.Core.Collections;
@@ -23,7 +24,12 @@ public partial class DataPanel : UserControl
     // header continuously; we wait for them to settle for 800ms before writing.
     private readonly DispatcherTimer _widthPersistTimer;
     private bool _widthsApplied;
-    private Dictionary<int, double>? _widthsSnapshot;
+    private double[]? _widthsArray;
+    // Scratch buffer for the comparison pass: LayoutUpdated is a root-level
+    // broadcast (fires on every window layout, including each 30ms flush), so
+    // allocating a fresh double[] per event was steady gen0 noise. Only a real
+    // width change copies scratch → snapshot.
+    private double[] _widthsScratch = new double[0];
 
     public DataPanel()
     {
@@ -31,6 +37,15 @@ public partial class DataPanel : UserControl
         RxListBox.Loaded += (_, _) => _rxScrollViewer = FindVisualChild<ScrollViewer>(RxListBox);
         TxListBox.Loaded += (_, _) => _txScrollViewer = FindVisualChild<ScrollViewer>(TxListBox);
         AllListBox.Loaded += (_, _) => _allScrollViewer = FindVisualChild<ScrollViewer>(AllListBox);
+
+        // Right-click selects the entry under the cursor (Explorer behaviour):
+        // a plain right-click on an unselected row collapses the selection to
+        // that row; right-clicking inside an existing multi-selection keeps it
+        // (with Ctrl you can extend it). Without this the context menu's
+        // "Copy selected" acts on whatever was left selected last.
+        RxListBox.PreviewMouseRightButtonUp += ListBox_RightClickSelect;
+        TxListBox.PreviewMouseRightButtonUp += ListBox_RightClickSelect;
+        AllListBox.PreviewMouseRightButtonUp += ListBox_RightClickSelect;
 
         DataContextChanged += (_, e) =>
         {
@@ -96,9 +111,13 @@ public partial class DataPanel : UserControl
         if (!force && _paneModeApplied && wantSplit == (SplitPane.Visibility == Visibility.Visible))
             return;
         _paneModeApplied = true;
+        var flipped = wantSplit != (SplitPane.Visibility == Visibility.Visible);
         CombinedPane.Visibility = wantSplit ? Visibility.Collapsed : Visibility.Visible;
         SplitPane.Visibility = wantSplit ? Visibility.Visible : Visibility.Collapsed;
         if (wantSplit) ApplySplitRatio();
+        // Narrow-window force-combined (and the reverse) can reveal a pane whose
+        // filter was last settled while it was hidden — rebuild both sides.
+        if (flipped) vm.DataFlow.NotifyPaneModeChanged();
     }
 
     private void ApplySplitRatio()
@@ -185,6 +204,42 @@ public partial class DataPanel : UserControl
     /// <summary>Copies the currently selected combined-view entries (keyboard shortcut entry point).</summary>
     public void CopyAllSelected() => CopySelected(AllListBox, null);
 
+    /// <summary>Explorer-style right-click selection: right-clicking an
+    /// unselected row makes it the sole selection; right-clicking a row that is
+    /// already part of a multi-selection leaves the selection alone (so the
+    /// context menu acts on the block the user built). Ctrl extends.</summary>
+    private void ListBox_RightClickSelect(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListBox listBox) return;
+        var item = ItemFromPoint(listBox, e.GetPosition(listBox));
+        if (item == null) return;
+
+        var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        var alreadySelected = item.IsSelected;
+        if (ctrl)
+        {
+            item.IsSelected = !alreadySelected;
+            return;
+        }
+        if (alreadySelected && listBox.SelectedItems.Count > 1) return;
+        listBox.SelectedItems.Clear();
+        item.IsSelected = true;
+        item.Focus();
+    }
+
+    /// <summary>Resolves the ListBoxItem under <paramref name="point"/> (or null
+    /// when the point missed every item — e.g. empty padding below the list).</summary>
+    private static ListBoxItem? ItemFromPoint(ListBox listBox, Point point)
+    {
+        if (listBox.InputHitTest(point) is not DependencyObject hit) return null;
+        for (var current = hit; current != null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is ListBoxItem item) return item;
+            if (ReferenceEquals(current, listBox)) break;
+        }
+        return null;
+    }
+
     private static void CopySelected(ListBox listBox, string? direction)
     {
         if (listBox.DataContext is not ViewModels.MainViewModel vm) return;
@@ -241,6 +296,24 @@ public partial class DataPanel : UserControl
         catch (System.Runtime.InteropServices.COMException) { /* clipboard busy in another process */ }
     }
 
+    // ========== Field grid context menu ==========
+
+    private void CopyFieldCell_Click(object sender, RoutedEventArgs e)
+    {
+        if (FieldGrid.SelectedCells.Count == 0) return;
+        var cell = FieldGrid.SelectedCells[0];
+        var value = cell.Column.GetCellContent(cell.Item)?.ToString() ?? "";
+        if (value.Length > 0) CopyToClipboard(value);
+    }
+
+    private void CopyFieldRow_Click(object sender, RoutedEventArgs e)
+    {
+        var lines = FieldGrid.SelectedItems.OfType<ACCcom.Core.Models.FieldAnnotation>()
+            .Select(f => $"{f.Offset}\t{f.Name}\t{f.Length}\t{f.RawHex}\t{f.DisplayValue}")
+            .ToList();
+        if (lines.Count > 0) CopyToClipboard(string.Join(Environment.NewLine, lines));
+    }
+
     // ========== Field grid column-width persistence ==========
 
     /// <summary>Apply persisted column widths from settings. Safe to call repeatedly;
@@ -258,37 +331,46 @@ public partial class DataPanel : UserControl
             }
         }
         _widthsApplied = true;
-        _widthsSnapshot = SnapshotWidths();
-    }
-
-    private Dictionary<int, double> SnapshotWidths()
-    {
-        var snap = new Dictionary<int, double>();
-        for (int i = 0; i < FieldGrid.Columns.Count; i++)
-            snap[i] = FieldGrid.Columns[i].ActualWidth;
-        return snap;
+        _widthsArray = SnapshotWidths();
+        _widthsScratch = new double[_widthsArray.Length];
     }
 
     private void OnFieldGridLayoutUpdated(object? sender, EventArgs e)
     {
-        if (!_widthsApplied) return;
+        if (!_widthsApplied || !FieldGrid.IsVisible) return;
         // Cheap check: did any column's width change since the last snapshot?
         var current = SnapshotWidths();
-        if (_widthsSnapshot == null || !WidthsEqual(_widthsSnapshot, current))
+        if (_widthsArray == null || !WidthsEqual(_widthsArray, current))
         {
-            _widthsSnapshot = current;
+            var previous = _widthsArray;
+            _widthsArray = current;
+            // Swap buffers: the outgoing snapshot becomes the next scratch, so
+            // the steady state (no resize) allocates nothing at all. A null
+            // previous means current IS the scratch — allocate a fresh one to
+            // avoid both references aliasing the same array.
+            _widthsScratch = previous ?? new double[current.Length];
             // Defer actual persistence so we don't write to disk on every pixel of drag.
             _widthPersistTimer.Stop();
             _widthPersistTimer.Start();
         }
     }
 
-    private static bool WidthsEqual(Dictionary<int, double> a, Dictionary<int, double> b)
+    private double[] SnapshotWidths()
     {
-        if (a.Count != b.Count) return false;
-        foreach (var (k, v) in a)
+        int n = FieldGrid.Columns.Count;
+        var snap = _widthsScratch;
+        if (snap.Length != n) snap = new double[n];
+        for (int i = 0; i < n; i++)
+            snap[i] = FieldGrid.Columns[i].ActualWidth;
+        return snap;
+    }
+
+    private static bool WidthsEqual(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
         {
-            if (!b.TryGetValue(k, out var v2) || Math.Abs(v - v2) > 0.5) return false;
+            if (Math.Abs(a[i] - b[i]) > 0.5) return false;
         }
         return true;
     }

@@ -44,6 +44,11 @@ public class SettingsServiceTests : IDisposable
         Assert.False(settings.IsHexDisplayTx);
         Assert.True(settings.EnableRxTimestamp);
         Assert.True(settings.EnableTxTimestamp);
+        Assert.False(settings.WindowMaximized);
+        Assert.Equal("Serial", settings.LastConnectionType);
+        Assert.Equal("127.0.0.1", settings.LastNetworkHost);
+        Assert.Equal(4001, settings.LastNetworkPort);
+        Assert.True(settings.LastAutoReconnect);
     }
 
     [Fact]
@@ -66,7 +71,18 @@ public class SettingsServiceTests : IDisposable
             IsHexDisplayRx = true,
             IsHexDisplayTx = false,
             EnableRxTimestamp = false,
-            EnableTxTimestamp = false
+            EnableTxTimestamp = false,
+            SplitDataPanes = true,
+            DataPaneSplitRatio = 0.62,
+            WindowMaximized = true,
+            LastStopBits = 2,
+            LastParity = 1,
+            LastConnectionType = "TCP",
+            LastNetworkHost = "192.168.1.10",
+            LastNetworkPort = 502,
+            LastDtrEnable = true,
+            LastRtsEnable = true,
+            LastAutoReconnect = false
         };
 
         // Act
@@ -87,6 +103,17 @@ public class SettingsServiceTests : IDisposable
         Assert.False(loaded.IsHexDisplayTx);
         Assert.False(loaded.EnableRxTimestamp);
         Assert.False(loaded.EnableTxTimestamp);
+        Assert.True(loaded.SplitDataPanes);
+        Assert.Equal(0.62, loaded.DataPaneSplitRatio, 3);
+        Assert.True(loaded.WindowMaximized);
+        Assert.Equal(2, loaded.LastStopBits);
+        Assert.Equal(1, loaded.LastParity);
+        Assert.Equal("TCP", loaded.LastConnectionType);
+        Assert.Equal("192.168.1.10", loaded.LastNetworkHost);
+        Assert.Equal(502, loaded.LastNetworkPort);
+        Assert.True(loaded.LastDtrEnable);
+        Assert.True(loaded.LastRtsEnable);
+        Assert.False(loaded.LastAutoReconnect);
     }
 
     [Fact]

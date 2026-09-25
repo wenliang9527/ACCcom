@@ -137,7 +137,11 @@
                                     <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyAllSelected_Click" InputGestureText="Ctrl+C" />
                                     <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyAllHex_Click" />
                                     <Separator />
-                                    <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveAllTxtCommand}" />
+                                    <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveAllTxtCommand}" InputGestureText="Ctrl+S" />
+                                    <MenuItem Header="{Binding [Menu.AddBookmark], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding AddBookmarkCommand}" InputGestureText="Ctrl+B" />
+                                    <Separator />
+                                    <MenuItem Header="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" InputGestureText="Ctrl+L" />
+                                    <MenuItem Header="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" InputGestureText="Ctrl+Shift+L" />
                                 </ContextMenu>
                             </ListBox.ContextMenu>
                             <ListBox.ItemTemplate>
@@ -308,8 +312,10 @@
                                         <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxSelected_Click" InputGestureText="Ctrl+C" />
                                         <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyRxHex_Click" />
                                         <Separator />
-                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" />
-                                        <MenuItem Header="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" />
+                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveRxCommand}" InputGestureText="Ctrl+S" />
+                                        <MenuItem Header="{Binding [Menu.AddBookmark], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding AddBookmarkCommand}" InputGestureText="Ctrl+B" />
+                                        <Separator />
+                                        <MenuItem Header="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearRxCommand}" InputGestureText="Ctrl+L" />
                                     </ContextMenu>
                                 </ListBox.ContextMenu>
                                 <ListBox.ItemTemplate>
@@ -465,8 +471,10 @@
                                         <MenuItem Header="{Binding [Button.CopySelected], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxSelected_Click" InputGestureText="Ctrl+C" />
                                         <MenuItem Header="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}" Click="CopyTxHex_Click" />
                                         <Separator />
-                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" />
-                                        <MenuItem Header="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" />
+                                        <MenuItem Header="{Binding [Menu.SaveAsTxt], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveTxCommand}" InputGestureText="Ctrl+Shift+S" />
+                                        <MenuItem Header="{Binding [Menu.AddBookmark], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding AddBookmarkCommand}" InputGestureText="Ctrl+B" />
+                                        <Separator />
+                                        <MenuItem Header="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearTxCommand}" InputGestureText="Ctrl+Shift+L" />
                                     </ContextMenu>
                                 </ListBox.ContextMenu>
                                 <ListBox.ItemTemplate>
@@ -557,6 +565,14 @@
                 Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
             <DataGrid x:Name="FieldGrid" Style="{StaticResource FieldDataGrid}"
                       ItemsSource="{Binding SelectedEntry.Fields}">
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{Binding [Menu.CopyField], Source={x:Static local:LanguageManager.Instance}}"
+                                  Click="CopyFieldCell_Click" />
+                        <MenuItem Header="{Binding [Menu.CopyFieldRow], Source={x:Static local:LanguageManager.Instance}}"
+                                  Click="CopyFieldRow_Click" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <DataGridTextColumn x:Name="FieldColOffset"
                         Header="{Binding [Column.Offset], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Offset}" Width="55" />

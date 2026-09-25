@@ -42,6 +42,7 @@ dotnet publish src\ACCcom.McpServer\ACCcom.McpServer.csproj -c Release -r win-x6
 | Ctrl+F | 聚焦 RX 搜索框 |
 | Ctrl+D | 切换主题（7 款主题循环，也可点标题栏主题按钮在画廊里挑选） |
 | Ctrl+H | 切换 HEX 显示 |
+| Ctrl+P | 切换合并 / 拆分数据视图 |
 | Ctrl+B | 添加书签 |
 | Ctrl+Left/Right | 书签前后导航 |
 | ESC | 停止循环发送 |

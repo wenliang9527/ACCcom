@@ -55,6 +55,9 @@ public partial class MainWindow : Window
             Width = s.WindowWidth;
             Height = s.WindowHeight;
         }
+        // Restore maximized last so Width/Height above stay the normal bounds.
+        if (s.WindowMaximized)
+            WindowState = WindowState.Maximized;
 
         // Theme is applied inside MainViewModel's constructor from persisted settings;
         // no re-apply here to avoid overriding non-light/dark themes.
@@ -137,6 +140,40 @@ public partial class MainWindow : Window
         if (mods == ModifierKeys.Control && (e.Key == Key.D2 || e.Key == Key.NumPad2))
         {
             FocusDataPanelSearch(rx: false);
+            e.Handled = true;
+            return;
+        }
+
+        // F2: Toggle connect/disconnect — the most repeated click in a serial
+        // session. Serial and the network bridge own separate commands, so route
+        // by the selected connection type.
+        if (e.Key == Key.F2 && mods == ModifierKeys.None)
+        {
+            if (_vm.SelectedConnectionType == "Serial")
+                _vm.OpenCloseCommand.Execute(null);
+            else
+                _vm.ConnectNetworkCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+E: Focus the send box (E for "entry"), caret at the end so Enter
+        // can immediately re-send whatever is still in the box.
+        if (e.Key == Key.E && mods == ModifierKeys.Control)
+        {
+            SendTextBox.Focus();
+            SendTextBox.CaretIndex = SendTextBox.Text?.Length ?? 0;
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+A: Select every entry in the focused list. Claim the key only when
+        // a ListBox has focus — TextBoxes handle Ctrl+A (select all text) and
+        // must keep their default.
+        if (e.Key == Key.A && mods == ModifierKeys.Control &&
+            Keyboard.FocusedElement is System.Windows.Controls.ListBox focusedList)
+        {
+            focusedList.SelectAll();
             e.Handled = true;
             return;
         }
@@ -277,12 +314,20 @@ public partial class MainWindow : Window
             _vm.ToggleThemeCommand.Execute(null);
             e.Handled = true;
         }
-        // Escape: Stop loop send
+        // Escape: focused search box with text → clear the filter first (the
+        // common "wrong filter, nothing shows" moment); otherwise stop loop send.
         else if (e.Key == Key.Escape && mods == ModifierKeys.None)
         {
-            if (_vm.IsLooping)
-                _vm.StopLoopCommand.Execute(null);
-            e.Handled = true;
+            if (TryClearFocusedSearch())
+            {
+                e.Handled = true;
+            }
+            else
+            {
+                if (_vm.IsLooping)
+                    _vm.StopLoopCommand.Execute(null);
+                e.Handled = true;
+            }
         }
         // Ctrl+B: Add bookmark
         else if (e.Key == Key.B && mods == ModifierKeys.Control)
@@ -307,6 +352,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.H && mods == ModifierKeys.Control)
         {
             _vm.DataFlow.ToggleHexDisplayCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+P: Toggle combined / split data panes (matches the toolbar toggle).
+        else if (e.Key == Key.P && mods == ModifierKeys.Control)
+        {
+            _vm.SplitDataPanes = !_vm.SplitDataPanes;
             e.Handled = true;
         }
         // Ctrl+R: Toggle session recording (start/stop writing RX/TX to JSONL).
@@ -365,8 +416,15 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _vm.SaveSettings(Left, Top, Width, Height,
-            _vm.ShowQuickSendSidebar && !double.IsNaN(SidebarColumn.ActualWidth) ? SidebarColumn.ActualWidth : 0);
+        // While maximized/minimized, Left/Top/Width/Height track the restored
+        // bounds differently per state; RestoreBounds is the reliable source
+        // for "the window the user actually arranged".
+        var restored = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        if (restored.IsEmpty || double.IsNaN(restored.Width))
+            restored = new Rect(Left, Top, Width, Height);
+        _vm.SaveSettings(restored.X, restored.Y, restored.Width, restored.Height,
+            _vm.ShowQuickSendSidebar && !double.IsNaN(SidebarColumn.ActualWidth) ? SidebarColumn.ActualWidth : 0,
+            maximized: WindowState == WindowState.Maximized);
         _vm.Dispose();
         base.OnClosed(e);
     }
@@ -414,6 +472,24 @@ public partial class MainWindow : Window
         listBox.Focus();
         search.Focus();
         search.SelectAll();
+    }
+
+    /// <summary>Clears the focused RX/TX/combined search box when it has text.
+    /// Returns true when it handled the key — Escape's first job while a filter
+    /// is active, since a stale filter that hides everything looks like data loss.</summary>
+    private bool TryClearFocusedSearch()
+    {
+        if (Keyboard.FocusedElement is not System.Windows.Controls.TextBox tb) return false;
+        TextBox? search = tb switch
+        {
+            var t when t == DataPanelControl.AllSearchBoxControl => t,
+            var t when t == DataPanelControl.RxSearchBoxControl => t,
+            var t when t == DataPanelControl.TxSearchBoxControl => t,
+            _ => null
+        };
+        if (search == null || search.Text.Length == 0) return false;
+        search.Clear();
+        return true;
     }
 
     /// <summary>Scrolls the list that owns the current JumpToMatch selection

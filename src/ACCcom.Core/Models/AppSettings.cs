@@ -7,6 +7,9 @@ public class AppSettings
     public double WindowY { get; set; } = double.NaN;
     public double WindowWidth { get; set; } = double.NaN;
     public double WindowHeight { get; set; } = double.NaN;
+    // Whether the main window was maximized at exit (normal bounds above are
+    // still saved, so restoring goes back to Normal cleanly).
+    public bool WindowMaximized { get; set; }
 
     // Theme
     public bool IsDarkTheme { get; set; }
@@ -20,6 +23,20 @@ public class AppSettings
     public string LastPort { get; set; } = "";
     public int LastBaudRate { get; set; } = 115200;
     public int LastDataBits { get; set; } = 8;
+    // StopBits/Parity store the ComboBox SelectedIndex (0/1/2), matching
+    // ConnectionViewModel.SelectedStopBits / SelectedParity.
+    public int LastStopBits { get; set; } = 1;
+    public int LastParity { get; set; }
+
+    // Connection panel: last connection type ("Serial"/"TCP"/"UDP"), network
+    // endpoint, control lines and auto-reconnect toggle — restored on launch so
+    // reconnect workflows don't retype them every session.
+    public string LastConnectionType { get; set; } = "Serial";
+    public string LastNetworkHost { get; set; } = "127.0.0.1";
+    public int LastNetworkPort { get; set; } = 4001;
+    public bool LastDtrEnable { get; set; }
+    public bool LastRtsEnable { get; set; }
+    public bool LastAutoReconnect { get; set; } = true;
 
     // Hex display modes
     public bool IsHexSend { get; set; }

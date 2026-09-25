@@ -184,7 +184,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                _setStatus($"[PortMonitor] {ex.Message}");
+                _setStatus(string.Format(LanguageManager.Instance["Status.PortMonitorError"], ex.Message));
             }
         });
     }
@@ -291,7 +291,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _setStatus($"Network error: {ex.Message}");
+            _setStatus(string.Format(LanguageManager.Instance["Status.NetworkError"], ex.Message));
         }
     }
 

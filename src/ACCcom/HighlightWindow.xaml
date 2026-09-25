@@ -51,13 +51,13 @@
                   RowHeight="26"
                   FontSize="12">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Name"     Binding="{Binding Name}"     Width="*" IsReadOnly="True" />
-                <DataGridTextColumn Header="Pattern"  Binding="{Binding Pattern}"  Width="*" IsReadOnly="True" />
-                <DataGridTextColumn Header="Match"    Binding="{Binding MatchType}" Width="80" IsReadOnly="True" />
-                <DataGridTextColumn Header="Dir"      Binding="{Binding Direction}" Width="60" IsReadOnly="True" />
-                <DataGridTextColumn Header="HEX"      Binding="{Binding MatchHex}" Width="50" IsReadOnly="True" />
-                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="70" IsReadOnly="True" />
-                <DataGridTemplateColumn Header="Color" Width="100" IsReadOnly="True">
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Name], Source={x:Static local:LanguageManager.Instance}}"     Binding="{Binding Name}"     Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Pattern], Source={x:Static local:LanguageManager.Instance}}"  Binding="{Binding Pattern}"  Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Match], Source={x:Static local:LanguageManager.Instance}}"    Binding="{Binding MatchType}" Width="80" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Dir], Source={x:Static local:LanguageManager.Instance}}"      Binding="{Binding Direction}" Width="60" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Hex], Source={x:Static local:LanguageManager.Instance}}"      Binding="{Binding MatchHex}" Width="50" IsReadOnly="True" />
+                <DataGridTextColumn Header="{Binding [HighlightGrid.Priority], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Priority}" Width="70" IsReadOnly="True" />
+                <DataGridTemplateColumn Header="{Binding [HighlightGrid.Color], Source={x:Static local:LanguageManager.Instance}}" Width="100" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -79,7 +79,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="40" />
+                <DataGridCheckBoxColumn Header="{Binding [HighlightGrid.On], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding IsEnabled}" Width="40" />
             </DataGrid.Columns>
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">

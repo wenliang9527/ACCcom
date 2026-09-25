@@ -40,8 +40,16 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Grid.Row="0" Text="{Binding [Stats.Title], Source={x:Static local:LanguageManager.Instance}}" FontSize="16" FontWeight="SemiBold"
-                   Foreground="{DynamicResource InkPrimaryBrush}" />
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding [Stats.Title], Source={x:Static local:LanguageManager.Instance}}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource InkPrimaryBrush}" />
+            <Button Grid.Column="1" Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}"
+                    Click="CopyAll_Click" Style="{StaticResource OutlineButton}" Padding="10,3" FontSize="11" />
+        </Grid>
 
         <!-- Stats content -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">

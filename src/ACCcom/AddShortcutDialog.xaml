@@ -41,7 +41,7 @@
 
             <StackPanel Grid.Row="0" Margin="0,0,0,10">
                 <TextBlock Text="{Binding [AddShortcut.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
-                <TextBox x:Name="NameBox" Text="新指令" />
+                <TextBox x:Name="NameBox" Text="" />
             </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="0,0,0,4">

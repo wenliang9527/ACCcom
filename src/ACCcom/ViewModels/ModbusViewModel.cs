@@ -180,7 +180,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
     public async Task ReadAsync()
     {
-        StatusText = "Reading...";
+        StatusText = LanguageManager.Instance["Status.ModbusReading"];
         Registers.Clear();
         var ranges = ModbusUtils.MergeRanges(StartAddress, Quantity);
         foreach (var (start, count) in ranges)
@@ -199,23 +199,23 @@ public class ModbusViewModel : ObservableObject, IDisposable
 
                 if (result.IsError)
                 {
-                    StatusText = $"Error at 0x{start:X4}: {result.ErrorMessage}";
+                    StatusText = string.Format(LanguageManager.Instance["Status.ModbusReadError"], start, result.ErrorMessage);
                     return;
                 }
                 AppendRegisters(Registers, result.Data, start);
             }
             catch (Exception ex)
             {
-                StatusText = $"Exception at 0x{start:X4}: {ex.Message}";
+                StatusText = string.Format(LanguageManager.Instance["Status.ModbusReadException"], start, ex.Message);
                 return;
             }
         }
-        StatusText = $"Read {Quantity} registers OK ({ranges.Count} request(s))";
+        StatusText = string.Format(LanguageManager.Instance["Status.ModbusReadOk"], Quantity, ranges.Count);
     }
 
     public async Task WriteAsync()
     {
-        StatusText = "Writing...";
+        StatusText = LanguageManager.Instance["Status.ModbusWriting"];
         ModbusResponse? result = null;
         try
         {
@@ -230,11 +230,13 @@ public class ModbusViewModel : ObservableObject, IDisposable
                 _ => await _modbus.WriteSingleRegisterAsync(SlaveId, StartAddress, WriteValue)
             };
 
-            StatusText = result.IsError ? $"Error: {result.ErrorMessage}" : "Write OK";
+            StatusText = result.IsError
+                ? string.Format(LanguageManager.Instance["Status.ModbusWriteError"], result.ErrorMessage)
+                : LanguageManager.Instance["Status.ModbusWriteOk"];
         }
         catch (Exception ex)
         {
-            StatusText = $"Exception: {ex.Message}";
+            StatusText = string.Format(LanguageManager.Instance["Status.ModbusWriteException"], ex.Message);
         }
     }
 
@@ -271,7 +273,7 @@ public class ModbusViewModel : ObservableObject, IDisposable
         _pollTimer.Start();
         _isPolling = true;
         OnPropertyChanged(nameof(IsPolling));
-        StatusText = $"Polling every {effectiveInterval}ms";
+        StatusText = string.Format(LanguageManager.Instance["Modbus.PollingEvery"], effectiveInterval);
     }
 
     private void StopPoll()
@@ -311,11 +313,11 @@ public class ModbusViewModel : ObservableObject, IDisposable
                 _ => ""
             };
             System.IO.File.WriteAllText(dialog.FileName, content);
-            StatusText = $"Exported {items.Count} records to {dialog.FileName}";
+            StatusText = string.Format(LanguageManager.Instance["Modbus.ExportOk"], items.Count, dialog.FileName);
         }
         catch (Exception ex)
         {
-            StatusText = $"Export failed: {ex.Message}";
+            StatusText = string.Format(LanguageManager.Instance["Modbus.ExportFailed"], ex.Message);
         }
     }
 

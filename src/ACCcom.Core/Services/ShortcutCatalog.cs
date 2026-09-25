@@ -24,16 +24,19 @@ public static class ShortcutCatalog
             new("Enter", "Shortcuts.Send"),
             new("Alt+1…9", "Shortcuts.SendQuickCmd"),
             new("↑/↓", "Shortcuts.HistoryNav"),
+            new("Ctrl+E", "Shortcuts.FocusSend"),
             new("Ctrl+Shift+H", "Shortcuts.ToggleHexSend"),
         ]),
         new("Shortcuts.GroupData",
         [
             new("Ctrl+C", "Shortcuts.CopySelected"),
+            new("Ctrl+A", "Shortcuts.SelectAll"),
             new("Ctrl+L", "Shortcuts.ClearRx"),
             new("Ctrl+Shift+L", "Shortcuts.ClearTx"),
             new("Ctrl+S", "Shortcuts.SaveRx"),
             new("Ctrl+Shift+S", "Shortcuts.SaveTx"),
             new("Ctrl+H", "Shortcuts.ToggleHex"),
+            new("Ctrl+P", "Shortcuts.ToggleSplit"),
         ]),
         new("Shortcuts.GroupNav",
         [
@@ -53,9 +56,10 @@ public static class ShortcutCatalog
         ]),
         new("Shortcuts.GroupApp",
         [
+            new("F2", "Shortcuts.ToggleConnection"),
             new("Ctrl+D", "Shortcuts.ToggleTheme"),
             new("F5", "Shortcuts.RefreshPorts"),
-            new("Esc", "Shortcuts.StopLoop"),
+            new("Esc", "Shortcuts.Esc"),
             new("F1", "Shortcuts.OpenShortcuts"),
         ]),
     ];

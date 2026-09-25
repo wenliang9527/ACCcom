@@ -55,6 +55,23 @@ public class EntryTextFormatterTests
     }
 
     [Fact]
+    public void Format_empty_string_direction_uses_each_entry_direction()
+    {
+        // string.IsNullOrEmpty — empty string must behave the same as null.
+        var rx = MakeEntry(1, text: "from-rx");
+        rx.Direction = "RX";
+        var tx = MakeEntry(2, text: "from-tx");
+        tx.Direction = "TX";
+
+        var result = EntryTextFormatter.Format(new[] { rx, tx }, "");
+
+        Assert.Equal(
+            "[14:30:45.123][RX][TXT] from-rx" + Environment.NewLine +
+            "[14:30:45.123][TX][TXT] from-tx" + Environment.NewLine,
+            result);
+    }
+
+    [Fact]
     public void Format_hex_only_entry()
     {
         var entry = MakeEntry(1, hex: "AA BB CC");

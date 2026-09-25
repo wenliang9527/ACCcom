@@ -52,8 +52,14 @@
                     <Button Content="{Binding [CompareWindow.Browse], Source={x:Static local:LanguageManager.Instance}}" Click="BrowseFileA_Click" Margin="6,0,0,0"
                             Style="{StaticResource OutlineButton}" />
                 </StackPanel>
-                <Button Grid.Column="1" x:Name="CompareButton" Content="{Binding [CompareWindow.Compare], Source={x:Static local:LanguageManager.Instance}}" Click="Compare_Click" Margin="16,0"
-                        Style="{StaticResource PrimaryButton}" Padding="20,4" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,0">
+                    <Button x:Name="CompareButton" Content="{Binding [CompareWindow.Compare], Source={x:Static local:LanguageManager.Instance}}" Click="Compare_Click"
+                            Style="{StaticResource PrimaryButton}" Padding="20,4" Margin="0,0,8,0" />
+                    <Button x:Name="PrevDiffButton" Content="{Binding [CompareWindow.PrevDiff], Source={x:Static local:LanguageManager.Instance}}" Click="PrevDiff_Click"
+                            Style="{StaticResource OutlineButton}" Padding="10,4" IsEnabled="False" />
+                    <Button x:Name="NextDiffButton" Content="{Binding [CompareWindow.NextDiff], Source={x:Static local:LanguageManager.Instance}}" Click="NextDiff_Click"
+                            Style="{StaticResource OutlineButton}" Padding="10,4" Margin="8,0,0,0" IsEnabled="False" />
+                </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding [CompareWindow.FileB], Source={x:Static local:LanguageManager.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0"
                                Foreground="{DynamicResource InkSecondaryBrush}" />

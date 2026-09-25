@@ -157,6 +157,46 @@ public class DataPanelFilterTests
     }
 
     [Fact]
+    public void FilterEntry_expression_with_showDirection_false_still_hides_direction()
+    {
+        // Expression path is reached only after the direction gate.
+        var engine = new PacketFilterEngine("text contains OK");
+        var tx = MakeEntry(text: "OK done", direction: "TX");
+
+        Assert.False(DataPanelFilter.FilterEntry(tx, "zzz", useRegex: false, showDirection: false, engine));
+        Assert.False(tx.IsSearchMatch);
+    }
+
+    [Fact]
+    public void FilterEntry_expression_setSearchMatch_false_leaves_flag()
+    {
+        var engine = new PacketFilterEngine("text contains OK");
+        var entry = MakeEntry(text: "OK done");
+        entry.IsSearchMatch = true;
+
+        var result = DataPanelFilter.FilterEntry(
+            entry, "zzz", useRegex: false, showDirection: true, engine,
+            errorSink: null, setSearchMatch: false);
+
+        Assert.True(result);
+        Assert.True(entry.IsSearchMatch);
+    }
+
+    [Fact]
+    public void FilterEntry_regex_setSearchMatch_false_leaves_flag()
+    {
+        var entry = MakeEntry(text: "hello");
+        entry.IsSearchMatch = true;
+
+        var result = DataPanelFilter.FilterEntry(
+            entry, "zzz", useRegex: true, showDirection: true, expressionEngine: null,
+            errorSink: null, setSearchMatch: false);
+
+        Assert.False(result);
+        Assert.True(entry.IsSearchMatch);
+    }
+
+    [Fact]
     public void RegexFilterCache_reuses_compiled_regex()
     {
         var first = RegexFilterCache.Get(@"\d+");

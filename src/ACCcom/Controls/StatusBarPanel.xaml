@@ -130,6 +130,20 @@
         <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
+        <!-- 环形缓冲占用率（只读，1Hz 刷新） -->
+        <StatusBarItem>
+            <TextBlock FontSize="11" FontFamily="Consolas"
+                       ToolTip="{Binding [StatusBar.BufferUsage], Source={x:Static local:LanguageManager.Instance}}"
+                       Foreground="{DynamicResource InkSecondaryBrush}">
+                <Run Text="Buf " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding BufferUsageText, Mode=OneWay}" FontWeight="Bold" />
+            </TextBlock>
+        </StatusBarItem>
+
+        <!-- 分隔符 6 -->
+        <Separator Width="1" Height="12" Margin="8,0"
+                   Background="{DynamicResource DividerBrush}" />
+
         <!-- 录制指示（点击切换录制开关）。隐藏整个控件以避免占用状态栏空间。 -->
         <StatusBarItem>
             <StatusBarItem.Style>
