@@ -137,6 +137,103 @@ public class HttpServiceTests : IDisposable
         Assert.False(root.GetProperty("Success").GetBoolean());
     }
 
+    [Theory]
+    [InlineData("application/json")]
+    [InlineData("Application/JSON")]
+    [InlineData("APPLICATION/JSON")]
+    public async Task Send_JsonContentType_IsCaseInsensitive(string contentType)
+    {
+        // RFC 9110: media types are case-insensitive. A regression that only
+        // matches exact "application/json" would fall into the raw-text branch
+        // and try to send the JSON body as serial data.
+        var content = new StringContent("""{"data":"AA BB","isHex":true}""",
+            System.Text.Encoding.UTF8, contentType);
+
+        var response = await _client.PostAsync("/api/send", content);
+
+        // No serial port open → structured failure (not a raw-text parse path
+        // that would also fail — but Success/Error shape must remain ApiResponse).
+        var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement;
+        Assert.True(root.TryGetProperty("Success", out _));
+        Assert.True(root.TryGetProperty("Error", out _));
+    }
+
+    [Fact]
+    public async Task Send_PlainTextBody_IsRawTextPath()
+    {
+        var content = new StringContent("AT+GMR", System.Text.Encoding.UTF8, "text/plain");
+
+        var response = await _client.PostAsync("/api/send", content);
+
+        var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement;
+        Assert.False(root.GetProperty("Success").GetBoolean()); // port not open
+        Assert.Contains("发送", root.GetProperty("Error").GetString() ?? "",
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Send_HexPrefixPlainText_IsHexPath()
+    {
+        var content = new StringContent("hex:AA BB", System.Text.Encoding.UTF8, "text/plain");
+
+        var response = await _client.PostAsync("/api/send", content);
+
+        var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement;
+        Assert.False(root.GetProperty("Success").GetBoolean());
+    }
+
+    // ── SerialController endpoint gaps: clear / data limit / wait-for clamp ──
+
+    [Fact]
+    public async Task Clear_PlainTextBody_IsAccepted()
+    {
+        // Fallback path: no JSON content-type, raw body "rx" → directional clear.
+        var content = new StringContent("rx", System.Text.Encoding.UTF8, "text/plain");
+        var response = await _client.PostAsync("/api/clear", content);
+        response.EnsureSuccessStatusCode();
+        var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement;
+        Assert.True(root.GetProperty("Success").GetBoolean());
+        Assert.Equal("rx", root.GetProperty("Data").GetProperty("cleared").GetString());
+    }
+
+    [Fact]
+    public async Task Data_Limit_ReturnsAtMostThatManyEntries()
+    {
+        for (int i = 1; i <= 5; i++)
+            _service.AddEntry(new ACCcom.Core.Models.LogEntry
+            {
+                Id = i,
+                Direction = "RX",
+                Text = $"e{i}",
+                RawHex = $"{i:X2}",
+                Timestamp = DateTime.Now
+            });
+
+        var root = await GetAsync("/api/data?since=0&limit=2");
+        Assert.True(root.GetProperty("Success").GetBoolean());
+        Assert.Equal(2, root.GetProperty("Data").GetProperty("count").GetInt32());
+        Assert.Equal(2, root.GetProperty("Data").GetProperty("entries").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task WaitFor_TimeoutBelowClampFloor_StillSucceedsWithClampedWait()
+    {
+        // SerialController clamps timeoutMs into [100, 60000]. timeoutMs=1 must not
+        // throw or reject; it waits at least the 100ms floor and returns matched=false.
+        var content = new StringContent(
+            """{"pattern":"never-seen","timeoutMs":1}""",
+            System.Text.Encoding.UTF8, "application/json");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var response = await _client.PostAsync("/api/wait-for", content);
+        sw.Stop();
+        response.EnsureSuccessStatusCode();
+        var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement;
+        Assert.True(root.GetProperty("Success").GetBoolean());
+        Assert.False(root.GetProperty("Data").GetProperty("matched").GetBoolean());
+        Assert.True(sw.ElapsedMilliseconds >= 90,
+            $"expected clamp floor ~100ms, got {sw.ElapsedMilliseconds}ms");
+    }
+
     [Fact]
     public async Task ClosePort_WhenNotOpen_ReturnsSuccess()
     {

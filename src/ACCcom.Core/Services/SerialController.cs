@@ -168,22 +168,27 @@ public class SerialController : WebApiController
         });
     }
 
-    // POST /api/clear  { target: "rx"|"tx"|"all" }
+    // POST /api/clear  { target: "rx"|"tx"|"all" } or plain-text body "rx"
     [Route(HttpVerbs.Post, "/clear")]
     public async Task<object> ClearBuffer()
     {
+        // Read the body once: ReadBodyAsync would consume the stream, and a
+        // second GetRequestBodyAsStringAsync can come back empty for plain text.
+        var body = await HttpContext.GetRequestBodyAsStringAsync() ?? "";
         string? target = null;
-        var req = await ReadBodyAsync<ClearRequest>();
-        if (req != null)
+
+        if (!string.IsNullOrEmpty(body))
         {
-            target = req.Target;
-        }
-        else
-        {
-            // Fallback: try plain text body
-            var body = await HttpContext.GetRequestBodyAsStringAsync();
-            if (!string.IsNullOrEmpty(body))
+            try
+            {
+                var req = JsonSerializer.Deserialize<ClearRequest>(body, _jsonOptions);
+                target = req?.Target;
+            }
+            catch (JsonException)
+            {
+                // Plain-text fallback: raw "rx" / "tx" / "all".
                 target = body.Trim().Trim('"');
+            }
         }
 
         if (target == "all" || string.IsNullOrEmpty(target))

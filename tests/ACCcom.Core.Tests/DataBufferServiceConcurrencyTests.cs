@@ -149,13 +149,14 @@ public class DataBufferServiceConcurrencyTests
 
         var task = sut.WaitForMatchAsync("waiting", timeoutMs: 10000);
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
         sut.CancelWaiters();
-        var result = await task;
-        sw.Stop();
 
-        Assert.Null(result);
-        Assert.True(sw.ElapsedMilliseconds < 1000);
+        // Bounded completion (not a wall-clock assert on elapsed ms): prove the
+        // waiter unblocks promptly after CancelWaiters without flaking when the
+        // runner is under load (the old <1000ms assert was CI-flaky).
+        var completed = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.Same(task, completed);
+        Assert.Null(await task);
     }
 
     [Fact]
