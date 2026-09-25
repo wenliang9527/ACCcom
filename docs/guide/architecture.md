@@ -41,8 +41,10 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 ### 性能优化
 
 - **数据缓冲**：`Channel<T>` + `RingBuffer(10000)` + `ReaderWriterLockSlim`，零锁竞争读写
-- **UI 渲染**：`ObservableRangeCollection` 批量移除触发单次 Reset 事件，ListBox 启用虚拟化 + Recycling
-- **热路径**：Span 零分配 Hex 转换（`HexHelper`），预编译正则，`foreach` 替代 LINQ `.Any()`
+- **UI 渲染**：`ObservableRangeCollection` 批量移除触发单次 Reset 事件（`RemoveFromFront` 头裁剪一次 `List.RemoveRange` + 单次 Reset，避免逐项事件 × N 视图），ListBox 启用虚拟化 + Recycling
+- **热路径**：Span 零分配 Hex 转换（`HexHelper`），预编译正则 + 以 pattern 为 key 的 `MemoryCache`（无额外字符串分配），`foreach` 替代 LINQ `.Any()`
+- **绘图**：单 `Polyline` 复用 + `_renderPending` 合并刷新，`PlotViewModel.AddPoints` 批量入队只发一次 `DataChanged`
+- **状态栏**：`BatchFlushed` 仅在真正批量刷入时触发，Buf 占用 1Hz 采样 `MetricsCollector` gauge
 - **内存池**：`ArrayPool<byte>` 复用收发缓冲区，`Pool<byte>` 替代 `new byte[]`
 - **I/O 缓冲**：`LoggerService`/`SessionRecorder` 2s 定时器 + 100 写计数器批量刷盘
 - **脚本引擎**：LRU 编译缓存（可配，默认 10 个），启动预热，同步快速路径避免 `Task.Run` 线程池开销
@@ -64,7 +66,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | 预分配 RingBuffer 环形缓冲 |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（589 个执行用例，583 个测试方法） |
+| 测试 | xUnit 2.5.3（当前 1279 个用例，见 README 徽章） |
 
 ## 项目结构
 
@@ -201,7 +203,7 @@ ACCcom/
 │           ├── SerialTools.cs      # 基础串口工具 (8 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tests/
-│   ├── ACCcom.Core.Tests/          # 核心库单元测试 (55 个文件, ~573 个测试)
+│   ├── ACCcom.Core.Tests/          # 核心库单元测试（数量以 `dotnet test` 为准）
 │   │   ├── DataBufferServiceTests.cs
 │   │   ├── DataBufferServiceConcurrencyTests.cs
 │   │   ├── TriggerServiceTests.cs
@@ -247,7 +249,7 @@ ACCcom/
 │   │   ├── ModbusMergingTests.cs
 │   │   ├── ModbusFunctionCodeExtensionTests.cs
 │   │   └── TestCollections.cs
-│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (10 个测试)
+│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (46 个测试)
 │       ├── SerialToolsTests.cs
 │       ├── ToolContextTests.cs
 │       └── TestHelpers/

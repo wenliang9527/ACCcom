@@ -49,6 +49,7 @@ curl "http://127.0.0.1:8899/api/status?token=你的随机长令牌"
 | POST | `/api/port/open` | 打开串口 |
 | POST | `/api/port/close` | 关闭串口 |
 | GET | `/api/health` | 健康检查 |
+| GET | `/api/metrics` | Prometheus 文本格式指标（uptime、bytes、buffer_usage 等） |
 
 **打开串口：**
 
@@ -191,8 +192,7 @@ curl -X POST -H "Content-Type: application/json" \
 | POST | `/api/modbus/scan` | 扫描 Modbus 网络上的从站设备 |
 | POST | `/api/slave/create` | 创建虚拟 Modbus 从站 |
 | POST | `/api/slave/remove` | 移除 Modbus 从站 |
-| GET | `/api/slaves` | 获取所有活跃的从站列表 |
-| GET | `/api/slave/list` | 列出从站设备 |
+| GET | `/api/slaves` / `/api/slave/list` | 列出活跃从站设备（两路由等价） |
 | POST | `/api/slave/write` | 写入从站寄存器值 |
 | POST | `/api/slave/read` | 读取从站寄存器值 |
 | POST | `/api/baud/detect` | 自动探测设备波特率 |

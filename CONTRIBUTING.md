@@ -10,7 +10,7 @@
 ```powershell
 dotnet restore ACCcom.sln
 dotnet build ACCcom.sln -c Release        # 零警告零错误是硬门禁
-dotnet test ACCcom.sln -c Release         # 当前 1260 个测试，全过才能合入
+dotnet test ACCcom.sln -c Release         # 当前 1279 个测试，全过才能合入
 
 # 带覆盖率采集时排除吞吐基准（插桩会拖慢热循环导致误报），与 CI 一致：
 dotnet test ACCcom.sln -c Release --no-build --collect:"XPlat Code Coverage" --filter "FullyQualifiedName!~RxHotPathBenchmarkTests"

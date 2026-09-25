@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-1260_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-1279_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 
@@ -125,11 +125,14 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 | `Ctrl+F` | 聚焦 RX 搜索框 |
 | `Ctrl+D` | 切换主题（在 7 款主题间循环） |
 | `Ctrl+H` | 切换 HEX 显示 |
+| `Ctrl+P` | 切换合并 / 拆分数据视图 |
 | `Ctrl+B` | 添加书签 |
 | `Ctrl+Left/Right` | 书签前后导航 |
 | `ESC` | 停止循环发送 |
 | `Alt+1`~`Alt+9` | 快捷发送当前可见列表第 1~9 条指令 |
+| `Ctrl+Q` | 开关快捷发送侧边栏 |
 | `F5` | 刷新可用串口列表 |
+| `F1` | 打开完整快捷键窗口（以 `ShortcutCatalog` 为准） |
 
 ---
 

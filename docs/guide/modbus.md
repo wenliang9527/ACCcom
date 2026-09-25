@@ -116,7 +116,7 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/slave/list` | 获取所有活跃的从站列表 |
+| GET | `/api/slaves` / `/api/slave/list` | 获取所有活跃的从站列表（两路由等价） |
 
 **获取从站列表：**
 
@@ -136,7 +136,7 @@ MCP 服务器仅保留基础串口工具，Modbus 相关能力通过桌面端 HT
 | POST | `/api/modbus/scan` | 扫描网络上的从站设备 |
 | POST | `/api/slave/create` | 创建虚拟从站 |
 | POST | `/api/slave/remove` | 移除虚拟从站 |
-| GET | `/api/slave/list` | 列出活跃从站 |
+| GET | `/api/slaves` | 列出所有活跃从站（别名：`/api/slave/list`） |
 | POST | `/api/slave/write` | 写从站寄存器 |
 | POST | `/api/slave/read` | 读从站寄存器 |
 
