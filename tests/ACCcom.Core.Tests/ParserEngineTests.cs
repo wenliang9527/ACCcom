@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ACCcom.Core.Services;
 using ACCcom.Core.Models;
@@ -37,6 +38,19 @@ return result;
         var engine = new ParserEngine();
         Assert.True(engine.Load(MinimalScript));
         Assert.Null(engine.LastError);
+    }
+
+    [Fact]
+    public void Ctor_RaisesStaticRegexCacheSize_ForParserScripts()
+    {
+        // Parser scripts (esoac_v3.csx: 80+ patterns) call the static
+        // Regex.Match(input, pattern) overload, whose process-wide cache
+        // defaults to 15 entries — far too few, so every text-log line
+        // re-parses the patterns it misses. The engine's static ctor raises
+        // it once; lock the floor so a regression back to the default is
+        // caught here instead of as a silent throughput collapse.
+        _ = new ParserEngine();
+        Assert.True(Regex.CacheSize >= 256, $"Regex.CacheSize was {Regex.CacheSize}, expected >= 256");
     }
 
     [Fact]

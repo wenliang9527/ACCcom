@@ -60,6 +60,17 @@ public partial class McpTrafficWindow : Window
     private bool _updatingFollow;
     private string? _flashText;
 
+    // Running RX/TX tallies maintained on add/remove: UpdateStatus used to
+    // re-walk up to 2000 rows on every debounced batch (5×/sec) just to count
+    // two numbers.
+    private int _rxCount;
+    private int _txCount;
+    // FileInfo is a filesystem metadata syscall; the status bar only needs the
+    // size at 1Hz, not once per refresh.
+    private string _fileSizeText = "—";
+    private DateTime _fileSizeCachedUtc = DateTime.MinValue;
+
+
     private readonly DispatcherTimer _flashTimer;
 
     public McpTrafficWindow()
@@ -238,7 +249,7 @@ public partial class McpTrafficWindow : Window
         foreach (var line in lines)
         {
             if (!TrafficLogParser.TryParseLine(line, out var entry)) continue;
-            _allRows.Add(new TrafficRow
+            var row = new TrafficRow
             {
                 Id = entry.Id,
                 Time = entry.Time,
@@ -248,7 +259,9 @@ public partial class McpTrafficWindow : Window
                 Text = entry.Text,
                 Hex = entry.Hex,
                 Payload = _hexMode ? entry.Hex : BuildPayload(entry.Text, entry.Hex)
-            });
+            };
+            _allRows.Add(row);
+            TallyRow(row, +1);
             // Only record the tag here; rebuilding the ComboBox mid-batch fires
             // SelectionChanged → RefreshRows → Count/Refresh while the view may
             // still be processing the add above.
@@ -259,7 +272,10 @@ public partial class McpTrafficWindow : Window
         // Keep the list bounded; drop oldest rows past MaxRows in one pass.
         var overflow = _allRows.Count - MaxRows;
         for (var i = 0; i < overflow; i++)
+        {
+            TallyRow(_allRows[0], -1);
             _allRows.RemoveAt(0);
+        }
 
         if (sawNewTag) RebuildTagOptions();
 
@@ -277,7 +293,7 @@ public partial class McpTrafficWindow : Window
     private void AppendLine(string line)
     {
         if (!TrafficLogParser.TryParseLine(line, out var entry)) return;
-        _allRows.Add(new TrafficRow
+        var row = new TrafficRow
         {
             Id = entry.Id,
             Time = entry.Time,
@@ -287,12 +303,17 @@ public partial class McpTrafficWindow : Window
             Text = entry.Text,
             Hex = entry.Hex,
             Payload = _hexMode ? entry.Hex : BuildPayload(entry.Text, entry.Hex)
-        });
+        };
+        _allRows.Add(row);
+        TallyRow(row, +1);
         NoteTag(entry.Tag);
 
         // Keep the list bounded; drop oldest rows past MaxRows.
         if (_allRows.Count > MaxRows)
+        {
+            TallyRow(_allRows[0], -1);
             _allRows.RemoveAt(0);
+        }
 
         // During the batch startup load the per-row count/scroll work is
         // deferred to LoadExistingLines' finally block — one pass, not 2000.
@@ -323,6 +344,12 @@ public partial class McpTrafficWindow : Window
             TrafficList.ScrollIntoView(TrafficList.Items[^1]);
     }
 
+    private void TallyRow(TrafficRow row, int delta)
+    {
+        if (row.Direction == "RX") _rxCount += delta;
+        else if (row.Direction == "TX") _txCount += delta;
+    }
+
     private void UpdateStatus()
     {
         var visible = _filteredView.Count;
@@ -333,25 +360,24 @@ public partial class McpTrafficWindow : Window
         if (ExportButton != null)
             ExportButton.IsEnabled = visible > 0;
 
-        var rx = 0;
-        var tx = 0;
-        foreach (var row in _allRows)
-        {
-            if (row.Direction == "RX") rx++;
-            else if (row.Direction == "TX") tx++;
-        }
-        var rxTxPart = $"RX {rx} · TX {tx} · ";
+        var rxTxPart = $"RX {_rxCount} · TX {_txCount} · ";
 
-        string filePart;
-        try
+        // File size only needs 1Hz freshness — one metadata syscall per second
+        // instead of one per refresh (5×/sec steady state, more during bursts).
+        if ((DateTime.UtcNow - _fileSizeCachedUtc).TotalSeconds >= 1)
         {
-            var info = new FileInfo(_logPath);
-            filePart = info.Exists ? $"{info.Length / 1024.0:F1} KB" : "—";
+            _fileSizeCachedUtc = DateTime.UtcNow;
+            try
+            {
+                var info = new FileInfo(_logPath);
+                _fileSizeText = info.Exists ? $"{info.Length / 1024.0:F1} KB" : "—";
+            }
+            catch
+            {
+                _fileSizeText = "—";
+            }
         }
-        catch
-        {
-            filePart = "—";
-        }
+        var filePart = _fileSizeText;
 
         var updatedPart = _lastUpdateUtc == DateTime.MinValue
             ? LanguageManager.Instance["McpTraffic.NeverUpdated"]
@@ -683,6 +709,8 @@ public partial class McpTrafficWindow : Window
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
         _allRows.Clear();
+        _rxCount = 0;
+        _txCount = 0;
         _knownTags.Clear();
         _tagFilter = "";
         RebuildTagOptions();

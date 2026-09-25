@@ -73,9 +73,11 @@ public static class PatternMatcher
 
     private static Regex? GetOrCompileRegex(string pattern)
     {
-        var cacheKey = "regex_" + pattern;
-
-        if (_regexCache.TryGetValue(cacheKey, out Regex? cached))
+        // MemoryCache.TryGetValue boxes the key and the pattern string itself is a
+        // stable, unique cache key — prefixing "regex_" allocated a fresh string on
+        // every packet. Pattern text can never collide with other MemoryCache users
+        // inside this process (only PatternMatcher writes here).
+        if (_regexCache.TryGetValue(pattern, out Regex? cached))
             return cached;
 
         Regex? regex;
@@ -90,7 +92,7 @@ public static class PatternMatcher
                 .SetSize(1)
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5))
                 .SetPriority(CacheItemPriority.Low);
-            _regexCache.Set(cacheKey, (Regex?)null, failOptions);
+            _regexCache.Set(pattern, (Regex?)null, failOptions);
             return null;
         }
 
@@ -99,7 +101,7 @@ public static class PatternMatcher
             .SetSlidingExpiration(TimeSpan.FromMinutes(30))
             .SetPriority(CacheItemPriority.Normal);
 
-        _regexCache.Set(cacheKey, regex, options);
+        _regexCache.Set(pattern, regex, options);
         return regex;
     }
 

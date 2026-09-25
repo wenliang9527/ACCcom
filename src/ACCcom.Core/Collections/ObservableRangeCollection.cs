@@ -79,4 +79,25 @@ public class ObservableRangeCollection<T> : ObservableCollection<T>
         if (Count <= maxSize) return;
         RemoveRange(0, Count - maxSize);
     }
+
+    /// <summary>Removes <paramref name="count"/> items from the front and raises a
+    /// single <see cref="NotifyCollectionChangedAction.Reset"/>. ListCollectionView
+    /// supports Reset (unlike range Add/Remove with multiple items, which throws
+    /// NotSupportedException). Used by head-trim on the 30ms flush: at full
+    /// capacity a per-item Remove costs O(n) list shifts × N events × 3 bound views,
+    /// while one Reset is a single refresh. Selection/scroll anchor is discarded —
+    /// acceptable for oldest-entry eviction.</summary>
+    public void RemoveFromFront(int count)
+    {
+        if (count <= 0 || count > Count) return;
+
+        if (Items is List<T> list)
+            list.RemoveRange(0, count);
+        else
+            for (int i = count - 1; i >= 0; i--) Items.RemoveAt(i);
+
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
 }

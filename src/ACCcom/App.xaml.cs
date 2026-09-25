@@ -79,6 +79,13 @@ public partial class App : Application
     private static ResourceDictionary? _activeTheme;
     private static string? _activeThemeId;
 
+    /// <summary>Bumped on every successful theme swap. Static resource memos
+    /// (e.g. HexToBrushConverter's InkPrimary/surface cache) use it to know when
+    /// to re-resolve instead of hitting TryFindResource on every convert pass.
+    /// Volatile: read from binding threads, written on the UI thread.</summary>
+    public static int ThemeVersion => Volatile.Read(ref _themeVersion);
+    private static int _themeVersion;
+
     public static void ApplyTheme(bool isDark)
         => ApplyTheme(isDark ? "Dark" : "Light");
 
@@ -149,5 +156,9 @@ public partial class App : Application
             }
             catch { /* even fallback failed; keep whatever is loaded */ }
         }
+
+        // Invalidate static resource memos (HexToBrushConverter etc.) after the
+        // dictionary swap — both the normal and fallback paths land here.
+        Interlocked.Increment(ref _themeVersion);
     }
 }

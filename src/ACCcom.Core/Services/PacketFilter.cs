@@ -131,11 +131,20 @@ internal class ComparisonNode : FilterNode
     public string Op { get; }
     public string Value { get; }
 
+    // Precomputed once at parse time so Evaluate never re-lowercases Field or
+    // re-parses a TimeSpan comparison value per entry per refresh.
+    private readonly string _fieldLower;
+    private readonly bool _valueIsTimeSpan;
+    private readonly TimeSpan _valueTimeSpan;
+
     public ComparisonNode(string field, string op, string value)
     {
         Field = field;
         Op = op;
         Value = value;
+        _fieldLower = field.ToLowerInvariant();
+        _valueIsTimeSpan = TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var ts);
+        _valueTimeSpan = ts;
     }
 
     public override bool Evaluate(LogEntry entry)
@@ -148,28 +157,26 @@ internal class ComparisonNode : FilterNode
         {
             "==" => string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase),
             "!=" => !string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase),
-            ">=" => CompareTimeOrString(actual, Value) >= 0,
-            "<=" => CompareTimeOrString(actual, Value) <= 0,
-            ">" => CompareTimeOrString(actual, Value) > 0,
-            "<" => CompareTimeOrString(actual, Value) < 0,
+            ">=" => CompareTimeOrString(actual) >= 0,
+            "<=" => CompareTimeOrString(actual) <= 0,
+            ">" => CompareTimeOrString(actual) > 0,
+            "<" => CompareTimeOrString(actual) < 0,
             "contains" => actual.Contains(Value, StringComparison.OrdinalIgnoreCase),
             _ => false
         };
     }
 
-    private static int CompareTimeOrString(string a, string b)
+    private int CompareTimeOrString(string a)
     {
-        if (TimeSpan.TryParse(a, CultureInfo.InvariantCulture, out var ta) &&
-            TimeSpan.TryParse(b, CultureInfo.InvariantCulture, out var tb))
-            return ta.CompareTo(tb);
+        if (TimeSpan.TryParse(a, CultureInfo.InvariantCulture, out var ta) && _valueIsTimeSpan)
+            return ta.CompareTo(_valueTimeSpan);
 
-        return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        return string.Compare(a, Value, StringComparison.OrdinalIgnoreCase);
     }
 
     private string? GetFieldValue(LogEntry entry)
     {
-        var field = Field.ToLowerInvariant();
-        return field switch
+        return _fieldLower switch
         {
             "direction" => entry.Direction,
             "hex" => entry.RawHex,

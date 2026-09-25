@@ -171,16 +171,18 @@ public sealed class MetricsCollector
 public sealed class Histogram
 {
     private static readonly double[] BucketBounds = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000];
+    // Non-cumulative: Record increments only the owning bucket (1 atomic),
+    // GetBuckets materializes the Prometheus-style cumulative view on read.
+    // The old cumulative-on-write loop cost up to 11 atomics per frame.
     private long[] _bucketCounts = new long[BucketBounds.Length + 1];
     private long _count;
-    private double _sum;
-    private readonly object _sumLock = new();
+    // IEEE-754 bit pattern of the running sum, accumulated with a CAS loop so
+    // Record stays fully lock-free (integer Add on the bits would be wrong —
+    // float bit patterns do not add linearly).
+    private long _sumBits;
 
     public long Count => Interlocked.Read(ref _count);
-    public double Sum
-    {
-        get { lock (_sumLock) return _sum; }
-    }
+    public double Sum => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _sumBits));
 
     public void Record(double value)
     {
@@ -189,25 +191,37 @@ public sealed class Histogram
         // overflow bucket (Array.BinarySearch handles it).
         if (double.IsNaN(value)) return;
 
-        // Bucket counts use Interlocked so the per-frame parse path never takes
-        // a lock; Sum is a rare/read-only metric and keeps its own small lock.
         int idx = Array.BinarySearch(BucketBounds, value);
         if (idx < 0) idx = ~idx;
         else idx++;
-        for (int i = idx; i < _bucketCounts.Length; i++)
-            Interlocked.Increment(ref _bucketCounts[i]);
+        Interlocked.Increment(ref _bucketCounts[idx]);
         Interlocked.Increment(ref _count);
-        lock (_sumLock) _sum += value;
+
+        long current = Interlocked.Read(ref _sumBits);
+        while (true)
+        {
+            long next = BitConverter.DoubleToInt64Bits(
+                BitConverter.Int64BitsToDouble(current) + value);
+            long prev = Interlocked.CompareExchange(ref _sumBits, next, current);
+            if (prev == current) break;
+            current = prev;
+        }
     }
 
     public IReadOnlyList<BucketEntry> GetBuckets()
     {
         var result = new List<BucketEntry>(BucketBounds.Length + 1);
-        // Snapshot under no lock: each bucket is read via Volatile.Read, and the
-        // per-bucket ordering is not a strict invariant consumers rely on.
+        // Prefix-sum the per-bucket counts into the cumulative view. Readers may
+        // observe a torn snapshot under concurrent Record calls — same contract
+        // as the old Volatile.Read-per-bucket snapshot.
+        long cumulative = 0;
         for (int i = 0; i < BucketBounds.Length; i++)
-            result.Add(new BucketEntry(BucketBounds[i], Volatile.Read(ref _bucketCounts[i])));
-        result.Add(new BucketEntry(double.PositiveInfinity, Volatile.Read(ref _bucketCounts[^1])));
+        {
+            cumulative += Volatile.Read(ref _bucketCounts[i]);
+            result.Add(new BucketEntry(BucketBounds[i], cumulative));
+        }
+        cumulative += Volatile.Read(ref _bucketCounts[^1]);
+        result.Add(new BucketEntry(double.PositiveInfinity, cumulative));
         return result;
     }
 }

@@ -27,18 +27,40 @@ public static class NumericValueExtractor
         var results = new List<double>();
         if (string.IsNullOrWhiteSpace(text)) return results;
 
-        foreach (Match m in KeyValueRegex.Matches(text))
+        var span = text.AsSpan();
+
+        // Both patterns require at least one ASCII digit, so a text frame with
+        // none ("OK", "ERR", hex dumps without digits) can skip both regex
+        // passes entirely — this is the common case for status-only traffic.
+        bool hasDigit = false;
+        foreach (var c in span)
         {
-            if (double.TryParse(m.Groups[1].Value, NumberStyles.Float,
+            if (c >= '0' && c <= '9') { hasDigit = true; break; }
+        }
+        if (!hasDigit) return results;
+
+        // EnumerateMatches yields span matches with no Match/MatchCollection
+        // allocations — the plot path runs this per RX entry while open.
+        foreach (var m in KeyValueRegex.EnumerateMatches(span))
+        {
+            // Group 1 is the whole match minus the optional "[=:]?\s*" prefix,
+            // which only ever contains '=', ':' and whitespace.
+            var number = span.Slice(m.Index, m.Length);
+            int i = 0;
+            while (i < number.Length &&
+                   (number[i] == '=' || number[i] == ':' || char.IsWhiteSpace(number[i])))
+                i++;
+            if (i >= number.Length) continue;
+            if (double.TryParse(number[i..], NumberStyles.Float,
                 CultureInfo.InvariantCulture, out double val))
                 results.Add(val);
         }
 
         if (results.Count == 0)
         {
-            foreach (Match m in StandaloneNumberRegex.Matches(text))
+            foreach (var m in StandaloneNumberRegex.EnumerateMatches(span))
             {
-                if (double.TryParse(m.Value, NumberStyles.Float,
+                if (double.TryParse(span.Slice(m.Index, m.Length), NumberStyles.Float,
                     CultureInfo.InvariantCulture, out double val))
                     results.Add(val);
             }

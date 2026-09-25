@@ -43,7 +43,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     // at high rates; entries are queued here (background-safe, lock-protected)
     // and flushed to the observable collections in one ranged Add per tick
     // (see FlushPendingEntries).
-    private const int TrimChunkSize = 100;
+
+    // Trim chunk: once past the cap, drop entries in whole chunks so the Reset
+    // notification fires once per chunk instead of once per entry (a Reset
+    // rebuilds the ListCollectionView index — at cap 10000 a chunk of 1000
+    // means one rebuild per 1000 appends instead of one per 100, while the
+    // buffer still hovers within 9000..10000 entries of the configured cap).
+    private const int TrimChunkSize = 1000;
+
     private readonly object _pendingLock = new();
     // Parallel lists (entries + byte counts) instead of a tuple list: the flush
     // hands the entries list straight to AddRange (zero copy) and swaps the pair
@@ -54,6 +61,14 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private List<LogEntry> _pendingTx = new();
     private List<int> _pendingTxBytes = new();
     private int _pendingTxBytesTotal;
+    // Bounded pools so non-empty flush ticks reuse list capacity instead of
+    // allocating four fresh lists every 30ms (producer takes under _pendingLock).
+    private readonly Stack<List<LogEntry>> _rxEntryPool = new();
+    private readonly Stack<List<int>> _rxBytePool = new();
+    private readonly Stack<List<LogEntry>> _txEntryPool = new();
+    private readonly Stack<List<int>> _txBytePool = new();
+    private const int PendingListPoolDepth = 4;
+    private List<LogEntry> _mergeScratch = new();
 
     /// <summary>Raised once per flush tick after all pending entries are
     /// appended, so consumers (e.g. auto-scroll) run once instead of once per
@@ -224,6 +239,28 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         FilteredAllEntries?.Refresh();
     }
 
+    /// <summary>Filter-settle path: only rebuild the visible pane's view (3× → 1×
+    /// on the common typing path). Semantic toggles (ShowRx/ShowTx/split) still
+    /// call <see cref="RefreshAllViews"/> because they can flip a hidden view's
+    /// visibility contract.</summary>
+    private void RefreshActiveView()
+    {
+        if (_splitDataPanes)
+        {
+            FilteredRxEntries?.Refresh();
+            FilteredTxEntries?.Refresh();
+        }
+        else
+        {
+            FilteredAllEntries?.Refresh();
+        }
+    }
+
+    /// <summary>Called by DataPanel when the forced narrow-window combined mode
+    /// flips visibility without SplitDataPanes changing — the newly shown view
+    /// may have a stale filter state until the next settle.</summary>
+    public void NotifyPaneModeChanged() => RefreshAllViews();
+
     private bool _showRx = true;
     public bool ShowRx { get => _showRx; set { if (SetField(ref _showRx, value)) RefreshAllViews(); } }
 
@@ -391,7 +428,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             _filterDebounce.IsEnabled = false;
             RebuildFilterEngines();
-            RefreshAllViews();
+            RefreshActiveView();
         };
 
         _flushTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -699,8 +736,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 rxBatch = _pendingRx;
                 rxBytes = _pendingRxBytes;
                 rxBytesTotal = _pendingRxBytesTotal;
-                _pendingRx = new List<LogEntry>();
-                _pendingRxBytes = new List<int>();
+                _pendingRx = RentList(_rxEntryPool) ?? new List<LogEntry>();
+                _pendingRxBytes = RentList(_rxBytePool) ?? new List<int>();
                 _pendingRxBytesTotal = 0;
             }
             if (_pendingTx.Count > 0)
@@ -708,8 +745,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 txBatch = _pendingTx;
                 txBytes = _pendingTxBytes;
                 txBytesTotal = _pendingTxBytesTotal;
-                _pendingTx = new List<LogEntry>();
-                _pendingTxBytes = new List<int>();
+                _pendingTx = RentList(_txEntryPool) ?? new List<LogEntry>();
+                _pendingTxBytes = RentList(_txBytePool) ?? new List<int>();
                 _pendingTxBytesTotal = 0;
             }
         }
@@ -743,13 +780,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         {
             if (rxBatch != null && txBatch != null)
             {
-                var merged = new List<LogEntry>(rxBatch.Count + txBatch.Count);
+                _mergeScratch.Clear();
                 int i = 0, j = 0;
                 while (i < rxBatch.Count && j < txBatch.Count)
-                    merged.Add(rxBatch[i].Timestamp <= txBatch[j].Timestamp ? rxBatch[i++] : txBatch[j++]);
-                while (i < rxBatch.Count) merged.Add(rxBatch[i++]);
-                while (j < txBatch.Count) merged.Add(txBatch[j++]);
-                AllEntries.AddRange(merged);
+                    _mergeScratch.Add(rxBatch[i].Timestamp <= txBatch[j].Timestamp ? rxBatch[i++] : txBatch[j++]);
+                while (i < rxBatch.Count) _mergeScratch.Add(rxBatch[i++]);
+                while (j < txBatch.Count) _mergeScratch.Add(txBatch[j++]);
+                AllEntries.AddRange(_mergeScratch);
             }
             else
             {
@@ -757,7 +794,25 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             }
             TrimBuffer(AllEntries);
         }
-        BatchFlushed?.Invoke();
+        // Return pooled lists only after merge/copy consumers are done with them.
+        ReturnList(_rxEntryPool, rxBatch);
+        ReturnList(_rxBytePool, rxBytes);
+        ReturnList(_txEntryPool, txBatch);
+        ReturnList(_txBytePool, txBytes);
+        // Only notify consumers when something actually moved — idle 30ms ticks
+        // would otherwise drive the scroll path at 33Hz forever.
+        if (rxBatch != null || txBatch != null)
+            BatchFlushed?.Invoke();
+    }
+
+    private static List<T>? RentList<T>(Stack<List<T>> pool) => pool.Count > 0 ? pool.Pop() : null;
+
+    private static void ReturnList<T>(Stack<List<T>> pool, List<T>? list)
+    {
+        if (list == null) return;
+        list.Clear();
+        if (pool.Count < PendingListPoolDepth)
+            pool.Push(list);
     }
 
     /// <summary>Raises PropertyChanged for the counter properties. Called once per
@@ -787,11 +842,12 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     private void TrimBuffer(ObservableRangeCollection<LogEntry> entries)
     {
-        // Chunk-rounding so RemoveRange fires one notification per chunk instead
-        // of one per entry (see EntryListTrimmer for the exact semantics).
+        // Chunk-rounding amortizes how often we hit the collection (fewer, larger
+        // trims). RemoveFromFront raises one Reset: ListCollectionView supports
+        // Reset, and per-item Remove at full capacity is O(n)×N×3 bound views.
         var removeCount = EntryListTrimmer.ComputeRemoveCount(entries.Count, MaxEntries, TrimChunkSize);
         if (removeCount > 0)
-            entries.RemoveRange(0, removeCount);
+            entries.RemoveFromFront(removeCount);
     }
 
     public void RecordTxBytes(int byteCount)

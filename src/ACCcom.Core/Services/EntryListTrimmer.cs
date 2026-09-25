@@ -3,11 +3,10 @@ namespace ACCcom.Core.Services;
 /// <summary>
 /// Trim helper for the bounded display buffers: given a collection count and
 /// the max-entry cap, computes how many oldest entries to drop so the collection
-/// lands back under the cap. The count rounds up to a chunk boundary so a
-/// range-removal implementation (ObservableRangeCollection) fires one
-/// CollectionChanged notification per chunk instead of one per entry, while
-/// never exceeding the actual collection size. Extracted from
-/// DataFlowViewModel.TrimBuffer so the rounding/clamp edge cases are locked.
+/// lands back under the cap. The count rounds up to a chunk boundary so trimming
+/// happens in whole chunks (fewer Reset/RemoveRange calls), never exceeding the
+/// actual collection size. Extracted from DataFlowViewModel.TrimBuffer so the
+/// rounding/clamp edge cases are locked.
 /// </summary>
 public static class EntryListTrimmer
 {
@@ -38,6 +37,13 @@ public static class EntryListTrimmer
     {
         var removeCount = ComputeRemoveCount(entries.Count, maxEntries, chunkSize);
         if (removeCount <= 0) return;
+
+        if (entries is ACCcom.Core.Collections.ObservableRangeCollection<T> range)
+        {
+            range.RemoveFromFront(removeCount);
+            return;
+        }
+
         for (int i = 0; i < removeCount; i++)
             entries.RemoveAt(0);
     }

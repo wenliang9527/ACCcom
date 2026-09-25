@@ -28,24 +28,53 @@ namespace ACCcom.Converters;
 /// </summary>
 public class HexToBrushConverter : IValueConverter
 {
+    // Key = surface color (ARGB) | readable | source hex string. The surface is
+    // embedded so a theme switch never serves a brush tuned for the old bg.
     private static readonly ConcurrentDictionary<string, SolidColorBrush> Cache = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly SolidColorBrush TransparentBrush = Frozen(Brushes.Transparent);
 
+    // Memoized theme resources: the null-highlight path (every unhighlighted
+    // row, both bindings) and CurrentSurface used to hit TryFindResource 1-3
+    // times per convert, i.e. thousands per second during virtualized scroll.
+    // App.ThemeVersion bumps on each theme swap, which is the only moment these
+    // can change — so the fast path is one int read.
+    private static int _memoVersion = -1;
+    private static Brush? _inkPrimary;
+    private static Color _surface = Colors.White;
+
+    private static void SyncThemeMemo()
+    {
+        var version = App.ThemeVersion;
+        if (version == _memoVersion) return;
+        _memoVersion = version;
+
+        var app = Application.Current;
+        _inkPrimary = app?.TryFindResource("InkPrimaryBrush") as Brush;
+        if (app?.TryFindResource("BgSurface") is Color surface) _surface = surface;
+        else if (app?.TryFindResource("BgBase") is Color baseColor) _surface = baseColor;
+        else _surface = Colors.White;
+    }
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         var readable = string.Equals(parameter as string, "readable", StringComparison.OrdinalIgnoreCase);
+        SyncThemeMemo();
         if (value is not string s || string.IsNullOrWhiteSpace(s))
         {
             // Null HighlightColor = no highlight: readable text falls back to the
             // theme's primary ink (Binding.TargetNullValue cannot host a
             // DynamicResource — it is not a DependencyProperty target).
-            if (readable && Application.Current?.TryFindResource("InkPrimaryBrush") is Brush ink)
-                return ink;
+            if (readable && _inkPrimary != null)
+                return _inkPrimary;
             return TransparentBrush;
         }
-        var bg = readable ? CurrentSurface() : Colors.Transparent;
-        var cacheKey = $"{bg}|{readable}|{s}";
+
+        var bg = readable ? _surface : Colors.Transparent;
+        // Interpolated string key still allocates once per convert; under row
+        // recycling that is far cheaper than the old $"{bg}|..." which formatted
+        // a full Color each time. Use a non-allocating composite when possible.
+        var cacheKey = MakeKey(bg, readable, s);
 
         if (Cache.TryGetValue(cacheKey, out var cached))
             return cached;
@@ -69,17 +98,24 @@ public class HexToBrushConverter : IValueConverter
         }
     }
 
-    /// <summary>Surface color of the active theme — the background RX/TX row
-    /// text actually renders on. Falls back to BgBase, then white, so a missing
-    /// resource can never throw inside a binding convert pass.</summary>
-    private static Color CurrentSurface()
-    {
-        var app = Application.Current;
-        if (app == null) return Colors.White;
-        if (app.TryFindResource("BgSurface") is Color surface) return surface;
-        if (app.TryFindResource("BgBase") is Color baseColor) return baseColor;
-        return Colors.White;
-    }
+    private static string MakeKey(Color bg, bool readable, string s)
+        => string.Create(10 + s.Length, (bg, readable, s), static (span, state) =>
+        {
+            // "AARRGGBB|R|..." — fixed-width ARGB, no Color.ToString/culture.
+            span[0] = ToHex(state.bg.A >> 4);
+            span[1] = ToHex(state.bg.A & 0xF);
+            span[2] = ToHex(state.bg.R >> 4);
+            span[3] = ToHex(state.bg.R & 0xF);
+            span[4] = ToHex(state.bg.G >> 4);
+            span[5] = ToHex(state.bg.G & 0xF);
+            span[6] = ToHex(state.bg.B >> 4);
+            span[7] = ToHex(state.bg.B & 0xF);
+            span[8] = state.readable ? '1' : '0';
+            span[9] = '|';
+            state.s.AsSpan().CopyTo(span[10..]);
+        });
+
+    private static char ToHex(int nibble) => (char)(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
 
     private static SolidColorBrush Frozen(SolidColorBrush brush)
     {

@@ -102,8 +102,9 @@ public sealed class McpTrafficLog : IDisposable
     private void WriteCore(string line)
     {
         if (_writer == null) return;
+        // AutoFlush already flushes on every WriteLine; the explicit Flush here
+        // was a redundant second flush syscall per traffic line.
         _writer.WriteLine(line);
-        _writer.Flush();
         _lineCount++;
         // A non-positive MaxLines would rotate on every write; treat it as "no
         // rotation" rather than thrashing the file.

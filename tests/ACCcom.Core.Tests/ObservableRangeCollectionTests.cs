@@ -211,4 +211,61 @@ public class ObservableRangeCollectionTests
         Assert.Equal(1002, _events[999].NewStartingIndex);
         Assert.Equal(1003, coll.Count);
     }
+
+    [Fact]
+    public void RemoveFromFront_RaisesSingleResetAndTrims()
+    {
+        var coll = Create();
+        coll.AddRange(Enumerable.Range(0, 10));
+
+        _events.Clear();
+        coll.RemoveFromFront(4);
+
+        var reset = Assert.Single(_events);
+        Assert.Equal(NotifyCollectionChangedAction.Reset, reset.Action);
+        Assert.Equal(Enumerable.Range(4, 6), coll);
+    }
+
+    [Fact]
+    public void RemoveFromFront_FiresCountAndIndexerPropertyChangedOnceEach()
+    {
+        var coll = Create();
+        coll.AddRange(Enumerable.Range(0, 5));
+
+        _propertyChanges.Clear();
+        coll.RemoveFromFront(2);
+
+        Assert.Equal(1, _propertyChanges.Count(n => n == nameof(ObservableRangeCollection<int>.Count)));
+        Assert.Equal(1, _propertyChanges.Count(n => n == "Item[]"));
+    }
+
+    [Fact]
+    public void RemoveFromFront_InvalidCount_NoOp()
+    {
+        var coll = Create();
+        coll.AddRange(new[] { 1, 2, 3 });
+
+        _events.Clear();
+        coll.RemoveFromFront(0);
+        coll.RemoveFromFront(-1);
+        coll.RemoveFromFront(4); // beyond end
+
+        Assert.Empty(_events);
+        Assert.Equal(3, coll.Count);
+    }
+
+    [Fact]
+    public void RemoveFromFront_AllItems_YieldsEmpty()
+    {
+        var coll = Create();
+        coll.AddRange(new[] { 1, 2, 3 });
+        _events.Clear(); // only observe the RemoveFromFront events
+        _propertyChanges.Clear();
+
+        coll.RemoveFromFront(3);
+
+        Assert.Empty(coll);
+        Assert.Single(_events);
+        Assert.Equal(NotifyCollectionChangedAction.Reset, _events[0].Action);
+    }
 }

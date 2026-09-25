@@ -120,4 +120,61 @@ public class RxHotPathBenchmarkTests
         double opsPerSec = count / sw.Elapsed.TotalSeconds;
         Assert.True(opsPerSec > 100_000, $"Hex ops too slow: {opsPerSec:F0}/s ({bytes.Length} bytes)");
     }
+
+    [Fact]
+    public void DataPanelFilter_PlainContains_SustainsHighThroughput()
+    {
+        var entry = new LogEntry
+        {
+            Id = 1,
+            Direction = "RX",
+            Text = "sensor temperature=23.5 humidity=41 pressure=1013",
+            RawHex = "AA 55 01 02 03 04 05 06"
+        };
+
+        const int count = 100_000;
+        var sw = Stopwatch.StartNew();
+        int hits = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (DataPanelFilter.FilterEntry(entry, "humidity", useRegex: false, showDirection: true, expressionEngine: null))
+                hits++;
+        }
+        sw.Stop();
+
+        Assert.Equal(count, hits);
+        double opsPerSec = count / sw.Elapsed.TotalSeconds;
+        // Filter settle runs once per visible entry on every keystroke-debounce;
+        // under 50k/s means the plain path regressed into allocation/regex.
+        Assert.True(opsPerSec > 50_000, $"Filter throughput too low: {opsPerSec:F0}/s");
+    }
+
+    [Fact]
+    public void PacketFilterEngine_TimeExpression_SustainsHighThroughput()
+    {
+        var engine = new PacketFilterEngine("time > \"00:00:00\" and text contains temp");
+        var entry = new LogEntry
+        {
+            Id = 1,
+            Direction = "RX",
+            Timestamp = DateTime.Now,
+            Text = "temp=23.5",
+            RawHex = "AA BB"
+        };
+
+        const int count = 50_000;
+        var sw = Stopwatch.StartNew();
+        int hits = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (engine.Matches(entry)) hits++;
+        }
+        sw.Stop();
+
+        Assert.True(hits > 0);
+        double opsPerSec = count / sw.Elapsed.TotalSeconds;
+        // Expression path precomputes TimeSpan/lowercase; 20k/s is far below
+        // real throughput but catches a reintroduced per-eval parse.
+        Assert.True(opsPerSec > 20_000, $"Expression filter too slow: {opsPerSec:F0}/s");
+    }
 }
