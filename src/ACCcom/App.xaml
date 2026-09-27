@@ -30,16 +30,8 @@
                                 <Border Background="{TemplateBinding Background}"
                                         CornerRadius="{TemplateBinding CornerRadius}" />
                                 <Border IsHitTestVisible="False"
-                                        CornerRadius="{TemplateBinding CornerRadius}">
-                                    <Border.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#26FFFFFF" Offset="0" />
-                                            <GradientStop Color="#00FFFFFF" Offset="0.12" />
-                                            <GradientStop Color="#00000000" Offset="0.88" />
-                                            <GradientStop Color="#1A000000" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Border.Background>
-                                </Border>
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Background="{DynamicResource CardVarnishBrush}" />
                                 <ContentPresenter Margin="{TemplateBinding Padding}" />
                             </Grid>
                         </ControlTemplate>
@@ -100,6 +92,12 @@
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -351,7 +349,7 @@
                             <ControlTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsOpen}" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerBrush}" />
-                                    <Setter Property="Foreground" Value="#FFFFFFFF" />
+                                    <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
                                 </DataTrigger>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -1367,6 +1365,12 @@
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
                                 </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
@@ -1501,6 +1505,13 @@
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                                 </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
@@ -1517,8 +1528,13 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#E81123" />
-                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DangerStrongBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource OnDangerBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DangerStrongBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource OnDangerBrush}" />
+                                    <Setter Property="Opacity" Value="0.85" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

@@ -97,6 +97,15 @@
     <SolidColorBrush x:Key="CompareDiffBgBrush" Color="{StaticResource CompareDiffBg}" />
 
     <SolidColorBrush x:Key="DividerBrush" Color="#2C3341" />
+    <SolidColorBrush x:Key="DangerStrongBrush" Color="#E81123" />
+    <SolidColorBrush x:Key="OnDangerBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
+    <LinearGradientBrush x:Key="CardVarnishBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#12FFFFFF" Offset="0" />
+        <GradientStop Color="#00FFFFFF" Offset="0.12" />
+        <GradientStop Color="#00000000" Offset="0.88" />
+        <GradientStop Color="#22000000" Offset="1" />
+    </LinearGradientBrush>
 
     <SolidColorBrush x:Key="ScrollTrackBrush" Color="#15FFFFFF" />
     <SolidColorBrush x:Key="ScrollThumbBrush" Color="#4A5468" />

@@ -282,9 +282,14 @@
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
                     <Grid Background="Transparent">
-                        <Border Background="{DynamicResource BorderBrush}" CornerRadius="2"
-                                Width="3" HorizontalAlignment="Center" Opacity="0.25" />
+                        <Border x:Name="Grip" Background="{DynamicResource DividerBrush}" CornerRadius="2"
+                                Width="3" HorizontalAlignment="Center" />
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </GridSplitter.Template>
         </GridSplitter>
@@ -296,11 +301,21 @@
              stale/overlapping hit-target can never sit in the middle of the panel. -->
         <Border x:Name="QuickSendRail" Grid.Column="2" Grid.Row="3" Grid.RowSpan="3"
                 Width="28" HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                Background="{DynamicResource BgSurfaceBrush}"
                 BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,1"
                 Cursor="Hand" MouseLeftButtonUp="QuickSendRail_Click"
                 ToolTip="{Binding [QuickSend.RailTip], Source={x:Static local:LanguageManager.Instance}}"
                 Visibility="{Binding ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityInverted}}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}" />
+                    <Style.Triggers>
+                        <!-- Hover feedback: the rail was a silent click target before. -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="14"
                            Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" />

@@ -116,9 +116,10 @@
         <Separator Width="1" Height="12" Margin="8,0"
                    Background="{DynamicResource DividerBrush}" />
 
-<!-- 连接时长（无点击行为，纯显示） -->
+<!-- 连接时长（无点击行为，纯显示）。TextBlock 只用 Run 组合内容：
+     Text 属性与 Run 同时存在会把时长渲染两遍（"12:34Up 12:34"）。 -->
         <StatusBarItem>
-            <TextBlock Text="{Binding ConnectionDuration}" FontSize="11" FontFamily="Consolas"
+            <TextBlock FontSize="11" FontFamily="Consolas"
                        ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}"
                        Foreground="{DynamicResource InkSecondaryBrush}">
                 <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />

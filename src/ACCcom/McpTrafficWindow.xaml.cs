@@ -249,32 +249,43 @@ public partial class McpTrafficWindow : Window
     private void LoadNewLines()
     {
         if (_paused || _newLinesInFlight) return;
-        var offset = _readOffset;
         _newLinesInFlight = true;
-        Task.Run(() => ReadNewLines(offset))
-            .ContinueWith(t =>
+        _ = LoadNewLinesAsync(_readOffset);
+    }
+
+    /// <summary>Async half of <see cref="LoadNewLines"/>: the worker read/parse
+    /// is awaited (no UI work while it runs), and the continuation lands back
+    /// on the UI context to append the rows.</summary>
+    private async Task LoadNewLinesAsync(long offset)
+    {
+        try
+        {
+            var result = await Task.Run(() => ReadNewLines(offset)).ConfigureAwait(true);
+            _newLinesInFlight = false;
+            if (result.HasValue)
             {
-                _newLinesInFlight = false;
-                if (t is { IsFaulted: false, Result: not null } ok)
-                {
-                    _readOffset = ok.Result.Offset;
-                    if (ok.Result.Rows.Count > 0)
-                        AddRowsBatch(ok.Result.Rows, parsed: true);
-                }
-                else
-                {
-                    // Rotation deleted the file between events; drop the stale
-                    // offset and re-read from the start on the next event.
-                    _readOffset = 0;
-                }
-                // A watcher event or a pause/resume landed while the read was
-                // in flight: re-arm so nothing is left behind.
-                if (_loadPending && !_paused)
-                {
-                    _loadPending = false;
-                    RequestDebouncedLoad();
-                }
-            }, Dispatcher);
+                _readOffset = result.Value.Offset;
+                if (result.Value.Rows.Count > 0)
+                    AddRowsBatch(result.Value.Rows);
+            }
+            else
+            {
+                // Rotation deleted the file between events; drop the stale
+                // offset and re-read from the start on the next event.
+                _readOffset = 0;
+            }
+            // A watcher event or a pause/resume landed while the read was
+            // in flight: re-arm so nothing is left behind.
+            if (_loadPending && !_paused)
+            {
+                _loadPending = false;
+                RequestDebouncedLoad();
+            }
+        }
+        catch
+        {
+            _newLinesInFlight = false;
+        }
     }
 
     /// <summary>Worker half of LoadNewLines: streams new lines from the file and

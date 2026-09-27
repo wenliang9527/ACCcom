@@ -43,17 +43,21 @@ public partial class MainWindow : Window
         // Setup chromeless titlebar
         WindowHelper.SetupTitleBar(this, TitleBar);
 
-        // Restore window position/size from settings
+        // Restore window position/size from settings, clamped to the current
+        // work area: after a monitor change (docked laptop, resolution switch)
+        // saved bounds can sit off-screen entirely and the window would reopen
+        // unreachable.
         var s = _vm.Settings;
-        if (!double.IsNaN(s.WindowX) && !double.IsNaN(s.WindowY))
-        {
-            Left = s.WindowX;
-            Top = s.WindowY;
-        }
+        var work = SystemParameters.WorkArea;
         if (!double.IsNaN(s.WindowWidth) && !double.IsNaN(s.WindowHeight))
         {
-            Width = s.WindowWidth;
-            Height = s.WindowHeight;
+            Width = Math.Min(s.WindowWidth, work.Width);
+            Height = Math.Min(s.WindowHeight, work.Height);
+        }
+        if (!double.IsNaN(s.WindowX) && !double.IsNaN(s.WindowY))
+        {
+            Left = Math.Clamp(s.WindowX, work.Left, Math.Max(work.Left, work.Right - ActualWidth));
+            Top = Math.Clamp(s.WindowY, work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
         }
         // Restore maximized last so Width/Height above stay the normal bounds.
         if (s.WindowMaximized)

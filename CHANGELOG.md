@@ -4,6 +4,13 @@
 
 ## Unreleased（实测：构建 0 警告 0 错误，1364 测试全过）
 
+### Fixed
+
+- 界面快赢包（R4 轮）：状态栏运行时长双渲染修复（`Text` 绑定与 `Run` 同时存在曾把时长显示两遍「12:34Up 12:34」）；Light/Dark 主题 `DividerBrush` 与 `BorderColor` 同值 + 自定义分隔条 0.25 透明度导致分隔条几乎不可见——分隔线独立成 token（Light #CFD5E0 / Dark #3A3A44），主窗口与 DataPanel 两处分隔条模板改全不透明分隔线色 + hover 强调色
+- 交互态补全：`ToolToggle`/`MiniToggle`/`TitleBarButton`/`TitleBarCloseButton` 补 IsPressed 与禁用（0.4 透明度）视觉态；快速发送栏 rail 补 hover 反馈（此前是无反馈的静默点击区）
+- 硬编码色 token 化：关闭钮 `#E81123`/`#FFFFFF`、开口态前景 `#FFFFFFFF`、PaintedCard 高光渐变（主题不变的白雾）分别落为 7 主题新增的 `DangerStrongBrush`/`OnDangerBrush`/`OnAccentBrush`/`CardVarnishBrush`（暗色主题高光自动减淡为 0x12/0x22 档）
+- DataPanel 三个搜索框加水印（复用 `Tip.SearchAll/Rx/Tx` 键，与流量窗占位一致）；主窗口恢复位置/尺寸 clamp 到当前工作区（换显示器/分辨率后不再开到屏幕外）
+
 ### Added
 
 - MCP 流量窗体验与性能（R3 轮）：搜索 150ms 防抖（清空立即生效，打字不再每键全量 Refresh）；搜索改为字段无关匹配（Text/Hex 独立于 HEX/ASCII 显示模式，切换不再改变搜索结果）；新行读取+解析移出 UI 线程（worker 线程解析、Dispatcher 回传追加，在途互斥 + 完成后自动补跑，突发洪流不再卡 UI）；溢出超 512 行的单次批量裁剪代替逐行 `RemoveAt(0)`；SYS（open/close）行改中性配色（不再冒充 RX 绿）；tool 记录 `id=0` 显示「—」（详情元信息同步）；payload 列自动伸展填充剩余宽度（其余列保持用户拖宽）；视图状态持久化（HEX 模式/方向/tag/搜索/follow-tail 五个 `AppSettings` 新字段）；导出新增 JSON（无损数组格式）；详情框 MaxHeight 44 → 120；删除死代码 `AppendLine`/`NoteTag`/`UpdateRowCount`

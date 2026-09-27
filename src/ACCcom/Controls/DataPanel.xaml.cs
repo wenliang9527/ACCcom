@@ -136,6 +136,15 @@ public partial class DataPanel : UserControl
             vm.DataPaneSplitRatio = SplitRxColumn.ActualWidth / total;
     }
 
+    /// <summary>Shared watermark driver for the three search boxes: the overlay
+    /// TextBlock (named via the TextBox's Tag) collapses once text exists.</summary>
+    private void SearchBox_Watermark_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox box || box.Tag is not string hintName) return;
+        if (FindName(hintName) is not TextBlock hint) return;
+        hint.Visibility = string.IsNullOrEmpty(box.Text) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public void ScrollRxToEnd()
     {
         var sv = _rxScrollViewer ??= FindVisualChild<ScrollViewer>(RxListBox);

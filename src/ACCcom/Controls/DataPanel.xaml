@@ -92,9 +92,15 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                                    VerticalAlignment="Center" Margin="0,0,4,0" />
-                                        <TextBox x:Name="AllSearchBox" MinWidth="80" MaxWidth="180" FontSize="11" Padding="4,1"
-                                                 Text="{Binding AllFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                        <Grid MinWidth="80" VerticalAlignment="Center">
+                                            <TextBox x:Name="AllSearchBox" MaxWidth="180" FontSize="11" Padding="4,1"
+                                                     Text="{Binding AllFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextChanged="SearchBox_Watermark_TextChanged" Tag="AllSearchHint"
+                                                     ToolTip="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <TextBlock x:Name="AllSearchHint" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
+                                                       Text="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                        </Grid>
                                         <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                   ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}"
                                                   FontFamily="Consolas" FontSize="11" />
@@ -267,9 +273,15 @@
                                     <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                            <TextBox x:Name="RxSearchBox" MinWidth="80" MaxWidth="160" FontSize="11" Padding="4,1"
-                                                     Text="{Binding RxFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                                     ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <Grid MinWidth="80" VerticalAlignment="Center">
+                                                <TextBox x:Name="RxSearchBox" MaxWidth="160" FontSize="11" Padding="4,1"
+                                                         Text="{Binding RxFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                         TextChanged="SearchBox_Watermark_TextChanged" Tag="RxSearchHint"
+                                                         ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                                <TextBlock x:Name="RxSearchHint" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                           IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
+                                                           Text="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            </Grid>
                                             <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                       ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                             <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
@@ -391,9 +403,14 @@
                     <GridSplitter.Template>
                         <ControlTemplate TargetType="GridSplitter">
                             <Grid Background="Transparent">
-                                <Border Background="{DynamicResource BorderBrush}" CornerRadius="2"
-                                        Width="3" HorizontalAlignment="Center" Opacity="0.25" />
+                                <Border x:Name="Grip" Background="{DynamicResource DividerBrush}" CornerRadius="2"
+                                        Width="3" HorizontalAlignment="Center" />
                             </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </GridSplitter.Template>
                 </GridSplitter>
@@ -426,9 +443,15 @@
                                     <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                            <TextBox x:Name="TxSearchBox" MinWidth="80" MaxWidth="160" FontSize="11" Padding="4,1"
-                                                     Text="{Binding TxFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                                     ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <Grid MinWidth="80" VerticalAlignment="Center">
+                                                <TextBox x:Name="TxSearchBox" MaxWidth="160" FontSize="11" Padding="4,1"
+                                                         Text="{Binding TxFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                                         TextChanged="SearchBox_Watermark_TextChanged" Tag="TxSearchHint"
+                                                         ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                                <TextBlock x:Name="TxSearchHint" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                           IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
+                                                           Text="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                            </Grid>
                                             <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                       ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="Consolas" FontSize="11" />
                                             <ToggleButton Content="fx" IsChecked="{Binding UseExpressionFilter}" Margin="4,0,0,0"
