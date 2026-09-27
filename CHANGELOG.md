@@ -4,6 +4,14 @@
 
 ## Unreleased（实测：构建 0 警告 0 错误，1372 测试全过）
 
+### Fixed
+
+- **主题切换误删 Tokens 字典（R8 轮，R7 回归）**：`ApplyTheme` 按路径含 `Themes/` 清理合并字典——R7 的 `Themes/Tokens.xaml` 同样命中，应用主题时 token 字典被整个移除，之后解析的窗口（流量窗）所有 `StaticResource FontSize*` 抛 `XamlParseException`，`--open-mcp-traffic` 启动即崩、主窗口存活掩盖（crash.log 实证）；清理逻辑豁免 Tokens。冒烟方法升级为「启动流量窗 + crash.log 前后差分」而非仅进程存活——进程存活检查抓不到次级窗口崩溃
+
+### Changed
+
+- 界面结构化收尾（R8 轮）：`ChromeTitleBar` 新增 `CenterContent`（标题与窗口按钮之间居中槽）与 `ShowAccentDot`（品牌光点，经内联 XAML 片段保留 DynamicResource 主题跟随）；MainWindow 最后一个自绘标题栏完成迁移（连接状态徽章入 CenterContent，3 个 Click 处理器删除），全部 23 个窗口统一走共享控件；剩余文本字形全部 MDL2 化（4 个 ExtraButtons 关闭钮 ✕ → ChromeClose、多端口 "+" → Add 图标）
+
 ### Added
 
 - MCP `open_port` 参数预校验（R6 轮）：`baudRate > 0`、`dataBits 5-8`、`stopBits 0/1/2`、`parity 0/1/2` 越界直接报新稳定错误码 `INVALID_CONFIG`（此前落进 SerialPort 深处的 ArgumentException 变成含混的 OPEN_FAILED）；工具描述同步数值范围；测试数 1372（`ACCcom.Core.Tests` 1267 + `ACCcom.McpServer.Tests` 105，+6：5 组越界参数 + 界内 7E2 组合仍正常打开的防过杀守护）

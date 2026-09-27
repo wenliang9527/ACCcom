@@ -22,7 +22,7 @@
                  ShowMinMax="False" ShowClose="False"
                  Title="{Binding [CreateSlave.Title], Source={x:Static local:LanguageManager.Instance}}">
             <controls:ChromeTitleBar.ExtraButtons>
-                <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="{StaticResource FontSizeBody}" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
+                <Button Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButton}" FontSize="{StaticResource FontSizeCaption}" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
             </controls:ChromeTitleBar.ExtraButtons>
         </controls:ChromeTitleBar>
 

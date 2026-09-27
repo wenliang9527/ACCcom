@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using ACCcom.Helpers;
 
 namespace ACCcom.Controls;
@@ -71,15 +72,54 @@ public class ChromeTitleBar : Border
         set => SetValue(ExtraButtonsProperty, value);
     }
 
+    public static readonly DependencyProperty CenterContentProperty = DependencyProperty.Register(
+        nameof(CenterContent), typeof(object), typeof(ChromeTitleBar), new PropertyMetadata(null));
+
+    /// <summary>Content rendered centered in the bar (the main window's always-
+    /// visible connection badge). Fills the space between title and buttons.</summary>
+    public object CenterContent
+    {
+        get => GetValue(CenterContentProperty);
+        set => SetValue(CenterContentProperty, value);
+    }
+
+    public static readonly DependencyProperty ShowAccentDotProperty = DependencyProperty.Register(
+        nameof(ShowAccentDot), typeof(bool), typeof(ChromeTitleBar),
+        new PropertyMetadata(false, (d, _) => ((ChromeTitleBar)d).UpdateAccentDot()));
+
+    /// <summary>Shows the glowing accent dot before the title (main window
+    /// brand mark; secondary windows keep the plain text title).</summary>
+    public bool ShowAccentDot
+    {
+        get => (bool)GetValue(ShowAccentDotProperty);
+        set => SetValue(ShowAccentDotProperty, value);
+    }
+
     private static readonly FontFamily IconFont = new("Segoe MDL2 Assets");
     private const string MinGlyph = "\uE921";     // ChromeMinimize
     private const string MaxGlyph = "\uE922";     // ChromeMaximize
     private const string RestoreGlyph = "\uE923"; // ChromeRestore
     private const string CloseGlyph = "\uE8BB";   // ChromeClose
 
+    private const string AccentDotXaml =
+        "<Ellipse xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\"" +
+        " Width=\"8\" Height=\"8\" VerticalAlignment=\"Center\" Margin=\"0,0,8,0\">" +
+        "<Ellipse.Effect>" +
+        "<DropShadowEffect BlurRadius=\"5\" ShadowDepth=\"0\" Color=\"{DynamicResource Accent}\" Opacity=\"0.55\" />" +
+        "</Ellipse.Effect>" +
+        "<Ellipse.Fill>" +
+        "<LinearGradientBrush StartPoint=\"0,0\" EndPoint=\"1,1\">" +
+        "<GradientStop Color=\"{DynamicResource Accent}\" Offset=\"0\" />" +
+        "<GradientStop Color=\"{DynamicResource AccentHover}\" Offset=\"1\" />" +
+        "</LinearGradientBrush>" +
+        "</Ellipse.Fill>" +
+        "</Ellipse>";
+
     private readonly Button _minButton;
     private readonly Button _maxButton;
     private readonly Button _closeButton;
+    private readonly Ellipse _accentDot;
+    private readonly ContentControl _centerHost;
     private Window? _window;
     private bool _chromeAttached;
 
@@ -97,14 +137,36 @@ public class ChromeTitleBar : Border
         title.SetResourceReference(TextBlock.ForegroundProperty, "InkSecondaryBrush");
         title.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(Title)) { Source = this });
 
+        // Glowing accent dot (ShowAccentDot), matching the main window's brand
+        // mark. Built from an inline XAML fragment because DynamicResource on
+        // Freezables (GradientStop/Effect colors) needs markup deferral —
+        // SetResourceReference only exists on FrameworkElement.
+        _accentDot = (Ellipse)System.Windows.Markup.XamlReader.Parse(AccentDotXaml);
+
+        var titleGroup = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        titleGroup.Children.Add(_accentDot);
+        titleGroup.Children.Add(title);
+        DockPanel.SetDock(titleGroup, Dock.Left);
+
         var extraHost = new ContentControl { VerticalAlignment = VerticalAlignment.Stretch, Focusable = false };
         extraHost.SetBinding(ContentControl.ContentProperty,
             new System.Windows.Data.Binding(nameof(ExtraButtons)) { Source = this });
+
+        _centerHost = new ContentControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Focusable = false,
+            IsHitTestVisible = true
+        };
+        _centerHost.SetBinding(ContentControl.ContentProperty,
+            new System.Windows.Data.Binding(nameof(CenterContent)) { Source = this });
 
         _minButton = MakeWindowButton(MinGlyph, "TitleBar.Minimize", "TitleBarButton", OnMinimizeClick);
         _maxButton = MakeWindowButton(MaxGlyph, "TitleBar.Maximize", "TitleBarButton", OnMaximizeClick);
         _closeButton = MakeWindowButton(CloseGlyph, "TitleBar.Close", "TitleBarCloseButton", OnCloseClick);
         UpdateButtonVisibility();
+        UpdateAccentDot();
 
         var buttons = new StackPanel
         {
@@ -117,14 +179,21 @@ public class ChromeTitleBar : Border
         buttons.Children.Add(_maxButton);
         buttons.Children.Add(_closeButton);
 
-        var panel = new DockPanel { LastChildFill = false };
-        DockPanel.SetDock(title, Dock.Left);
+        var panel = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(titleGroup, Dock.Left);
         DockPanel.SetDock(buttons, Dock.Right);
-        panel.Children.Add(title);
+        panel.Children.Add(titleGroup);
         panel.Children.Add(buttons);
+        panel.Children.Add(_centerHost); // last child fills: the centered content
         Child = panel;
 
         Loaded += (_, _) => AttachChrome();
+    }
+
+    private void UpdateAccentDot()
+    {
+        if (_accentDot != null)
+            _accentDot.Visibility = ShowAccentDot ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private Button MakeWindowButton(string glyph, string tooltipKey, string styleKey, RoutedEventHandler onClick)

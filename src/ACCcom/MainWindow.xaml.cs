@@ -41,8 +41,6 @@ public partial class MainWindow : Window
             Loaded += (_, _) => _vm.OpenMcpTrafficWindow();
 
         // Setup chromeless titlebar
-        WindowHelper.SetupTitleBar(this, TitleBar);
-
         // Restore window position/size from settings, clamped to the current
         // work area: after a monitor change (docked laptop, resolution switch)
         // saved bounds can sit off-screen entirely and the window would reopen
@@ -428,21 +426,6 @@ public partial class MainWindow : Window
             maximized: WindowState == WindowState.Maximized);
         _vm.Dispose();
         base.OnClosed(e);
-    }
-
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e)
-    {
-        WindowHelper.Minimize(this);
-    }
-
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e)
-    {
-        WindowHelper.MaximizeRestore(this);
-    }
-
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e)
-    {
-        Close();
     }
 
     private void HistoryDropDownBtn_Click(object sender, RoutedEventArgs e)

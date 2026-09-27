@@ -109,11 +109,16 @@ public partial class App : Application
         // both absolute pack URIs and the relative Source form used by
         // App.xaml ("Themes/LightTheme.xaml") are caught — leaving a stale
         // theme behind shadows the new one because WPF searches later-added
-        // merged dictionaries first.
+        // merged dictionaries first. Tokens.xaml is exempt: it is the
+        // theme-independent type-scale dictionary (also under Themes/), and
+        // removing it would kill every StaticResource FontSize* reference in
+        // windows parsed after the swap (observed as a traffic-window
+        // XamlParseException at startup).
         for (int i = dicts.Count - 1; i >= 0; i--)
         {
             var src = dicts[i].Source?.ToString() ?? "";
-            if (src.IndexOf("Themes/", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (src.IndexOf("Themes/", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                src.IndexOf("Tokens.xaml", StringComparison.OrdinalIgnoreCase) < 0)
                 dicts.RemoveAt(i);
         }
         _activeTheme = null;

@@ -40,111 +40,77 @@
         <!-- ============================================================ -->
         <!-- Row 0: Custom Title Bar                                       -->
         <!-- ============================================================ -->
-        <Border x:Name="TitleBar" Grid.Row="0" Grid.ColumnSpan="3" Background="{DynamicResource BgSurfaceBrush}"
-                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- 左侧：应用标题 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                            HorizontalAlignment="Left" Margin="12,0,0,0">
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0">
-                        <Ellipse.Effect>
-                            <DropShadowEffect BlurRadius="5" ShadowDepth="0"
-                                              Color="{DynamicResource Accent}" Opacity="0.55" />
-                        </Ellipse.Effect>
-                        <Ellipse.Fill>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="{DynamicResource Accent}" Offset="0" />
-                                <GradientStop Color="{DynamicResource AccentHover}" Offset="1" />
-                            </LinearGradientBrush>
-                        </Ellipse.Fill>
-                    </Ellipse>
-                    <TextBlock Text="{Binding [App.Title], Source={x:Static local:LanguageManager.Instance}}"
-                               Foreground="{DynamicResource InkSecondaryBrush}"
-                               FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="Medium"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
+        <!-- Shared chrome title bar (R8): brand dot + title, the always-
+             visible connection badge centered via CenterContent, and the
+             standard min/max/close buttons from ChromeTitleBar. -->
+        <controls:ChromeTitleBar Grid.Row="0" Grid.ColumnSpan="3" x:Name="TitleBar"
+                                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}"
+                                 ShowAccentDot="True"
+                                 Title="{Binding [App.Title], Source={x:Static local:LanguageManager.Instance}}">
+            <controls:ChromeTitleBar.CenterContent>
                 <!-- 真正居中：连接状态徽章（始终可见，未连接灰色，已连接绿色） -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border CornerRadius="10" Padding="10,2" VerticalAlignment="Center"
-                            BorderThickness="1">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
-                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource ConnBadgeBgBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource ConnBadgeBorderBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                                <Setter Property="Fill" Value="{DynamicResource StatusGreenBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="{Binding [Conn.BadgeDisconnected], Source={x:Static local:LanguageManager.Instance}}" />
-                                        <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                                <TextBlock.ToolTip>
-                                    <ToolTip>
-                                        <TextBlock>
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="{Binding [Conn.BadgeDisconnectedTip], Source={x:Static local:LanguageManager.Instance}}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
-                                                            <Setter Property="Text" Value="{Binding SelectedPort}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </ToolTip>
-                                </TextBlock.ToolTip>
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button x:Name="TitleBarMinBtn" Content="&#x2500;"
-                            Style="{StaticResource TitleBarButton}" FontSize="{StaticResource FontSizeCaption}" Width="46" Height="32"
-                            Click="TitleBarMin_Click" ToolTip="{Binding [TitleBar.Minimize], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button x:Name="TitleBarMaxBtn" Content="&#x25A1;"
-                            Style="{StaticResource TitleBarButton}" FontSize="{StaticResource FontSizeMicro}" Width="46" Height="32"
-                            Click="TitleBarMax_Click" ToolTip="{Binding [TitleBar.Maximize], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button x:Name="TitleBarCloseBtn" Content="&#x2715;"
-                            Style="{StaticResource TitleBarCloseButton}" FontSize="{StaticResource FontSizeBody}" Width="46" Height="32"
-                            Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
-                </StackPanel>
-            </Grid>
-        </Border>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border CornerRadius="10" Padding="10,2" VerticalAlignment="Center"
+                        BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource ConnBadgeBgBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource ConnBadgeBorderBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                            <Setter Property="Fill" Value="{DynamicResource StatusGreenBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{Binding [Conn.BadgeDisconnected], Source={x:Static local:LanguageManager.Instance}}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                            <TextBlock.ToolTip>
+                                <ToolTip>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding [Conn.BadgeDisconnectedTip], Source={x:Static local:LanguageManager.Instance}}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                                        <Setter Property="Text" Value="{Binding SelectedPort}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </ToolTip>
+                            </TextBlock.ToolTip>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            </controls:ChromeTitleBar.CenterContent>
+        </controls:ChromeTitleBar>
 
         <!-- ============================================================ -->
         <!-- Row 1: Toolbar — two stable lines                             -->
@@ -438,7 +404,7 @@
                     <TextBox Text="{Binding NewPortName, UpdateSourceTrigger=PropertyChanged}"
                              Width="76" FontSize="{StaticResource FontSizeBody}" Padding="4,2" Margin="0,0,4,0"
                              ToolTip="{Binding [Tip.NewPortName], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="+" Command="{Binding OpenMultiPortCommand}"
+                    <Button Content="&#xE710;" FontFamily="{StaticResource FontFamilyIcons}" Command="{Binding OpenMultiPortCommand}"
                             Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" Width="22" Height="24"
                             ToolTip="{Binding [Tip.NewPortAdd], Source={x:Static local:LanguageManager.Instance}}" />
                     <Button Content="x" Command="{Binding CloseAllPortsCommand}"
