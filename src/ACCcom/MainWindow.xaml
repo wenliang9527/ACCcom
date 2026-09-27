@@ -351,8 +351,8 @@
                                 <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSendInputValid}" Value="False">
+                                        <!-- color-only: a thickness change nudged the whole send bar layout -->
                                         <Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}" />
-                                        <Setter Property="BorderThickness" Value="1.5" />
                                         <Setter Property="ToolTip"
                                                 Value="{Binding HexValidationError}" />
                                     </DataTrigger>

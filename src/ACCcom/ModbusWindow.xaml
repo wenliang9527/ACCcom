@@ -168,7 +168,7 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="{Binding [Modbus.SectionRegisters], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
-                        <ListView Grid.Row="1" ItemsSource="{Binding Registers}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.IsDeferredScrollingEnabled="True" Background="Transparent" BorderThickness="0">
+                        <ListView Grid.Row="1" ItemsSource="{Binding Registers}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" Background="Transparent" BorderThickness="0">
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="{Binding [Modbus.ColAddress], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding Address, StringFormat=0x{0:X4}}" />
@@ -229,7 +229,7 @@
                             <Button Content="{Binding [Button.TXT], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ExportTxtCommand}" Style="{StaticResource HeaderButton}" Margin="4,0,0,0" />
                             <Button Content="{Binding [Modbus.ButtonClear], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding ClearLogCommand}" Style="{StaticResource HeaderButton}" Margin="8,0,0,0" />
                         </StackPanel>
-                        <ListView Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding TransactionLog}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.IsDeferredScrollingEnabled="True" Background="Transparent" BorderThickness="0">
+                        <ListView Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding TransactionLog}" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" Background="Transparent" BorderThickness="0">
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="{Binding [Modbus.ColTime], Source={x:Static local:LanguageManager.Instance}}" Width="80" DisplayMemberBinding="{Binding Timestamp, StringFormat=HH:mm:ss}" />

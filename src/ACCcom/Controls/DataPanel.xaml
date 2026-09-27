@@ -134,7 +134,7 @@
                                  VirtualizingPanel.IsVirtualizing="True"
                                  VirtualizingPanel.VirtualizationMode="Recycling"
                                  VirtualizingPanel.ScrollUnit="Pixel"
-                                 ScrollViewer.IsDeferredScrollingEnabled="True"
+                                
                                  Background="Transparent" BorderThickness="0"
                                  Padding="4,2,0,2"
                                  SelectionMode="Extended">
@@ -315,7 +315,7 @@
                                      VirtualizingPanel.IsVirtualizing="True"
                                      VirtualizingPanel.VirtualizationMode="Recycling"
                                      VirtualizingPanel.ScrollUnit="Pixel"
-                                     ScrollViewer.IsDeferredScrollingEnabled="True"
+                                    
                                      Background="Transparent" BorderThickness="0"
                                      Padding="4,2,0,2"
                                      SelectionMode="Extended">
@@ -485,7 +485,7 @@
                                      VirtualizingPanel.IsVirtualizing="True"
                                      VirtualizingPanel.VirtualizationMode="Recycling"
                                      VirtualizingPanel.ScrollUnit="Pixel"
-                                     ScrollViewer.IsDeferredScrollingEnabled="True"
+                                    
                                      Background="Transparent" BorderThickness="0"
                                      Padding="4,2,0,2"
                                      SelectionMode="Extended">

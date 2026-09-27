@@ -4,6 +4,11 @@
 
 ## Unreleased（实测：构建 0 警告 0 错误，1372 测试全过）
 
+### Changed
+
+- 交互手感（R9 轮）：移除 6 处实时列表的 `IsDeferredScrollingEnabled`（Modbus 寄存器/事务日志、虚拟串口流量、DataPanel 合并/RX/TX）——拖动滚动条时内容不再冻结，实时日志可边拖边看；发送框 HEX 校验失败改纯颜色提示（原 1→1.5px 边框变化会让整条发送栏布局跳动）；状态栏 6 个单位标签（RX/TX/Err/Up/Buf/REC）本地化为 `StatusBar.*Label` 语言键——**Run.Text 默认 TwoWay 绑定**，对只读索引器必须在 Binding 内显式 `Mode=OneWay`，否则初始化即抛异常（crash.log 抓到 3 次后才定位）
+- MinWidth 960 与固定宽度下拉框经评估暂不改动：需真机视觉验证收益，避免盲改布局
+
 ### Fixed
 
 - **主题切换误删 Tokens 字典（R8 轮，R7 回归）**：`ApplyTheme` 按路径含 `Themes/` 清理合并字典——R7 的 `Themes/Tokens.xaml` 同样命中，应用主题时 token 字典被整个移除，之后解析的窗口（流量窗）所有 `StaticResource FontSize*` 抛 `XamlParseException`，`--open-mcp-traffic` 启动即崩、主窗口存活掩盖（crash.log 实证）；清理逻辑豁免 Tokens。冒烟方法升级为「启动流量窗 + crash.log 前后差分」而非仅进程存活——进程存活检查抓不到次级窗口崩溃

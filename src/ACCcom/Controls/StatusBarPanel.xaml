@@ -46,7 +46,7 @@
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
-                    <Run Text="RX " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                    <Run Text="{Binding [StatusBar.RxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
                     <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
@@ -77,7 +77,7 @@
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
-                    <Run Text="TX " Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
+                    <Run Text="{Binding [StatusBar.TxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
                     <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
                     <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
                 </TextBlock>
@@ -107,7 +107,7 @@
                         </Style.Triggers>
                     </Style>
                 </TextBlock.Style>
-                <Run Text="Err " FontWeight="SemiBold" />
+                <Run Text="{Binding [StatusBar.ErrLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" />
                 <Run Text="{Binding ErrorFrameCount, Mode=OneWay}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="Bold" />
             </TextBlock>
         </StatusBarItem>
@@ -122,7 +122,7 @@
             <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                        ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}"
                        Foreground="{DynamicResource InkSecondaryBrush}">
-                <Run Text="Up " Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding [StatusBar.UpLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
                 <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
             </TextBlock>
         </StatusBarItem>
@@ -136,7 +136,7 @@
             <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                        ToolTip="{Binding [StatusBar.BufferUsage], Source={x:Static local:LanguageManager.Instance}}"
                        Foreground="{DynamicResource InkSecondaryBrush}">
-                <Run Text="Buf " Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
+                <Run Text="{Binding [StatusBar.BufLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
                 <Run Text="{Binding BufferUsageText, Mode=OneWay}" FontWeight="Bold" />
             </TextBlock>
         </StatusBarItem>
@@ -187,7 +187,7 @@
                     </Ellipse.Style>
                 </Ellipse>
                 <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="SemiBold">
-                    <Run Text="REC " />
+                    <Run Text="{Binding [StatusBar.RecLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" />
                     <Run Text="{Binding RecordedCount, Mode=OneWay}" />
                 </TextBlock>
             </StackPanel>

@@ -88,7 +88,7 @@
             <TextBlock Grid.Row="0" Text="{Binding [VirtualSerial.Log], Source={x:Static local:LanguageManager.Instance}}"
                        Style="{StaticResource SectionHeader}" Margin="0,0,0,4" />
             <ListBox x:Name="LogList" Grid.Row="1" ItemsSource="{Binding Entries}" VirtualizingPanel.IsVirtualizing="True"
-                     VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.IsDeferredScrollingEnabled="True">
+                     VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid>
