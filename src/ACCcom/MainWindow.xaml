@@ -278,7 +278,7 @@
                       Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                       Background="Transparent" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
                       MinWidth="0"
-                      Visibility="{Binding ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                      Visibility="{Binding DataContext.ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
                     <Grid Background="Transparent">
@@ -295,7 +295,7 @@
         </GridSplitter>
         <controls:QuickSendSidebar x:Name="QuickSendSidebarHost" Grid.Column="2" Grid.Row="3" Grid.RowSpan="3"
                                    DataContext="{Binding Shortcuts}"
-                                   Visibility="{Binding ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+                                   Visibility="{Binding DataContext.ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
 
         <!-- Collapsed rail: only when the sidebar is hidden. Anchored left so a
              stale/overlapping hit-target can never sit in the middle of the panel. -->
@@ -304,7 +304,7 @@
                 BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,1"
                 Cursor="Hand" MouseLeftButtonUp="QuickSendRail_Click"
                 ToolTip="{Binding [QuickSend.RailTip], Source={x:Static local:LanguageManager.Instance}}"
-                Visibility="{Binding ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityInverted}}">
+                Visibility="{Binding DataContext.ShowQuickSendSidebar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityInverted}}">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}" />

@@ -66,13 +66,12 @@ public partial class MainWindow : Window
         // Theme is applied inside MainViewModel's constructor from persisted settings;
         // no re-apply here to avoid overriding non-light/dark themes.
 
-        // Restore quick send sidebar width + visibility
-        SidebarColumn.Width = new GridLength(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260);
-        ApplySidebarVisibility();
+        // Restore quick send sidebar width; visibility is bound in XAML.
+        ApplySidebarWidth();
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.ShowQuickSendSidebar))
-                ApplySidebarVisibility();
+                ApplySidebarWidth();
         };
 
         _ = Task.Run(async () =>
@@ -393,27 +392,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplySidebarVisibility()
+    /// <summary>Column-width half of the sidebar state. Visibility is owned by
+    /// the XAML bindings on ShowQuickSendSidebar (splitter + host shown, rail
+    /// inverted) so there is a single source of truth — the width here exists
+    /// because GridLength has no clean binding path: remember the dragged
+    /// width before collapsing to the 28px rail, restore it when shown.</summary>
+    private void ApplySidebarWidth()
     {
-        // Drive both hosts from one place so the sidebar and the collapsed rail
-        // can never show at the same time (they share Grid.Column 2).
         if (!_vm.ShowQuickSendSidebar)
         {
-            // Remember the dragged width before collapsing to the rail.
             if (!double.IsNaN(SidebarColumn.ActualWidth) && SidebarColumn.ActualWidth > 40)
                 _vm.Settings.QuickSendSidebarWidth = SidebarColumn.ActualWidth;
             SidebarColumn.Width = new GridLength(28);
-            SidebarSplitter.Visibility = Visibility.Collapsed;
-            QuickSendSidebarHost.Visibility = Visibility.Collapsed;
-            QuickSendRail.Visibility = Visibility.Visible;
         }
         else
         {
             SidebarColumn.Width = new GridLength(
                 Math.Clamp(_vm.Settings.QuickSendSidebarWidth > 0 ? _vm.Settings.QuickSendSidebarWidth : 260, 180, 420));
-            SidebarSplitter.Visibility = Visibility.Visible;
-            QuickSendSidebarHost.Visibility = Visibility.Visible;
-            QuickSendRail.Visibility = Visibility.Collapsed;
         }
     }
 
