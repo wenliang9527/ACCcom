@@ -85,16 +85,18 @@ public class AppSettings
     // no Tag property, so we use the index instead. Missing / out-of-range = default.
     public Dictionary<int, double> FieldGridColumnWidths { get; set; } = new();
 
-    // Per-column widths (pixels) for the MCP traffic window's ListView, keyed by
-    // the column's zero-based index. Same index-keyed scheme as FieldGridColumnWidths
-    // — GridViewColumn has no Tag property.
-    public Dictionary<int, double> McpTrafficColumnWidths { get; set; } = new();
+    // Per-column widths (pixels) for the MCP traffic window's ListView, keyed
+    // by column name (Id/Time/Direction/Tool/Tag/Length/Payload) so inserting
+    // or reordering columns never remaps a saved width onto the wrong column —
+    // the previous index-keyed scheme did exactly that on every new column.
+    public Dictionary<string, double> McpTrafficColumnWidthsByName { get; set; } = new();
 
-    // MCP traffic window view state (R142 persisted column widths; these persist
+    // MCP traffic window view state (column widths above; these persist
     // the filters/display mode so reopening the window restores the workflow).
     public bool McpTrafficHexMode { get; set; }
     public string McpTrafficDirectionFilter { get; set; } = "";
     public string McpTrafficTagFilter { get; set; } = "";
+    public string McpTrafficToolFilter { get; set; } = "";
     public string McpTrafficSearch { get; set; } = "";
     public bool McpTrafficFollowTail { get; set; } = true;
 

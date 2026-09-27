@@ -9,8 +9,6 @@
   "Label.DataBits": "Data Bits",
   "Label.Parity": "Parity",
   "Label.StopBits": "Stop Bits",
-
-
   "Label.QuickSend": "Quick Send",
   "Label.AuxPorts": "Aux Ports",
   "Label.Host": "Host",
@@ -19,13 +17,9 @@
   "Label.MaxAttempts": "Max Attempts",
   "Label.Unlimited": "(0=Unlimited)",
   "Label.AutoReconnect": "Auto Reconnect",
-
-
   "SerialPort.Open": "Open Port",
   "SerialPort.Close": "Close Port",
   "Button.Refresh": "Refresh",
-
-
   "Button.Send": "Send",
   "Button.Stop": "Stop",
   "Button.Clear": "Clear",
@@ -38,7 +32,6 @@
   "Button.CSV": "CSV",
   "Button.PCAP": "PCAP",
   "Button.TXT": "TXT",
-
   "Button.CopyAll": "Copy All",
   "Button.CopySelected": "Copy Selected",
   "Button.CopyHex": "Copy Hex",
@@ -46,7 +39,6 @@
   "Button.ClearTx": "Clear TX",
   "Button.Replay": "Replay",
   "Button.Compare": "Compare Files",
-
   "Button.VirtualSerial": "Virtual Serial",
   "Button.OK": "OK",
   "Button.Cancel": "Cancel",
@@ -57,6 +49,9 @@
   "McpTraffic.Clear": "Clear log",
   "McpTraffic.Time": "Time",
   "McpTraffic.Id": "ID",
+  "McpTraffic.Length": "Len",
+  "McpTraffic.ToolAll": "All tools",
+  "McpTraffic.ToolFilterTip": "Filter by MCP tool",
   "McpTraffic.TagAll": "All ports",
   "McpTraffic.TagFilterTip": "Filter by port session",
   "McpTraffic.Pause": "Pause",
@@ -87,8 +82,6 @@
   "McpTraffic.DetailHint": "Select a row above to view its full text and HEX",
   "McpTraffic.RowsAll": "{0} rows",
   "McpTraffic.RowsFiltered": "{0} / {1} rows",
-
-
   "Panel.ReceiveFull": "◀ Receive",
   "Panel.TransmitFull": "▶ Send",
   "Panel.All": "◀▶ All",
@@ -171,12 +164,10 @@
   "Theme.GalleryTitle": "Theme Gallery",
   "Theme.Current": "Current",
   "Theme.OpenGallery": "Choose theme…",
-
   "Status.PortArrived": "New serial device detected: {0}",
   "Status.PortRemoved": "Serial device removed: {0}",
   "Status.WaitingForDevice": "Port {0} not present, waiting for device…",
   "Status.HexInvalid": "Invalid HEX input",
-
   "Column.Offset": "Offset",
   "Column.Name": "Name",
   "Column.Length": "Len",
@@ -190,7 +181,6 @@
   "Tab.JSON": "JSON",
   "Tab.CsxCode": ".csx Code",
   "Tab.TestParse": "Test Parse",
-
   "Tip.OpenParserDir": "Open script directory",
   "Tip.AdvancedParams": "Advanced serial parameters",
   "Tip.AddBookmark": "Add bookmark at current position (Ctrl+B)",
@@ -256,7 +246,6 @@
   "Shortcuts.ToggleConnection": "Connect / disconnect the current port",
   "Shortcuts.FocusSend": "Focus the send box",
   "Shortcuts.SelectAll": "Select all entries in the active list",
-
   "HighlightWindow.Title": "Highlight Rules",
   "HighlightWindow.AddRule": "Add",
   "HighlightWindow.EditRule": "Edit",
@@ -320,7 +309,6 @@
   "VirtualSerial.TxSend": "Send TX",
   "VirtualSerial.Send": "Send",
   "VirtualSerial.Log": "Communication log",
-
   "Status.ShortcutsOpened": "Shortcuts panel opened",
   "Status.ProtocolTestNew": "Blank script created",
   "Status.ProtocolTestSaved": "Script saved: {0}",
@@ -449,19 +437,12 @@
   "SchemaEditor.InvalidHex": "Hex data contains invalid characters or an odd digit count.",
   "SchemaEditor.NoFieldsParsed": "No fields parsed.",
   "SchemaEditor.TemplateDescription": "Custom serial protocol with header + length + command + data + checksum",
-
-
-
-  "StatusBar.Errors": "Errors:",
-
-
-
+  "StatusBar.Errors": "Error frames. Click to reset all counters",
   "Status.PortDisconnected": "Port disconnected",
   "Status.NetworkDisconnected": "Network disconnected",
   "Conn.BadgeDisconnected": "Disconnected",
   "Conn.BadgeDisconnectedTip": "Not connected — pick a port in the toolbar and click \"Open\"",
   "Status.PlotWindowOpened": "Plot window opened - receiving numeric values from RX data",
-
   "Status.FrameAssemblyEnabled": "Frame assembly enabled: header={0}",
   "Status.FrameAssemblyDisabled": "Frame assembly disabled",
   "Status.PortClosed": "Port closed",
@@ -566,7 +547,6 @@
   "Status.MacroStopped": "Macro stopped",
   "Status.MacroError": "Macro execution error: {0}",
   "Status.ReplayWindowOpened": "Replay window opened: {0}",
-
   "Plot.Points": "  ({0} points)",
   "Plot.WaitingForData": "Waiting for data (need at least 2 points)...",
   "Plot.Status": "Plotting {0} points | {1} max | {2} min",
@@ -702,7 +682,6 @@
   "StatusBar.ResetCounters": "Click to reset all counters (RX/TX/Errors/Stats)",
   "StatusBar.RxThroughput": "RX throughput over 5 s (bytes/s | frames/s)",
   "StatusBar.TxThroughput": "TX throughput over 5 s (bytes/s | frames/s)",
-  "StatusBar.Errors": "Error frames. Click to reset all counters",
   "StatusBar.Uptime": "Connection duration",
   "StatusBar.HttpUrl": "HTTP API listen address (for external tools / AI integration)",
   "QuickSend.ClearFilter": "Clear search filter",

@@ -2,9 +2,18 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1364 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，1372 测试全过）
+
+### Added
+
+- MCP `open_port` 参数预校验（R6 轮）：`baudRate > 0`、`dataBits 5-8`、`stopBits 0/1/2`、`parity 0/1/2` 越界直接报新稳定错误码 `INVALID_CONFIG`（此前落进 SerialPort 深处的 ArgumentException 变成含混的 OPEN_FAILED）；工具描述同步数值范围；测试数 1372（`ACCcom.Core.Tests` 1267 + `ACCcom.McpServer.Tests` 105，+6：5 组越界参数 + 界内 7E2 组合仍正常打开的防过杀守护）
+- MCP 流量窗 tool 下拉过滤：Tag 筛选旁新增工具筛选框（全部工具/rx/send/send_and_wait/open_port/close_port），随日志自动补条目、与方向/tag/搜索过滤正交，视图状态随窗口持久化（`AppSettings.McpTrafficToolFilter`）
+- MCP 流量窗 Len 列：每条交换的解码字节数（HEX 去空格折算，SYS 行留空），一眼看出包大小
+- 列宽持久化改列名键：`TrafficColumnWidthStore` 与 `AppSettings.McpTrafficColumnWidthsByName` 以列名（Id/Time/Direction/Tool/Tag/Length/Payload）为键——原索引键方案在插入/重排列时把所有已存宽度静默错映射到别的列，本次新增 Len 列正是会触发的场景；未知列名回退默认宽
 
 ### Changed
+
+- README/CONTRIBUTING 测试徽章同步 1372；integration.md 错误码清单补 `INVALID_CONFIG`
 
 - 界面结构化（R5a 轮）：新增 `ChromeTitleBar` 共享标题栏控件——22 个窗口此前各自复制粘贴同一段 32px 自定义标题栏（Border + 三按钮 + 三个 Click 处理器 + `SetupTitleBar` 调用，共约 66 处重复处理器、22 处重复 XAML 块）；控件以 Border 子类代码构建（标题本地化绑定、`ShowMinMax`/`ShowClose`/`ExtraButtons` 三个适配属性），拖拽/双击最大化仍走 `WindowHelper.SetupTitleBar`，应用启动冒烟（`--open-mcp-traffic` 打开流量窗）验证存活。窗口按钮字形从文本字符（─ □ ✕）统一为 Segoe MDL2 矢量字形（ChromeMinimize/ChromeMaximize/ChromeRestore/ChromeClose），最大化钮随窗口状态在最大化/还原字形间切换；McpTrafficWindow 的 Clear 与三个对话框的 `DialogResult=false` 语义经 `ExtraButtons` 精确保留（`ShowClose="False"`），PromptDialog 代码设标题改为控件 `Title` 属性；MainWindow 标题栏含居中状态胶囊，保持自绘不入本轮
 - 主题字典去重：7 主题本已定义 `OnAccentBrush`，R4 轮以 `#FFFFFF` 硬编码新增了一份同名键——运行时 `XamlParseException: Item has already been added`（启动即崩，crash.log 实证）；已删除脚本插入的重复项，保留主题原有的 `{StaticResource OnAccent}` 调校值，`App.xaml` 的开口态前景随之获得主题化对比色

@@ -36,6 +36,17 @@ public partial class McpTrafficWindow : Window
         /// a bare "#0" for tool rows read as a real cursor position. A dash
         /// marks "no id" instead.</summary>
         public string IdText => Id > 0 ? $"#{Id}" : "—";
+
+        /// <summary>Decoded byte count of the exchange (spaced hex → bytes);
+        /// empty for records without a hex payload (e.g. SYS open/close).</summary>
+        public string LenText
+        {
+            get
+            {
+                var bytes = Hex.Count(static c => c != ' ') / 2;
+                return bytes > 0 ? bytes.ToString() : "";
+            }
+        }
     }
 
     /// <summary>Retained row cap. Also the batch size for the startup load so a
@@ -51,6 +62,8 @@ public partial class McpTrafficWindow : Window
     private readonly ListCollectionView _filteredView;
     private readonly ObservableCollection<string> _tagOptions = new();
     private readonly HashSet<string> _knownTags = new(StringComparer.Ordinal);
+    private readonly ObservableCollection<string> _toolOptions = new();
+    private readonly HashSet<string> _knownTools = new(StringComparer.Ordinal);
     private readonly string _logPath;
     private readonly FileSystemWatcher? _watcher;
     private readonly DispatcherTimer _debounceTimer;
@@ -62,6 +75,7 @@ public partial class McpTrafficWindow : Window
     private bool _newLinesInFlight;
     private string _directionFilter = ""; // "", "RX", "TX"
     private string _tagFilter = ""; // "" = all tags
+    private string _toolFilter = ""; // "" = all tools
     private string _searchText = "";
     private bool _hexMode;
     private DateTime _lastUpdateUtc = DateTime.MinValue;
@@ -124,6 +138,7 @@ public partial class McpTrafficWindow : Window
         RebuildTagOptions();
         UpdateStatus();
         RestoreViewState();
+        RebuildToolOptions();
         HookColumnWidthChanges();
         SizeChanged += (_, _) => StretchPayloadColumn();
 
@@ -175,6 +190,7 @@ public partial class McpTrafficWindow : Window
     {
         if (_directionFilter.Length > 0 && row.Direction != _directionFilter) return false;
         if (_tagFilter.Length > 0 && row.Tag != _tagFilter) return false;
+        if (_toolFilter.Length > 0 && row.Tool != _toolFilter) return false;
         if (_searchText.Length == 0) return true;
         // Text and Hex are matched independently of the HEX/ASCII display mode:
         // filtering against the mode-dependent Payload used to change what a
@@ -199,6 +215,29 @@ public partial class McpTrafficWindow : Window
         if (TagFilterBox.ItemsSource == null)
             TagFilterBox.ItemsSource = _tagOptions;
         TagFilterBox.SelectedIndex = string.IsNullOrEmpty(_tagFilter) ? 0 : Math.Max(0, _tagOptions.IndexOf(_tagFilter));
+    }
+
+    /// <summary>Rebuilds the tool dropdown: the All placeholder plus one entry
+    /// per MCP tool seen so far (rx/send/send_and_wait/open_port/close_port).
+    /// Preserves the current selection.</summary>
+    private void RebuildToolOptions()
+    {
+        var allLabel = LanguageManager.Instance["McpTraffic.ToolAll"];
+        _toolOptions.Clear();
+        _toolOptions.Add(allLabel);
+        foreach (var tool in _knownTools.OrderBy(t => t, StringComparer.Ordinal))
+            _toolOptions.Add(tool);
+        if (ToolFilterBox.ItemsSource == null)
+            ToolFilterBox.ItemsSource = _toolOptions;
+        ToolFilterBox.SelectedIndex = string.IsNullOrEmpty(_toolFilter) ? 0 : Math.Max(0, _toolOptions.IndexOf(_toolFilter));
+    }
+
+    private void ToolFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_filteredView == null || ToolFilterBox.SelectedIndex < 0) return;
+        // Index 0 is the All placeholder; otherwise the item text is the tool.
+        _toolFilter = ToolFilterBox.SelectedIndex == 0 ? "" : ToolFilterBox.SelectedItem as string ?? "";
+        RefreshRows();
     }
 
     private void LoadExistingLines()
@@ -345,20 +384,23 @@ public partial class McpTrafficWindow : Window
     {
         var added = 0;
         var sawNewTag = false;
+        var sawNewTool = false;
         foreach (var row in rows)
         {
             _allRows.Add(row);
             TallyRow(row, +1);
-            // Only record the tag here; rebuilding the ComboBox mid-batch fires
-            // SelectionChanged → RefreshRows → Count/Refresh while the view may
-            // still be processing the add above.
+            // Only record the tag/tool here; rebuilding a ComboBox mid-batch
+            // fires SelectionChanged → RefreshRows → Count/Refresh while the
+            // view may still be processing the add above.
             if (_knownTags.Add(row.Tag)) sawNewTag = true;
+            if (_knownTools.Add(row.Tool)) sawNewTool = true;
             added++;
         }
 
         TrimOverflow(_allRows.Count - MaxRows);
 
         if (sawNewTag) RebuildTagOptions();
+        if (sawNewTool) RebuildToolOptions();
 
         if (added == 0) return;
         _lastUpdateUtc = DateTime.UtcNow;
@@ -432,7 +474,7 @@ public partial class McpTrafficWindow : Window
     private void UpdateStatus()
     {
         var visible = _filteredView.Count;
-        RowCountText.Text = _directionFilter.Length == 0 && _tagFilter.Length == 0 && _searchText.Length == 0
+        RowCountText.Text = _directionFilter.Length == 0 && _tagFilter.Length == 0 && _toolFilter.Length == 0 && _searchText.Length == 0
             ? string.Format(LanguageManager.Instance["McpTraffic.RowsAll"], visible)
             : string.Format(LanguageManager.Instance["McpTraffic.RowsFiltered"], visible, _allRows.Count);
 
@@ -833,6 +875,9 @@ public partial class McpTrafficWindow : Window
         _knownTags.Clear();
         _tagFilter = "";
         RebuildTagOptions();
+        _knownTools.Clear();
+        _toolFilter = "";
+        RebuildToolOptions();
         DetailTextBox.Text = "";
         DetailHexBox.Text = "";
         DetailMetaText.Text = "";
@@ -850,17 +895,27 @@ public partial class McpTrafficWindow : Window
         UpdateStatus();
     }
 
+    /// <summary>Stable per-column names for width persistence, in XAML column
+    /// order. Keying by name (not index) keeps saved widths on the right column
+    /// when the column list changes.</summary>
+    private static string[] ColumnNames(GridView view) => view.Columns.Count switch
+    {
+        7 => ["Id", "Time", "Direction", "Tool", "Tag", "Length", "Payload"],
+        _ => ["Id", "Time", "Direction", "Tool", "Tag", "Payload"]
+    };
+
     private void RestoreColumnWidths()
     {
         if (TrafficList.View is not GridView view) return;
         var settings = WindowHelper.GetSettings();
         if (settings == null) return;
 
+        var names = ColumnNames(view);
         var defaults = new double[view.Columns.Count];
         for (int i = 0; i < view.Columns.Count; i++)
             defaults[i] = view.Columns[i].Width;
 
-        var resolved = TrafficColumnWidthStore.ResolveWidths(settings.McpTrafficColumnWidths, defaults);
+        var resolved = TrafficColumnWidthStore.ResolveWidths(settings.McpTrafficColumnWidthsByName, names, defaults);
         for (int i = 0; i < resolved.Length; i++)
             view.Columns[i].Width = resolved[i];
     }
@@ -871,10 +926,11 @@ public partial class McpTrafficWindow : Window
         if (settings == null || TrafficList.View is not GridView view) return;
         if (view.Columns.Count == 0) return;
 
+        var names = ColumnNames(view);
         var widths = new double[view.Columns.Count];
         for (int i = 0; i < view.Columns.Count; i++)
             widths[i] = view.Columns[i].Width;
-        settings.McpTrafficColumnWidths = TrafficColumnWidthStore.CollectWidths(widths);
+        settings.McpTrafficColumnWidthsByName = TrafficColumnWidthStore.CollectWidths(names, widths);
     }
 
     /// <summary>Restores the persisted view state (HEX mode, direction/tag/search
@@ -904,6 +960,7 @@ public partial class McpTrafficWindow : Window
         FilterAll.IsChecked = _directionFilter.Length == 0;
 
         _tagFilter = settings.McpTrafficTagFilter ?? "";
+        _toolFilter = settings.McpTrafficToolFilter ?? "";
 
         var search = settings.McpTrafficSearch ?? "";
         if (search.Length > 0)
@@ -926,6 +983,7 @@ public partial class McpTrafficWindow : Window
         settings.McpTrafficHexMode = _hexMode;
         settings.McpTrafficDirectionFilter = _directionFilter;
         settings.McpTrafficTagFilter = _tagFilter;
+        settings.McpTrafficToolFilter = _toolFilter;
         settings.McpTrafficSearch = _searchText;
         settings.McpTrafficFollowTail = FollowTail.IsChecked == true;
     }

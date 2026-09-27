@@ -365,7 +365,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 - 失败时按 `error.code` 机器分支，`error.message` 仅面向人类。稳定错误码：
   `PORT_REQUIRED` / `PORT_NOT_OPEN` / `OPEN_FAILED` / `CLOSE_FAILED` /
   `SEND_FAILED` / `EMPTY_DATA` / `INVALID_HEX` / `PATTERN_REQUIRED` / `INVALID_FIELDS` /
-  `INVALID_PATTERN` / `INTERNAL`
+  `INVALID_CONFIG` / `INVALID_PATTERN` / `INTERNAL`
 
 **健壮性契约**
 

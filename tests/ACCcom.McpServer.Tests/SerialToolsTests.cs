@@ -1127,6 +1127,43 @@ public class SerialToolsTests
         finally { sp.Dispose(); }
     }
 
+    [Theory]
+    [InlineData(0, 8, 1, 0)]      // baudRate <= 0
+    [InlineData(115200, 4, 1, 0)] // dataBits < 5
+    [InlineData(115200, 9, 1, 0)] // dataBits > 8
+    [InlineData(115200, 8, 3, 0)] // stopBits > 2
+    [InlineData(115200, 8, 1, 5)] // parity > 2
+    public async Task OpenPort_OutOfRangeConfig_ReportsInvalidConfig(int baudRate, int dataBits, int stopBits, int parity)
+    {
+        // Out-of-range numeric config must fail with a precise INVALID_CONFIG
+        // instead of an ArgumentException inside SerialPort surfacing as a
+        // generic OPEN_FAILED.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.OpenPort("COM10", baudRate, dataBits, stopBits, parity);
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_CONFIG", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task OpenPort_InRangeConfig_StillOpens()
+    {
+        // Guard the validator against overreach: the documented 5-8/0-2/0-2
+        // ranges must keep opening normally (7E2 is a real-world combo).
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.OpenPort("COM10", 9600, 7, 2, 2);
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
     /// <summary>ISerialService fake whose every member throws — proves the
     /// Guard wrapper converts dependency explosions into the error envelope.</summary>
     private sealed class ThrowingSerialService : ISerialService

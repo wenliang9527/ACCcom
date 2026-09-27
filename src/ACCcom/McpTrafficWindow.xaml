@@ -150,9 +150,12 @@
                                      Content="{Binding [McpTraffic.FilterTx], Source={x:Static local:LanguageManager.Instance}}"
                                      FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                         <Rectangle Style="{StaticResource ToolSeparator}" />
-                        <ComboBox x:Name="TagFilterBox" MinWidth="90" Height="24" FontSize="11" VerticalAlignment="Center" Margin="0,0,0,0"
+                        <ComboBox x:Name="TagFilterBox" MinWidth="90" Height="24" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
                                   ToolTip="{Binding [McpTraffic.TagFilterTip], Source={x:Static local:LanguageManager.Instance}}"
                                   SelectionChanged="TagFilter_Changed" />
+                        <ComboBox x:Name="ToolFilterBox" MinWidth="86" Height="24" FontSize="11" VerticalAlignment="Center"
+                                  ToolTip="{Binding [McpTraffic.ToolFilterTip], Source={x:Static local:LanguageManager.Instance}}"
+                                  SelectionChanged="ToolFilter_Changed" />
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <ToggleButton x:Name="PauseToggle" IsChecked="False" Click="PauseToggle_Click"
@@ -216,9 +219,9 @@
                 </ListView.ContextMenu>
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="{Binding [McpTraffic.Id], Source={x:Static local:LanguageManager.Instance}}" Width="50" DisplayMemberBinding="{Binding IdText}" />
-                        <GridViewColumn Header="{Binding [McpTraffic.Time], Source={x:Static local:LanguageManager.Instance}}" Width="90" DisplayMemberBinding="{Binding Time}" />
-                        <GridViewColumn Header="{Binding [McpTraffic.Direction], Source={x:Static local:LanguageManager.Instance}}" Width="48">
+                        <GridViewColumn x:Name="IdColumn" Header="{Binding [McpTraffic.Id], Source={x:Static local:LanguageManager.Instance}}" Width="50" DisplayMemberBinding="{Binding IdText}" />
+                        <GridViewColumn x:Name="TimeColumn" Header="{Binding [McpTraffic.Time], Source={x:Static local:LanguageManager.Instance}}" Width="90" DisplayMemberBinding="{Binding Time}" />
+                        <GridViewColumn x:Name="DirectionColumn" Header="{Binding [McpTraffic.Direction], Source={x:Static local:LanguageManager.Instance}}" Width="48">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <!-- Direction pill: neutral surface + status border/text so the
@@ -259,8 +262,9 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
-                        <GridViewColumn Header="{Binding [McpTraffic.Tag], Source={x:Static local:LanguageManager.Instance}}" Width="70" DisplayMemberBinding="{Binding Tag}" />
+                        <GridViewColumn x:Name="ToolColumn" Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
+                        <GridViewColumn x:Name="TagColumn" Header="{Binding [McpTraffic.Tag], Source={x:Static local:LanguageManager.Instance}}" Width="70" DisplayMemberBinding="{Binding Tag}" />
+                        <GridViewColumn x:Name="LengthColumn" Header="{Binding [McpTraffic.Length], Source={x:Static local:LanguageManager.Instance}}" Width="44" DisplayMemberBinding="{Binding LenText}" />
                         <GridViewColumn x:Name="PayloadColumn" Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="370">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>

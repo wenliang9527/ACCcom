@@ -102,11 +102,11 @@ public class SerialTools
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { ports, count = ports.Count } }));
     }
 
-    [McpServerTool, Description("Open a serial port. Defaults: 115200 8N1, no DTR/RTS. Pass tag to open a named multi-port session; omit it for the default session.")]
+    [McpServerTool, Description("Open a serial port. Defaults: 115200 8N1, no DTR/RTS. Pass tag to open a named multi-port session; omit it for the default session. Out-of-range numeric values fail with INVALID_CONFIG.")]
     public Task<string> OpenPort(
         [Description("Serial port name, e.g. COM3")] string port,
         [Description("Baud rate (default 115200)")] int baudRate = 115200,
-        [Description("Data bits (default 8)")] int dataBits = 8,
+        [Description("Data bits 5-8 (default 8)")] int dataBits = 8,
         [Description("Stop bits: 0=None, 1=One, 2=Two (default 1)")] int stopBits = 1,
         [Description("Parity: 0=None, 1=Odd, 2=Even (default 0)")] int parity = 0,
         [Description("Enable DTR (default false)")] bool dtr = false,
@@ -119,6 +119,18 @@ public class SerialTools
     {
         if (string.IsNullOrEmpty(port))
             return _ctx.ToolError(ErrorCodes.PortRequired, "Port name is required (e.g. COM3)");
+
+        // Pre-validate the numeric config so out-of-range values fail with a
+        // precise INVALID_CONFIG instead of an ArgumentException deep inside
+        // SerialPort surfacing as a generic OPEN_FAILED.
+        if (baudRate <= 0)
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid baudRate {baudRate} (must be positive)");
+        if (dataBits is < 5 or > 8)
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid dataBits {dataBits} (expected 5-8)");
+        if (stopBits is not (0 or 1 or 2))
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid stopBits {stopBits} (expected 0=None, 1=One, 2=Two)");
+        if (parity is not (0 or 1 or 2))
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid parity {parity} (expected 0=None, 1=Odd, 2=Even)");
 
         var config = new SerialConfig { PortName = port, BaudRate = baudRate, DataBits = dataBits, StopBits = stopBits, Parity = parity, DtrEnable = dtr, RtsEnable = rts };
 

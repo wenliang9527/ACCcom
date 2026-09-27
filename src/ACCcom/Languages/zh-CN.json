@@ -9,8 +9,6 @@
   "Label.DataBits": "数据位",
   "Label.Parity": "校验",
   "Label.StopBits": "停止位",
-
-
   "Label.QuickSend": "快捷发送",
   "Label.AuxPorts": "附加端口",
   "Label.Host": "主机",
@@ -19,13 +17,9 @@
   "Label.MaxAttempts": "最大次数",
   "Label.Unlimited": "(0=无限)",
   "Label.AutoReconnect": "自动重连",
-
-
   "SerialPort.Open": "打开串口",
   "SerialPort.Close": "关闭串口",
   "Button.Refresh": "刷新",
-
-
   "Button.Send": "发送",
   "Button.Stop": "停止",
   "Button.Clear": "清空",
@@ -38,7 +32,6 @@
   "Button.CSV": "CSV",
   "Button.PCAP": "PCAP",
   "Button.TXT": "TXT",
-
   "Button.CopyAll": "复制全部",
   "Button.CopySelected": "复制选中",
   "Button.CopyHex": "复制 Hex",
@@ -46,7 +39,6 @@
   "Button.ClearTx": "清空发送",
   "Button.Replay": "回放",
   "Button.Compare": "对比文件",
-
   "Button.VirtualSerial": "虚拟串口",
   "Button.OK": "确定",
   "Button.Cancel": "取消",
@@ -57,6 +49,9 @@
   "McpTraffic.Clear": "清空日志",
   "McpTraffic.Time": "时间",
   "McpTraffic.Id": "ID",
+  "McpTraffic.Length": "长度",
+  "McpTraffic.ToolAll": "全部工具",
+  "McpTraffic.ToolFilterTip": "按 MCP 工具过滤",
   "McpTraffic.TagAll": "全部端口",
   "McpTraffic.TagFilterTip": "按端口会话过滤",
   "McpTraffic.Pause": "暂停",
@@ -87,8 +82,6 @@
   "McpTraffic.DetailHint": "选中上方任意行，此处显示完整文本与 HEX",
   "McpTraffic.RowsAll": "{0} 条",
   "McpTraffic.RowsFiltered": "{0} / {1} 条",
-
-
   "Panel.ReceiveFull": "◀ 接收",
   "Panel.TransmitFull": "▶ 发送",
   "Panel.All": "◀▶ 收发",
@@ -171,12 +164,10 @@
   "Theme.GalleryTitle": "主题画廊",
   "Theme.Current": "当前",
   "Theme.OpenGallery": "选择主题…",
-
   "Status.PortArrived": "检测到新串口设备：{0}",
   "Status.PortRemoved": "串口设备已移除：{0}",
   "Status.WaitingForDevice": "端口 {0} 未接入，等待设备重新插入…",
   "Status.HexInvalid": "HEX 输入无效",
-
   "Column.Offset": "偏移",
   "Column.Name": "名称",
   "Column.Length": "长度",
@@ -190,7 +181,6 @@
   "Tab.JSON": "JSON",
   "Tab.CsxCode": ".csx 代码",
   "Tab.TestParse": "测试解析",
-
   "Tip.OpenParserDir": "打开脚本目录",
   "Tip.AdvancedParams": "高级串口参数",
   "Tip.AddBookmark": "在当前位置添加书签 (Ctrl+B)",
@@ -257,7 +247,6 @@
   "Shortcuts.ToggleConnection": "连接 / 断开当前端口",
   "Shortcuts.FocusSend": "聚焦发送输入框",
   "Shortcuts.SelectAll": "全选当前列表条目",
-
   "HighlightWindow.Title": "高亮规则",
   "HighlightWindow.AddRule": "添加",
   "HighlightWindow.EditRule": "编辑",
@@ -308,7 +297,6 @@
   "VirtualSerial.TxSend": "发送 TX",
   "VirtualSerial.Send": "发送",
   "VirtualSerial.Log": "通信记录",
-
   "Status.ShortcutsOpened": "快捷键面板已打开",
   "Status.ProtocolTestNew": "已新建空白脚本",
   "Status.ProtocolTestSaved": "脚本已保存：{0}",
@@ -449,19 +437,12 @@
   "SchemaEditor.InvalidHex": "十六进制数据包含无效字符或位数为奇数。",
   "SchemaEditor.NoFieldsParsed": "未解析到字段。",
   "SchemaEditor.TemplateDescription": "自定义串口协议，包含帧头+长度+命令码+数据+校验和",
-
-
-
-  "StatusBar.Errors": "错误：",
-
-
-
+  "StatusBar.Errors": "错误帧数。点击重置全部计数器",
   "Status.PortDisconnected": "端口已断开",
   "Status.NetworkDisconnected": "网络已断开",
   "Conn.BadgeDisconnected": "未连接",
   "Conn.BadgeDisconnectedTip": "当前未连接 — 在工具栏选择端口并点击「打开串口」",
   "Status.PlotWindowOpened": "图表窗口已打开 - 从 RX 数据中接收数值",
-
   "Status.FrameAssemblyEnabled": "帧组包已启用：header={0}",
   "Status.FrameAssemblyDisabled": "帧组包已禁用",
   "Status.PortClosed": "端口已关闭",
@@ -566,7 +547,6 @@
   "Status.MacroStopped": "宏已停止",
   "Status.MacroError": "宏执行错误：{0}",
   "Status.ReplayWindowOpened": "回放窗口已打开：{0}",
-
   "Plot.Points": "  （{0} 个点）",
   "Plot.WaitingForData": "等待数据（至少需要 2 个点）...",
   "Plot.Status": "绘制 {0} 个点 | 最大值 {1} | 最小值 {2}",
@@ -702,7 +682,6 @@
   "StatusBar.ResetCounters": "点击重置全部计数器（RX/TX/Errors/统计）",
   "StatusBar.RxThroughput": "近 5 秒 RX 吞吐（字节/秒 | 帧/秒）",
   "StatusBar.TxThroughput": "近 5 秒 TX 吞吐（字节/秒 | 帧/秒）",
-  "StatusBar.Errors": "错误帧数。点击重置全部计数器",
   "StatusBar.Uptime": "连接持续时长",
   "StatusBar.HttpUrl": "HTTP API 监听地址（用于外部程序/AI 集成）",
   "QuickSend.ClearFilter": "清空搜索过滤",
