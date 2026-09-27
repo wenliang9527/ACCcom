@@ -46,7 +46,12 @@ jobs:
         run: dotnet test --configuration Release --no-build --logger trx --collect:"XPlat Code Coverage" --results-directory ./TestResults --filter "FullyQualifiedName!~RxHotPathBenchmarkTests"
 
       - name: Benchmarks (no coverage)
-        run: dotnet test tests/ACCcom.Core.Tests/ACCcom.Core.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~RxHotPathBenchmarkTests"
+        # MCP 基准类同样按名字排除在主测试与覆盖率采集之外，必须在这里
+        # 单独跑一次——此前只跑 Core 的基准，MCPRxHotPathBenchmarkTests 被
+        # 主运行排除后在 CI 里从未执行过。
+        run: |
+          dotnet test tests/ACCcom.Core.Tests/ACCcom.Core.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~RxHotPathBenchmarkTests"
+          dotnet test tests/ACCcom.McpServer.Tests/ACCcom.McpServer.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~RxHotPathBenchmarkTests"
 
       - name: Coverage gate (Core >= 80%)
         run: |

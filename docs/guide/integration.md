@@ -364,7 +364,20 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 
 - 失败时按 `error.code` 机器分支，`error.message` 仅面向人类。稳定错误码：
   `PORT_REQUIRED` / `PORT_NOT_OPEN` / `OPEN_FAILED` / `CLOSE_FAILED` /
-  `SEND_FAILED` / `EMPTY_DATA` / `INVALID_HEX` / `PATTERN_REQUIRED` / `INVALID_FIELDS`
+  `SEND_FAILED` / `EMPTY_DATA` / `INVALID_HEX` / `PATTERN_REQUIRED` / `INVALID_FIELDS` /
+  `INVALID_PATTERN` / `INTERNAL`
+
+**健壮性契约**
+
+- **tag 诚实化**：`read_data` / `wait_for_response` / `wait_for_quiet` / `clear_buffer` / `close_port`
+  传入未打开的 tag 时立即报 `PORT_NOT_OPEN`（此前静默返回空数据或阻塞整个超时，
+  `clear_buffer` 还会为拼错的 tag 永久分配缓冲）——agent 不会再把「tag 拼错」误读为「没有数据」。
+  `close_port` 对未打开的端口同样报 `PORT_NOT_OPEN`，不再假报关闭成功。
+- **matchMode 校验**：`wait_for_response` / `send_and_wait` 的 `matchMode` 必须是
+  `contains` / `exact` / `regex`（大小写不敏感），regex 模式会先编译校验；未知模式或
+  非法 regex 报 `INVALID_PATTERN`（此前未知模式静默按 `contains` 降级、非法 regex 表现为超时）。
+- **异常信封**：任何工具内部未预期异常都经 `ToolContext.Guard` 转为 `INTERNAL`
+  错误码信封（message 含异常类型与原因），不再以原始异常文本逃逸。
 
 **条目（read_data / wait 响应内嵌 entry）**
 

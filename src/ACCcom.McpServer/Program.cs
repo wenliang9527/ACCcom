@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using ACCcom.McpServer;
 using ACCcom.McpServer.Tools;
 using ACCcom.Core.Services;
@@ -18,7 +20,13 @@ using ACCcom.Core.Services;
 // a best-effort side effect; the MCP server must keep working standalone.
 GuiNotifier.Attach();
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings { Args = args });
+
+// stdio transport owns stdout: every other output target is forbidden. The
+// default host builder wires Console logging to stdout, and those info lines
+// interleaved with JSON-RPC responses (observed live: 24 log lines around 2).
+// Route whatever still logs to stderr only.
+builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 
 builder.Services.AddSingleton<ISerialService, SerialService>();
 // Multi-port service: each non-empty tag owns an independent ISerialService.

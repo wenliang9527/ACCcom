@@ -2,7 +2,17 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1346 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，1357 测试全过）
+
+### Added
+
+- MCP 健壮性（R1 轮）：`ErrorCodes` 新增 `INVALID_PATTERN` 与 `INTERNAL`；`read_data`/`wait_for_response`/`wait_for_quiet`/`clear_buffer` 对未打开的 tag 立即报 `PORT_NOT_OPEN`（此前静默返回空数据、`wait_*` 阻塞整个超时、`clear_buffer` 为拼错的 tag 永久分配孤儿 buffer）；`close_port` 对未开端口/未知 tag 诚实报 `PORT_NOT_OPEN`（此前 `SerialService.Close()` 恒真、多端口未知 tag 返回 true，假成功误导 agent）；`wait_for_response`/`send_and_wait` 前置校验 `matchMode`（未知值此前静默按 contains 降级）与 regex 可编译性（非法 regex 此前表现为超时）；工具体统一 `ToolContext.Guard` 包裹，未预期异常以 `INTERNAL` 信封返回而非原始异常文本
+- stdio 日志隔离：`Program.cs` 改用 `Host.CreateEmptyApplicationBuilder` + Console 日志仅 stderr——实测默认 builder 把 24 行 `info:` 托管日志与 JSON-RPC 响应交错写进 stdout（宽客户端容忍、严格客户端解析失败），修复后探针验证 stdout 仅 2 行 JSON、24 行日志全部落到 stderr
+- 单测 +11：`INTERNAL` 信封（throwing fake 依赖）、未知 tag 五工具报错且不分配 buffer、未知 matchMode/非法 regex 报 `INVALID_PATTERN`、大小写混合模式接受、close 诚实化契约更新，测试总数 1346 → 1357（`ACCcom.Core.Tests` 1263 + `ACCcom.McpServer.Tests` 94）
+
+### Changed
+
+- CI 基准缺口修复：主测试运行按名字排除 `RxHotPathBenchmarkTests`，但 Benchmarks 步骤只单独跑了 Core 的基准——`McpRxHotPathBenchmarkTests` 在 CI 从未执行；现补上 MCP 基准独立运行。本地偶发的 `ToolContext_ReceiveChain_SustainsHighThroughput` 失败即它与 Core 1263 测试并行时的 CPU 竞争（实测 62k/s < 100k 阈值），按 CI 口径（排除过滤 + 基准单独跑）后全绿
 
 ### Added
 

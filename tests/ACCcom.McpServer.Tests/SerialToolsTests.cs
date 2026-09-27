@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ACCcom.Core.Models;
+using ACCcom.Core.Services;
 using ACCcom.McpServer.Tests.TestHelpers;
 using ACCcom.McpServer.Tools;
 
@@ -134,14 +135,17 @@ public class SerialToolsTests
     }
 
     [Fact]
-    public async Task ClosePort_ReturnsSuccess_WhenNotOpen()
+    public async Task ClosePort_NotOpen_ReportsPortNotOpen()
     {
+        // Honest close: "nothing to close" must be distinguishable from a real
+        // close, so an agent never believes it closed a port that was never open.
         var (ctx, sp) = ToolContextFactory.Create();
         try
         {
             var tools = new SerialTools(ctx);
             var result = await tools.ClosePort();
-            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
         }
         finally { sp.Dispose(); }
     }
@@ -438,6 +442,9 @@ public class SerialToolsTests
         try
         {
             var tools = new SerialTools(ctx);
+            // A tagged session must exist for the wait — the tag guard requires
+            // an open port, so open one before watching its buffer.
+            await tools.OpenPort("COM10", tag: "sensor");
             // Continuous traffic on the default buffer must not prevent the
             // tagged buffer from reporting quiet.
             ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "main-noise" });
@@ -868,5 +875,192 @@ public class SerialToolsTests
             }
         }
         finally { sp.Dispose(); }
+    }
+
+    // ── R1 robustness contracts: guard envelope, tag honesty, pattern validation ──
+
+    [Fact]
+    public async Task Guard_ConvertsExceptionIntoInternalEnvelope()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var result = await ctx.Guard(() => throw new InvalidOperationException("boom"));
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INTERNAL", ToolContextFactory.ExtractErrorCode(result));
+            Assert.Contains("boom", ToolContextFactory.ExtractError(result) ?? "");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ListOpenPorts_WhenSerialThrows_ReturnsInternalEnvelope()
+    {
+        // Any exception escaping a tool body must come back as the stable
+        // {"success":false,"error":{code,message}} envelope, never raw text.
+        var ctx = new ToolContext(new MultiPortService(() => new VirtualSerialService()), new ThrowingSerialService());
+        var tools = new SerialTools(ctx);
+
+        var result = await tools.ListOpenPorts();
+        Assert.False(ToolContextFactory.ExtractSuccess(result));
+        Assert.Equal("INTERNAL", ToolContextFactory.ExtractErrorCode(result));
+        Assert.Contains("boom", ToolContextFactory.ExtractError(result) ?? "");
+    }
+
+    [Fact]
+    public async Task ReadData_UnknownTag_ReportsPortNotOpen_WithoutAllocatingBuffer()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ReadData(tag: "typo");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
+            Assert.Empty(ctx.Buffers); // no orphan buffer for a typo'd tag
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ClearBuffer_UnknownTag_ReportsPortNotOpen_WithoutAllocatingBuffer()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ClearBuffer(tag: "typo");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
+            Assert.Empty(ctx.Buffers);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_UnknownTag_ReportsPortNotOpen_Immediately()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await tools.WaitForResponse("OK", timeoutMs: 5000, tag: "typo");
+            sw.Stop();
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
+            // Must fail fast, i.e. long before the 5000ms wait timeout would
+            // elapse (the old behavior blocked the whole timeout on a typo'd tag).
+            Assert.True(sw.ElapsedMilliseconds < 5000, $"unknown tag must fail fast, took {sw.ElapsedMilliseconds}ms");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForQuiet_UnknownTag_ReportsPortNotOpen()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.WaitForQuiet(quietMs: 50, timeoutMs: 300, tag: "typo");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ClosePort_UnknownTag_ReportsPortNotOpen()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ClosePort(tag: "typo");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_UnknownMatchMode_ReportsInvalidPattern()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.WaitForResponse("OK", timeoutMs: 200, matchMode: "startswith");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_PATTERN", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_InvalidRegex_ReportsInvalidPattern()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.WaitForResponse("[unclosed", timeoutMs: 200, matchMode: "regex");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_PATTERN", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_InvalidRegex_ReportsInvalidPattern_AndDoesNotSend()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            var result = await tools.SendAndWait("DATA", "([bad", matchMode: "regex");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_PATTERN", ToolContextFactory.ExtractErrorCode(result));
+            var service = (VirtualSerialService)ctx.Serial;
+            Assert.Empty(service.GetSentData());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_MixedCaseMode_IsAccepted()
+    {
+        // Mode names are matched OrdinalIgnoreCase by the matcher — the
+        // validator must accept the same set, not just lowercase literals.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.WaitForResponse("OK", timeoutMs: 150, matchMode: "EXACT");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    /// <summary>ISerialService fake whose every member throws — proves the
+    /// Guard wrapper converts dependency explosions into the error envelope.</summary>
+    private sealed class ThrowingSerialService : ISerialService
+    {
+        public bool IsOpen => throw new InvalidOperationException("boom");
+        public string? CurrentPort => throw new InvalidOperationException("boom");
+        public int BaudRate => throw new InvalidOperationException("boom");
+#pragma warning disable CS0067 // events are never raised by this fake
+        public event Action<LogEntry>? OnDataReceived;
+        public event Action<string>? OnError;
+        public event Action? OnDisconnected;
+        public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+        public bool Open(SerialConfig config) => throw new InvalidOperationException("boom");
+        public bool Send(string data, bool isHex = false) => throw new InvalidOperationException("boom");
+        public bool SendHex(string hex) => throw new InvalidOperationException("boom");
+        public bool Close() => throw new InvalidOperationException("boom");
+        public void Dispose() { }
     }
 }

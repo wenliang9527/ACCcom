@@ -34,4 +34,10 @@ internal static class ErrorCodes
 
     /// <summary>read_data fields selector contains an unknown column name.</summary>
     public const string InvalidFields = "INVALID_FIELDS";
+
+    /// <summary>matchMode is not contains/exact/regex, or a regex pattern failed to compile.</summary>
+    public const string InvalidPattern = "INVALID_PATTERN";
+
+    /// <summary>An unexpected exception escaped a tool body (message carries type + reason).</summary>
+    public const string Internal = "INTERNAL";
 }

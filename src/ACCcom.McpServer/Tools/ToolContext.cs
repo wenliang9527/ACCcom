@@ -111,4 +111,21 @@ public class ToolContext
     /// <paramref name="code"/> must be one of <see cref="ErrorCodes"/>.</summary>
     public string ToolError(string code, string message) =>
         RawJson(new { success = false, error = new { code, message } });
+
+    /// <summary>Runs a tool body, converting any unhandled exception into the
+    /// stable failure envelope (code INTERNAL) instead of letting raw exception
+    /// text reach the client as an SDK-generated isError content — the
+    /// {"success":false,"error":{code,message}} contract holds even when a
+    /// dependency throws.</summary>
+    public async Task<string> Guard(Func<Task<string>> body)
+    {
+        try
+        {
+            return await body().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return ToolError(ErrorCodes.Internal, $"Unexpected server error ({ex.GetType().Name}): {ex.Message}");
+        }
+    }
 }
