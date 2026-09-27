@@ -92,6 +92,29 @@ public class MultiPortToolsTests
     }
 
     [Fact]
+    public async Task OpenPort_AlreadyOpen_TaggedSession_ReportsFullShape()
+    {
+        // Tagged already-open responses carry the same port/baudRate/dataBits
+        // shape as a fresh open (plus message+tag), sourced from the config
+        // actually applied when the port opened.
+        var (ctx, sp) = ToolContextFactory.Create();
+        using (sp)
+        {
+            var tools = new SerialTools(ctx);
+            Assert.True(ToolContextFactory.ExtractSuccess(await tools.OpenPort("COM10", 9600, 7, tag: "a")));
+            var result = await tools.OpenPort("COM12", 115200, 8, tag: "a");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = System.Text.Json.JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.Equal("Port already open", data.GetProperty("message").GetString());
+            Assert.Equal("COM10", data.GetProperty("port").GetString());
+            Assert.Equal(9600, data.GetProperty("baudRate").GetInt32());
+            Assert.Equal(7, data.GetProperty("dataBits").GetInt32());
+            Assert.Equal("a", data.GetProperty("tag").GetString());
+        }
+    }
+
+    [Fact]
     public async Task Send_ToUnknownTag_FailsCleanly()
     {
         var (ctx, sp) = ToolContextFactory.Create();

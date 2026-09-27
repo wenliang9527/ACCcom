@@ -345,7 +345,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |
-| `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 按需截断超长文本；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列） |
+| `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 截断超长文本（默认服务端上限 2000 字符/条，显式指定可放宽至 65536）；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列） |
 | `wait_for_response` | 阻塞等待匹配数据（支持 contains / regex / exact 匹配，可超时） |
 | `wait_for_quiet` | 等待串口静默 quietMs 毫秒（确认流式响应已传输完毕，配合 read_data tail 使用） |
 | `send_and_wait` | 发送数据并等待匹配响应（组合 send + wait_for_response，减少 AI 调用轮次） |
@@ -378,6 +378,8 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
   非法 regex 报 `INVALID_PATTERN`（此前未知模式静默按 `contains` 降级、非法 regex 表现为超时）。
 - **异常信封**：任何工具内部未预期异常都经 `ToolContext.Guard` 转为 `INTERNAL`
   错误码信封（message 含异常类型与原因），不再以原始异常文本逃逸。
+- **形状统一**：`open_port` 已开口响应与新开口同 schema（`port`/`baudRate`/`dataBits`
+  取自实际生效配置）；`send_and_wait` 响应带 `byteLength`（与 `send` 同契约）。
 
 **条目（read_data / wait 响应内嵌 entry）**
 

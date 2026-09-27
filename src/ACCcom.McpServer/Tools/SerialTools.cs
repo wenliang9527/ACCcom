@@ -114,38 +114,63 @@ public class SerialTools
         [Description("Optional tag to name this port for multi-port use (default single-port session if omitted)")] string? tag = null)
         => _ctx.Guard(() => OpenPortCore(port, baudRate, dataBits, stopBits, parity, dtr, rts, tag));
 
-    private Task<string> OpenPortCore(
+    private async Task<string> OpenPortCore(
         string port, int baudRate, int dataBits, int stopBits, int parity, bool dtr, bool rts, string? tag)
     {
         if (string.IsNullOrEmpty(port))
-            return Task.FromResult(_ctx.ToolError(ErrorCodes.PortRequired, "Port name is required (e.g. COM3)"));
+            return _ctx.ToolError(ErrorCodes.PortRequired, "Port name is required (e.g. COM3)");
 
         var config = new SerialConfig { PortName = port, BaudRate = baudRate, DataBits = dataBits, StopBits = stopBits, Parity = parity, DtrEnable = dtr, RtsEnable = rts };
 
         if (string.IsNullOrEmpty(tag))
         {
             if (_serial.IsOpen)
-                return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port already open", port = _serial.CurrentPort } }));
-            if (_serial.Open(config))
+                // Same shape as a fresh open (port/baudRate/dataBits) plus a
+                // message marker, so clients parse one schema. baudRate/dataBits
+                // come from the config actually applied at open time, not from
+                // this call's arguments.
+                return _ctx.RawJson(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        message = "Port already open",
+                        port = _serial.CurrentPort,
+                        baudRate = _serial.BaudRate,
+                        dataBits = _serial.ActiveConfig?.DataBits ?? dataBits
+                    }
+                });
+            if (await _serial.OpenAsync(config).ConfigureAwait(false))
             {
                 NotifyGuiRequested();
                 _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, "");
-                return Task.FromResult(_ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag = (string?)null } }));
+                return _ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag = (string?)null } });
             }
-            return Task.FromResult(_ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port}"));
+            return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port}");
         }
 
         // Tagged multi-port open.
         var existing = _ctx.MultiPort.GetPort(tag);
         if (existing != null)
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port already open", tag, port = existing.Service.CurrentPort } }));
-        if (_ctx.MultiPort.OpenPort(tag, config))
+            return _ctx.RawJson(new
+            {
+                success = true,
+                data = new
+                {
+                    message = "Port already open",
+                    tag,
+                    port = existing.Service.CurrentPort,
+                    baudRate = existing.Service.BaudRate,
+                    dataBits = existing.Service.ActiveConfig?.DataBits ?? dataBits
+                }
+            });
+        if (await _ctx.MultiPort.OpenPortAsync(tag, config).ConfigureAwait(false))
         {
             NotifyGuiRequested();
             _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, tag);
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag } }));
+            return _ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag } });
         }
-        return Task.FromResult(_ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port} with tag {tag}"));
+        return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port} with tag {tag}");
     }
 
     [McpServerTool, Description("Close a serial port: the default session, or a tagged multi-port session via tag.")]
@@ -227,7 +252,7 @@ public class SerialTools
         [Description("Filter by direction: RX or TX (null for all)")] string? direction = null,
         [Description("Optional tag of the multi-port session to read (default single-port session if omitted)")] string? tag = null,
         [Description("Return the newest N entries in arrival order; takes precedence over sinceId/limit (default 0 = cursor mode)")] int tail = 0,
-        [Description("Truncate text and hex of each entry to this many characters, marking truncated=true (default 0 = no truncation)")] int maxLength = 0,
+        [Description("Truncate text and hex of each entry to this many characters, marking truncated=true (0 = server default 2000; explicit values up to 65536)")] int maxLength = 0,
         [Description("Cursor mode only: long-poll — block up to this many ms for data newer than sinceId, returning immediately when it arrives (default 0 = non-blocking, max 60000)")] int waitMs = 0,
         [Description("Comma-separated columns to include: id,timestamp,direction,portTag,text,hex,truncated (default all; e.g. 'text' omits hex — the largest column on binary streams)")] string? fields = null)
         => _ctx.Guard(() => ReadDataCore(sinceId, limit, direction, tag, tail, maxLength, waitMs, fields));
@@ -261,11 +286,18 @@ public class SerialTools
         }
 
         // Lean projection (McpJson.Lean): drops UI-only state, omits empty
-        // columns, applies the fields mask and the opt-in maxLength truncation
+        // columns, applies the fields mask and the maxLength truncation
         // so a noisy stream cannot flood the model.
+        // Server-side output budget: an omitted maxLength caps every entry at
+        // DefaultMaxLength (a full 10k-entry ring with both text and hex could
+        // otherwise dump tens of MB into the model context); an explicit value
+        // is honored up to MaxMaxLength.
+        const int DefaultMaxLength = 2_000;
+        const int MaxMaxLength = 65_536;
+        var cap = maxLength <= 0 ? DefaultMaxLength : Math.Min(maxLength, MaxMaxLength);
         var lean = new List<LeanEntry>(raw.Count);
         foreach (var e in raw)
-            lean.Add(McpJson.Lean(e, maxLength, mask));
+            lean.Add(McpJson.Lean(e, cap, mask));
 
         // latestId is the buffer's arrival-sequence cursor, NOT an Entry.Id:
         // entry ids come from independent per-direction/per-port counters and
@@ -365,8 +397,21 @@ public class SerialTools
         var patternError = PatternArgError(matchMode, pattern);
         if (patternError != null)
             return _ctx.ToolError(ErrorCodes.InvalidPattern, patternError);
-        if (isHex && !HexHelper.TryHexStringToBytes(data, out _))
-            return _ctx.ToolError(ErrorCodes.InvalidHex, $"Invalid hex: '{data}'");
+
+        // byteLength mirrors send's contract (strict decoded count for hex,
+        // UTF-8 count for text) so send_and_wait responses parse with the
+        // same schema as send.
+        int byteLength;
+        if (isHex)
+        {
+            if (!HexHelper.TryHexStringToBytes(data, out var hexBytes))
+                return _ctx.ToolError(ErrorCodes.InvalidHex, $"Invalid hex: '{data}'");
+            byteLength = hexBytes.Length;
+        }
+        else
+        {
+            byteLength = HexHelper.CountSendBytes(data, false);
+        }
 
         // Register waiter BEFORE sending to avoid race condition
         var timeout = Math.Clamp(timeoutMs, 100, 60000);
@@ -382,8 +427,8 @@ public class SerialTools
         var entry = await waiterTask.ConfigureAwait(false);
         var latestId = _ctx.BufferFor(tag).LastSeq;
         if (entry != null)
-            return _ctx.RawJson(new { success = true, data = new { isHex, matched = true, response = McpJson.Lean(entry), latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
-        return _ctx.RawJson(new { success = true, data = new { isHex, matched = false, message = $"Timeout ({timeout}ms), no matching response", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
+            return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = true, response = McpJson.Lean(entry), latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
+        return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = false, message = $"Timeout ({timeout}ms), no matching response", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
     }
 
     [McpServerTool, Description("Clear the data buffer: rx, tx, or all (default all).")]

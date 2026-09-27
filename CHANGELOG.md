@@ -2,7 +2,13 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1357 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，1362 测试全过）
+
+### Added
+
+- MCP 响应一致性（R2 轮）：`open_port` 已开口响应与新开口统一 schema（补 `port`/`baudRate`/`dataBits`，取自实际生效配置 `ISerialService.ActiveConfig`（新增），不再回显本次调用的参数）；`send_and_wait` 响应补 `byteLength`（与 `send` 同契约：HEX 严格解码计数、文本 UTF-8 计数）；`read_data` 服务端输出预算——省略 `maxLength` 时默认每条 2000 字符上限（满环 text+hex 双列否则可向模型吐几十 MB），显式值放宽至 65536 封顶
+- MCP `open_port` 异步化：`SerialService` 重试等待从 `Thread.Sleep` 改为 `Task.Delay`（新增 `ISerialService.OpenAsync` 默认接口方法，轻量实现零成本继承；`MultiPortService.OpenPortAsync` 异步孪生，接线/快速路径/双检注册提取共享），失败重试不再占住线程池线程约 1s
+- 单测 +5：已开口形状（默认会话/多端口 tag，参数不一致时报告实际配置）、`send_and_wait` 超时也带 `byteLength`、默认上限截断与 65536 封顶、`MultiPortService.OpenPortAsync` 注册与幂等，测试总数 1357 → 1362（`ACCcom.Core.Tests` 1263 + `ACCcom.McpServer.Tests` 99）
 
 ### Added
 

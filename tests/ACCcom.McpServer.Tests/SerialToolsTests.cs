@@ -1044,6 +1044,89 @@ public class SerialToolsTests
         finally { sp.Dispose(); }
     }
 
+    [Fact]
+    public async Task OpenPort_AlreadyOpen_DefaultSession_ReportsFullShape()
+    {
+        // already-open must parse with the same schema as a fresh open
+        // (port/baudRate/dataBits), not a bare {message,port} — and it reports
+        // the config actually applied at open time, not this call's arguments.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            Assert.True(ToolContextFactory.ExtractSuccess(await tools.OpenPort("COM10", 9600, 7)));
+            var result = await tools.OpenPort("COM12", 115200); // different args, same session
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.Equal("Port already open", data.GetProperty("message").GetString());
+            Assert.Equal("COM10", data.GetProperty("port").GetString());
+            Assert.Equal(9600, data.GetProperty("baudRate").GetInt32());
+            Assert.Equal(7, data.GetProperty("dataBits").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_Timeout_ReportsByteLength()
+    {
+        // send_and_wait performs the same send as send — its response must
+        // carry the same byteLength contract (UTF-8 count for text mode).
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            var result = await tools.SendAndWait("HELLO", "NEVER-MATCHES", timeoutMs: 150);
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.False(data.GetProperty("matched").GetBoolean());
+            Assert.Equal(5, data.GetProperty("byteLength").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_DefaultCap_TruncatesHugeEntries()
+    {
+        // Omitted maxLength defaults to a 2000-char server cap so a binary
+        // flood cannot dump tens of MB into the model context.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = new string('A', 5000) });
+
+            var result = await tools.ReadData();
+            using var doc = JsonDocument.Parse(result);
+            var text = doc.RootElement.GetProperty("data").GetProperty("entries")[0].GetProperty("text").GetString();
+            Assert.NotNull(text);
+            Assert.True(text!.Length < 5000, $"default cap must truncate, got {text.Length} chars");
+            Assert.Equal(2001, text.Length); // cap chars + ellipsis marker
+            Assert.EndsWith("…", text);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_ExplicitMaxLength_ClampedToCeiling()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = new string('B', 70_000) });
+
+            var result = await tools.ReadData(maxLength: 100_000);
+            using var doc = JsonDocument.Parse(result);
+            var text = doc.RootElement.GetProperty("data").GetProperty("entries")[0].GetProperty("text").GetString();
+            Assert.NotNull(text);
+            Assert.Equal(65_537, text!.Length); // 65536 cap + ellipsis marker
+            Assert.EndsWith("…", text);
+        }
+        finally { sp.Dispose(); }
+    }
+
     /// <summary>ISerialService fake whose every member throws — proves the
     /// Guard wrapper converts dependency explosions into the error envelope.</summary>
     private sealed class ThrowingSerialService : ISerialService
@@ -1051,6 +1134,7 @@ public class SerialToolsTests
         public bool IsOpen => throw new InvalidOperationException("boom");
         public string? CurrentPort => throw new InvalidOperationException("boom");
         public int BaudRate => throw new InvalidOperationException("boom");
+        public SerialConfig? ActiveConfig => throw new InvalidOperationException("boom");
 #pragma warning disable CS0067 // events are never raised by this fake
         public event Action<LogEntry>? OnDataReceived;
         public event Action<string>? OnError;

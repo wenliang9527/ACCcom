@@ -8,6 +8,7 @@ public class VirtualSerialService : ISerialService, IDisposable
     private bool _isOpen;
     private string? _currentPort;
     private int _baudRate;
+    private SerialConfig? _lastConfig;
     private int _nextRxId;
     private int _nextTxId;
 
@@ -17,6 +18,7 @@ public class VirtualSerialService : ISerialService, IDisposable
     public bool IsOpen => _isOpen;
     public string? CurrentPort => _currentPort;
     public int BaudRate => _baudRate;
+    public SerialConfig? ActiveConfig => _isOpen ? _lastConfig : null;
 
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
@@ -32,6 +34,7 @@ public class VirtualSerialService : ISerialService, IDisposable
         if (config == null) return false;
         _currentPort = config.PortName;
         _baudRate = config.BaudRate;
+        _lastConfig = config;
         _isOpen = true;
         return true;
     }
@@ -41,6 +44,7 @@ public class VirtualSerialService : ISerialService, IDisposable
         _isOpen = false;
         _currentPort = null;
         _baudRate = 0;
+        _lastConfig = null;
         OnDisconnected?.Invoke();
         return true;
     }

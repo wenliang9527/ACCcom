@@ -63,17 +63,10 @@ public class MultiPortService : IDisposable
         }
 
         // The expensive part (real port open can take seconds) runs OUTSIDE
-        // _lock â€?otherwise one slow open blocks GetPort/SendToPort/close for
+        // _lock ¡ª otherwise one slow open blocks GetPort/SendToPort/close for
         // every other port. A concurrent opener of the same tag is resolved by
         // the double-check below (loser tears down its own service).
-        var service = _serviceFactory();
-        service.OnDataReceived += entry =>
-        {
-            entry.PortTag = tag;
-            OnDataReceived?.Invoke(entry);
-        };
-        service.OnError += msg => OnPortError?.Invoke(tag, msg);
-        service.OnDisconnected += () => OnPortDisconnected?.Invoke(tag);
+        var service = CreateWiredService(tag);
 
         bool opened;
         try
@@ -94,6 +87,65 @@ public class MultiPortService : IDisposable
             return false;
         }
 
+        return RegisterOpenPort(tag, config, service);
+    }
+
+    /// <summary>Async twin of <see cref="OpenPort"/>: identical wiring, fast
+    /// path and double-check registration, but the open attempt itself goes
+    /// through <see cref="ISerialService.OpenAsync"/> so retry sleeps do not
+    /// pin a thread-pool thread.</summary>
+    public async Task<bool> OpenPortAsync(string? tag, SerialConfig? config)
+    {
+        if (string.IsNullOrEmpty(tag) || config == null) return false;
+
+        lock (_lock)
+        {
+            if (_ports.TryGetValue(tag, out var existing)) return existing.Service.IsOpen;
+        }
+
+        var service = CreateWiredService(tag);
+
+        bool opened;
+        try
+        {
+            opened = await service.OpenAsync(config).ConfigureAwait(false);
+        }
+        catch
+        {
+            service.Dispose();
+            throw;
+        }
+
+        if (!opened)
+        {
+            service.Dispose();
+            return false;
+        }
+
+        return RegisterOpenPort(tag, config, service);
+    }
+
+    /// <summary>Creates the per-tag service and wires its events into the
+    /// multi-port routing planes (RX entries get tagged, errors/disconnects
+    /// are re-raised with the tag).</summary>
+    private ISerialService CreateWiredService(string tag)
+    {
+        var service = _serviceFactory();
+        service.OnDataReceived += entry =>
+        {
+            entry.PortTag = tag;
+            OnDataReceived?.Invoke(entry);
+        };
+        service.OnError += msg => OnPortError?.Invoke(tag, msg);
+        service.OnDisconnected += () => OnPortDisconnected?.Invoke(tag);
+        return service;
+    }
+
+    /// <summary>Registers a successfully opened service under the tag, or tears
+    /// it down when a concurrent opener won the race (reports the winner's
+    /// state, matching the fast-path result).</summary>
+    private bool RegisterOpenPort(string tag, SerialConfig config, ISerialService service)
+    {
         bool won;
         lock (_lock)
         {
@@ -110,8 +162,6 @@ public class MultiPortService : IDisposable
 
         if (!won)
         {
-            // Another thread registered this tag first; keep ours out of the
-            // map and report the winner's state (matches the fast-path result).
             service.Close();
             service.Dispose();
             lock (_lock) { return _ports.TryGetValue(tag, out var winner) && winner.Service.IsOpen; }

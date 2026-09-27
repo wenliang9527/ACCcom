@@ -21,6 +21,7 @@ public class SerialService : ISerialService, IDisposable
     public bool IsOpen => _port?.IsOpen ?? false;
     public string? CurrentPort => _port?.PortName;
     public int BaudRate => _port?.BaudRate ?? 0;
+    public SerialConfig? ActiveConfig => _port?.IsOpen == true ? _lastConfig : null;
 
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
@@ -44,67 +45,100 @@ public class SerialService : ISerialService, IDisposable
         }
     }
 
+    private const int MaxOpenRetries = 2;
+    private const int OpenRetryDelayMs = 500;
+
     public bool Open(SerialConfig? config)
     {
         if (_port?.IsOpen == true) return true;
         // A null config would NRE below (outside the try); reject it up front.
         if (config == null) return false;
 
-        const int maxRetries = 2;
-        const int retryDelayMs = 500;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        for (int attempt = 0; attempt <= MaxOpenRetries; attempt++)
         {
             if (attempt > 0)
-                Thread.Sleep(retryDelayMs);
+                Thread.Sleep(OpenRetryDelayMs);
 
-            try
-            {
-                // Construct inside the try: a bad config (invalid baud rate,
-                // data bits, etc.) surfaces as a failed open, not an exception
-                // that propagates past the retry loop.
-                _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
-                {
-                    // UTF-8 so text-mode writes put on the wire exactly the bytes
-                    // the TX row displays and counts (Send computes RawHex via
-                    // Encoding.UTF8). SerialPort defaults to ASCII, which would
-                    // turn every non-ASCII char into '?' — display != wire.
-                    Encoding = System.Text.Encoding.UTF8,
-                    DtrEnable = config.DtrEnable,
-                    RtsEnable = config.RtsEnable,
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000
-                };
-
-                _port.DataReceived += OnSerialDataReceived;
-                _port.ErrorReceived += OnSerialError;
-
-                _port.Open();
-                _lastConfig = config;
-                _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
-                _reconnectAttempt = 0;
-                _metrics.RecordPortOpened();
+            if (TryOpenOnce(config, out var error))
                 return true;
-            }
-            catch (Exception ex)
-            {
-                if (_port != null)
-                {
-                    _port.DataReceived -= OnSerialDataReceived;
-                    _port.ErrorReceived -= OnSerialError;
-                    _port.Dispose();
-                    _port = null;
-                }
 
-                if (attempt == maxRetries)
-                {
-                    OnError?.Invoke($"[SerialService] Open failed after {maxRetries + 1} attempts: {ex.Message}");
-                    return false;
-                }
-            }
+            if (attempt == MaxOpenRetries)
+                OnError?.Invoke($"[SerialService] Open failed after {MaxOpenRetries + 1} attempts: {error}");
         }
 
         return false;
+    }
+
+    /// <summary>Async open: the same retry policy as <see cref="Open"/>, but
+    /// waiting between attempts with Task.Delay so a failing open (up to ~1s
+    /// of retry sleeps) does not pin a thread-pool thread.</summary>
+    public async Task<bool> OpenAsync(SerialConfig config)
+    {
+        if (_port?.IsOpen == true) return true;
+        // VirtualSerialService-style guards fail cleanly on null; match Open.
+        if (config == null) return false;
+
+        for (int attempt = 0; attempt <= MaxOpenRetries; attempt++)
+        {
+            if (attempt > 0)
+                await Task.Delay(OpenRetryDelayMs).ConfigureAwait(false);
+
+            if (TryOpenOnce(config, out var error))
+                return true;
+
+            if (attempt == MaxOpenRetries)
+                OnError?.Invoke($"[SerialService] Open failed after {MaxOpenRetries + 1} attempts: {error}");
+        }
+
+        return false;
+    }
+
+    /// <summary>Single open attempt: constructs the port, opens it and records
+    /// the active config; on failure the port is disposed and the error text is
+    /// handed to the caller (retry policy lives in Open/OpenAsync).</summary>
+    private bool TryOpenOnce(SerialConfig config, out string error)
+    {
+        error = "";
+        try
+        {
+            // Construct inside the try: a bad config (invalid baud rate,
+            // data bits, etc.) surfaces as a failed open, not an exception
+            // that propagates past the retry loop.
+            _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
+            {
+                // UTF-8 so text-mode writes put on the wire exactly the bytes
+                // the TX row displays and counts (Send computes RawHex via
+                // Encoding.UTF8). SerialPort defaults to ASCII, which would
+                // turn every non-ASCII char into '?' — display != wire.
+                Encoding = System.Text.Encoding.UTF8,
+                DtrEnable = config.DtrEnable,
+                RtsEnable = config.RtsEnable,
+                ReadTimeout = 1000,
+                WriteTimeout = 1000
+            };
+
+            _port.DataReceived += OnSerialDataReceived;
+            _port.ErrorReceived += OnSerialError;
+
+            _port.Open();
+            _lastConfig = config;
+            _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
+            _reconnectAttempt = 0;
+            _metrics.RecordPortOpened();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            if (_port != null)
+            {
+                _port.DataReceived -= OnSerialDataReceived;
+                _port.ErrorReceived -= OnSerialError;
+                _port.Dispose();
+                _port = null;
+            }
+            return false;
+        }
     }
 
     public bool Close()

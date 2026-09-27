@@ -6,6 +6,22 @@ namespace ACCcom.Core.Tests;
 public class MultiPortServiceTests
 {
     [Fact]
+    public async Task OpenPortAsync_Opens_Registers_AndIsIdempotent()
+    {
+        // Async twin of OpenPort: same registration contract, and a second
+        // open of the same tag takes the already-open fast path.
+        using var mps = new MultiPortService(() => new VirtualSerialService());
+        var config = new SerialConfig { PortName = "COM10", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.True(await mps.OpenPortAsync("a", config));
+        var instance = mps.GetPort("a");
+        Assert.NotNull(instance);
+        Assert.True(instance!.Service.IsOpen);
+        Assert.Equal(8, instance.Service.ActiveConfig?.DataBits);
+        Assert.True(await mps.OpenPortAsync("a", config));
+    }
+
+    [Fact]
     public void SendToPort_WithoutOpen_ReturnsFalse()
     {
         using var mps = new MultiPortService();
