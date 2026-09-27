@@ -2,7 +2,13 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1362 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，1364 测试全过）
+
+### Added
+
+- MCP 流量窗体验与性能（R3 轮）：搜索 150ms 防抖（清空立即生效，打字不再每键全量 Refresh）；搜索改为字段无关匹配（Text/Hex 独立于 HEX/ASCII 显示模式，切换不再改变搜索结果）；新行读取+解析移出 UI 线程（worker 线程解析、Dispatcher 回传追加，在途互斥 + 完成后自动补跑，突发洪流不再卡 UI）；溢出超 512 行的单次批量裁剪代替逐行 `RemoveAt(0)`；SYS（open/close）行改中性配色（不再冒充 RX 绿）；tool 记录 `id=0` 显示「—」（详情元信息同步）；payload 列自动伸展填充剩余宽度（其余列保持用户拖宽）；视图状态持久化（HEX 模式/方向/tag/搜索/follow-tail 五个 `AppSettings` 新字段）；导出新增 JSON（无损数组格式）；详情框 MaxHeight 44 → 120；删除死代码 `AppendLine`/`NoteTag`/`UpdateRowCount`
+- `McpTrafficLog` 清空竞态加固：flush tick 检测外部截断（GUI 清空对 append 句柄 `SetLength(0)`）并重开新文件——此前按旧偏移写入会留下稀疏洞（撕裂 JSONL）且 `_lineCount` 失账导致提前轮转；清空时缓冲中的历史行随之丢弃（最多损失一个 flush 周期的写入）
+- 单测 +1：`McpTrafficLog` 外部截断重开契约（无稀疏洞、清空后历史不复活）；另将 `RxHotPathBenchmarkTests.McpTrafficLog_Record` 基准改三轮取最优（26ms 窗口单轮易受调度/Defender 扫描噪声影响，实测复现连续 195k/s < 200k 阈值的假阳性），测试总数 1364（`ACCcom.Core.Tests` 1265 + `ACCcom.McpServer.Tests` 99，以实测为准）
 
 ### Added
 

@@ -224,7 +224,7 @@
                 </ListView.ContextMenu>
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="{Binding [McpTraffic.Id], Source={x:Static local:LanguageManager.Instance}}" Width="50" DisplayMemberBinding="{Binding Id}" />
+                        <GridViewColumn Header="{Binding [McpTraffic.Id], Source={x:Static local:LanguageManager.Instance}}" Width="50" DisplayMemberBinding="{Binding IdText}" />
                         <GridViewColumn Header="{Binding [McpTraffic.Time], Source={x:Static local:LanguageManager.Instance}}" Width="90" DisplayMemberBinding="{Binding Time}" />
                         <GridViewColumn Header="{Binding [McpTraffic.Direction], Source={x:Static local:LanguageManager.Instance}}" Width="48">
                             <GridViewColumn.CellTemplate>
@@ -236,8 +236,12 @@
                                             Background="{DynamicResource BgActiveBrush}">
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource StatusGreenBrush}" />
+                                                <!-- Neutral default = SYS (open/close) rows; RX/TX get status colours. -->
+                                                <Setter Property="BorderBrush" Value="{DynamicResource InkTertiaryBrush}" />
                                                 <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Direction}" Value="RX">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource StatusGreenBrush}" />
+                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding Direction}" Value="TX">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource StatusWarningBrush}" />
                                                     </DataTrigger>
@@ -247,8 +251,11 @@
                                         <TextBlock Text="{Binding Direction}" FontSize="11" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
                                                     <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Direction}" Value="RX">
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                                        </DataTrigger>
                                                         <DataTrigger Binding="{Binding Direction}" Value="TX">
                                                             <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
                                                         </DataTrigger>
@@ -262,7 +269,7 @@
                         </GridViewColumn>
                         <GridViewColumn Header="{Binding [McpTraffic.Tool], Source={x:Static local:LanguageManager.Instance}}" Width="110" DisplayMemberBinding="{Binding Tool}" />
                         <GridViewColumn Header="{Binding [McpTraffic.Tag], Source={x:Static local:LanguageManager.Instance}}" Width="70" DisplayMemberBinding="{Binding Tag}" />
-                        <GridViewColumn Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="370">
+                        <GridViewColumn x:Name="PayloadColumn" Header="{Binding [McpTraffic.Payload], Source={x:Static local:LanguageManager.Instance}}" Width="370">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Payload}">
@@ -325,7 +332,7 @@
                                Text="{Binding [McpTraffic.DetailText], Source={x:Static local:LanguageManager.Instance}}" />
                     <TextBox x:Name="DetailTextBox" Grid.Row="1" Grid.Column="1" FontSize="11" FontFamily="Consolas"
                              IsReadOnly="True" BorderThickness="0" Background="Transparent"
-                             Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" MaxHeight="44"
+                             Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" MaxHeight="120"
                              VerticalScrollBarVisibility="Auto" Margin="0,0,6,0" />
                     <Button Grid.Row="1" Grid.Column="2" Content="{Binding [McpTraffic.CopyText], Source={x:Static local:LanguageManager.Instance}}"
                             Style="{StaticResource DetailCopyButton}" Click="CopyDetailText_Click"
@@ -336,7 +343,7 @@
                                Text="{Binding [McpTraffic.DetailHex], Source={x:Static local:LanguageManager.Instance}}" Margin="0,3,0,0" />
                     <TextBox x:Name="DetailHexBox" Grid.Row="2" Grid.Column="1" FontSize="11" FontFamily="Consolas"
                              IsReadOnly="True" BorderThickness="0" Background="Transparent"
-                             Foreground="{DynamicResource InkSecondaryBrush}" TextWrapping="Wrap" MaxHeight="44"
+                             Foreground="{DynamicResource InkSecondaryBrush}" TextWrapping="Wrap" MaxHeight="120"
                              VerticalScrollBarVisibility="Auto" Margin="0,3,6,0" />
                     <Button Grid.Row="2" Grid.Column="2" Content="{Binding [Button.CopyHex], Source={x:Static local:LanguageManager.Instance}}"
                             Style="{StaticResource DetailCopyButton}" Click="CopyDetailHex_Click" Margin="0,3,0,0"

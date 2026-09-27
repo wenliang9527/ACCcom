@@ -173,11 +173,38 @@ public sealed partial class McpTrafficLog : IDisposable
             if (_writer == null) return;
             try
             {
+                // The GUI's Clear truncates the file behind our append handle;
+                // writing at the stale offset would leave a sparse hole of torn
+                // JSONL ahead of the next record. Detect the shrink and reopen
+                // fresh — buffered lines die with the cleared history (at most
+                // one flush interval of post-clear records is dropped with them).
+                if (_writer.BaseStream.Length < _writer.BaseStream.Position)
+                {
+                    ReopenTruncatedLocked();
+                    return;
+                }
                 if (_rotatePending) RotateLocked();
                 else _writer.Flush();
             }
             catch { /* rotation/flush failure is non-fatal; next tick retries */ }
         }
+    }
+
+    /// <summary>Reopens the log fresh after the GUI truncated it externally:
+    /// drops the buffered writer (with its pre-clear lines) and starts a clean
+    /// empty file. Runs under _lock from a flush tick.</summary>
+    private void ReopenTruncatedLocked()
+    {
+        _writer?.Close();
+        _writer?.Dispose();
+        _writer = null;
+
+        var dir = Path.GetDirectoryName(_filePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+        var fs = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        _writer = new StreamWriter(fs, System.Text.Encoding.UTF8);
+        _lineCount = 0;
     }
 
     /// <summary>Renames the current log to a .1 backup and starts fresh, keeping

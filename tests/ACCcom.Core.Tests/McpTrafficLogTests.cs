@@ -10,6 +10,46 @@ public class McpTrafficLogTests
         => Path.Combine(Path.GetTempPath(), $"mcp-traffic-{Guid.NewGuid():N}.jsonl");
 
     [Fact]
+    public async Task Record_AfterExternalTruncate_ReopensCleanly_WithoutSparseHole()
+    {
+        // The GUI's Clear truncates the JSONL behind the writer's append handle.
+        // Without the shrink check the next flush wrote at the stale offset,
+        // leaving a sparse hole of torn bytes; with it the writer reopens fresh
+        // and the cleared history (plus its in-flight buffer) stays cleared.
+        var path = TempPath();
+        try
+        {
+            using (var log = new McpTrafficLog(path))
+            {
+                log.Record(0, "send", "TX", "", "pre-clear-line");
+                // One flush interval guaranteed: the pre-clear line reaches the
+                // file and the stream position advances past zero.
+                await Task.Delay(300);
+
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+                    fs.SetLength(0);
+
+                log.Record(0, "send", "TX", "", "mid-clear-line");
+                // Next tick detects the shrink, reopens fresh (dropping the
+                // mid-clear line with the cleared history).
+                await Task.Delay(400);
+                log.Record(0, "send", "TX", "", "post-clear-line");
+                await Task.Delay(400);
+            }
+
+            var content = File.ReadAllText(path);
+            Assert.DoesNotContain("pre-clear-line", content);
+            Assert.DoesNotContain("mid-clear-line", content);
+            Assert.Contains("post-clear-line", content);
+            Assert.DoesNotContain('\0', content); // no sparse hole of torn bytes
+        }
+        finally
+        {
+            try { File.Delete(path); } catch { /* best effort */ }
+        }
+    }
+
+    [Fact]
     public void Record_WritesJsonlLine_WithToolAndDirection()
     {
         var path = TempPath();

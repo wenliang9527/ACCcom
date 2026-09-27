@@ -90,6 +90,14 @@ public class AppSettings
     // — GridViewColumn has no Tag property.
     public Dictionary<int, double> McpTrafficColumnWidths { get; set; } = new();
 
+    // MCP traffic window view state (R142 persisted column widths; these persist
+    // the filters/display mode so reopening the window restores the workflow).
+    public bool McpTrafficHexMode { get; set; }
+    public string McpTrafficDirectionFilter { get; set; } = "";
+    public string McpTrafficTagFilter { get; set; } = "";
+    public string McpTrafficSearch { get; set; } = "";
+    public bool McpTrafficFollowTail { get; set; } = true;
+
     // Restored position/size of secondary windows (StatsWindow, MacroWindow, …),
     // keyed by window class name. Missing key = window opens at its XAML default.
     public Dictionary<string, WindowRect> WindowStates { get; set; } = new();

@@ -380,12 +380,14 @@ public class MultiPortServiceTests
         public bool IsOpen { get; private set; }
         public string? CurrentPort { get; private set; }
         public int BaudRate { get; private set; }
+        public SerialConfig? ActiveConfig { get; private set; }
 
         public bool Open(SerialConfig config)
         {
             IsOpen = true;
             CurrentPort = config.PortName;
             BaudRate = config.BaudRate;
+            ActiveConfig = config;
             return true;
         }
 
