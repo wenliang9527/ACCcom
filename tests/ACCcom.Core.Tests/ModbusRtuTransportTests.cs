@@ -216,7 +216,9 @@ public class ModbusRtuTransportTests
 
         var sent = serial.GetSentData();
         var frame = Assert.Single(sent);
-        Assert.Equal("0116000400F2002567EE", frame.RawHex);
+        // Tolerant of the canonical spaced TX layout; the regression being
+        // guarded is byte content (0x25 not 0x4D), not spacing.
+        Assert.Equal("0116000400F2002567EE", frame.RawHex.Replace(" ", ""));
     }
 
     [Fact]

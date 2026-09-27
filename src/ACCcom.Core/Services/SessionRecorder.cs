@@ -18,6 +18,9 @@ public class SessionRecorder : BufferedFileWriter
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        // Also used by ReplayFile for reading: recordings write camelCase, and
+        // hand-edited files may use either casing — match both on the way in.
+        PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
 
@@ -154,16 +157,43 @@ public class SessionRecorder : BufferedFileWriter
             {
                 using var doc = JsonDocument.Parse(line);
                 var root = doc.RootElement;
+
+                // Direction must canonicalize to RX/TX: the display gates and
+                // accent colors treat anything else inconsistently ("" rendered
+                // as TX but filtered as RX), so drop malformed rows instead of
+                // showing them with a wrong direction. Recordings always write
+                // canonical values; only hand-edited files can fail here.
+                var dir = root.TryGetProperty("direction", out var dirProp) ? dirProp.GetString() ?? "" : "";
+                if (dir.Equals("RX", StringComparison.OrdinalIgnoreCase))
+                    dir = "RX";
+                else if (dir.Equals("TX", StringComparison.OrdinalIgnoreCase))
+                    dir = "TX";
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SessionRecorder] Skipped replay line with invalid direction '{dir}'");
+                    continue;
+                }
+
                 var entry = new LogEntry
                 {
+                    // Recordings don't persist Id, and replayed rows used to
+                    // display as "#0". Assign a fresh 1-based index so each
+                    // row has a distinct, stable id within the replay.
+                    Id = entries.Count + 1,
                     Timestamp = root.TryGetProperty("timestamp", out var ts) && ts.ValueKind == JsonValueKind.String
                         ? DateTime.Parse(ts.GetString()!)
                         : DateTime.MinValue,
-                    Direction = root.TryGetProperty("direction", out var dir) ? dir.GetString() ?? "" : "",
+                    Direction = dir,
                     PortTag = root.TryGetProperty("portTag", out var pt) ? pt.GetString() ?? "" : "",
                     RawHex = root.TryGetProperty("rawHex", out var hex) ? hex.GetString() ?? "" : "",
                     Text = root.TryGetProperty("text", out var txt) ? txt.GetString() ?? "" : ""
                 };
+                // Field annotations are recorded (DrainLoopAsync writes them)
+                // but the replay path used to drop them, hiding the parsed-field
+                // table for any recording that had one. Restore when present; a
+                // null/absent `fields` value stays null.
+                if (root.TryGetProperty("fields", out var fields) && fields.ValueKind == JsonValueKind.Array)
+                    entry.Fields = JsonSerializer.Deserialize<List<FieldAnnotation>>(fields.GetRawText(), _jsonOpts);
                 entries.Add(entry);
             }
             catch (Exception ex)

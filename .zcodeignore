@@ -1,0 +1,110 @@
+## Environment files
+*.env
+*.env.*
+
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+*.nupkg
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+
+## OS
+Thumbs.db
+.DS_Store
+
+# Runtime output files
+err.txt
+out.txt
+acccom_err.txt
+acccom_out.txt
+*.log
+debug.log
+
+# Runtime PID file
+.acccom_gui.pid
+
+# Build output
+dist/
+dist-mcp/
+build/
+
+# Test results
+TestResults/
+**/TestResults/
+
+# Runtime generated data
+logs/
+recordings/
+
+# Runtime JSON config (auto-generated)
+settings.json
+shortcuts.json
+presets.json
+macros.json
+triggers.json
+
+# NuGet packages (broader scope)
+**/*.nupkg
+
+# Agent/IDE config dirs (generated locally)
+.agents/
+.claude/
+.mimocode/
+.playwright-mcp/
+.codegraph/
+.opencode/
+.uploads/
+
+# Binary protocol specs
+Agreement/
+
+# Superpowers design docs (internal)
+docs/superpowers/
+
+# Generated skill lockfile
+skills-lock.json
+
+*.wpftmp.csproj
+
+# ZCode session-local caches
+.zcode/
+
+# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
+.git/
+.hg/
+.svn/
+node_modules/
+bower_components/
+jspm_packages/
+__pycache__/
+site-packages/
+venv/
+coverage/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+cdk.out/
+*.egg-info/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+# ----- ↑ 以上为 ZCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----
+# 自定义规则写在下方（本行提示可删除）

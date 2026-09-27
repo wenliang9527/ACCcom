@@ -21,6 +21,13 @@ public class HttpService : IDisposable
     public DataBufferService Buffer { get; }
     public event Action<LogEntry>? OnDataEntry;
 
+    /// <summary>Raised after <see cref="ClearBuffer"/> empties the ring, with the
+    /// same target (null/empty/"all" = whole buffer, "rx"/"tx" = one side).
+    /// The GUI subscribes to keep its display lists in sync with /api/clear;
+    /// UI-initiated clears pass <c>raiseEvent: false</c> so the echo does not
+    /// bounce back into the caller that already cleared its own lists.</summary>
+    public event Action<string?>? OnClearRequested;
+
     public HttpService(HttpServiceOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -74,7 +81,14 @@ public class HttpService : IDisposable
     public List<LogEntry> GetEntriesSince(int id, string? direction = null, int limit = 0) =>
         Buffer.GetEntriesSince(id, direction, limit);
 
-    public void ClearBuffer(string? target) => Buffer.Clear(target);
+    public List<LogEntry> GetEntriesSince(int id, string? direction, int limit, out int scannedMaxId) =>
+        Buffer.GetEntriesSince(id, direction, limit, out scannedMaxId);
+
+    public void ClearBuffer(string? target, bool raiseEvent = true)
+    {
+        Buffer.Clear(target);
+        if (raiseEvent) OnClearRequested?.Invoke(target);
+    }
 
     public bool SendToSerial(string data, bool isHex)
     {

@@ -11,7 +11,6 @@ public class TriggerViewModel : ObservableObject
     private readonly ISerialService _serial;
     private readonly TriggerService _triggerService;
     private readonly LoggerService _logger;
-    private readonly Func<DataFlowViewModel> _getDataFlow;
     private readonly Action<string> _setStatus;
 
     public ObservableCollection<TriggerRule> TriggerRules { get; } = new();
@@ -24,13 +23,11 @@ public class TriggerViewModel : ObservableObject
     public TriggerViewModel(
         ISerialService serial,
         TriggerService triggerService,
-        Func<DataFlowViewModel> getDataFlow,
         Action<string> setStatus,
         LoggerService? logger = null)
     {
         _serial = serial;
         _triggerService = triggerService;
-        _getDataFlow = getDataFlow;
         _setStatus = setStatus;
         _logger = logger ?? new LoggerService();
 
@@ -118,10 +115,11 @@ public class TriggerViewModel : ObservableObject
                 case TriggerAction.SendCommand:
                     if (!string.IsNullOrEmpty(rule.ActionParameter))
                     {
-                        _serial.Send(rule.ActionParameter, false);
-                        var df = _getDataFlow();
-                        df.TxCount++;
-                        df.RecordTxBytes(HexHelper.CountSendBytes(rule.ActionParameter, false));
+                        // Counting happens via the TX entry the send raises
+                        // (OnSerialData -> flush); a manual TxCount++ here both
+                        // double-counted successful sends and counted failures.
+                        if (!_serial.Send(rule.ActionParameter, false))
+                            _setStatus(LanguageManager.Instance["Status.PortClosed"]);
                     }
                     break;
                 case TriggerAction.SaveToFile:

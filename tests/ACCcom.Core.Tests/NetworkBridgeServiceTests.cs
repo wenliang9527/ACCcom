@@ -190,14 +190,19 @@ public class NetworkBridgeServiceTests
         Assert.True(await service.ConnectTcp("127.0.0.1", server.Port));
 
         var echoed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sentHex = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         service.OnDataReceived += e =>
         {
             if (e.Direction == "RX") echoed.TrySetResult(e.RawHex.Replace(" ", ""));
+            else if (e.Direction == "TX") sentHex.TrySetResult(e.RawHex);
         };
         service.SendHex("DE AD BE EF");
 
         var hex = await echoed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal("DEADBEEF", hex);
+        // TX log entry uses the canonical spaced form, not the compact input —
+        // one RawHex layout across serial/network/virtual transports.
+        Assert.Equal("DE AD BE EF", await sentHex.Task.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [Fact]

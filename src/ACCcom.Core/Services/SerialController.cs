@@ -157,14 +157,17 @@ public class SerialController : WebApiController
         [QueryField] string? direction = null)
     {
         // Filtering and limit are folded into the buffer's single tail copy
-        // (binary-searched start), avoiding per-poll list copies.
-        var entries = _service.GetEntriesSince(since, direction, limit);
+        // (binary-searched start), avoiding per-poll list copies. latestId is
+        // the buffer's arrival-sequence cursor (opaque — echo it back as the
+        // next since); Entry.Id is per-direction/per-port and not monotonic,
+        // so it cannot drive incremental polling.
+        var entries = _service.GetEntriesSince(since, direction, limit, out var scannedMaxId);
 
         return ApiResponse.Ok(new
         {
             entries,
             count = entries.Count,
-            latestId = entries.Count > 0 ? entries[^1].Id : since
+            latestId = scannedMaxId
         });
     }
 

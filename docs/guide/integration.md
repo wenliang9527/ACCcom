@@ -226,7 +226,7 @@ curl http://127.0.0.1:8899/api/slaves
 `HttpService` 内嵌 `SerialWebSocketHandler`，提供 WebSocket 端点 `/ws`：
 
 - 数据到达时自动推送到所有已连接的 WebSocket 客户端
-- 格式与 HTTP API `read_data` 一致
+- 格式与 HTTP API `/api/data` 一致
 - 适合实时监控面板、Web 端数据流可视化
 
 ## i18n 国际化
@@ -262,7 +262,7 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 9 个基础串口工具（list_ports / list_open_ports / open_port / close_port / send / read_data / wait_for_response / send_and_wait / clear_buffer），无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 10 个基础串口工具（list_ports / list_open_ports / open_port / close_port / send / read_data / wait_for_response / wait_for_quiet / send_and_wait / clear_buffer），无需 HTTP 配置。
 
 **运行模式：**
 
@@ -330,10 +330,13 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
   → open_port(port="COM3", baudRate=115200)     # 打开串口
   → send(data="AT+GMR")                         # 发送指令
   → send_and_wait(data="AT+GMR", pattern="OK", timeoutMs=3000)  # 发送并等待响应
-  → read_data(sinceId=0, direction="RX")        # 读取响应
+  → wait_for_quiet(quietMs=200)                 # 或：等待流式响应传输完毕
+  → read_data(tail=50, direction="RX")          # 读取最新响应（也可用 sinceId 增量拉取）
+  → read_data(sinceId=cursor, waitMs=1500)      # 长轮询：有新数据立即返回，否则最多等 1.5s
+  → read_data(tail=20, fields="text")           # 只要文本列（省掉 hex，响应减半）
 ```
 
-**可用 MCP Tools（9 个）：**
+**可用 MCP Tools（10 个）：**
 
 | Tool | 说明 |
 |------|------|
@@ -342,10 +345,42 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |
-| `read_data` | 增量读取缓冲数据（支持 sinceId / limit / direction 过滤） |
+| `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 按需截断超长文本；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列） |
 | `wait_for_response` | 阻塞等待匹配数据（支持 contains / regex / exact 匹配，可超时） |
+| `wait_for_quiet` | 等待串口静默 quietMs 毫秒（确认流式响应已传输完毕，配合 read_data tail 使用） |
 | `send_and_wait` | 发送数据并等待匹配响应（组合 send + wait_for_response，减少 AI 调用轮次） |
 | `clear_buffer` | 清空缓冲区（rx/tx/all） |
+
+### MCP 响应约定
+
+所有 MCP 工具遵循统一信封与省 token 规则：
+
+**信封**
+
+```json
+{"success": true,  "data": { ... }}
+{"success": false, "error": {"code": "PORT_NOT_OPEN", "message": "Port with tag ghost is not open"}}
+```
+
+- 失败时按 `error.code` 机器分支，`error.message` 仅面向人类。稳定错误码：
+  `PORT_REQUIRED` / `PORT_NOT_OPEN` / `OPEN_FAILED` / `CLOSE_FAILED` /
+  `SEND_FAILED` / `EMPTY_DATA` / `INVALID_HEX` / `PATTERN_REQUIRED` / `INVALID_FIELDS`
+
+**条目（read_data / wait 响应内嵌 entry）**
+
+```json
+{"id":7,"timestamp":"2026-09-26T10:30:00.123+08:00","direction":"RX","text":"OK","hex":"4F 4B"}
+```
+
+- **稀疏省略**：空/默认值列不输出——`portTag:""`、`truncated:false`、空 `text`/`hex`、回显的空 `tag:""` 均省略（全部工具统一，含 `send`/`wait_*`/`open_port`/`clear_buffer` 的 `data.tag`）。解析方按「列可缺省」处理；`list_open_ports` 中默认会话的 `tag:""` 是会话标识而非回显，始终保留。
+- **时间戳**：全工具统一 ISO-8601 毫秒精度 `yyyy-MM-ddTHH:mm:ss.fff±hh:mm`（不再输出 7 位小数）。
+- **`fields` 列选择**：逗号分隔子集 `id,timestamp,direction,portTag,text,hex,truncated`（默认全量；`fields=text` 用于纯文本流，直接砍掉最大的 hex 列）；未知列名报 `INVALID_FIELDS`。
+- **hex 保持空格分隔**（`4F 4B`），与 GUI 显示一致，可直接粘回 `send(isHex=true)`。
+
+**游标**
+
+- `read_data` 返回 `latestId`（到达序游标）；`wait_for_response` / `send_and_wait` / `wait_for_quiet` 响应同样带 `latestId`——任何读/等操作后都可用 `read_data(sinceId=latestId)` 无缝续轮，无重读、无遗漏。
+- `send` / `send_and_wait` 不回显发送内容（请求与响应各一份即可），只返回 `byteLength` / `isHex`。
 
 ### 方案二：HTTP API（备用）
 

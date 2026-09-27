@@ -35,26 +35,22 @@ public class StatsViewModel : ObservableObject
     private string _avgFrameInterval = "0.0";
     public string AvgFrameInterval { get => _avgFrameInterval; set => SetField(ref _avgFrameInterval, value); }
 
-    // TX rate tracking — sliding-window math lives in Core (TxThroughputWindow),
-    // mirroring the RX side's DataStatistics; this VM only formats.
-    private readonly ACCcom.Core.Services.TxThroughputWindow _txWindow = new();
-
-    public void RecordTx(int byteCount) => _txWindow.Record(byteCount);
-
-    public void Update(ACCcom.Core.Services.DataStatistics stats, long rxByteCount, long txByteCount, int rxCount, int txCount, string duration)
+    // Single-source read-outs: everything comes from the shared DataStatistics
+    // instance (the same one the status bar and /api/statistics use), so the
+    // dashboard can never disagree with them and no per-entry TX feeding is
+    // needed while the window is closed.
+    public void Update(ACCcom.Core.Services.DataStatistics stats, string duration)
     {
         RxBytesPerSec = $"{stats.RxBytesPerSecond:F1}";
         RxFramesPerSec = $"{stats.RxFramesPerSecond:F1}";
+        TxBytesPerSec = $"{stats.TxBytesPerSecond:F1}";
+        TxFramesPerSec = $"{stats.TxFramesPerSecond:F1}";
         ErrorRate = $"{stats.ErrorRate:F1}";
-        TotalRxBytes = $"{rxByteCount:N0}";
-        TotalTxBytes = $"{txByteCount:N0}";
-        TotalRxFrames = $"{rxCount:N0}";
-        TotalTxFrames = $"{txCount:N0}";
+        TotalRxBytes = $"{stats.TotalRxBytes:N0}";
+        TotalTxBytes = $"{stats.TotalTxBytes:N0}";
+        TotalRxFrames = $"{stats.TotalRxFrames:N0}";
+        TotalTxFrames = $"{stats.TotalTxFrames:N0}";
         ConnectionDuration = string.IsNullOrEmpty(duration) ? "--" : duration;
         AvgFrameInterval = $"{stats.AvgFrameIntervalMs:F1}";
-
-        var (bytesPerSec, framesPerSec) = _txWindow.ComputeRate(DateTime.Now);
-        TxBytesPerSec = $"{bytesPerSec:F1}";
-        TxFramesPerSec = $"{framesPerSec:F1}";
     }
 }

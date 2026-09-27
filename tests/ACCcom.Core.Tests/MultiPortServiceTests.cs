@@ -257,4 +257,150 @@ public class MultiPortServiceTests
         Assert.Equal("01", events[0].RawHex.Replace(" ", ""));
         Assert.Equal("02", events[1].RawHex.Replace(" ", ""));
     }
+
+    // ── Lock narrowing: a blocked port must not stall other ports ──
+
+    [Fact]
+    public async Task SendToPort_SlowSend_DoesNotBlockOtherPorts()
+    {
+        // Regression guard: SendToPort used to hold _lock for the whole
+        // Service.Send, so a slow/blocking write on port "a" also stalled
+        // GetPort/SendToPort for every other port.
+        using var mps = new MultiPortService(() => new BlockingSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("a", config));
+        Assert.True(mps.OpenPort("b", config));
+        var a = (BlockingSerialService)mps.GetPort("a")!.Service;
+        var b = (BlockingSerialService)mps.GetPort("b")!.Service;
+        b.BlockSend = false; // only "a" is slow
+
+        var slowSend = Task.Run(() => mps.SendToPort("a", "slow"));
+        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+
+        // "a"'s Send is still in flight holding no lock: "b" must respond.
+        var otherOps = Task.Run(() =>
+        {
+            Assert.NotNull(mps.GetPort("b"));
+            return mps.SendToPort("b", "fast");
+        });
+        var winner = await Task.WhenAny(otherOps, Task.Delay(2000));
+        Assert.Same(otherOps, winner); // lock was still held �?would time out
+        Assert.True(await otherOps);
+        Assert.NotNull(mps.GetPort("a")); // "a" stays open while its send is in flight
+    }
+
+    [Fact]
+    public async Task SendToPort_SlowSend_PortRemainsOpenUntilSendReturns()
+    {
+        // Companion to the responsiveness test: narrowing must not remove the
+        // port from the map just because a send is in flight.
+        using var mps = new MultiPortService(() => new BlockingSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("a", config));
+        var a = (BlockingSerialService)mps.GetPort("a")!.Service;
+
+        var slowSend = Task.Run(() => mps.SendToPort("a", "slow"));
+        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+
+        Assert.NotNull(mps.GetPort("a"));
+
+        a.ReleaseSend();
+        Assert.True(await slowSend.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task ClosePort_SlowClose_DoesNotBlockLookups()
+    {
+        // ClosePort used to hold _lock across Service.Close + Dispose, so a
+        // slow close blocked lookups on healthy ports too. Now the tag is
+        // removed under the lock first; close happens outside it.
+        using var mps = new MultiPortService(() => new BlockingSerialService());
+        var config = new SerialConfig { PortName = "VIRT", BaudRate = 115200 };
+        Assert.True(mps.OpenPort("a", config));
+        Assert.True(mps.OpenPort("b", config));
+        var a = (BlockingSerialService)mps.GetPort("a")!.Service;
+        a.BlockClose = true;
+
+        var slowClose = Task.Run(() => mps.ClosePort("a"));
+        await a.CloseEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+
+        var lookup = Task.Run(() => mps.GetPort("b"));
+        var winner = await Task.WhenAny(lookup, Task.Delay(2000));
+        Assert.Same(lookup, winner); // pre-fix this blocked behind the close
+
+        Assert.NotNull(await lookup);
+        Assert.Null(mps.GetPort("a")); // removed from the map before the slow close runs
+
+        a.ReleaseClose();
+        Assert.True(await slowClose.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    /// <summary>
+    /// ISerialService fake whose Send/Close can block on a gate, to prove the
+    /// MultiPortService lock no longer spans those calls.
+    /// </summary>
+    private sealed class BlockingSerialService : ISerialService
+    {
+#pragma warning disable CS0067 // events are interface surface; the fake never raises them
+        public event Action<LogEntry>? OnDataReceived;
+        public event Action<string>? OnError;
+        public event Action? OnDisconnected;
+        public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+        private readonly TaskCompletionSource _sendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _sendGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _closeEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _closeGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool BlockSend { get; set; } = true;
+        public bool BlockClose { get; set; }
+
+        public Task SendEntered => _sendEntered.Task;
+        public Task CloseEntered => _closeEntered.Task;
+        public void ReleaseSend() => _sendGate.TrySetResult();
+        public void ReleaseClose() => _closeGate.TrySetResult();
+
+        public bool IsOpen { get; private set; }
+        public string? CurrentPort { get; private set; }
+        public int BaudRate { get; private set; }
+
+        public bool Open(SerialConfig config)
+        {
+            IsOpen = true;
+            CurrentPort = config.PortName;
+            BaudRate = config.BaudRate;
+            return true;
+        }
+
+        public bool Send(string data, bool isHex = false)
+        {
+            if (BlockSend)
+            {
+                _sendEntered.TrySetResult();
+                _sendGate.Task.GetAwaiter().GetResult();
+            }
+            return true;
+        }
+
+        public bool SendHex(string hex) => Send(hex, isHex: true);
+
+        public bool Close()
+        {
+            if (BlockClose)
+            {
+                _closeEntered.TrySetResult();
+                _closeGate.Task.GetAwaiter().GetResult();
+            }
+            IsOpen = false;
+            return true;
+        }
+
+        public void Dispose()
+        {
+            IsOpen = false;
+            ReleaseSend();
+            ReleaseClose();
+        }
+    }
 }

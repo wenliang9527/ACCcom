@@ -66,7 +66,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | 预分配 RingBuffer 环形缓冲 |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（当前 1279 个用例，见 README 徽章） |
+| 测试 | xUnit 2.5.3（当前 1346 个用例，见 README 徽章） |
 
 ## 项目结构
 
@@ -200,7 +200,7 @@ ACCcom/
 │   └── ACCcom.McpServer/          # MCP Server (stdio 传输)
 │       ├── Program.cs
 │       └── Tools/
-│           ├── SerialTools.cs      # 基础串口工具 (8 个)
+│           ├── SerialTools.cs      # 基础串口工具 (10 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tests/
 │   ├── ACCcom.Core.Tests/          # 核心库单元测试（数量以 `dotnet test` 为准）

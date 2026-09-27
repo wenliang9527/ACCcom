@@ -42,10 +42,15 @@ public class AppSettings
     public bool IsHexSend { get; set; }
     public bool IsHexDisplayRx { get; set; }
     public bool IsHexDisplayTx { get; set; }
+    // Combined-pane toggles persisted so a restart doesn't silently fall back
+    // to text while the split flags are restored. Default matches the runtime
+    // field (false) so upgrades don't flip the pane to hex on first launch.
+    public bool IsHexDisplayAll { get; set; }
 
     // Timestamp toggles
     public bool EnableRxTimestamp { get; set; } = true;
     public bool EnableTxTimestamp { get; set; } = true;
+    public bool EnableTimestampAll { get; set; } = true;
 
     // Parser engine
     public int ParserCacheSize { get; set; } = 10;

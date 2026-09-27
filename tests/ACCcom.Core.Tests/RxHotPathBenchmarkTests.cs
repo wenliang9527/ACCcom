@@ -8,8 +8,8 @@ namespace ACCcom.Core.Tests;
 /// <summary>
 /// Coarse hot-path throughput checks for the RX pipeline. Assertions use very
 /// wide lower bounds (10x+ below what the optimized path sustains) so CI on
-/// slow machines or under load never flakes, while a real regression â€” e.g.
-/// reintroducing a lock or per-frame allocation â€” that cuts throughput by an
+/// slow machines or under load never flakes, while a real regression â€?e.g.
+/// reintroducing a lock or per-frame allocation â€?that cuts throughput by an
 /// order of magnitude still trips the bound.
 /// NOTE: never run these under coverage collection (coverlet instruments the
 /// measured hot loop itself and trips the bounds); CI runs them in a separate
@@ -176,5 +176,67 @@ public class RxHotPathBenchmarkTests
         // Expression path precomputes TimeSpan/lowercase; 20k/s is far below
         // real throughput but catches a reintroduced per-eval parse.
         Assert.True(opsPerSec > 20_000, $"Expression filter too slow: {opsPerSec:F0}/s");
+    }
+
+    /// <summary>MCP traffic mirror throughput: every RX/TX entry records one
+    /// JSONL line, and (before buffering) that was a synchronous per-line disk
+    /// flush on the serial DataReceived thread â€?the primary MCP RX-path
+    /// bottleneck. Bound is 10x+ below the buffered writer's throughput while
+    /// an fsync-per-line writer lands an order of magnitude below it.</summary>
+    [Fact]
+    public void McpTrafficLog_Record_SustainsHighThroughput()
+    {
+        var path = Path.Combine(Path.GetTempPath(),
+            $"mcp-bench-{Guid.NewGuid():N}.jsonl");
+        const int count = 5_000;
+        try
+        {
+            var sw = Stopwatch.StartNew();
+            using (var log = new McpTrafficLog(path))
+            {
+                for (int i = 0; i < count; i++)
+                    log.Record(i, "rx", "RX", "AA 55 01 02", "sensor data line", "");
+            }
+            sw.Stop();
+
+            double linesPerSec = count / sw.Elapsed.TotalSeconds;
+            // Baseline (syscall per line): ~144k/s on this machine. Buffered
+            // writer target is well above; 250k fails the syscall path with
+            // margin while the buffered path clears it comfortably.
+            Assert.True(linesPerSec > 200_000,
+                $"TrafficLog throughput too low: {linesPerSec:F0}/s ({count} lines in {sw.Elapsed.TotalMilliseconds:F0}ms)");
+        }
+        finally
+        {
+            try { File.Delete(path); } catch { }
+            try { File.Delete(path + ".1"); } catch { }
+        }
+    }
+
+    /// <summary>Wait-registration latency against a full ring: WaitForMatchAsync
+    /// snapshots the ring and scans it for an immediate match. Wide bound â€?
+    /// guards against an accidental O(nÂ²) setup, not against the scan itself
+    /// (the fix moved the scan OUT of the buffer lock; see the concurrency
+    /// tests in DataBufferServiceTests for the non-blocking contract).</summary>
+    [Fact]
+    public void WaitForMatch_FullBuffer_SetupStaysFast()
+    {
+        using var buffer = new DataBufferService(10_000);
+        for (int i = 0; i < 10_000; i++)
+            buffer.AddEntry(new LogEntry { Id = i + 1, Direction = "RX", Text = "payload " + i });
+
+        const int setups = 100;
+        var sw = Stopwatch.StartNew();
+        for (int i = 0; i < setups; i++)
+        {
+            // Non-matching pattern: exercises the full-ring scan + register path.
+            var task = buffer.WaitForMatchAsync("NO-SUCH-PATTERN-XYZ", "contains", false, null, 1);
+            Assert.False(task.IsCompletedSuccessfully);
+        }
+        sw.Stop();
+
+        double msPerSetup = sw.Elapsed.TotalMilliseconds / setups;
+        Assert.True(msPerSetup < 50,
+            $"Wait setup too slow on full ring: {msPerSetup:F2}ms/setup");
     }
 }

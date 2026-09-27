@@ -68,6 +68,30 @@ public class MultiPortToolsTests
     }
 
     [Fact]
+    public async Task Send_ToTag_WritesExactlyOneTxTrafficLine_WithPortTag()
+    {
+        // Multi-port TX must land exactly once in the traffic log, labeled with
+        // the real tool and the originating port tag (not a duplicate "rx" row).
+        var (ctx, sp) = ToolContextFactory.Create();
+        string path = ToolContextFactory.TrafficLogPath(sp);
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10", tag: "a");
+            var result = await tools.Send("HELLO", tag: "a");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); }
+
+        var txLines = File.ReadAllLines(path)
+            .Where(l => l.Contains("\"direction\":\"TX\"", StringComparison.Ordinal))
+            .ToList();
+        var line = Assert.Single(txLines);
+        Assert.Contains("\"tool\":\"send\"", line);
+        Assert.Contains("\"portTag\":\"a\"", line);
+    }
+
+    [Fact]
     public async Task Send_ToUnknownTag_FailsCleanly()
     {
         var (ctx, sp) = ToolContextFactory.Create();

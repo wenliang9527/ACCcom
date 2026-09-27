@@ -59,12 +59,20 @@ public class HighlightViewModel : ObservableObject
     /// after a theme switch — so the data panel reflects the new colors
     /// without losing scroll position. HighlightColor is a plain auto-property
     /// (hot path), so visible rows are notified explicitly; the notification is
-    /// skipped only when both the old and new value are null, because null
-    /// rows bind to a DynamicResource that already tracks the theme.</summary>
-    public void RefreshExisting()
+    /// skipped only when both the old and new value are null, because nothing
+    /// visibly changed. Pass <paramref name="forceNotify"/> when the rendering
+    /// context itself changed (theme switch): rows whose color stays null bind
+    /// through a converter whose output depends on the theme, so they must
+    /// re-query even though HighlightColor did not move.</summary>
+    /// <param name="forceNotify">Also notify null→null rows (theme switch).</param>
+    public void RefreshExisting(bool forceNotify = false)
     {
         var df = _getDataFlow();
         if (df == null) return;
+        // Entries still in the pending queue (<30ms old) were colored at
+        // enqueue time and are not yet in the observable collections — flush
+        // them into the lists first so the sweep below covers them too.
+        df.FlushPendingEntries();
         Refresh(df.RxEntries);
         Refresh(df.TxEntries);
 
@@ -75,7 +83,7 @@ public class HighlightViewModel : ObservableObject
                 var updated = _service.GetHighlightColor(entry);
                 var previous = entry.HighlightColor;
                 entry.HighlightColor = updated;
-                if (updated != null || previous != null)
+                if (forceNotify || updated != null || previous != null)
                     entry.NotifyHighlightChanged();
             }
         }

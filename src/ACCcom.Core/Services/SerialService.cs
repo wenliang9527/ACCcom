@@ -65,6 +65,11 @@ public class SerialService : ISerialService, IDisposable
                 // that propagates past the retry loop.
                 _port = new SerialPort(config.PortName, config.BaudRate, (Parity)config.Parity, config.DataBits, (StopBits)config.StopBits)
                 {
+                    // UTF-8 so text-mode writes put on the wire exactly the bytes
+                    // the TX row displays and counts (Send computes RawHex via
+                    // Encoding.UTF8). SerialPort defaults to ASCII, which would
+                    // turn every non-ASCII char into '?' — display != wire.
+                    Encoding = System.Text.Encoding.UTF8,
                     DtrEnable = config.DtrEnable,
                     RtsEnable = config.RtsEnable,
                     ReadTimeout = 1000,
@@ -315,6 +320,7 @@ public class SerialService : ISerialService, IDisposable
                 {
                     var tempPort = new SerialPort(_lastConfig.PortName, _lastConfig.BaudRate, (Parity)_lastConfig.Parity, _lastConfig.DataBits, (StopBits)_lastConfig.StopBits)
                     {
+                        Encoding = System.Text.Encoding.UTF8,
                         DtrEnable = _lastConfig.DtrEnable,
                         RtsEnable = _lastConfig.RtsEnable,
                         ReadTimeout = 1000,

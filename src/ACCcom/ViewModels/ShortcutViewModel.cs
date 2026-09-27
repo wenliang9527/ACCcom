@@ -247,10 +247,9 @@ public class ShortcutViewModel : ObservableObject
 
         if (sent)
         {
-            df.TxCount++;
-            df.RecordTxBytes(item.IsHex
-                ? HexHelper.CountHexBytes(toSend)
-                : HexHelper.CountSendBytes(toSend, false));
+            // No manual TxCount/TxByteCount bump here: Send raises a TX entry
+            // that flows through OnSerialData -> flush, which counts it once
+            // (the old manual increment double-counted every shortcut send).
             _setStatus(string.Format(LanguageManager.Instance["Status.ShortcutSent"], item.Name));
         }
         else

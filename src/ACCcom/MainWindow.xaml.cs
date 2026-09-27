@@ -348,10 +348,12 @@ public partial class MainWindow : Window
             _vm.PrevBookmarkCommand.Execute(null);
             e.Handled = true;
         }
-        // Ctrl+H: Toggle hex display
+        // Ctrl+H: Toggle hex display for the pane that is actually on screen
+        // (the combined header binds IsHexDisplayAll, the split headers bind
+        // Rx/Tx) — toggling the hidden pair would look like a dead key.
         else if (e.Key == Key.H && mods == ModifierKeys.Control)
         {
-            _vm.DataFlow.ToggleHexDisplayCommand.Execute(null);
+            _vm.DataFlow.ToggleHexDisplayCommand.Execute(DataPanelControl.IsCombinedActive);
             e.Handled = true;
         }
         // Ctrl+P: Toggle combined / split data panes (matches the toolbar toggle).

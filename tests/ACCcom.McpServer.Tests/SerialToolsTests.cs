@@ -1,3 +1,5 @@
+using System.Text.Json;
+using ACCcom.Core.Models;
 using ACCcom.McpServer.Tests.TestHelpers;
 using ACCcom.McpServer.Tools;
 
@@ -87,6 +89,38 @@ public class SerialToolsTests
     }
 
     [Fact]
+    public async Task ReadData_LatestId_DoesNotSkipEntriesWithLaggingIds()
+    {
+        // Entry ids come from independent RX/TX counters, so RX can run far
+        // ahead of TX. latestId must be the buffer's arrival cursor — advancing
+        // by Entry.Id (as the old Math.Max formula did) hid every TX row whose
+        // id lagged the RX cursor.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.Buffer.AddEntry(new LogEntry { Id = 50, Direction = "RX", Text = "rx" });
+            var tools = new SerialTools(ctx);
+
+            var first = await tools.ReadData(0, 10, null);
+            Assert.True(ToolContextFactory.ExtractSuccess(first));
+            var firstLatestId = LatestIdOf(first);
+
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "TX", Text = "tx" });
+            var second = await tools.ReadData(firstLatestId, 10, null);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(second));
+            Assert.Contains("\"tx\"", second);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    private static int LatestIdOf(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("data").GetProperty("latestId").GetInt32();
+    }
+
+    [Fact]
     public async Task WaitForResponse_RequiresPattern()
     {
         var (ctx, sp) = ToolContextFactory.Create();
@@ -153,6 +187,685 @@ public class SerialToolsTests
             var result = await tools.SendAndWait("ZZ ZZ", "OK", isHex: true);
             Assert.False(ToolContextFactory.ExtractSuccess(result));
             Assert.Contains("Invalid hex", ToolContextFactory.ExtractError(result) ?? "");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Send_WritesExactlyOneTxTrafficLine_WithSendTool()
+    {
+        // Regression guard: the receive handler used to mirror TX entries as
+        // tool="rx" as well, so every send produced two JSONL lines (the first
+        // mislabeled) and doubled the traffic-log I/O.
+        var (ctx, sp) = ToolContextFactory.Create();
+        string path = ToolContextFactory.TrafficLogPath(sp);
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            var result = await tools.Send("AT");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+        }
+        finally { sp.Dispose(); } // flushes buffered traffic lines
+
+        var txLines = File.ReadAllLines(path)
+            .Where(l => l.Contains("\"direction\":\"TX\"", StringComparison.Ordinal))
+            .ToList();
+        var line = Assert.Single(txLines);
+        Assert.Contains("\"tool\":\"send\"", line);
+    }
+
+    [Fact]
+    public async Task SendAndWait_WritesExactlyOneTxTrafficLine_WithSendAndWaitTool()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        string path = ToolContextFactory.TrafficLogPath(sp);
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            // No echo on the virtual port: the wait times out (min clamp 100ms),
+            // but the TX traffic line is written right after the send.
+            await tools.SendAndWait("AT", "OK", timeoutMs: 100);
+        }
+        finally { sp.Dispose(); }
+
+        var txLines = File.ReadAllLines(path)
+            .Where(l => l.Contains("\"direction\":\"TX\"", StringComparison.Ordinal))
+            .ToList();
+        var line = Assert.Single(txLines);
+        Assert.Contains("\"tool\":\"send_and_wait\"", line);
+    }
+
+    // ── read_data: tail cursor mode + lean projection + maxLength ──
+
+    [Fact]
+    public async Task ReadData_tail_returns_newest_entries_in_arrival_order_without_cursor()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "m1" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "m2" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 3, Direction = "RX", Text = "m3" });
+
+            var result = await tools.ReadData(tail: 2);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var entries = doc.RootElement.GetProperty("data").GetProperty("entries");
+            Assert.Equal(2, entries.GetArrayLength());
+            Assert.Equal("m2", entries[0].GetProperty("text").GetString());
+            Assert.Equal("m3", entries[1].GetProperty("text").GetString());
+            Assert.Equal(3, doc.RootElement.GetProperty("data").GetProperty("latestId").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_tail_direction_filter_keeps_only_matching_rows()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "TX", Text = "t1" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "r1" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 3, Direction = "TX", Text = "t2" });
+
+            var result = await tools.ReadData(direction: "TX", tail: 1);
+
+            using var doc = JsonDocument.Parse(result);
+            var entry = doc.RootElement.GetProperty("data").GetProperty("entries")[0];
+            Assert.Equal("t2", entry.GetProperty("text").GetString());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_tail_cursor_hands_off_to_incremental_poll_without_gap_or_duplicate()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "m1" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "m2" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 3, Direction = "RX", Text = "m3" });
+
+            var tailResult = await tools.ReadData(tail: 1);
+            var cursor = LatestIdOf(tailResult);
+
+            var caughtUp = await tools.ReadData(cursor, 10, null);
+            using (var doc = JsonDocument.Parse(caughtUp))
+                Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("entries").GetArrayLength());
+
+            ctx.Buffer.AddEntry(new LogEntry { Id = 4, Direction = "RX", Text = "m4" });
+            var next = await tools.ReadData(cursor, 10, null);
+
+            using var doc2 = JsonDocument.Parse(next);
+            var entries = doc2.RootElement.GetProperty("data").GetProperty("entries");
+            Assert.Equal(1, entries.GetArrayLength());
+            Assert.Equal("m4", entries[0].GetProperty("text").GetString());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_maxLength_truncates_long_fields_and_flags_them()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "ABCDEFGHIJ", RawHex = "41 42 43 44 45 46 47 48 49 4A" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "ok" });
+
+            var result = await tools.ReadData(maxLength: 4);
+
+            using var doc = JsonDocument.Parse(result);
+            var entries = doc.RootElement.GetProperty("data").GetProperty("entries");
+
+            var longEntry = entries[0];
+            Assert.Equal("ABCD…", longEntry.GetProperty("text").GetString());
+            Assert.True(longEntry.GetProperty("truncated").GetBoolean());
+
+            var shortEntry = entries[1];
+            Assert.Equal("ok", shortEntry.GetProperty("text").GetString());
+            // Sparse policy: truncated=false is the default — the column is omitted.
+            Assert.False(shortEntry.TryGetProperty("truncated", out _));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_entries_omit_ui_only_fields()
+    {
+        // LogEntry carries UI state (highlight color, search match, field
+        // annotations) that is irrelevant to MCP clients — the lean projection
+        // must not serialize it.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry
+            {
+                Id = 1,
+                Direction = "RX",
+                Text = "row",
+                HighlightColor = "#FF0000",
+                IsSearchMatch = true,
+                Fields = new List<FieldAnnotation>()
+            });
+
+            var result = await tools.ReadData();
+
+            Assert.DoesNotContain("highlightColor", result, StringComparison.Ordinal);
+            Assert.DoesNotContain("isSearchMatch", result, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"fields\"", result, StringComparison.Ordinal);
+            // Sparse policy: no maxLength → nothing truncated → column omitted.
+            Assert.DoesNotContain("\"truncated\"", result, StringComparison.Ordinal);
+            // Sparse policy: entry has no port tag → column omitted.
+            Assert.DoesNotContain("\"portTag\"", result, StringComparison.Ordinal);
+            Assert.Contains("\"row\"", result, StringComparison.Ordinal);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    // ── wait_for_quiet ──
+
+    [Fact]
+    public async Task WaitForQuiet_silent_buffer_returns_quiet_true()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var result = await tools.WaitForQuiet(quietMs: 50, timeoutMs: 5000);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            Assert.True(doc.RootElement.GetProperty("data").GetProperty("quiet").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForQuiet_timeout_shorter_than_quiet_window_returns_quiet_false()
+    {
+        // quietMs (200) > timeoutMs (100): the timeout must win on a silent
+        // buffer, reporting quiet=false instead of hanging or lying.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var result = await tools.WaitForQuiet(quietMs: 200, timeoutMs: 100);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            Assert.False(doc.RootElement.GetProperty("data").GetProperty("quiet").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForQuiet_incoming_data_extends_the_quiet_window()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var wait = tools.WaitForQuiet(quietMs: 200, timeoutMs: 5000);
+            await Task.Delay(80);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "late" });
+
+            var result = await wait;
+
+            using var doc = JsonDocument.Parse(result);
+            Assert.True(doc.RootElement.GetProperty("data").GetProperty("quiet").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForQuiet_watches_the_tagged_buffer_not_the_default()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            // Continuous traffic on the default buffer must not prevent the
+            // tagged buffer from reporting quiet.
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "main-noise" });
+
+            var result = await tools.WaitForQuiet(quietMs: 50, timeoutMs: 300, tag: "sensor");
+
+            using var doc = JsonDocument.Parse(result);
+            Assert.True(doc.RootElement.GetProperty("data").GetProperty("quiet").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    // ── read_data waitMs long-poll ──
+
+    [Fact]
+    public async Task ReadData_waitMs_returns_immediately_when_cursor_has_data()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "ready" });
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await tools.ReadData(waitMs: 5000);
+            sw.Stop();
+
+            Assert.True(sw.ElapsedMilliseconds < 2000, $"waited {sw.ElapsedMilliseconds}ms despite buffered data");
+            using var doc = JsonDocument.Parse(result);
+            Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("entries").GetArrayLength());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_waitMs_returns_as_soon_as_data_arrives()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var wait = tools.ReadData(sinceId: 0, waitMs: 5000);
+            await Task.Delay(80);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "late arrival" });
+            var result = await wait;
+            sw.Stop();
+
+            using var doc = JsonDocument.Parse(result);
+            var entries = doc.RootElement.GetProperty("data").GetProperty("entries");
+            Assert.Equal(1, entries.GetArrayLength());
+            Assert.Equal("late arrival", entries[0].GetProperty("text").GetString());
+            // Event-driven wake-up: must come back far before the 5s timeout
+            // (a lost-wakeup bug would burn the full wait).
+            Assert.True(sw.ElapsedMilliseconds < 4000, $"took {sw.ElapsedMilliseconds}ms");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_waitMs_timeout_returns_empty_promptly_after_wait()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await tools.ReadData(waitMs: 300);
+            sw.Stop();
+
+            using var doc = JsonDocument.Parse(result);
+            Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("entries").GetArrayLength());
+            Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("latestId").GetInt32());
+            Assert.True(sw.ElapsedMilliseconds >= 250, $"returned after {sw.ElapsedMilliseconds}ms — wait not honored");
+            Assert.True(sw.ElapsedMilliseconds < 3000, $"took {sw.ElapsedMilliseconds}ms");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_waitMs_direction_filter_returns_promptly_with_advanced_cursor()
+    {
+        // Traffic the filter excludes must still end the wait (the cursor
+        // advances), not park until timeout — otherwise a filtered long-poll
+        // spins forever on skipped traffic.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var wait = tools.ReadData(sinceId: 0, direction: "RX", waitMs: 5000);
+            await Task.Delay(80);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "TX", Text = "excluded" });
+            var result = await wait;
+            sw.Stop();
+
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.Equal(0, data.GetProperty("entries").GetArrayLength());
+            Assert.True(data.GetProperty("latestId").GetInt32() > 0, "cursor did not advance past filtered traffic");
+            Assert.True(sw.ElapsedMilliseconds < 4000, $"took {sw.ElapsedMilliseconds}ms");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_waitMs_is_ignored_in_tail_mode()
+    {
+        // tail > 0 takes precedence over the cursor path entirely — waitMs
+        // must not park an empty tail read.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await tools.ReadData(tail: 5, waitMs: 5000);
+            sw.Stop();
+
+            Assert.True(sw.ElapsedMilliseconds < 2000, $"tail read waited {sw.ElapsedMilliseconds}ms");
+            using var doc = JsonDocument.Parse(result);
+            Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("entries").GetArrayLength());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    // ── round 3: token saving + standardization ──
+
+    [Fact]
+    public async Task ReadData_timestamp_is_iso8601_millisecond_precision()
+    {
+        // One fixed format for every timestamp: date + ms fraction + kind
+        // offset, never the 7-digit round-trip form.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "ts" });
+
+            var result = await tools.ReadData();
+
+            using var doc = JsonDocument.Parse(result);
+            var ts = doc.RootElement.GetProperty("data").GetProperty("entries")[0]
+                .GetProperty("timestamp").GetString()!;
+            Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}([zZ]|[+-]\d{2}:\d{2})?$", ts);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_fields_text_omits_hex_and_unselected_columns()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "OK", RawHex = "4F 4B" });
+
+            var result = await tools.ReadData(fields: "text");
+
+            using var doc = JsonDocument.Parse(result);
+            var entry = doc.RootElement.GetProperty("data").GetProperty("entries")[0];
+            Assert.Equal("OK", entry.GetProperty("text").GetString());
+            Assert.False(entry.TryGetProperty("hex", out _));
+            Assert.False(entry.TryGetProperty("id", out _));
+            Assert.False(entry.TryGetProperty("timestamp", out _));
+            Assert.False(entry.TryGetProperty("direction", out _));
+            Assert.False(entry.TryGetProperty("portTag", out _));
+            Assert.False(entry.TryGetProperty("truncated", out _));
+            // Envelope columns are not part of the fields mask.
+            Assert.Equal(1, doc.RootElement.GetProperty("data").GetProperty("latestId").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_fields_multi_select_returns_only_those_columns()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 7, Direction = "RX", Text = "OK", RawHex = "4F 4B" });
+
+            var result = await tools.ReadData(fields: "direction, text ,hex");
+
+            using var doc = JsonDocument.Parse(result);
+            var entry = doc.RootElement.GetProperty("data").GetProperty("entries")[0];
+            Assert.Equal("RX", entry.GetProperty("direction").GetString());
+            Assert.Equal("OK", entry.GetProperty("text").GetString());
+            Assert.Equal("4F 4B", entry.GetProperty("hex").GetString());
+            Assert.False(entry.TryGetProperty("id", out _));
+            Assert.False(entry.TryGetProperty("timestamp", out _));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_fields_unknown_column_returns_structured_error()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "x" });
+
+            var result = await tools.ReadData(fields: "text,payload");
+
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_FIELDS", ToolContextFactory.ExtractErrorCode(result));
+            Assert.Contains("payload", ToolContextFactory.ExtractError(result) ?? "");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_default_fields_still_returns_all_columns()
+    {
+        // fields=null must stay backward compatible: full column set.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 3, Direction = "RX", Text = "full", RawHex = "4F 4B" });
+
+            var result = await tools.ReadData();
+
+            using var doc = JsonDocument.Parse(result);
+            var entry = doc.RootElement.GetProperty("data").GetProperty("entries")[0];
+            foreach (var col in new[] { "id", "timestamp", "direction", "text", "hex" })
+                Assert.True(entry.TryGetProperty(col, out _), $"missing column {col}");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Send_response_does_not_echo_payload()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.Send("AT+GMR");
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.False(data.TryGetProperty("sent", out _), "request payload must not be echoed");
+            Assert.Equal(6, data.GetProperty("byteLength").GetInt32());
+            Assert.False(data.GetProperty("isHex").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Errors_carry_structured_code_and_message()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+
+            var notOpen = await tools.Send("HI", tag: "ghost");
+            Assert.Equal("PORT_NOT_OPEN", ToolContextFactory.ExtractErrorCode(notOpen));
+            Assert.Contains("ghost", ToolContextFactory.ExtractError(notOpen) ?? "");
+
+            await tools.OpenPort("COM10");
+            var badHex = await tools.Send("ZZ", isHex: true);
+            Assert.Equal("INVALID_HEX", ToolContextFactory.ExtractErrorCode(badHex));
+            Assert.Contains("Invalid hex", ToolContextFactory.ExtractError(badHex) ?? "");
+
+            var empty = await tools.Send("");
+            Assert.Equal("EMPTY_DATA", ToolContextFactory.ExtractErrorCode(empty));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_returns_latestId_cursor()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "HELLO" });
+
+            var result = await tools.WaitForResponse("NEVER-MATCHES", timeoutMs: 200);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.False(data.GetProperty("matched").GetBoolean());
+            Assert.Equal(1, data.GetProperty("latestId").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForQuiet_returns_latestId_cursor()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "done" });
+
+            var result = await tools.WaitForQuiet(quietMs: 50, timeoutMs: 2000);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.True(data.GetProperty("quiet").GetBoolean());
+            Assert.Equal(1, data.GetProperty("latestId").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_returns_latestId_after_immediate_match()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "READY" });
+
+            var result = await tools.SendAndWait("GO", "READY", timeoutMs: 2000);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.True(data.GetProperty("matched").GetBoolean());
+            // Two buffered entries: the pre-seeded RX ("READY", seq 1) plus the
+            // TX echo of the send itself (seq 2) — the cursor must cover both.
+            Assert.Equal(2, data.GetProperty("latestId").GetInt32());
+            Assert.False(data.TryGetProperty("sent", out _), "request payload must not be echoed");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitCursor_hands_off_to_read_data_without_gap()
+    {
+        // The latestId returned by a wait tool must be directly usable as
+        // sinceId — no re-read of what the wait already covered, no skip.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "first" });
+            var quiet = await tools.WaitForQuiet(quietMs: 50, timeoutMs: 2000);
+            int cursor;
+            using (var doc = JsonDocument.Parse(quiet))
+                cursor = doc.RootElement.GetProperty("data").GetProperty("latestId").GetInt32();
+
+            var caughtUp = await tools.ReadData(cursor);
+            using (var doc = JsonDocument.Parse(caughtUp))
+                Assert.Equal(0, doc.RootElement.GetProperty("data").GetProperty("entries").GetArrayLength());
+
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "second" });
+            var next = await tools.ReadData(cursor);
+            using var doc2 = JsonDocument.Parse(next);
+            var entries = doc2.RootElement.GetProperty("data").GetProperty("entries");
+            Assert.Equal(1, entries.GetArrayLength());
+            Assert.Equal("second", entries[0].GetProperty("text").GetString());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task DefaultSessionResponses_omit_empty_tag_echo()
+    {
+        // Sparse envelope policy must hold across EVERY tool, not just
+        // read_data: an empty tag echo is dead weight on the default session.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var results = new[]
+            {
+                await tools.OpenPort("COM10"),
+                await tools.Send("Hi"),
+                await tools.WaitForQuiet(quietMs: 50, timeoutMs: 2000),
+                await tools.ReadData(),
+                await tools.WaitForResponse("NEVER-MATCHES", timeoutMs: 200),
+                await tools.ClearBuffer()
+            };
+
+            foreach (var r in results)
+            {
+                Assert.True(ToolContextFactory.ExtractSuccess(r), r);
+                using var doc = JsonDocument.Parse(r);
+                Assert.False(doc.RootElement.GetProperty("data").TryGetProperty("tag", out _),
+                    $"empty tag echo must be omitted, got: {r}");
+            }
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task NamedTagResponses_echo_the_tag()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var results = new[]
+            {
+                await tools.OpenPort("COM10", tag: "a"),
+                await tools.Send("Hi", tag: "a"),
+                await tools.WaitForQuiet(quietMs: 50, timeoutMs: 2000, tag: "a"),
+                await tools.ReadData(tag: "a"),
+                await tools.WaitForResponse("NEVER-MATCHES", timeoutMs: 200, tag: "a"),
+                await tools.ClearBuffer(tag: "a")
+            };
+
+            foreach (var r in results)
+            {
+                Assert.True(ToolContextFactory.ExtractSuccess(r), r);
+                using var doc = JsonDocument.Parse(r);
+                Assert.Equal("a", doc.RootElement.GetProperty("data").GetProperty("tag").GetString());
+            }
         }
         finally { sp.Dispose(); }
     }

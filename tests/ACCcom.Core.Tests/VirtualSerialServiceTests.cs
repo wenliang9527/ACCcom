@@ -81,7 +81,9 @@ public class VirtualSerialServiceTests
         svc.SendHex("AA55");
         var sent = svc.GetSentData();
         Assert.Single(sent);
-        Assert.Contains("AA55", sent[0].RawHex, StringComparison.OrdinalIgnoreCase);
+        // Canonical spaced form — matches the non-hex branch and every other
+        // transport, so TX RawHex has one layout across the app.
+        Assert.Equal("AA 55", sent[0].RawHex);
     }
 
     [Fact]

@@ -104,7 +104,7 @@ public class ToolViewModel : ObservableObject, IDisposable
         Shortcuts.StartLoopFrom = (text, isHex) => LoopSend.StartLoopFrom(text, isHex);
         Shortcuts.GetIsLoopActive = () => LoopSend.IsLoopSend || LoopSend.IsLooping;
         MultiPort = new MultiPortViewModel(multiPort, setStatus);
-        Triggers = new TriggerViewModel(serial, triggerService, getDataFlow, setStatus, _logger);
+        Triggers = new TriggerViewModel(serial, triggerService, setStatus, _logger);
         BookmarksVm = new BookmarkViewModel(bookmarkManager, getDataFlow, setStatus);
         MacrosVm = new MacroViewModel(serial, macroManager, getDataFlow, getIsOpen, setStatus);
         Replay = new ReplayViewModel(sessionRecorder, getDataFlow, setStatus);

@@ -60,8 +60,14 @@ public class VirtualSerialService : ISerialService, IDisposable
         }
 
         var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
-        var hexStr = isHex ? data.Replace(" ", "") :
-            HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
+        // Hex sends log the canonical spaced form so the TX entry matches every
+        // other transport; an unparseable input keeps the compacted original
+        // instead of throwing (Send must never fail on log formatting).
+        var hexStr = isHex
+            ? (HexHelper.TryHexStringToBytes(data, out var txBytes)
+                ? HexHelper.BytesToHexSpaced(txBytes, 0, txBytes.Length)
+                : data.Replace(" ", ""))
+            : HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
 
         var entry = new LogEntry
         {

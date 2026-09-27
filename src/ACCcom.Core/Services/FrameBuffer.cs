@@ -258,9 +258,10 @@ public class FrameBuffer : IDisposable
 
         var entry = new LogEntry
         {
-            // Id feeds DataBufferService's monotonic cursor (GetEntriesSince for
-            // HTTP/MCP polling); without it the dashboard never sees frame-path
-            // entries because _maxId never advances past 0.
+            // Display/export row number for the assembled frame. The HTTP/MCP
+            // polling cursor is DataBufferService's own arrival sequence, so
+            // this id no longer has to be globally monotonic — it only has to
+            // be unique among displayed rows.
             Id = Interlocked.Increment(ref _entryIdSource),
             // Local time, matching every other receive path (SerialService,
             // ModbusService, NetworkBridgeService) so exports/replay/PCAP from

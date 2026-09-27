@@ -343,15 +343,139 @@ public class SessionRecorderTests : IDisposable
         using var recorder = new SessionRecorder();
         var path = NewTempFile();
         File.WriteAllText(path,
-            "{\"text\":\"good\"}\n" +
+            "{\"direction\":\"RX\",\"text\":\"good\"}\n" +
             "this is not json\n" +
-            "{\"text\":\"also-good\"}\n");
+            "{\"direction\":\"TX\",\"text\":\"also-good\"}\n");
 
         var entries = recorder.ReplayFile(path);
 
         Assert.Equal(2, entries.Count);
         Assert.Equal("good", entries[0].Text);
         Assert.Equal("also-good", entries[1].Text);
+    }
+
+    [Fact]
+    public void ReplayFile_AssignsSequentialIds()
+    {
+        // Recordings don't persist Id, so replayed rows used to display as
+        // "#0" for every line. Replay assigns a fresh 1-based index.
+        using var recorder = new SessionRecorder();
+        var path = WriteRecording("a", "b", "c");
+
+        var entries = recorder.ReplayFile(path);
+
+        Assert.Equal([1, 2, 3], entries.Select(e => e.Id));
+    }
+
+    [Fact]
+    public void ReplayFile_NormalizesDirection_CaseInsensitive()
+    {
+        using var recorder = new SessionRecorder();
+        var path = NewTempFile();
+        File.WriteAllText(path,
+            "{\"direction\":\"rx\",\"text\":\"one\"}\n" +
+            "{\"direction\":\"Tx\",\"text\":\"two\"}\n");
+
+        var entries = recorder.ReplayFile(path);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("RX", entries[0].Direction);
+        Assert.Equal("TX", entries[1].Direction);
+    }
+
+    [Fact]
+    public void ReplayFile_SkipsRowsWithInvalidDirection()
+    {
+        using var recorder = new SessionRecorder();
+        var path = NewTempFile();
+        File.WriteAllText(path,
+            "{\"direction\":\"RX\",\"text\":\"keep-1\"}\n" +
+            "{\"direction\":\"\",\"text\":\"drop\"}\n" +
+            "{\"text\":\"drop-no-direction\"}\n" +
+            "{\"direction\":\"SIDEWAYS\",\"text\":\"drop-2\"}\n" +
+            "{\"direction\":\"TX\",\"text\":\"keep-2\"}\n");
+
+        var entries = recorder.ReplayFile(path);
+
+        // Display gates treat unknown directions inconsistently ("" is filtered
+        // as RX but rendered with the TX accent), so malformed rows must never
+        // reach the display instead of showing up with a wrong direction.
+        Assert.Equal(2, entries.Count);
+        Assert.Equal(["keep-1", "keep-2"], entries.Select(e => e.Text));
+        // Ids stay contiguous after skips.
+        Assert.Equal([1, 2], entries.Select(e => e.Id));
+    }
+
+    [Fact]
+    public void RecordThenReplay_PreservesFieldAnnotations()
+    {
+        // The writer has always serialized `fields`; replay used to drop them,
+        // hiding the parsed-field table after a round-trip.
+        var path = NewTempFile();
+        using var recorder = new SessionRecorder();
+        var entry = new LogEntry
+        {
+            Timestamp = new DateTime(2026, 6, 12, 10, 0, 0, DateTimeKind.Utc),
+            Direction = "RX",
+            RawHex = "01 02",
+            Text = "with-fields",
+            Fields = new List<FieldAnnotation>
+            {
+                new()
+                {
+                    Name = "温度",
+                    Offset = 0,
+                    Length = 2,
+                    RawHex = "01 02",
+                    DisplayValue = "258",
+                    Color = "#FF00FF",
+                    Severity = FieldSeverity.Warning
+                }
+            }
+        };
+
+        recorder.StartRecording(path);
+        recorder.Record(entry);
+        recorder.StopRecording();
+
+        var replayed = recorder.ReplayFile(path);
+        Assert.Single(replayed);
+        var fields = replayed[0].Fields;
+        Assert.NotNull(fields);
+        var f = Assert.Single(fields!);
+        Assert.Equal("温度", f.Name);
+        Assert.Equal(0, f.Offset);
+        Assert.Equal(2, f.Length);
+        Assert.Equal("01 02", f.RawHex);
+        Assert.Equal("258", f.DisplayValue);
+        Assert.Equal("#FF00FF", f.Color);
+        Assert.Equal(FieldSeverity.Warning, f.Severity);
+    }
+
+    [Fact]
+    public void ReplayFile_RestoresFields_FromHandWrittenJsonLines()
+    {
+        // Hand-edited files may use either casing; null `fields` must stay null.
+        using var recorder = new SessionRecorder();
+        var path = NewTempFile();
+        File.WriteAllText(path,
+            "{\"direction\":\"RX\",\"text\":\"with-fields\",\"fields\":[{\"name\":\"v\",\"offset\":1,\"length\":4,\"rawHex\":\"01 02 03 04\",\"displayValue\":\"42\",\"color\":\"#00FF00\",\"severity\":2}]}\n" +
+            "{\"direction\":\"TX\",\"text\":\"no-fields\",\"fields\":null}\n" +
+            "{\"direction\":\"TX\",\"text\":\"absent-fields\"}\n");
+
+        var entries = recorder.ReplayFile(path);
+
+        Assert.Equal(3, entries.Count);
+        var f = Assert.Single(entries[0].Fields!);
+        Assert.Equal("v", f.Name);
+        Assert.Equal(1, f.Offset);
+        Assert.Equal(4, f.Length);
+        Assert.Equal("01 02 03 04", f.RawHex);
+        Assert.Equal("42", f.DisplayValue);
+        Assert.Equal("#00FF00", f.Color);
+        Assert.Equal(FieldSeverity.Error, f.Severity);
+        Assert.Null(entries[1].Fields);
+        Assert.Null(entries[2].Fields);
     }
 
     [Fact]

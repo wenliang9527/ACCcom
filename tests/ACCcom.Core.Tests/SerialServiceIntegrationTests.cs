@@ -49,7 +49,8 @@ public class SerialServiceIntegrationTests : IDisposable
         serial.SendHex("AA 55 03");
         Assert.Equal(1, http.Buffer.Count());
         var entries = http.GetEntriesSince(0);
-        Assert.Contains("AA55", entries[0].RawHex, StringComparison.OrdinalIgnoreCase);
+        // Canonical spaced form — same layout as every other transport.
+        Assert.Equal("AA 55 03", entries[0].RawHex);
     }
 
     // --- RX path ---

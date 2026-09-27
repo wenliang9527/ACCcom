@@ -182,6 +182,65 @@ public class DataBufferServiceTests
         Assert.Equal(1, doneScan);
     }
 
+    [Fact]
+    public void GetEntriesSince_usesArrivalCursor_notEntryId()
+    {
+        // Regression: entry ids come from independent RX/TX counters, so
+        // arrival order interleaves non-monotonically (5,1,...). A cursor built
+        // from Entry.Id skipped every TX entry whose counter lagged the RX the
+        // consumer had already seen — after any RX traffic, later TX rows never
+        // reached HTTP/MCP consumers.
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(5, direction: "RX"));
+
+        var first = sut.GetEntriesSince(0, null, 0, out var cursor);
+        Assert.Single(first);
+
+        // TX arrives with a LOWER id than the RX the consumer already saw.
+        sut.AddEntry(MakeEntry(1, direction: "TX"));
+        var second = sut.GetEntriesSince(cursor, null, 0, out _);
+
+        Assert.Single(second);
+        Assert.Equal(1, second[0].Id);
+    }
+
+    [Fact]
+    public void GetEntriesSince_afterDirectionClear_doesNotRedispatchSurvivors()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "RX"));
+        sut.AddEntry(MakeEntry(2, direction: "TX"));
+        sut.GetEntriesSince(0, null, 0, out var cursor);
+
+        sut.Clear("rx");
+        sut.AddEntry(MakeEntry(3, direction: "RX"));
+
+        // Survivors keep their original sequence (a fresh one would push them
+        // past the cursor and re-deliver them as duplicates); new arrivals
+        // remain visible to the same cursor.
+        var next = sut.GetEntriesSince(cursor, null, 0, out _);
+        Assert.Single(next);
+        Assert.Equal(3, next[0].Id);
+    }
+
+    [Fact]
+    public void GetEntriesSince_afterClearAll_cursorStaysMonotonic()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1));
+        sut.AddEntry(MakeEntry(2));
+        sut.GetEntriesSince(0, null, 0, out var cursor);
+
+        sut.Clear();
+        sut.AddEntry(MakeEntry(3));
+
+        // The sequence survives Clear: restarting at 1 would hide post-clear
+        // entries from a pre-clear cursor until the sequence caught up.
+        var next = sut.GetEntriesSince(cursor, null, 0, out _);
+        Assert.Single(next);
+        Assert.Equal(3, next[0].Id);
+    }
+
     [Theory]
     [InlineData(false, 0, null)]
     [InlineData(true, 1, null)]
@@ -479,5 +538,336 @@ public class DataBufferServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(1, result!.Id);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_immediate_match_unregisters_waiter()
+    {
+        // The old implementation registered the waiter inside the lock, then
+        // returned early on an immediate match without ever removing it —
+        // left-listed forever (cleared only by a later AddEntry sweep).
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "already here"));
+
+        var result = await sut.WaitForMatchAsync("already here", timeoutMs: 200);
+
+        Assert.NotNull(result);
+        Assert.Equal(0, sut.WaiterCount);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_delivered_match_unregisters_waiter()
+    {
+        var sut = new DataBufferService();
+
+        var waitTask = sut.WaitForMatchAsync("hello", timeoutMs: 2000);
+        Assert.Equal(1, sut.WaiterCount); // registered, still pending
+
+        sut.AddEntry(MakeEntry(1, text: "hello"));
+        var result = await waitTask;
+
+        Assert.NotNull(result);
+        Assert.Equal(0, sut.WaiterCount);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_timeout_unregisters_waiter()
+    {
+        // A timed-out waiter used to linger in _waiters until the next
+        // AddEntry (potentially seconds/never under an idle port), so every
+        // timed-out poll leaked a registration and O(n) sweeps grew with polls.
+        var sut = new DataBufferService();
+
+        var result = await sut.WaitForMatchAsync("never", timeoutMs: 50);
+
+        Assert.Null(result);
+        Assert.Equal(0, sut.WaiterCount);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_many_timeouts_leave_no_waiter_leak()
+    {
+        var sut = new DataBufferService();
+
+        // Idle-port polling pattern: repeated timed-out waits must not
+        // accumulate registrations (the pre-fix leak accumulated until the
+        // next incoming entry happened to sweep them out).
+        var waits = new Task<LogEntry?>[50];
+        for (int i = 0; i < waits.Length; i++)
+            waits[i] = sut.WaitForMatchAsync($"never_{i}", timeoutMs: 200);
+
+        var results = await Task.WhenAll(waits);
+
+        Assert.All(results, Assert.Null);
+        Assert.Equal(0, sut.WaiterCount);
+    }
+
+    [Fact]
+    public async Task WaitForMatchAsync_many_matches_leave_no_waiter_leak()
+    {
+        var sut = new DataBufferService();
+
+        var waits = new Task<LogEntry?>[50];
+        for (int i = 0; i < waits.Length; i++)
+            waits[i] = sut.WaitForMatchAsync($"ping{i}", timeoutMs: 5000);
+
+        for (int i = 0; i < waits.Length; i++)
+            sut.AddEntry(MakeEntry(i + 1, text: $"ping{i}"));
+
+        var results = await Task.WhenAll(waits);
+
+        Assert.All(results, Assert.NotNull);
+        Assert.Equal(0, sut.WaiterCount);
+    }
+
+    // ── GetTailEntries (cursor-less "newest N" read path) ──
+
+    [Fact]
+    public void GetTailEntries_returns_newest_in_arrival_order()
+    {
+        var sut = new DataBufferService();
+        for (int i = 1; i <= 5; i++)
+            sut.AddEntry(MakeEntry(i, text: $"m{i}"));
+
+        var tail = sut.GetTailEntries(3, null, out var scannedMaxId);
+
+        Assert.Equal(new[] { "m3", "m4", "m5" }, tail.Select(e => e.Text));
+        Assert.Equal(5, scannedMaxId); // arrival seq of the newest entry (seq starts at 1)
+    }
+
+    [Fact]
+    public void GetTailEntries_tail_larger_than_count_returns_all()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "only"));
+
+        var tail = sut.GetTailEntries(100, null, out var scannedMaxId);
+
+        Assert.Single(tail);
+        Assert.Equal(1, scannedMaxId);
+    }
+
+    [Fact]
+    public void GetTailEntries_empty_buffer_returns_empty_with_zero_cursor()
+    {
+        var sut = new DataBufferService();
+
+        var tail = sut.GetTailEntries(10, null, out var scannedMaxId);
+
+        Assert.Empty(tail);
+        Assert.Equal(0, scannedMaxId);
+    }
+
+    [Fact]
+    public void GetTailEntries_nonpositive_tail_returns_empty_but_reports_cursor()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "x"));
+
+        var tail = sut.GetTailEntries(0, null, out var scannedMaxId);
+
+        Assert.Empty(tail);
+        Assert.Equal(1, scannedMaxId); // cursor still points at the newest entry
+    }
+
+    [Fact]
+    public void GetTailEntries_direction_filter_counts_matches_not_recent_rows()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, direction: "TX", text: "t1"));
+        sut.AddEntry(MakeEntry(2, direction: "RX", text: "r1"));
+        sut.AddEntry(MakeEntry(3, direction: "TX", text: "t2"));
+        sut.AddEntry(MakeEntry(4, direction: "RX", text: "r2"));
+
+        var tail = sut.GetTailEntries(1, "TX", out _);
+
+        Assert.Equal("t2", Assert.Single(tail).Text);
+    }
+
+    [Fact]
+    public void GetTailEntries_cursor_continues_into_incremental_poll_without_gap_or_duplicate()
+    {
+        var sut = new DataBufferService();
+        for (int i = 1; i <= 4; i++)
+            sut.AddEntry(MakeEntry(i, text: $"m{i}"));
+
+        var tail = sut.GetTailEntries(2, null, out var cursor);
+
+        // A tail read of the newest 2 hands the caller a cursor: continuing
+        // with GetEntriesSince(cursor) must return nothing already seen and
+        // nothing missing.
+        Assert.Equal(new[] { "m3", "m4" }, tail.Select(e => e.Text));
+        Assert.Empty(sut.GetEntriesSince(cursor));
+
+        sut.AddEntry(MakeEntry(5, text: "m5"));
+        var next = sut.GetEntriesSince(cursor);
+
+        Assert.Equal("m5", Assert.Single(next).Text);
+    }
+
+    // ── WaitForQuietAsync (stream-completion detection) ──
+
+    [Fact]
+    public async Task WaitForQuietAsync_returns_true_on_silent_buffer()
+    {
+        var sut = new DataBufferService();
+
+        var quiet = await sut.WaitForQuietAsync(quietMs: 60, timeoutMs: 5000);
+
+        Assert.True(quiet);
+    }
+
+    [Fact]
+    public async Task WaitForQuietAsync_activity_extends_quiet_window()
+    {
+        // A mid-wait entry must reset the quiet window: with quietMs=200 and an
+        // entry arriving ~100ms in, a true before ~300ms would mean the activity
+        // was ignored.
+        var sut = new DataBufferService();
+        var start = Environment.TickCount64;
+
+        var wait = sut.WaitForQuietAsync(quietMs: 200, timeoutMs: 5000);
+        await Task.Delay(100);
+        sut.AddEntry(MakeEntry(1, text: "still streaming"));
+
+        var quiet = await wait;
+        var elapsed = Environment.TickCount64 - start;
+
+        Assert.True(quiet);
+        Assert.True(elapsed >= 250, $"returned after {elapsed}ms — activity did not reset the quiet window");
+    }
+
+    [Fact]
+    public async Task WaitForQuietAsync_returns_false_when_traffic_never_goes_quiet()
+    {
+        var sut = new DataBufferService();
+        using var cts = new CancellationTokenSource();
+
+        // Feed an entry every 30ms so a 150ms quiet window can never be reached.
+        var feeder = Task.Run(async () =>
+        {
+            int id = 0;
+            while (!cts.IsCancellationRequested)
+            {
+                sut.AddEntry(MakeEntry(++id, text: "tick"));
+                await Task.Delay(30, CancellationToken.None);
+            }
+        });
+
+        var quiet = await sut.WaitForQuietAsync(quietMs: 150, timeoutMs: 400);
+
+        cts.Cancel();
+        await feeder;
+
+        Assert.False(quiet);
+    }
+
+    [Fact]
+    public async Task WaitForQuietAsync_activity_after_timeout_call_still_observed()
+    {
+        // Buffer that goes silent only after one more entry: quiet detection is
+        // based on seq change, not on buffer emptiness.
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "old"));
+
+        var wait = sut.WaitForQuietAsync(quietMs: 80, timeoutMs: 5000);
+        await Task.Delay(30);
+        sut.AddEntry(MakeEntry(2, text: "new"));
+
+        var quiet = await wait;
+
+        Assert.True(quiet);
+        Assert.Equal(2, sut.Count());
+    }
+
+    // ── WaitEntriesSinceAsync (long-poll cursor read) ──
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_returns_existing_data_immediately()
+    {
+        var sut = new DataBufferService();
+        sut.AddEntry(MakeEntry(1, text: "already"));
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (entries, maxId) = await sut.WaitEntriesSinceAsync(0, null, 100, waitMs: 5000);
+        sw.Stop();
+
+        Assert.Equal("already", Assert.Single(entries).Text);
+        Assert.Equal(1, maxId);
+        Assert.True(sw.ElapsedMilliseconds < 2000, $"waited {sw.ElapsedMilliseconds}ms despite data");
+    }
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_wakes_on_arrival()
+    {
+        var sut = new DataBufferService();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var waitTask = sut.WaitEntriesSinceAsync(0, null, 100, waitMs: 5000);
+        await Task.Delay(50);
+        sut.AddEntry(MakeEntry(1, text: "arrived"));
+        var (entries, maxId) = await waitTask;
+        sw.Stop();
+
+        Assert.Equal("arrived", Assert.Single(entries).Text);
+        Assert.Equal(1, maxId);
+        Assert.True(sw.ElapsedMilliseconds < 4000, $"took {sw.ElapsedMilliseconds}ms — arrival signal lost");
+    }
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_timeout_returns_empty_with_unchanged_cursor()
+    {
+        var sut = new DataBufferService();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (entries, maxId) = await sut.WaitEntriesSinceAsync(7, null, 100, waitMs: 200);
+        sw.Stop();
+
+        Assert.Empty(entries);
+        Assert.Equal(7, maxId); // cursor must not move without data
+        Assert.True(sw.ElapsedMilliseconds >= 150, $"returned after {sw.ElapsedMilliseconds}ms — wait not honored");
+    }
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_nonpositive_wait_behaves_like_plain_read()
+    {
+        var sut = new DataBufferService();
+
+        var (entries, maxId) = await sut.WaitEntriesSinceAsync(0, null, 100, waitMs: 0);
+
+        Assert.Empty(entries);
+        Assert.Equal(0, maxId);
+    }
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_no_lost_wakeup_across_registration_race()
+    {
+        // Registration runs synchronously before the first await, so an add
+        // right after the call must either be seen by the pre-registration
+        // seq check or released by the arrival signal — never lost. Stress the
+        // boundary repeatedly.
+        for (int i = 0; i < 50; i++)
+        {
+            var sut = new DataBufferService();
+            var waitTask = sut.WaitEntriesSinceAsync(0, null, 10, waitMs: 2000);
+            sut.AddEntry(MakeEntry(1, text: $"race{i}"));
+
+            var (entries, _) = await waitTask;
+            Assert.Single(entries);
+        }
+    }
+
+    [Fact]
+    public async Task WaitEntriesSinceAsync_concurrent_long_pollers_all_wake()
+    {
+        var sut = new DataBufferService();
+        var waits = new Task<(List<LogEntry> Entries, int ScannedMaxId)>[10];
+        for (int i = 0; i < waits.Length; i++)
+            waits[i] = sut.WaitEntriesSinceAsync(0, null, 10, waitMs: 5000);
+
+        sut.AddEntry(MakeEntry(1, text: "fanout"));
+
+        var results = await Task.WhenAll(waits);
+        Assert.All(results, r => Assert.Equal("fanout", Assert.Single(r.Entries).Text));
     }
 }

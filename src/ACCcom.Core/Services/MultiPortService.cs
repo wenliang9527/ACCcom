@@ -55,28 +55,68 @@ public class MultiPortService : IDisposable
         // config fails cleanly through the service's own Open guard.
         if (string.IsNullOrEmpty(tag) || config == null) return false;
 
+        // Fast path: already open. Kept in its own short lock so a slow
+        // service.Open below cannot serialize unrelated lookups/opens.
         lock (_lock)
         {
-            if (_ports.ContainsKey(tag)) return _ports[tag].Service.IsOpen;
-
-            var service = _serviceFactory();
-            service.OnDataReceived += entry =>
-            {
-                entry.PortTag = tag;
-                OnDataReceived?.Invoke(entry);
-            };
-            service.OnError += msg => OnPortError?.Invoke(tag, msg);
-            service.OnDisconnected += () => OnPortDisconnected?.Invoke(tag);
-
-            if (!service.Open(config))
-            {
-                service.Dispose();
-                return false;
-            }
-
-            _ports[tag] = new PortInstance { Tag = tag, Service = service, Config = config };
-            return true;
+            if (_ports.TryGetValue(tag, out var existing)) return existing.Service.IsOpen;
         }
+
+        // The expensive part (real port open can take seconds) runs OUTSIDE
+        // _lock â€?otherwise one slow open blocks GetPort/SendToPort/close for
+        // every other port. A concurrent opener of the same tag is resolved by
+        // the double-check below (loser tears down its own service).
+        var service = _serviceFactory();
+        service.OnDataReceived += entry =>
+        {
+            entry.PortTag = tag;
+            OnDataReceived?.Invoke(entry);
+        };
+        service.OnError += msg => OnPortError?.Invoke(tag, msg);
+        service.OnDisconnected += () => OnPortDisconnected?.Invoke(tag);
+
+        bool opened;
+        try
+        {
+            opened = service.Open(config);
+        }
+        catch
+        {
+            // Old code leaked the service when Open threw (it propagated while
+            // holding _lock). Preserve the exception but release resources.
+            service.Dispose();
+            throw;
+        }
+
+        if (!opened)
+        {
+            service.Dispose();
+            return false;
+        }
+
+        bool won;
+        lock (_lock)
+        {
+            if (_ports.ContainsKey(tag))
+            {
+                won = false;
+            }
+            else
+            {
+                _ports[tag] = new PortInstance { Tag = tag, Service = service, Config = config };
+                won = true;
+            }
+        }
+
+        if (!won)
+        {
+            // Another thread registered this tag first; keep ours out of the
+            // map and report the winner's state (matches the fast-path result).
+            service.Close();
+            service.Dispose();
+            lock (_lock) { return _ports.TryGetValue(tag, out var winner) && winner.Service.IsOpen; }
+        }
+        return true;
     }
 
     public bool ClosePort(string tag)
@@ -86,14 +126,20 @@ public class MultiPortService : IDisposable
         // ArgumentNullException instead of returning the documented result.
         if (string.IsNullOrEmpty(tag)) return true;
 
+        // Remove under the lock, then close/dispose OUTSIDE it: Close on real
+        // hardware can take noticeable time and must not block GetPort/Send
+        // for other tags. Removal is the mutual-exclusion point, so a
+        // concurrent ClosePort/CloseAll never double-disposes the instance.
+        PortInstance? instance;
         lock (_lock)
         {
-            if (!_ports.TryGetValue(tag, out var instance)) return true;
-            var result = instance.Service.Close();
-            instance.Service.Dispose();
+            if (!_ports.TryGetValue(tag, out instance)) return true;
             _ports.Remove(tag);
-            return result;
         }
+
+        var result = instance.Service.Close();
+        instance.Service.Dispose();
+        return result;
     }
 
     public bool SendToPort(string tag, string data, bool isHex = false)
@@ -103,23 +149,43 @@ public class MultiPortService : IDisposable
         // Dictionary.TryGetValue(null).
         if (string.IsNullOrEmpty(tag)) return false;
 
+        // Lookup under the lock, Send outside it: a slow/blocking write must
+        // not hold _lock (that would stall GetPort and other ports' sends).
+        PortInstance? instance;
         lock (_lock)
         {
-            if (!_ports.TryGetValue(tag, out var instance)) return false;
+            if (!_ports.TryGetValue(tag, out instance)) return false;
+        }
+
+        try
+        {
             return instance.Service.Send(data, isHex);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Narrowed window: the port was removed (and disposed) between the
+            // lookup and the send â€?same observable result as a send to a port
+            // that was never open.
+            return false;
         }
     }
 
     public void CloseAll()
     {
+        // Detach all instances under the lock, close them outside it (see
+        // ClosePort): a slow Close on one port must not block new lookups.
+        List<PortInstance> instances;
         lock (_lock)
         {
-            foreach (var instance in _ports.Values)
-            {
-                instance.Service.Close();
-                instance.Service.Dispose();
-            }
+            if (_ports.Count == 0) return;
+            instances = new List<PortInstance>(_ports.Values);
             _ports.Clear();
+        }
+
+        foreach (var instance in instances)
+        {
+            instance.Service.Close();
+            instance.Service.Dispose();
         }
     }
 

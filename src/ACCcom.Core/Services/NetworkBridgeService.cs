@@ -128,7 +128,10 @@ public class NetworkBridgeService : IDisposable
                     OnError?.Invoke($"Network send failed: invalid hex '{data}'");
                     return false;
                 }
-                hexForLog = data.Replace(" ", "");
+                // Canonical spaced form (same as the non-hex branch): the TX log
+                // entry must match the serial path's RawHex layout so filtering,
+                // tooltips, and copy see one format across transports.
+                hexForLog = HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length);
             }
             else
             {

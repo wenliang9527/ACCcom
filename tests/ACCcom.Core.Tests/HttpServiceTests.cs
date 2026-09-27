@@ -196,6 +196,61 @@ public class HttpServiceTests : IDisposable
         Assert.Equal("rx", root.GetProperty("Data").GetProperty("cleared").GetString());
     }
 
+    // ── ClearRequested: API → UI sync contract ──
+
+    [Fact]
+    public void ClearBuffer_Raises_OnClearRequested_WithTarget()
+    {
+        // The GUI subscribes to mirror /api/clear into its display lists; the
+        // event must carry the same target the buffer was cleared with.
+        _service.AddEntry(new ACCcom.Core.Models.LogEntry
+        {
+            Id = 1,
+            Direction = "RX",
+            Text = "to-clear",
+            RawHex = "AA",
+            Timestamp = DateTime.Now
+        });
+        string? seen = "unset";
+        _service.OnClearRequested += t => seen = t;
+
+        _service.ClearBuffer("rx");
+
+        Assert.Equal("rx", seen);
+        Assert.Empty(_service.GetEntriesSince(0)); // buffer really was cleared
+    }
+
+    [Fact]
+    public void ClearBuffer_WithRaiseEventFalse_DoesNotRaise()
+    {
+        // UI-initiated clears pass raiseEvent:false — the UI already cleared
+        // its own lists and must not get an echo back.
+        var raised = 0;
+        _service.OnClearRequested += _ => Interlocked.Increment(ref raised);
+
+        _service.ClearBuffer(null, raiseEvent: false);
+
+        Assert.Equal(0, raised);
+        Assert.Empty(_service.GetEntriesSince(0));
+    }
+
+    [Fact]
+    public async Task Clear_Api_Endpoint_Raises_OnClearRequested()
+    {
+        // End-to-end: POST /api/clear must surface as an event so an attached
+        // GUI stays in lockstep with the API plane.
+        var raised = 0;
+        string? target = null;
+        _service.OnClearRequested += t => { target = t; Interlocked.Increment(ref raised); };
+
+        var content = new StringContent("rx", System.Text.Encoding.UTF8, "text/plain");
+        var response = await _client.PostAsync("/api/clear", content);
+        response.EnsureSuccessStatusCode();
+
+        Assert.Equal(1, raised);
+        Assert.Equal("rx", target);
+    }
+
     [Fact]
     public async Task Data_Limit_ReturnsAtMostThatManyEntries()
     {

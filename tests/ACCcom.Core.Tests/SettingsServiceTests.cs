@@ -42,8 +42,10 @@ public class SettingsServiceTests : IDisposable
         Assert.False(settings.IsHexSend);
         Assert.False(settings.IsHexDisplayRx);
         Assert.False(settings.IsHexDisplayTx);
+        Assert.False(settings.IsHexDisplayAll);
         Assert.True(settings.EnableRxTimestamp);
         Assert.True(settings.EnableTxTimestamp);
+        Assert.True(settings.EnableTimestampAll);
         Assert.False(settings.WindowMaximized);
         Assert.Equal("Serial", settings.LastConnectionType);
         Assert.Equal("127.0.0.1", settings.LastNetworkHost);
@@ -70,8 +72,10 @@ public class SettingsServiceTests : IDisposable
             IsHexSend = true,
             IsHexDisplayRx = true,
             IsHexDisplayTx = false,
+            IsHexDisplayAll = true,
             EnableRxTimestamp = false,
             EnableTxTimestamp = false,
+            EnableTimestampAll = false,
             SplitDataPanes = true,
             DataPaneSplitRatio = 0.62,
             WindowMaximized = true,
@@ -101,8 +105,10 @@ public class SettingsServiceTests : IDisposable
         Assert.True(loaded.IsHexSend);
         Assert.True(loaded.IsHexDisplayRx);
         Assert.False(loaded.IsHexDisplayTx);
+        Assert.True(loaded.IsHexDisplayAll);
         Assert.False(loaded.EnableRxTimestamp);
         Assert.False(loaded.EnableTxTimestamp);
+        Assert.False(loaded.EnableTimestampAll);
         Assert.True(loaded.SplitDataPanes);
         Assert.Equal(0.62, loaded.DataPaneSplitRatio, 3);
         Assert.True(loaded.WindowMaximized);

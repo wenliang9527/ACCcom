@@ -173,7 +173,9 @@ public class MainViewModel : ObservableObject, IDisposable
         // Highlight foregrounds are contrast-compensated against the theme
         // background at convert time; re-notify buffered rows so their
         // Foreground bindings re-run under the freshly swapped dictionary.
-        _highlights.RefreshExisting();
+        // forceNotify: rows whose HighlightColor stays null still render
+        // differently after a theme swap, so the null→null skip must not apply.
+        _highlights.RefreshExisting(forceNotify: true);
     }
 
     private void BuildThemeOptions()
@@ -387,10 +389,8 @@ public class MainViewModel : ObservableObject, IDisposable
             }
         };
 
-        _dataFlow.OnEntryProcessed = (entry, byteCount) =>
+        _dataFlow.OnEntryProcessed = (entry, _) =>
         {
-            if (entry.Direction == "TX")
-                _tool.StatsViewModel?.RecordTx(byteCount);
             // Pipe every accepted entry into the recorder; the recorder itself
             // drops writes when it's not actively recording so the cost is one
             // null-check per frame.
@@ -443,8 +443,10 @@ public class MainViewModel : ObservableObject, IDisposable
         IsHexSend = _settings.IsHexSend;
         IsHexDisplayRx = _settings.IsHexDisplayRx;
         IsHexDisplayTx = _settings.IsHexDisplayTx;
+        IsHexDisplayAll = _settings.IsHexDisplayAll;
         EnableRxTimestamp = _settings.EnableRxTimestamp;
         EnableTxTimestamp = _settings.EnableTxTimestamp;
+        EnableTimestampAll = _settings.EnableTimestampAll;
         IsDarkTheme = _settings.IsDarkTheme;
         _dataPaneSplitRatio = double.IsNaN(_settings.DataPaneSplitRatio) || _settings.DataPaneSplitRatio <= 0
             ? 0.5
@@ -483,7 +485,7 @@ public class MainViewModel : ObservableObject, IDisposable
             // Counters accumulate silently on 30ms flushes; surface them here at
             // 1Hz so the status bar bindings don't re-layout on every flush tick.
             _dataFlow.NotifyCountsChanged();
-            _tool.StatsViewModel?.Update(_stats, RxByteCount, TxByteCount, RxCount, TxCount, ConnectionDuration);
+            _tool.StatsViewModel?.Update(_stats, ConnectionDuration);
         };
         _statsTimer.Start();
         Stage("ctor total");
@@ -1008,8 +1010,10 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.IsHexSend = _dataFlow.IsHexSend;
         _settings.IsHexDisplayRx = _dataFlow.IsHexDisplayRx;
         _settings.IsHexDisplayTx = _dataFlow.IsHexDisplayTx;
+        _settings.IsHexDisplayAll = _dataFlow.IsHexDisplayAll;
         _settings.EnableRxTimestamp = _dataFlow.EnableRxTimestamp;
         _settings.EnableTxTimestamp = _dataFlow.EnableTxTimestamp;
+        _settings.EnableTimestampAll = _dataFlow.EnableTimestampAll;
         _settings.SplitDataPanes = _dataFlow.SplitDataPanes;
         _settings.DataPaneSplitRatio = DataPaneSplitRatio;
         // Persist the in-memory send history (newest last) back to settings.

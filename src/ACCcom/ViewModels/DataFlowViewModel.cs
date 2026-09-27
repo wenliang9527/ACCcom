@@ -406,6 +406,9 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         LoadParserFingerprints();
         _parserReloadedHandler = _ => LoadParserFingerprints();
         _parserManager.OnParserReloaded += _parserReloadedHandler;
+        // API → UI clear direction: /api/clear empties the ring on the HTTP
+        // thread; mirror it into the display lists (see OnHttpClearRequested).
+        _http.OnClearRequested += OnHttpClearRequested;
 
         _sendHistory = new SendHistoryBuffer(_settings?.MaxSendHistory ?? 50);
         _variableExpander = new VariableExpander();
@@ -444,12 +447,18 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearRx"])) return;
             FlushPendingEntries(); RxEntries.Clear(); RxCount = 0; RxByteCount = 0;
             RebuildAllEntries();
+            // Keep the API plane in lockstep: /api/data must not keep serving
+            // rows the user just cleared from the screen. raiseEvent: false —
+            // this side already cleared itself; see OnHttpClearRequested for
+            // the API → UI direction.
+            _http.ClearBuffer("rx", raiseEvent: false);
         });
         ClearTxCommand = new RelayCommand(_ =>
         {
             if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearTx"])) return;
             FlushPendingEntries(); TxEntries.Clear(); TxCount = 0; TxByteCount = 0;
             RebuildAllEntries();
+            _http.ClearBuffer("tx", raiseEvent: false);
         });
         SaveRxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(RxEntries, "RX"); });
         SaveTxCommand = new RelayCommand(_ => { FlushPendingEntries(); SaveToFile(TxEntries, "TX"); });
@@ -473,7 +482,21 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             _stats?.Reset();
         });
         ClearSendHistoryCommand = new RelayCommand(_ => { _sendHistory.Clear(); SendHistory.Clear(); PersistSendHistory(); });
-        ToggleHexDisplayCommand = new RelayCommand(_ => { IsHexDisplayRx = !IsHexDisplayRx; IsHexDisplayTx = !IsHexDisplayTx; });
+        // Ctrl+H (and the header checkbox path): the parameter selects which
+        // pane pair actually flips — true = combined All toggle (the pane the
+        // user can see), false = split Rx/Tx toggles. A null parameter falls
+        // back to the split preference for callers without layout context.
+        ToggleHexDisplayCommand = new RelayCommand(p =>
+        {
+            var combined = p is bool onScreen ? onScreen : !_splitDataPanes;
+            if (combined)
+                IsHexDisplayAll = !IsHexDisplayAll;
+            else
+            {
+                IsHexDisplayRx = !IsHexDisplayRx;
+                IsHexDisplayTx = !IsHexDisplayTx;
+            }
+        });
 
         // Hydrate persistent send history into the in-memory buffer and the UI collection.
         if (_settings?.SendHistory is { Count: > 0 })
@@ -526,6 +549,36 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         TrimBuffer(AllEntries);
     }
 
+    /// <summary>API → UI direction of the clear contract: /api/clear empties
+    /// the ring buffer on the HTTP thread, but the observable collections are
+    /// UI-thread only — marshal onto the dispatcher before mirroring the clear
+    /// into the lists. No confirmation dialog: the API call is already an
+    /// explicit clear request, and a modal would block the EmbedIO thread.</summary>
+    private void OnHttpClearRequested(string? target)
+    {
+        var dispatcher = _flushTimer?.Dispatcher;
+        if (dispatcher == null) return;
+        if (dispatcher.CheckAccess()) ClearListsFromApi(target);
+        else dispatcher.InvokeAsync(() => ClearListsFromApi(target));
+    }
+
+    /// <summary>Mirrors DataBufferService.Clear(target) into the display lists:
+    /// null/""/"all" clears both sides, "rx"/"tx" (any case) one side, and any
+    /// other target is a no-op there — so it must stay a no-op here too.</summary>
+    private void ClearListsFromApi(string? target)
+    {
+        var t = target?.Trim();
+        var all = string.IsNullOrEmpty(t) || t.Equals("all", StringComparison.OrdinalIgnoreCase);
+        var clearRx = all || string.Equals(t, "rx", StringComparison.OrdinalIgnoreCase);
+        var clearTx = all || string.Equals(t, "tx", StringComparison.OrdinalIgnoreCase);
+        if (!clearRx && !clearTx) return;
+
+        FlushPendingEntries();
+        if (clearRx) { RxEntries.Clear(); RxCount = 0; RxByteCount = 0; }
+        if (clearTx) { TxEntries.Clear(); TxCount = 0; TxByteCount = 0; }
+        RebuildAllEntries();
+    }
+
     public void OnSerialData(LogEntry entry)
     {
         try
@@ -546,6 +599,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
             _http.AddEntry(entry);
             _triggerService.Evaluate(entry);
+            // Mirror OnFrameReady: every entry that reaches the display must
+            // reach the .log too. With frame assembly off (the default) only
+            // this path runs, so previously the file held nothing but trigger
+            // lines and replaying it showed an empty session.
+            _logger.Write(entry);
 
             int byteCount = 0;
             if (!string.IsNullOrEmpty(entry.RawHex))
@@ -562,6 +620,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             }
             else
             {
+                // Mirror RX: feed DataStatistics from the TX entry itself so the
+                // status-bar TX rate reflects every send path (manual, shortcut,
+                // trigger, loop, macro), not just SendData's explicit record.
+                _stats.RecordTx(byteCount);
                 AddTxEntry(entry, byteCount);
             }
         }
@@ -649,11 +711,18 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             {
                 _stats.RecordRx(byteCount);
                 if (HexHelper.HasErrorSeverity(entry.Fields))
+                {
                     _stats.RecordError();
+                    // Live counterpart of the status-bar Err counter (previously
+                    // fed only by replay's RunParserAsync). Silent field bump:
+                    // the 1Hz NotifyCountsChanged tick raises PropertyChanged.
+                    _errorFrameCount++;
+                }
                 AddRxEntry(entry, byteCount);
             }
             else
             {
+                _stats.RecordTx(byteCount);
                 AddTxEntry(entry, byteCount);
             }
         }
@@ -720,8 +789,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     /// lists out, fresh lists in) so no per-tick snapshot copy is needed, and the
     /// entries list is handed to AddRange directly (List is IList, hits the bulk
     /// path with zero copy). Counters accumulate silently here; the 1Hz stats tick
-    /// raises their PropertyChanged via <see cref="NotifyCountsChanged"/>.</summary>
-    private void FlushPendingEntries()
+    /// raises their PropertyChanged via <see cref="NotifyCountsChanged"/>.
+    /// Internal (not private) so <see cref="HighlightViewModel.RefreshExisting"/>
+    /// can flush pending rows before recoloring — otherwise entries still in the
+    /// queue keep their enqueue-time color until the next 30ms tick.</summary>
+    internal void FlushPendingEntries()
     {
         List<LogEntry>? rxBatch = null;
         List<int>? rxBytes = null;
@@ -850,12 +922,6 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             entries.RemoveFromFront(removeCount);
     }
 
-    public void RecordTxBytes(int byteCount)
-    {
-        TxByteCount += byteCount;
-        _stats?.RecordTx(byteCount);
-    }
-
     public async Task RunParserAsync(LogEntry entry)
     {
         if (string.IsNullOrEmpty(entry.RawHex)) return;
@@ -900,10 +966,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
                 ? HexHelper.CountHexBytes(toSend)
                 : HexHelper.CountSendBytes(toSend, false);
             RecordSendHistory(SendText);
-            // Mirror the manual-send bytes into DataStatistics so the TX throughput
-            // indicator in the status bar reflects user activity (not just parser-
-            // driven loopback traffic).
-            _stats?.RecordTx(sentBytes);
+            // DataStatistics TX bytes are fed once from the TX entry itself
+            // (OnSerialData), so no explicit RecordTx here — it would double-count.
             _setStatus(string.Format(LanguageManager.Instance["Status.Sent"], sentBytes));
         }
     }
@@ -1093,6 +1157,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
         _frameBuffer.OnError -= _frameBufferErrorHandler;
         _parserManager.OnParserReloaded -= _parserReloadedHandler;
+        _http.OnClearRequested -= OnHttpClearRequested;
         _frameBuffer.Dispose();
     }
 }

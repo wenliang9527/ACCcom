@@ -2,7 +2,40 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1244 测试全过，Core 行覆盖率 85.6%）
+## Unreleased（实测：构建 0 警告 0 错误，1346 测试全过）
+
+### Added
+
+- MCP 节 token 与标准化（第三轮）：`read_data` 新增 `fields` 列选择（`id,timestamp,direction,portTag,text,hex,truncated` 子集，默认全量，`fields=text` 砍掉最大的 hex 列，未知列报 `INVALID_FIELDS`）；响应稀疏化（空 `portTag`、`truncated:false`、空 `text`/`hex` 一律省略，`data` 内回显的空 `tag` 全工具统一省略——`ToolContext.JsonOpts` 开 `WhenWritingNull`）；时间戳全工具统一 ISO-8601 毫秒精度（不再 7 位小数）；`send`/`send_and_wait` 不再回显发送内容；`wait_for_response`/`send_and_wait`/`wait_for_quiet` 响应补 `latestId`，任何读/等操作后可用 `read_data(sinceId=latestId)` 无缝续游标；典型 100 条 ASCII 轮询响应约减半（全字段 -14%、`fields=text` 约 -55%）
+- MCP 错误结构化：失败信封改 `{"success":false,"error":{"code","message"}}`，新增 `ErrorCodes` 稳定错误码（PORT_NOT_OPEN / INVALID_HEX / EMPTY_DATA 等 9 个），agent 按 code 机器分支、message 面向人类
+- 工具 schema 瘦身：工具级描述去重下沉到参数级（工具级 3424 → 1226 字符，总 schema 5661 → 3624 字符，-36%；对 inline 工具宿主每次 API 请求省约 550 token）；新增 `ToolSchemaBudgetTests` 预算守卫（工具级 <1600、参数级 <3200、工具数恒为 10）
+- 单测 +16：fields 三态/稀疏省略/时间戳格式/结构化错误码/去回显/三工具 latestId/游标交接无空隙/空 tag 回显全工具统一，测试总数 1330 → 1346（`ACCcom.Core.Tests` 1263 + `ACCcom.McpServer.Tests` 83）
+
+### Changed
+
+- MCP `read_data` 长轮询：新增 `waitMs`（clamp 0–60000；游标耗尽时事件驱动挂起，数据到达即返回、否则最多等 waitMs，tail 模式忽略该参数），`DataBufferService.WaitEntriesSinceAsync` 实现（注册与复查同 `_lock` 无丢唤醒，`RingAdd` 内释放到达信号，RunContinuationsAsynchronously 防续延同步执行）——agent 轮询从「定时往返」变「事件驱动」
+- MCP 读路径 source-gen 序列化：新增 `McpJson`（source-gen DTO + `Lean(entry, maxLength)` 投影），`read_data`/`wait_for_response`/`send_and_wait` 响应均走 lean（省 HighlightColor/IsSearchMatch/Fields 等 UI 字段，每条省约 56 字符 ≈ 25% 响应体积）；实测 read_data 每次 238µs → 130–180µs（反射对照 267µs）；`ACCcom.McpServer` 增加 InternalsVisibleTo 测试缝
+- 单测 +12：waitMs 到达即返/超时/方向过滤游标推进/尾随忽略、`WaitEntriesSinceAsync` 立即返回/到达唤醒/超时游标不动/零等待短路/注册竞态 50 连/并发 10 等待者扇出，测试总数 1318 → 1330（`ACCcom.Core.Tests` 1263 + `ACCcom.McpServer.Tests` 67，含 3 个吞吐基准）；新增 `read_data` 满环吞吐基准（阈值 2000 ops/s，防数量级回归）
+
+### Added
+
+- MCP `wait_for_quiet` 工具：等待串口静默 quietMs 毫秒（轮询到达序列游标，无调用方忙等），推荐流式响应收尾后接 `read_data tail` 取全文；MCP 工具数 9 → 10，同步 README / 集成指南 / 架构 / 两处归档注记
+- `read_data` 新增 `tail`（免游标取最新 N 条，latestId 与 sinceId 增量轮询无缝衔接）与 `maxLength`（超长 text/hex 截断并标 truncated）；响应改为 lean 投影，不再携带 HighlightColor / IsSearchMatch / Fields 等 UI 字段
+- MCP 流量日志可注入：`ToolContext.TrafficLog` 可替换（默认 `McpTrafficLog.Shared`），测试工厂注册临时文件实例，单测不再污染真实 mcp-traffic.jsonl；新增吞吐基准 3 个（流量行写入、RX 接收链路、满环 wait 注册），阈值以实测定档
+- 单测 +34：MCP 性能/去重/泄漏、读路径 tail/quiet/lean、多端口慢服务锁收窄，测试总数 1284 → 1318（`ACCcom.Core.Tests` 1257 + `ACCcom.McpServer.Tests` 61）
+
+### Changed
+
+- MCP 热路径性能：`McpTrafficLog` 关闭逐行 AutoFlush，改缓冲写 + 100ms 定时 flush + 延迟轮转 + source-gen JSON（实测流量行 144k → 275k 行/s，RX 接收链路 68k → 164k 条/s；GUI 流量窗为 FileSystemWatcher 防抖尾随，容忍 ≤100ms 延迟）；TX 不再被接收 handler 双写（每次发送只记一行，带真实工具名与 portTag）
+- `DataBufferService.WaitForMatchAsync` 模式扫描移出 `_lock`（快照与注册仍在同一 `_lock` 临界区，保证无丢唤醒；regex 扫满环不再阻塞 AddEntry 与串口 RX 线程）
+- `MultiPortService` 锁收窄：Open（双检）/Send/Close 全部移出 `_lock`，慢端口打开、阻塞写、慢关都不再阻塞其它端口的查询与收发；`ToolContext.Buffers` 改 ConcurrentDictionary
+
+### Fixed
+
+- `DataBufferService.LastSeq` 差一：RingAdd 赋 `++_nextSeq`（最后 seq 即 `_nextSeq`），属性却返回 `_nextSeq - 1`——change-detection 只看单调性故从未暴露，公开给 wait 工具的 `latestId` 游标后返回值恒小 1（会重读一条）；连同上一轮 `WaitEntriesSinceAsync` 重查条件的同类差一一起修正
+- `WaitEntriesSinceAsync` 注册重查差一（`_nextSeq - 1 > id` 应为 `_nextSeq > id`：RingAdd 赋 `++_nextSeq`，最后 seq 即 `_nextSeq` 本身）——唤醒后重判总失败、退化为整段 waitMs 超时（修复前该组测试 112s，修复后 1s）
+- MCP 等待队列泄漏：命中与超时的 waiter 显式注销（此前超时的 waiter 滞留 `_waiters` 直到下一条数据才被扫出，空闲端口轮询会持续累积）；`OpenPort` 打开异常时释放已创建的 service（原实现持锁抛出并泄漏）
+- GUI 统计与会话修复（1244 → 1284）：统计窗数据单源化并移除重复的 TxThroughputWindow、缓冲清空双向同步、会话记录 fields 归位、hex 空格展示、侧栏开关持久化与 Ctrl+H 分栏、logger 接线、RefreshExisting 时序；`ModbusRtuTransport`/`ModbusService`/`SerialServiceIntegration` 3 组断言对齐当前 hex 间距格式
 
 ### Added
 
