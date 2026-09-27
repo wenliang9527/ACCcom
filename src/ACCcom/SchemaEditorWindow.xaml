@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ACCcom.ViewModels"
         xmlns:converters="clr-namespace:ACCcom.Converters"
+        xmlns:controls="clr-namespace:ACCcom.Controls"
         xmlns:local="clr-namespace:ACCcom"
         Title="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}" Height="700" Width="850"
         MinHeight="500" MinWidth="700"
@@ -123,20 +124,8 @@
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left"
-                           Text="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}"
-                           Foreground="{DynamicResource InkSecondaryBrush}"
-                           FontSize="12" FontWeight="Medium"
-                           VerticalAlignment="Center" Margin="12,0,0,0" />
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#x2500;" Style="{StaticResource TitleBarButton}" FontSize="10" Width="46" Height="32" Click="TitleBarMin_Click" ToolTip="{Binding [TitleBar.Minimize], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="&#x25A1;" Style="{StaticResource TitleBarButton}" FontSize="9" Width="46" Height="32" Click="TitleBarMax_Click" ToolTip="{Binding [TitleBar.Maximize], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <controls:ChromeTitleBar Grid.Row="0" x:Name="TitleBar"
+                 Title="{Binding [SchemaEditor.Title], Source={x:Static local:LanguageManager.Instance}}" />
 
         <!-- Main content -->
     <Grid Grid.Row="1" Margin="12">

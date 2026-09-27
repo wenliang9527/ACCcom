@@ -1,6 +1,5 @@
 using System.Windows;
 using ACCcom.Core.Models;
-using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -21,15 +20,13 @@ public partial class AddShortcutDialog : Window
     {
         _updating = true;
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
-
         NameBox.Text = string.IsNullOrEmpty(name) ? LanguageManager.Instance["AddShortcut.DefaultName"] : name;
         CommandBox.Text = command;
         HexCheckBox.IsChecked = isHex;
 
         if (isEdit)
         {
-            TitleText.Text = LanguageManager.Instance["AddShortcut.EditTitle"];
+            TitleBar.Title = LanguageManager.Instance["AddShortcut.EditTitle"];
             OkButton.Content = LanguageManager.Instance["AddShortcut.Save"];
         }
 

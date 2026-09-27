@@ -13,7 +13,6 @@ public partial class FrameAssemblerConfigWindow : Window
     {
         InitializeComponent();
         _config = config;
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "FrameAssemblerConfigWindow");
 
         EnabledCheckBox.IsChecked = config.Enabled;
@@ -59,5 +58,4 @@ public partial class FrameAssemblerConfigWindow : Window
         Close();
     }
 
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

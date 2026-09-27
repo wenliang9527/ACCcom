@@ -11,11 +11,9 @@ public partial class ThemeGalleryWindow : Window
     public ThemeGalleryWindow(ThemeGalleryViewModel viewModel)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "ThemeGalleryWindow");
         ViewModel = viewModel;
         DataContext = ViewModel;
     }
 
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

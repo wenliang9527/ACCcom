@@ -1,6 +1,7 @@
 <Window x:Class="ACCcom.PromptDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ACCcom.Controls"
         xmlns:local="clr-namespace:ACCcom"
         Title="ACCCOM"
         Width="380" Height="170"
@@ -16,18 +17,13 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Custom Title Bar -->
-        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" x:Name="TitleText" Text=""
-                           Foreground="{DynamicResource InkSecondaryBrush}"
-                           FontSize="12" FontWeight="Medium"
-                           VerticalAlignment="Center" Margin="12,0,0,0" />
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="Cancel_Click" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <!-- Custom Title Bar (title text set from code; custom cancel button) -->
+        <controls:ChromeTitleBar Grid.Row="0" x:Name="TitleBar"
+                                 ShowMinMax="False" ShowClose="False">
+            <controls:ChromeTitleBar.ExtraButtons>
+                <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="Cancel_Click" />
+            </controls:ChromeTitleBar.ExtraButtons>
+        </controls:ChromeTitleBar>
 
         <!-- Content -->
         <StackPanel Grid.Row="1" Margin="16">

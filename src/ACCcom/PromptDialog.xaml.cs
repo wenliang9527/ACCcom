@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Input;
-using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -14,8 +13,7 @@ public partial class PromptDialog : Window
     private PromptDialog(string title, string message, string initialValue)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
-        TitleText.Text = title;
+        TitleBar.Title = title;
         MessageText.Text = message;
         InputBox.Text = initialValue;
         Loaded += (_, _) =>

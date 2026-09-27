@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using ACCcom.Core.Models;
-using ACCcom.Helpers;
 using TriggerAction = ACCcom.Core.Models.TriggerAction;
 
 namespace ACCcom;
@@ -38,8 +37,6 @@ public partial class TriggerRuleDialog : Window
     public TriggerRuleDialog(TriggerRule rule)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
-
         Rule = rule;
 
         NameBox.Text = rule.Name;
@@ -127,5 +124,4 @@ public partial class TriggerRuleDialog : Window
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

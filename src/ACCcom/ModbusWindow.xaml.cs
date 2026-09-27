@@ -16,7 +16,6 @@ public partial class ModbusWindow : Window
         InitializeComponent();
         _vm = vm;
         DataContext = vm;
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "ModbusWindow");
         MainTabControl.SelectionChanged += OnTabSelected;
     }
@@ -63,7 +62,4 @@ public partial class ModbusWindow : Window
             _vm.UseScanSlaveCommand.Execute(item);
     }
 
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

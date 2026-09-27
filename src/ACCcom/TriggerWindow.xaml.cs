@@ -12,15 +12,10 @@ public partial class TriggerWindow : Window
     public TriggerWindow(TriggerViewModel vm)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "TriggerWindow");
         _vm = vm;
         DataContext = vm;
     }
-
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {

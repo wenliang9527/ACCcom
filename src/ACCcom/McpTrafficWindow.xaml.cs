@@ -90,7 +90,6 @@ public partial class McpTrafficWindow : Window
         _logPath = McpTrafficLog.DefaultLogPath;
 
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "McpTrafficWindow");
         RestoreColumnWidths();
 
@@ -479,10 +478,6 @@ public partial class McpTrafficWindow : Window
         _flashTimer.Start();
     }
 
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
-
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
-
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var mods = Keyboard.Modifiers;
@@ -854,8 +849,6 @@ public partial class McpTrafficWindow : Window
         _lastUpdateUtc = DateTime.MinValue;
         UpdateStatus();
     }
-
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 
     private void RestoreColumnWidths()
     {

@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using ACCcom.Core.Services;
-using ACCcom.Helpers;
 
 namespace ACCcom;
 
@@ -44,8 +43,6 @@ public partial class HighlightRuleDialog : Window
     public HighlightRuleDialog(HighlightRule rule)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
-
         Rule = rule;
 
         NameBox.Text = rule.Name;
@@ -121,5 +118,4 @@ public partial class HighlightRuleDialog : Window
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

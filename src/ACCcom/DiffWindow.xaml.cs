@@ -44,7 +44,6 @@ public partial class DiffWindow : Window
     public DiffWindow()
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "DiffWindow");
     }
 
@@ -165,7 +164,4 @@ public partial class DiffWindow : Window
         Flush(currentStyle);
     }
 
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

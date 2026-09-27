@@ -12,7 +12,6 @@ public partial class CompareWindow : Window
     public CompareWindow()
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "CompareWindow");
 
         // ListBox doesn't expose ScrollChanged (it lives on the inner ScrollViewer);
@@ -191,7 +190,4 @@ public partial class CompareWindow : Window
         }
     }
 
-    private void TitleBarMin_Click(object sender, RoutedEventArgs e) => WindowHelper.Minimize(this);
-    private void TitleBarMax_Click(object sender, RoutedEventArgs e) => WindowHelper.MaximizeRestore(this);
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

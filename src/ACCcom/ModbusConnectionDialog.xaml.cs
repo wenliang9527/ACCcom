@@ -1,6 +1,5 @@
 using System.Windows;
 using ACCcom.Core.Services;
-using ACCcom.Helpers;
 using ACCcom.ViewModels;
 
 namespace ACCcom;
@@ -12,7 +11,6 @@ public partial class ModbusConnectionDialog : Window
     public ModbusConnectionDialog(ModbusConnectionManager manager, ModbusService defaultService, ISerialService serial)
     {
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         var vm = new ModbusConnectionViewModel(manager, serial, svc =>
         {
             Result = svc ?? defaultService;

@@ -4,6 +4,11 @@
 
 ## Unreleased（实测：构建 0 警告 0 错误，1364 测试全过）
 
+### Changed
+
+- 界面结构化（R5a 轮）：新增 `ChromeTitleBar` 共享标题栏控件——22 个窗口此前各自复制粘贴同一段 32px 自定义标题栏（Border + 三按钮 + 三个 Click 处理器 + `SetupTitleBar` 调用，共约 66 处重复处理器、22 处重复 XAML 块）；控件以 Border 子类代码构建（标题本地化绑定、`ShowMinMax`/`ShowClose`/`ExtraButtons` 三个适配属性），拖拽/双击最大化仍走 `WindowHelper.SetupTitleBar`，应用启动冒烟（`--open-mcp-traffic` 打开流量窗）验证存活。窗口按钮字形从文本字符（─ □ ✕）统一为 Segoe MDL2 矢量字形（ChromeMinimize/ChromeMaximize/ChromeRestore/ChromeClose），最大化钮随窗口状态在最大化/还原字形间切换；McpTrafficWindow 的 Clear 与三个对话框的 `DialogResult=false` 语义经 `ExtraButtons` 精确保留（`ShowClose="False"`），PromptDialog 代码设标题改为控件 `Title` 属性；MainWindow 标题栏含居中状态胶囊，保持自绘不入本轮
+- 主题字典去重：7 主题本已定义 `OnAccentBrush`，R4 轮以 `#FFFFFF` 硬编码新增了一份同名键——运行时 `XamlParseException: Item has already been added`（启动即崩，crash.log 实证）；已删除脚本插入的重复项，保留主题原有的 `{StaticResource OnAccent}` 调校值，`App.xaml` 的开口态前景随之获得主题化对比色
+
 ### Fixed
 
 - 界面快赢包（R4 轮）：状态栏运行时长双渲染修复（`Text` 绑定与 `Run` 同时存在曾把时长显示两遍「12:34Up 12:34」）；Light/Dark 主题 `DividerBrush` 与 `BorderColor` 同值 + 自定义分隔条 0.25 透明度导致分隔条几乎不可见——分隔线独立成 token（Light #CFD5E0 / Dark #3A3A44），主窗口与 DataPanel 两处分隔条模板改全不透明分隔线色 + hover 强调色

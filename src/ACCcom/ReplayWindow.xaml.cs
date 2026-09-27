@@ -30,7 +30,6 @@ public partial class ReplayWindow : Window
         _onEntry = onEntry;
         _isJsonl = string.Equals(Path.GetExtension(filePath), ".jsonl", StringComparison.OrdinalIgnoreCase);
         InitializeComponent();
-        WindowHelper.SetupTitleBar(this, TitleBar);
         WindowHelper.AttachWindowState(this, "ReplayWindow");
     }
 
@@ -197,5 +196,4 @@ public partial class ReplayWindow : Window
         CancelReplay();
     }
 
-    private void TitleBarClose_Click(object sender, RoutedEventArgs e) => Close();
 }

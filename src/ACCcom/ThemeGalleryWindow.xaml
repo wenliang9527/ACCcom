@@ -1,6 +1,7 @@
 <Window x:Class="ACCcom.ThemeGalleryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ACCcom.Controls"
         xmlns:local="clr-namespace:ACCcom"
         Title="ThemeGallery"
         Width="800" Height="600"
@@ -17,17 +18,9 @@
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding [Theme.GalleryTitle], Source={x:Static local:LanguageManager.Instance}}"
-                           Foreground="{DynamicResource InkSecondaryBrush}"
-                           FontSize="13" FontWeight="Medium"
-                           VerticalAlignment="Center" Margin="14,0,0,0" />
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="32" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <controls:ChromeTitleBar Grid.Row="0" x:Name="TitleBar"
+                 ShowMinMax="False"
+                 Title="{Binding [Theme.GalleryTitle], Source={x:Static local:LanguageManager.Instance}}" />
 
         <!-- Gallery -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
