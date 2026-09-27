@@ -36,7 +36,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding [VirtualSerial.Port], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <TextBox Grid.Column="1" Text="{Binding PortName, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="4,1" Margin="0,0,12,0" />
+            <TextBox Grid.Column="1" Text="{Binding PortName, UpdateSourceTrigger=PropertyChanged}" FontSize="{StaticResource FontSizeBody}" Padding="4,1" Margin="0,0,12,0" />
             <TextBlock Grid.Column="2" Text="{Binding [VirtualSerial.Baud], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
             <TextBox Grid.Column="3" Text="{Binding BaudRate, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="70" Margin="0,0,12,0" />
             <Button Grid.Column="4" Content="{Binding [VirtualSerial.Open], Source={x:Static local:LanguageManager.Instance}}"
@@ -55,7 +55,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding [VirtualSerial.InjectRx], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding RxHexInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" FontSize="12" Padding="4,2"
+            <TextBox Grid.Column="1" Text="{Binding RxHexInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2"
                      Margin="0,0,8,0" VerticalContentAlignment="Center" />
             <Button Grid.Column="2" Content="{Binding [VirtualSerial.Inject], Source={x:Static local:LanguageManager.Instance}}"
                     Style="{StaticResource OutlineButton}" Padding="10,0" Height="24" Command="{Binding InjectRxCommand}" />
@@ -72,10 +72,10 @@
                            Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
                 <Button DockPanel.Dock="Right" Content="{Binding [VirtualSerial.Send], Source={x:Static local:LanguageManager.Instance}}"
                         Style="{StaticResource OutlineButton}" Padding="10,0" Height="24" Command="{Binding SendCommand}" />
-                <CheckBox DockPanel.Dock="Right" Content="HEX" IsChecked="{Binding IsHexSend}" FontSize="11"
+                <CheckBox DockPanel.Dock="Right" Content="HEX" IsChecked="{Binding IsHexSend}" FontSize="{StaticResource FontSizeBody}"
                           Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
             </DockPanel>
-            <TextBox Grid.Row="1" Text="{Binding TxInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" FontSize="12" Padding="4,2"
+            <TextBox Grid.Row="1" Text="{Binding TxInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2"
                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
         </Grid>
 
@@ -97,8 +97,8 @@
                                 <ColumnDefinition Width="46" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat=HH:mm:ss}" Foreground="{DynamicResource InkSecondaryBrush}" FontSize="11" />
-                            <TextBlock Grid.Column="1" FontWeight="Bold" FontSize="11">
+                            <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat=HH:mm:ss}" Foreground="{DynamicResource InkSecondaryBrush}" FontSize="{StaticResource FontSizeBody}" />
+                            <TextBlock Grid.Column="1" FontWeight="Bold" FontSize="{StaticResource FontSizeBody}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="TX" />
@@ -112,7 +112,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Grid.Column="2" Text="{Binding RawHex}" FontFamily="Consolas" FontSize="12" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" Text="{Binding RawHex}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" TextTrimming="CharacterEllipsis" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

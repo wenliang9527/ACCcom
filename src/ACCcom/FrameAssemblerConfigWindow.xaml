@@ -34,7 +34,7 @@
         </Grid.RowDefinitions>
 
         <CheckBox Grid.Row="0" x:Name="EnabledCheckBox" Content="{Binding [FrameAssembler.Enable], Source={x:Static local:LanguageManager.Instance}}"
-                  Margin="0,0,0,12" FontSize="13" Foreground="{DynamicResource InkPrimaryBrush}" />
+                  Margin="0,0,0,12" FontSize="{StaticResource FontSizeSubtitle}" Foreground="{DynamicResource InkPrimaryBrush}" />
 
         <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
             <Grid>
@@ -48,20 +48,20 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [FrameAssembler.FrameHeader], Source={x:Static local:LanguageManager.Instance}}" FontSize="12"
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [FrameAssembler.FrameHeader], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBodyLarge}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="HeaderBox" Text="AA 55"
-                         FontFamily="Consolas" FontSize="12" Padding="4,2" Margin="0,0,0,6" />
+                         FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2" Margin="0,0,0,6" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [FrameAssembler.LengthFieldOffset], Source={x:Static local:LanguageManager.Instance}}" FontSize="12"
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [FrameAssembler.LengthFieldOffset], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBodyLarge}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                 <TextBox Grid.Row="1" Grid.Column="1" x:Name="OffsetBox" Text="-1"
-                         FontFamily="Consolas" FontSize="12" Padding="4,2" Margin="0,0,0,6" />
+                         FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2" Margin="0,0,0,6" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [FrameAssembler.LengthFieldSize], Source={x:Static local:LanguageManager.Instance}}" FontSize="12"
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding [FrameAssembler.LengthFieldSize], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBodyLarge}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                 <ComboBox Grid.Row="2" Grid.Column="1" x:Name="SizeCombo"
-                          FontSize="12" Padding="4,2" HorizontalAlignment="Left" Width="80">
+                          FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2" HorizontalAlignment="Left" Width="80">
                     <ComboBoxItem Content="{Binding [FrameAssembler.1Byte], Source={x:Static local:LanguageManager.Instance}}" Tag="1" IsSelected="True" />
                     <ComboBoxItem Content="{Binding [FrameAssembler.2Bytes], Source={x:Static local:LanguageManager.Instance}}" Tag="2" />
                 </ComboBox>
@@ -79,21 +79,21 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [FrameAssembler.MaxFrameSize], Source={x:Static local:LanguageManager.Instance}}" FontSize="12"
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [FrameAssembler.MaxFrameSize], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBodyLarge}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="MaxFrameBox" Text="4096"
-                         FontFamily="Consolas" FontSize="12" Padding="4,2" Margin="0,0,0,6" />
+                         FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2" Margin="0,0,0,6" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [FrameAssembler.Timeout], Source={x:Static local:LanguageManager.Instance}}" FontSize="12"
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [FrameAssembler.Timeout], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBodyLarge}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                 <TextBox Grid.Row="1" Grid.Column="1" x:Name="TimeoutBox" Text="2000"
-                         FontFamily="Consolas" FontSize="12" Padding="4,2" />
+                         FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,2" />
             </Grid>
         </Border>
 
         <TextBlock Grid.Row="3" x:Name="HelperText"
                    Text="{Binding [FrameAssembler.HelpText], Source={x:Static local:LanguageManager.Instance}}"
-                   FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                   FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkTertiaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
 
         <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{Binding [Button.OK], Source={x:Static local:LanguageManager.Instance}}" Click="Ok_Click" Style="{StaticResource PrimaryButton}" Width="80" Margin="0,0,8,0" />

@@ -20,7 +20,7 @@
                  ShowMinMax="False" ShowClose="False"
                  Title="{Binding [ModbusConnection.Title], Source={x:Static local:LanguageManager.Instance}}">
             <controls:ChromeTitleBar.ExtraButtons>
-                <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="11" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
+                <Button Content="&#x2715;" Style="{StaticResource TitleBarCloseButton}" FontSize="{StaticResource FontSizeBody}" Width="46" Height="28" Click="TitleBarClose_Click" ToolTip="{Binding [TitleBar.Close], Source={x:Static local:LanguageManager.Instance}}" />
             </controls:ChromeTitleBar.ExtraButtons>
         </controls:ChromeTitleBar>
 
@@ -38,9 +38,9 @@
 
         <Border Grid.Row="1" Background="{DynamicResource BgSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
             <StackPanel>
-                <RadioButton Content="{Binding [ModbusConnection.RTU], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsRtuMode}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
-                <RadioButton Content="{Binding [ModbusConnection.ASCII], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsAsciiMode}" Margin="0,0,0,8" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
-                <RadioButton Content="{Binding [ModbusConnection.TCP], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode}" FontSize="12" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.RTU], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsRtuMode}" Margin="0,0,0,8" FontSize="{StaticResource FontSizeBodyLarge}" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.ASCII], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsAsciiMode}" Margin="0,0,0,8" FontSize="{StaticResource FontSizeBodyLarge}" Foreground="{DynamicResource InkPrimaryBrush}" />
+                <RadioButton Content="{Binding [ModbusConnection.TCP], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding IsTcpMode}" FontSize="{StaticResource FontSizeBodyLarge}" Foreground="{DynamicResource InkPrimaryBrush}" />
 
                 <StackPanel IsEnabled="{Binding IsTcpMode}" Margin="20,8,0,0">
                     <Grid>
@@ -71,7 +71,7 @@
         <Button Grid.Row="4" Content="{Binding [ModbusConnection.Connect], Source={x:Static local:LanguageManager.Instance}}"
                 Command="{Binding ConnectCommand}"
                 Style="{StaticResource PrimaryButton}"
-                Height="32" FontSize="13" />
+                Height="32" FontSize="{StaticResource FontSizeSubtitle}" />
         </Grid>
     </Grid>
 </Window>

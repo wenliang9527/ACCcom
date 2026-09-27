@@ -41,10 +41,10 @@
                                                     <ColumnDefinition Width="150" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Keys}" FontFamily="Consolas" FontSize="12"
+                                                <TextBlock Grid.Column="0" Text="{Binding Keys}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                                                            Foreground="{DynamicResource InkPrimaryBrush}" FontWeight="SemiBold"
                                                            VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Description}" FontSize="12"
+                                                <TextBlock Grid.Column="1" Text="{Binding Description}" FontSize="{StaticResource FontSizeBodyLarge}"
                                                            Foreground="{DynamicResource InkSecondaryBrush}"
                                                            VerticalAlignment="Center" TextWrapping="Wrap" />
                                             </Grid>

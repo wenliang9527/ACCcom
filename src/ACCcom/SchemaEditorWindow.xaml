@@ -16,13 +16,13 @@
         <converters:FieldValuesTemplateSelector x:Key="FieldValuesSelector">
             <converters:FieldValuesTemplateSelector.DefaultTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ValuesText}" Foreground="{DynamicResource InkTertiaryBrush}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.DefaultTemplate>
             <converters:FieldValuesTemplateSelector.EnumTemplate>
                 <DataTemplate>
                     <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="3" Background="{DynamicResource BgElevatedBrush}" Padding="4,1">
-                        <TextBlock Text="{Binding ValuesText}" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" />
+                        <TextBlock Text="{Binding ValuesText}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Foreground="{DynamicResource InkPrimaryBrush}" />
                     </Border>
                 </DataTemplate>
             </converters:FieldValuesTemplateSelector.EnumTemplate>
@@ -45,8 +45,8 @@
             <Setter Property="RowBackground" Value="Transparent" />
             <Setter Property="AlternatingRowBackground" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
             <Setter Property="RowHeight" Value="26" />
             <Setter Property="ColumnHeaderHeight" Value="26" />
             <Setter Property="RowStyle">
@@ -67,7 +67,7 @@
                         <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}" />
                         <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                         <Setter Property="FontWeight" Value="SemiBold" />
-                        <Setter Property="FontSize" Value="11" />
+                        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                         <Setter Property="FontFamily" Value="Segoe UI" />
                         <Setter Property="Padding" Value="6,2" />
                         <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -103,8 +103,8 @@
         </Style>
 
         <Style x:Key="PreviewTextBox" TargetType="TextBox">
-            <Setter Property="FontFamily" Value="Consolas" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
             <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
             <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -156,17 +156,17 @@
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding [SchemaEditor.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ParserName, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="4,1" Height="22" />
+                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" Height="22" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding [SchemaEditor.Description], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
                 <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="4,1" Height="22" />
+                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" Height="22" />
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding [SchemaEditor.Header], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,6,4,0" />
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Header, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="4,1" Height="22" Margin="0,6,0,0" />
+                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" Height="22" Margin="0,6,0,0" />
                 <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding [SchemaEditor.Footer], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,6,4,0" />
                 <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding Footer, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="4,1" Height="22" Margin="0,6,0,0" Width="100" HorizontalAlignment="Left" />
+                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" Height="22" Margin="0,6,0,0" Width="100" HorizontalAlignment="Left" />
 
                 <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="0,6,0,0">
                     <TextBlock Text="{Binding [SchemaEditor.MinLength], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
@@ -175,7 +175,7 @@
                     <TextBlock Text="{Binding [SchemaEditor.Checksum], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <ComboBox ItemsSource="{x:Static vm:SchemaEditorViewModel.ChecksumTypes}"
                               SelectedItem="{Binding ChecksumType}"
-                              Width="70" FontSize="11" Height="22" />
+                              Width="70" FontSize="{StaticResource FontSizeBody}" Height="22" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -196,14 +196,14 @@
                     <DataGridTemplateColumn Header="{Binding [Column.Type], Source={x:Static local:LanguageManager.Instance}}" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Type}" VerticalAlignment="Center" FontSize="11" />
+                                <TextBlock Text="{Binding Type}" VerticalAlignment="Center" FontSize="{StaticResource FontSizeBody}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                         <DataGridTemplateColumn.CellEditingTemplate>
                             <DataTemplate>
                                 <ComboBox ItemsSource="{x:Static vm:SchemaEditorViewModel.FieldTypes}"
                                           SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}"
-                                          FontSize="11" Height="22" VerticalAlignment="Center" />
+                                          FontSize="{StaticResource FontSizeBody}" Height="22" VerticalAlignment="Center" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
@@ -221,7 +221,7 @@
                         <DataGridTemplateColumn.CellEditingTemplate>
                             <DataTemplate>
                                 <TextBox Text="{Binding ValuesText, UpdateSourceTrigger=PropertyChanged}"
-                                         FontSize="11" VerticalAlignment="Center" />
+                                         FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
@@ -229,7 +229,7 @@
                     <DataGridTemplateColumn Header="" Width="28">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="×" FontSize="12" Padding="2,0"
+                                <Button Content="×" FontSize="{StaticResource FontSizeBodyLarge}" Padding="2,0"
                                         Style="{StaticResource HeaderButton}"
                                         Foreground="{DynamicResource RedErrorBrush}"
                                         Command="{Binding DataContext.RemoveFieldCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -246,11 +246,11 @@
                     Padding="6,4">
                 <StackPanel Orientation="Horizontal">
                     <Button Content="{Binding [SchemaEditor.AddField], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding AddFieldCommand}"
-                            Style="{StaticResource PrimaryButton}" FontSize="11" Height="24" Padding="10,0" Margin="0,0,6,0" />
+                            Style="{StaticResource PrimaryButton}" FontSize="{StaticResource FontSizeBody}" Height="24" Padding="10,0" Margin="0,0,6,0" />
                     <Button Content="{Binding [SchemaEditor.MoveUp], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding MoveFieldUpCommand}"
-                            Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="8,0" Margin="0,0,4,0" />
+                            Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Height="24" Padding="8,0" Margin="0,0,4,0" />
                     <Button Content="{Binding [SchemaEditor.MoveDown], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding MoveFieldDownCommand}"
-                            Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="8,0" />
+                            Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Height="24" Padding="8,0" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -261,9 +261,9 @@
                 Padding="6,4">
             <StackPanel Orientation="Horizontal">
                 <Button Content="{Binding [SchemaEditor.Generate], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding GenerateCommand}"
-                        Style="{StaticResource PrimaryButton}" FontSize="11" Height="24" Padding="12,0" Margin="0,0,6,0" />
+                        Style="{StaticResource PrimaryButton}" FontSize="{StaticResource FontSizeBody}" Height="24" Padding="12,0" Margin="0,0,6,0" />
                 <Button Content="{Binding [SchemaEditor.Save], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveCommand}"
-                        Style="{StaticResource OutlineButton}" FontSize="11" Height="24" Padding="12,0" />
+                        Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Height="24" Padding="12,0" />
             </StackPanel>
         </Border>
 
@@ -290,7 +290,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox Grid.Column="0" Text="{Binding TestHexInput, UpdateSourceTrigger=PropertyChanged}"
-                                 FontFamily="Consolas" FontSize="12" Padding="6,2" Height="26"
+                                 FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="6,2" Height="26"
                                  Background="{DynamicResource BgElevatedBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
                         <Button Grid.Column="1" Content="{Binding [SchemaEditor.Parse], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding TestParseCommand}"
@@ -306,10 +306,10 @@
                 Padding="0,6,0,0">
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <Button Content="{Binding [SchemaEditor.LoadTemplate], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding LoadSchemaTemplateCommand}"
-                        Style="{StaticResource OutlineButton}" FontSize="11" Height="26" Padding="12,0" Margin="0,0,8,0" />
+                        Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Height="26" Padding="12,0" Margin="0,0,8,0" />
                 <Button Content="{Binding [SchemaEditor.SaveToParsers], Source={x:Static local:LanguageManager.Instance}}" Command="{Binding SaveCommand}"
-                        Style="{StaticResource PrimaryButton}" FontSize="11" Height="26" Padding="14,0" Margin="0,0,8,0" />
-                <Button Content="{Binding [SchemaEditor.Close], Source={x:Static local:LanguageManager.Instance}}" FontSize="11" Height="26" Padding="14,0"
+                        Style="{StaticResource PrimaryButton}" FontSize="{StaticResource FontSizeBody}" Height="26" Padding="14,0" Margin="0,0,8,0" />
+                <Button Content="{Binding [SchemaEditor.Close], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBody}" Height="26" Padding="14,0"
                         Style="{StaticResource OutlineButton}" IsCancel="True" />
             </StackPanel>
         </Border>

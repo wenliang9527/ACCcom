@@ -38,9 +38,9 @@
                 <ColumnDefinition Width="55" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding [ProtocolTest.Name], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <TextBox Grid.Column="1" Text="{Binding ScriptName, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="4,1" Margin="0,0,12,0" />
+            <TextBox Grid.Column="1" Text="{Binding ScriptName, UpdateSourceTrigger=PropertyChanged}" FontSize="{StaticResource FontSizeBody}" Padding="4,1" Margin="0,0,12,0" />
             <TextBlock Grid.Column="2" Text="{Binding [ProtocolTest.Description], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
-            <TextBox Grid.Column="3" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Padding="4,1" Margin="0,0,12,0" />
+            <TextBox Grid.Column="3" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" FontSize="{StaticResource FontSizeBody}" Padding="4,1" Margin="0,0,12,0" />
             <TextBlock Grid.Column="4" Text="{Binding [ProtocolTest.Repeat], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
             <TextBox Grid.Column="5" Text="{Binding RepeatCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource NumericBox}" Width="55" Margin="0,0,12,0" />
             <TextBlock Grid.Column="6" Text="{Binding [ProtocolTest.RepeatDelay], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,4,0" />
@@ -58,9 +58,9 @@
                            Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="{Binding [ProtocolTest.AddStep], Source={x:Static local:LanguageManager.Instance}}"
-                            Style="{StaticResource OutlineButton}" FontSize="10" Padding="8,0" Height="22" Command="{Binding AddStepCommand}" />
+                            Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeCaption}" Padding="8,0" Height="22" Command="{Binding AddStepCommand}" />
                     <Button Content="{Binding [ProtocolTest.RemoveStep], Source={x:Static local:LanguageManager.Instance}}"
-                            Style="{StaticResource OutlineButton}" FontSize="10" Padding="8,0" Height="22" Margin="4,0,0,0"
+                            Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeCaption}" Padding="8,0" Height="22" Margin="4,0,0,0"
                             Command="{Binding RemoveStepCommand}" CommandParameter="{Binding SelectedItem, ElementName=StepsGrid}" />
                 </StackPanel>
             </DockPanel>
@@ -100,8 +100,8 @@
                 <TextBlock DockPanel.Dock="Left" Text="{Binding [ProtocolTest.Results], Source={x:Static local:LanguageManager.Instance}}"
                            Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding PassedCount, StringFormat='Passed: {0}'}" Foreground="{DynamicResource StatusGreenBrush}" FontSize="11" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding FailedCount, StringFormat='  Failed: {0}'}" Foreground="{DynamicResource RedErrorBrush}" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    <TextBlock Text="{Binding PassedCount, StringFormat='Passed: {0}'}" Foreground="{DynamicResource StatusGreenBrush}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FailedCount, StringFormat='  Failed: {0}'}" Foreground="{DynamicResource RedErrorBrush}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="8,0,0,0" />
                 </StackPanel>
             </DockPanel>
             <DataGrid Grid.Row="1" Style="{StaticResource FieldDataGrid}"
@@ -111,7 +111,7 @@
                     <DataGridTemplateColumn Header="{Binding [ProtocolTest.ColStatus], Source={x:Static local:LanguageManager.Instance}}" Width="70" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock FontSize="13" FontWeight="Bold" VerticalAlignment="Center">
+                                <TextBlock FontSize="{StaticResource FontSizeSubtitle}" FontWeight="Bold" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Text" Value="&#x2714;" />

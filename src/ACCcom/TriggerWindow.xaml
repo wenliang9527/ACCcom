@@ -38,7 +38,7 @@
                   BorderThickness="0"
                   Margin="10,10,10,0"
                   RowHeight="26"
-                  FontSize="12">
+                  FontSize="{StaticResource FontSizeBodyLarge}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="{Binding [TriggerWindow.ColName], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
                 <DataGridTextColumn Header="{Binding [TriggerWindow.ColPattern], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Pattern}" Width="*" IsReadOnly="True" />

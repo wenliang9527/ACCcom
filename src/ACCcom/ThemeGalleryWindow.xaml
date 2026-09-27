@@ -104,7 +104,7 @@
                                             <SolidColorBrush Color="{Binding Accent}" />
                                         </Ellipse.Fill>
                                     </Ellipse>
-                                    <TextBlock FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                    <TextBlock FontSize="{StaticResource FontSizeSubtitle}" FontWeight="SemiBold" VerticalAlignment="Center"
                                                Text="{Binding Name}">
                                         <TextBlock.Foreground>
                                             <SolidColorBrush Color="{Binding Ink}" />
@@ -115,7 +115,7 @@
                                         <Border.BorderBrush>
                                             <SolidColorBrush Color="{Binding Accent}" />
                                         </Border.BorderBrush>
-                                        <TextBlock FontSize="10" VerticalAlignment="Center"
+                                        <TextBlock FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center"
                                                    Text="{Binding [Theme.Current], Source={x:Static local:LanguageManager.Instance}}">
                                             <TextBlock.Foreground>
                                                 <SolidColorBrush Color="{Binding InkSoft}" />
@@ -123,7 +123,7 @@
                                         </TextBlock>
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Margin="12,4,12,0" FontSize="11" TextWrapping="Wrap"
+                                <TextBlock Margin="12,4,12,0" FontSize="{StaticResource FontSizeBody}" TextWrapping="Wrap"
                                            Text="{Binding Description}">
                                     <TextBlock.Foreground>
                                         <SolidColorBrush Color="{Binding InkSoft}" />

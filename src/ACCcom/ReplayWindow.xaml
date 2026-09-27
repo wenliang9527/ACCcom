@@ -35,7 +35,7 @@
 
         <!-- Status text -->
         <TextBlock x:Name="StatusText" Grid.Row="0"
-                   Text="{Binding [Replay.Ready], Source={x:Static local:LanguageManager.Instance}}" FontSize="13"
+                   Text="{Binding [Replay.Ready], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeSubtitle}"
                    Foreground="{DynamicResource InkPrimaryBrush}" />
 
         <!-- Progress bar -->
@@ -49,7 +49,7 @@
                          Foreground="{DynamicResource AccentBrush}"
                          Background="{DynamicResource BgElevatedBrush}" />
             <TextBlock x:Name="ProgressText" Grid.Column="1"
-                       Text="0/0" FontSize="11" FontFamily="Consolas"
+                       Text="0/0" FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                        Foreground="{DynamicResource InkSecondaryBrush}"
                        VerticalAlignment="Center" Margin="8,0,0,0" />
         </Grid>

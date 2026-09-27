@@ -42,7 +42,7 @@
 
             <StackPanel Grid.Row="1" Margin="0,0,0,8">
                 <TextBlock Text="{Binding [HighlightDialog.Pattern], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
-                <TextBox x:Name="PatternBox" FontFamily="Consolas" />
+                <TextBox x:Name="PatternBox" FontFamily="{StaticResource FontFamilyMono}" />
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
@@ -81,7 +81,7 @@
                       Content="{Binding [HighlightDialog.Enabled], Source={x:Static local:LanguageManager.Instance}}" />
 
             <TextBlock Grid.Row="7" x:Name="ValidationText"
-                       Foreground="{DynamicResource RedErrorBrush}" FontSize="11" VerticalAlignment="Top" />
+                       Foreground="{DynamicResource RedErrorBrush}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Top" />
 
             <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}"

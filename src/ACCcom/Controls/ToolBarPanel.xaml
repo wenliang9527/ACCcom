@@ -33,23 +33,23 @@
         <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
             <Button Command="{Binding OpenDashboardCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.OpenDashboard], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE9D2;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding OpenHighlightCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.OpenHighlights], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE734;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding OpenProtocolTestCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.OpenProtocolTest], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE73E;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding OpenTriggerCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.OpenTriggers], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE945;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding OpenMacroCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
                     ToolTip="{Binding [Tip.OpenMacros], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE916;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
         </StackPanel>
 
@@ -77,19 +77,19 @@
         <StackPanel Orientation="Horizontal" Margin="0,0,4,2">
             <Button Command="{Binding AddBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.AddBookmark], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE718;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding PrevBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.PrevBookmark], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE72B;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button Command="{Binding NextBookmarkCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE72A;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
             <Button x:Name="BookmarkListButton" Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
                     ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
         </StackPanel>
 
@@ -99,7 +99,7 @@
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
             <Button Command="{Binding ToggleRecordingCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
                     ToolTip="{Binding [Tip.ToggleRecording], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock x:Name="RecordGlyph" FontFamily="Segoe MDL2 Assets" FontSize="14">
+                <TextBlock x:Name="RecordGlyph" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Text" Value="&#xE71A;" />
@@ -116,22 +116,22 @@
             </Button>
 
             <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"
-                      Foreground="{DynamicResource StatusBlueBrush}" FontSize="11" Margin="4,0,4,0" />
+                      Foreground="{DynamicResource StatusBlueBrush}" FontSize="{StaticResource FontSizeBody}" Margin="4,0,4,0" />
             <CheckBox Content="{Binding [Check.ShowTX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowTx}"
-                      Foreground="{DynamicResource InkSecondaryBrush}" FontSize="11" Margin="0,0,4,0" />
+                      Foreground="{DynamicResource InkSecondaryBrush}" FontSize="{StaticResource FontSizeBody}" Margin="0,0,4,0" />
 
             <ToggleButton x:Name="AdvancedToggle" Style="{StaticResource ToolToggle}" IsChecked="{Binding ShowAdvanced}"
                           ToolTip="{Binding [Tip.AdvancedParams], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+                <TextBlock Text="&#xE713;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeHeading}" />
             </ToggleButton>
 
             <ToggleButton Style="{StaticResource ToolToggle}" Margin="4,0,0,0"
                           IsChecked="{Binding ShowQuickSendSidebar}"
                           ToolTip="{Binding [QuickSend.ToggleHint], Source={x:Static local:LanguageManager.Instance}}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="15" />
+                    <TextBlock Text="&#xE700;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeHeading}" />
                     <TextBlock Text="{Binding [QuickSend.ToggleLabel], Source={x:Static local:LanguageManager.Instance}}"
-                               FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center" />
+                               FontSize="{StaticResource FontSizeBody}" Margin="4,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
             </ToggleButton>
         </StackPanel>

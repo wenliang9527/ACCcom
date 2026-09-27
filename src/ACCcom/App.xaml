@@ -9,6 +9,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Tokens.xaml" />
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
@@ -75,7 +76,7 @@
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
                 <Setter Property="Height" Value="26" />
                 <Setter Property="Width" Value="26" />
                 <Setter Property="Cursor" Value="Hand" />
@@ -139,8 +140,8 @@
                 <Setter Property="RowBackground" Value="Transparent" />
                 <Setter Property="AlternatingRowBackground" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
                 <Setter Property="RowHeight" Value="22" />
                 <Setter Property="ColumnHeaderHeight" Value="22" />
                 <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
@@ -169,7 +170,7 @@
                             <Setter Property="Background" Value="{DynamicResource BgSurfaceBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
-                            <Setter Property="FontSize" Value="10" />
+                            <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
                             <Setter Property="FontFamily" Value="Segoe UI" />
                             <Setter Property="Padding" Value="6,2" />
                             <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -225,7 +226,7 @@
                 <Setter Property="Height" Value="30" />
                 <Setter Property="Padding" Value="16,0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />
@@ -327,7 +328,7 @@
                 <Setter Property="Height" Value="30" />
                 <Setter Property="Padding" Value="14,0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />
@@ -501,7 +502,7 @@
                 <Setter Property="Height" Value="28" />
                 <Setter Property="Padding" Value="10,0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
@@ -601,7 +602,7 @@
                 <Setter Property="Height" Value="24" />
                 <Setter Property="Padding" Value="7,0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
@@ -692,7 +693,7 @@
             <Style TargetType="ComboBox">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="Height" Value="26" />
                 <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
@@ -804,7 +805,7 @@
             <Style TargetType="CheckBox">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Template">
@@ -870,7 +871,7 @@
             <Style TargetType="RadioButton">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Template">
@@ -920,8 +921,8 @@
             <!-- ============================================== -->
             <Style TargetType="TextBox">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -953,8 +954,8 @@
             <!-- Numeric TextBox -->
             <Style TargetType="TextBox" x:Key="NumericBox">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -989,13 +990,13 @@
             <!-- TextBlock Styles                               -->
             <!-- ============================================== -->
             <Style x:Key="Label" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="SectionHeader" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
@@ -1006,7 +1007,7 @@
                  Items.Count == 0 in each consumer. -->
             <Style x:Key="EmptyListText" TargetType="TextBlock">
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="IsHitTestVisible" Value="False" />
@@ -1110,7 +1111,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="Padding" Value="8,0" />
                 <Setter Property="HorizontalContentAlignment" Value="Left" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -1145,7 +1146,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="Padding" Value="8,0" />
                 <Setter Property="BorderThickness" Value="0,0,1,1" />
@@ -1239,7 +1240,7 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="8,4" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="HasDropShadow" Value="True" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -1302,7 +1303,7 @@
                                                       VerticalAlignment="Center" Margin="0,0,12,0" />
                                     <TextBlock Grid.Column="1" Text="{TemplateBinding InputGestureText}"
                                                Foreground="{DynamicResource InkTertiaryBrush}"
-                                               FontSize="11" HorizontalAlignment="Right"
+                                               FontSize="{StaticResource FontSizeBody}" HorizontalAlignment="Right"
                                                VerticalAlignment="Center" Margin="16,0,0,0" />
                                 </Grid>
                             </Border>
@@ -1346,7 +1347,7 @@
             <Style x:Key="MiniToggle" TargetType="ToggleButton">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                 <Setter Property="Height" Value="22" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
@@ -1399,7 +1400,7 @@
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="Padding" Value="12,6" />
                 <Setter Property="Margin" Value="0,0,2,0" />
                 <Setter Property="Template">
@@ -1490,7 +1491,7 @@
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
-                <Setter Property="FontSize" Value="10" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">

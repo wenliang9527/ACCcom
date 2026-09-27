@@ -77,7 +77,7 @@
                     <TextBlock Grid.Row="0" Text="{Binding [CompareWindow.FileALabel], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="10,8"
                                Foreground="{DynamicResource StatusBlueBrush}" />
                     <ListBox x:Name="ListBoxA" Grid.Row="1"
-                             FontFamily="Consolas" FontSize="12"
+                             FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              Background="Transparent" BorderThickness="0">
@@ -113,7 +113,7 @@
                     <TextBlock Grid.Row="0" Text="{Binding [CompareWindow.FileBLabel], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="10,8"
                                Foreground="{DynamicResource StatusGreenBrush}" />
                     <ListBox x:Name="ListBoxB" Grid.Row="1"
-                             FontFamily="Consolas" FontSize="12"
+                             FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              Background="Transparent" BorderThickness="0">
@@ -142,7 +142,7 @@
         <Border Grid.Row="2" Padding="10,6" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBox x:Name="SummaryText" Text="{Binding [CompareWindow.Hint], Source={x:Static local:LanguageManager.Instance}}"
-                           FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}"
+                           FontSize="{StaticResource FontSizeBodyLarge}" Foreground="{DynamicResource InkSecondaryBrush}"
                            IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
             </StackPanel>
         </Border>

@@ -9,7 +9,7 @@
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
             <Setter Property="Width" Value="26" />
             <Setter Property="Height" Value="24" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
             <Setter Property="Padding" Value="0" />
         </Style>
         <!-- Command row: flat full-width button -->
@@ -54,12 +54,12 @@
             <!-- ===== Row 0: Title ===== -->
             <DockPanel Grid.Row="0" Margin="4,0,2,6">
                 <TextBlock DockPanel.Dock="Left" Text="{Binding [Label.QuickSend], Source={x:Static local:LanguageManager.Instance}}"
-                           Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource AccentBrush}" FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            ToolTip="{Binding [Tip.QuickSendArea], Source={x:Static local:LanguageManager.Instance}}" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding PageIndicator}" FontFamily="Consolas" FontSize="11"
+                <TextBlock DockPanel.Dock="Left" Text="{Binding PageIndicator}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                            Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding CommandCount}" FontFamily="Consolas" FontSize="11"
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CommandCount}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                            Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" Margin="6,0,0,0">
                     <TextBlock.ToolTip>
                         <ToolTip>
@@ -73,10 +73,10 @@
             <!-- WrapPanel: on a narrow sidebar the +/… actions drop to a second
                  row instead of overlapping or being clipped. -->
             <WrapPanel Grid.Row="1" Margin="4,0,2,6" Orientation="Horizontal">
-                <Button Content="&#xE72B;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
+                <Button Content="&#xE72B;" Style="{StaticResource NavButton}" FontFamily="{StaticResource FontFamilyIcons}"
                         Command="{Binding PrevPageCommand}" Margin="0,0,4,0"
                         ToolTip="{Binding [QuickSend.PrevPage], Source={x:Static local:LanguageManager.Instance}}" />
-                <ComboBox x:Name="PageSelector" Width="90" Margin="0,0,4,0" FontSize="11"
+                <ComboBox x:Name="PageSelector" Width="90" Margin="0,0,4,0" FontSize="{StaticResource FontSizeBody}"
                           ItemsSource="{Binding Pages}"
                           SelectedItem="{Binding CurrentPage}">
                     <ComboBox.ItemTemplate>
@@ -85,13 +85,13 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <Button Content="&#xE72A;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
+                <Button Content="&#xE72A;" Style="{StaticResource NavButton}" FontFamily="{StaticResource FontFamilyIcons}"
                         Command="{Binding NextPageCommand}" Margin="0,0,8,0"
                         ToolTip="{Binding [QuickSend.NextPage], Source={x:Static local:LanguageManager.Instance}}" />
-                <Button Content="&#xE710;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
+                <Button Content="&#xE710;" Style="{StaticResource NavButton}" FontFamily="{StaticResource FontFamilyIcons}"
                         Command="{Binding AddPageCommand}" Margin="0,0,4,0"
                         ToolTip="{Binding [QuickSend.AddPage], Source={x:Static local:LanguageManager.Instance}}" />
-                <Button Content="&#xE712;" Style="{StaticResource NavButton}" FontFamily="Segoe MDL2 Assets"
+                <Button Content="&#xE712;" Style="{StaticResource NavButton}" FontFamily="{StaticResource FontFamilyIcons}"
                         ToolTip="{Binding [QuickSend.PageMenu], Source={x:Static local:LanguageManager.Instance}}">
                     <Button.ContextMenu>
                         <ContextMenu>
@@ -109,16 +109,16 @@
 
             <!-- ===== Row 2: Search filter ===== -->
             <DockPanel Grid.Row="2" Margin="4,0,2,6" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"
+                <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBodyLarge}" VerticalAlignment="Center"
                            Foreground="{DynamicResource InkTertiaryBrush}" Margin="0,0,4,0" />
-                <Button DockPanel.Dock="Right" Content="&#xE711;" Margin="2,0,0,0" FontFamily="Segoe MDL2 Assets"
+                <Button DockPanel.Dock="Right" Content="&#xE711;" Margin="2,0,0,0" FontFamily="{StaticResource FontFamilyIcons}"
                         Click="ClearFilter_Click"
                         ToolTip="{Binding [QuickSend.ClearFilter], Source={x:Static local:LanguageManager.Instance}}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource HeaderButton}">
                             <Setter Property="Width" Value="20" />
                             <Setter Property="Height" Value="20" />
-                            <Setter Property="FontSize" Value="11" />
+                            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
@@ -130,7 +130,7 @@
                     </Button.Style>
                 </Button>
                 <TextBox x:Name="QuickSendFilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="11" Padding="4,1" VerticalContentAlignment="Center"
+                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" VerticalContentAlignment="Center"
                          Background="{DynamicResource BgElevatedBrush}"
                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                          PreviewKeyDown="QuickSendFilterBox_PreviewKeyDown"
@@ -159,7 +159,7 @@
                                     <ToolTip>
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{Binding Command}" FontFamily="Consolas" FontSize="11"
+                                            <TextBlock Text="{Binding Command}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                                                        TextWrapping="Wrap" MaxWidth="220" />
                                         </StackPanel>
                                     </ToolTip>
@@ -220,16 +220,16 @@
                                             </Style>
                                         </Rectangle.Style>
                                     </Rectangle>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" FontSize="11"
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" FontSize="{StaticResource FontSizeBody}"
                                                Foreground="{DynamicResource InkPrimaryBrush}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource HotkeyIndex}}"
-                                               FontSize="11" FontFamily="Consolas"
+                                               FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                                                Foreground="{DynamicResource InkSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="6,0,0,0" />
                                     <!-- Payload preview -->
                                     <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                               Text="{Binding Command}" FontSize="10" FontFamily="Consolas"
+                                               Text="{Binding Command}" FontSize="{StaticResource FontSizeCaption}" FontFamily="{StaticResource FontFamilyMono}"
                                                Foreground="{DynamicResource InkTertiaryBrush}"
                                                VerticalAlignment="Center" Margin="14,1,0,0"
                                                TextTrimming="CharacterEllipsis" />
@@ -259,16 +259,16 @@
             <!-- ===== Row 4: Footer actions ===== -->
             <WrapPanel Grid.Row="4" Margin="4,6,2,0" Orientation="Horizontal">
                 <Button Content="{Binding [QuickSend.AddCommand], Source={x:Static local:LanguageManager.Instance}}"
-                        Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24"
+                        Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Padding="8,0" Height="24"
                         Margin="0,0,4,4"
                         Command="{Binding AddShortcutCommand}"
                         ToolTip="{Binding [Tip.AddQuickCommand], Source={x:Static local:LanguageManager.Instance}}" />
                 <Button Content="{Binding [QuickSend.Import], Source={x:Static local:LanguageManager.Instance}}"
-                        Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24"
+                        Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Padding="8,0" Height="24"
                         Margin="0,0,4,4"
                         Command="{Binding ImportCommand}" />
                 <Button Content="{Binding [QuickSend.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
-                        Style="{StaticResource OutlineButton}" FontSize="11" Padding="8,0" Height="24"
+                        Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBody}" Padding="8,0" Height="24"
                         Margin="0,0,0,4"
                         Command="{Binding ExportAllCommand}" />
             </WrapPanel>

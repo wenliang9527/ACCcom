@@ -37,8 +37,8 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="{Binding [DiffWindow.FrameA], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="0,0,0,4"
-                               Foreground="{DynamicResource StatusBlueBrush}" FontSize="12" />
-                    <TextBox x:Name="HexBoxA" FontFamily="Consolas" FontSize="12"
+                               Foreground="{DynamicResource StatusBlueBrush}" FontSize="{StaticResource FontSizeBodyLarge}" />
+                    <TextBox x:Name="HexBoxA" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                              AcceptsReturn="True" Height="60" TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto"
                              Text="" />
@@ -48,8 +48,8 @@
                         Padding="20,4" VerticalAlignment="Top" />
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="{Binding [DiffWindow.FrameB], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" Margin="0,0,0,4"
-                               Foreground="{DynamicResource StatusGreenBrush}" FontSize="12" />
-                    <TextBox x:Name="HexBoxB" FontFamily="Consolas" FontSize="12"
+                               Foreground="{DynamicResource StatusGreenBrush}" FontSize="{StaticResource FontSizeBodyLarge}" />
+                    <TextBox x:Name="HexBoxB" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                              AcceptsReturn="True" Height="60" TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto"
                              Text="" />
@@ -60,10 +60,10 @@
         <!-- Legend -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,4" HorizontalAlignment="Center">
             <Border Background="{DynamicResource DiffMatchBgBrush}" CornerRadius="3" Padding="8,2" Margin="0,0,12,0">
-                <TextBlock Text="{Binding [DiffWindow.Match], Source={x:Static local:LanguageManager.Instance}}" FontSize="11" Foreground="{DynamicResource StatusGreenBrush}" />
+                <TextBlock Text="{Binding [DiffWindow.Match], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource StatusGreenBrush}" />
             </Border>
             <Border Background="{DynamicResource DiffDiffBgBrush}" CornerRadius="3" Padding="8,2">
-                <TextBlock Text="{Binding [DiffWindow.Diff], Source={x:Static local:LanguageManager.Instance}}" FontSize="11" Foreground="{DynamicResource StatusErrorBrush}" />
+                <TextBlock Text="{Binding [DiffWindow.Diff], Source={x:Static local:LanguageManager.Instance}}" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource StatusErrorBrush}" />
             </Border>
         </StackPanel>
 
@@ -80,26 +80,26 @@
                 <!-- Frame A header -->
                 <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1"
                         BorderBrush="{DynamicResource DividerBrush}">
-                    <TextBlock Text="{Binding [DiffWindow.FrameA], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" FontSize="12"
+                    <TextBlock Text="{Binding [DiffWindow.FrameA], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeBodyLarge}"
                                Foreground="{DynamicResource StatusBlueBrush}" />
                 </Border>
 
                 <!-- Frame A hex bytes -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="8,4">
-                    <TextBlock x:Name="DiffTextA" FontFamily="Consolas" FontSize="13"
+                    <TextBlock x:Name="DiffTextA" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeSubtitle}"
                                Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" />
                 </ScrollViewer>
 
                 <!-- Frame B header -->
                 <Border Grid.Row="2" Padding="10,6" BorderThickness="0,1,0,1"
                         BorderBrush="{DynamicResource DividerBrush}">
-                    <TextBlock Text="{Binding [DiffWindow.FrameB], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" FontSize="12"
+                    <TextBlock Text="{Binding [DiffWindow.FrameB], Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeBodyLarge}"
                                Foreground="{DynamicResource StatusGreenBrush}" />
                 </Border>
 
                 <!-- Frame B hex bytes -->
                 <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Padding="8,4">
-                    <TextBlock x:Name="DiffTextB" FontFamily="Consolas" FontSize="13"
+                    <TextBlock x:Name="DiffTextB" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeSubtitle}"
                                Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" />
                 </ScrollViewer>
             </Grid>
@@ -109,7 +109,7 @@
         <Border Grid.Row="3" Padding="10,6" Background="{DynamicResource BgSurfaceBrush}"
                 CornerRadius="6" Margin="0,6,0,0">
             <TextBox x:Name="SummaryText" Text="{Binding [DiffWindow.SummaryHint], Source={x:Static local:LanguageManager.Instance}}"
-                       FontSize="12" Foreground="{DynamicResource InkSecondaryBrush}"
+                       FontSize="{StaticResource FontSizeBodyLarge}" Foreground="{DynamicResource InkSecondaryBrush}"
                        HorizontalAlignment="Center" IsReadOnly="True" IsTabStop="False" BorderThickness="0" Background="Transparent" Padding="0" />
         </Border>
         </Grid>

@@ -42,7 +42,7 @@
 
             <StackPanel Grid.Row="1" Margin="0,0,0,8">
                 <TextBlock Text="{Binding [TriggerDialog.Pattern], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
-                <TextBox x:Name="PatternBox" FontFamily="Consolas" />
+                <TextBox x:Name="PatternBox" FontFamily="{StaticResource FontFamilyMono}" />
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
@@ -72,14 +72,14 @@
 
             <StackPanel Grid.Row="4" Margin="0,0,0,8">
                 <TextBlock x:Name="ActionParameterLabel" Text="{Binding [TriggerDialog.ActionParameter], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,4" />
-                <TextBox x:Name="ActionParameterBox" FontFamily="Consolas" />
+                <TextBox x:Name="ActionParameterBox" FontFamily="{StaticResource FontFamilyMono}" />
             </StackPanel>
 
             <CheckBox Grid.Row="5" x:Name="EnabledBox"
                       Content="{Binding [TriggerDialog.Enabled], Source={x:Static local:LanguageManager.Instance}}" />
 
             <TextBlock Grid.Row="7" x:Name="ValidationText"
-                       Foreground="{DynamicResource RedErrorBrush}" FontSize="11" VerticalAlignment="Top" TextWrapping="Wrap" />
+                       Foreground="{DynamicResource RedErrorBrush}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Top" TextWrapping="Wrap" />
 
             <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="{Binding [Button.Cancel], Source={x:Static local:LanguageManager.Instance}}"

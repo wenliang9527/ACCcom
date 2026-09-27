@@ -47,7 +47,7 @@
                       Foreground="{DynamicResource InkPrimaryBrush}"
                       BorderThickness="0"
                       RowHeight="26"
-                      FontSize="12">
+                      FontSize="{StaticResource FontSizeBodyLarge}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{Binding [MacroWindow.ColName], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Name}" Width="*" />
                     <DataGridTextColumn Header="{Binding [MacroWindow.ColDescription], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Description}" Width="*" />
@@ -83,7 +83,7 @@
                       Foreground="{DynamicResource InkPrimaryBrush}"
                       BorderThickness="0"
                       RowHeight="26"
-                      FontSize="12">
+                      FontSize="{StaticResource FontSizeBodyLarge}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{Binding [MacroWindow.ColCommand], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding Command}" Width="*" />
                     <DataGridCheckBoxColumn Header="{Binding [MacroWindow.ColHex], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding IsHex}" Width="45" />

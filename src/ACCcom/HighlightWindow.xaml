@@ -38,7 +38,7 @@
                   BorderThickness="0"
                   Margin="10,10,10,0"
                   RowHeight="26"
-                  FontSize="12">
+                  FontSize="{StaticResource FontSizeBodyLarge}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="{Binding [HighlightGrid.Name], Source={x:Static local:LanguageManager.Instance}}"     Binding="{Binding Name}"     Width="*" IsReadOnly="True" />
                 <DataGridTextColumn Header="{Binding [HighlightGrid.Pattern], Source={x:Static local:LanguageManager.Instance}}"  Binding="{Binding Pattern}"  Width="*" IsReadOnly="True" />
@@ -63,7 +63,7 @@
                                         </Style>
                                     </Rectangle.Style>
                                 </Rectangle>
-                                <TextBlock Text="{Binding Color}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Color}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>

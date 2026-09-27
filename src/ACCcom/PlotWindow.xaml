@@ -34,16 +34,16 @@
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding [Plot.CurrentValue], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBlock x:Name="LatestValueText" Text="--"
-                              FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                              FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeTitle}" FontWeight="Bold"
                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
                     <TextBlock x:Name="PointCountText" Text="{Binding [Plot.ZeroPoints], Source={x:Static local:LanguageManager.Instance}}"
-                              FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                              FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkTertiaryBrush}"
                               VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock Text="{Binding [Plot.YRange], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBlock x:Name="YRangeText" Text="--"
-                              FontFamily="Consolas" FontSize="11"
+                              FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                               Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" />
                     <Button Content="{Binding [Plot.Clear], Source={x:Static local:LanguageManager.Instance}}" Click="Clear_Click" Margin="12,0,0,0"
                             Style="{StaticResource OutlineButton}" />
@@ -66,7 +66,7 @@
         <Border Grid.Row="2" Padding="8,3" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="6" Margin="0,4,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock x:Name="StatusText" Text="{Binding [Plot.Waiting], Source={x:Static local:LanguageManager.Instance}}"
-                           FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}" />
+                           FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkTertiaryBrush}" />
             </StackPanel>
         </Border>
         </Grid>

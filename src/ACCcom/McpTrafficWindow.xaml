@@ -16,7 +16,7 @@
         <Style x:Key="ToolbarButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
             <Setter Property="Height" Value="24" />
             <Setter Property="Padding" Value="10,0" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -26,7 +26,7 @@
             <Setter Property="Height" Value="24" />
             <Setter Property="MinWidth" Value="46" />
             <Setter Property="Padding" Value="10,0" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
             <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="1" />
@@ -97,7 +97,7 @@
         <Style x:Key="DetailCopyButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
             <Setter Property="Height" Value="20" />
             <Setter Property="Padding" Value="8,0" />
-            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Resources>
@@ -112,7 +112,7 @@
         <controls:ChromeTitleBar Grid.Row="0" x:Name="TitleBar"
                                  Title="{Binding [McpTraffic.Title], Source={x:Static local:LanguageManager.Instance}}">
             <controls:ChromeTitleBar.ExtraButtons>
-                <Button Content="&#xE74C;" Style="{StaticResource TitleBarButton}" FontSize="11" Width="46" Height="32" Click="Clear_Click" ToolTip="{Binding [McpTraffic.Clear], Source={x:Static local:LanguageManager.Instance}}" />
+                <Button Content="&#xE74C;" Style="{StaticResource TitleBarButton}" FontSize="{StaticResource FontSizeBody}" Width="46" Height="32" Click="Clear_Click" ToolTip="{Binding [McpTraffic.Clear], Source={x:Static local:LanguageManager.Instance}}" />
             </controls:ChromeTitleBar.ExtraButtons>
         </controls:ChromeTitleBar>
 
@@ -127,7 +127,7 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0" Padding="8,4" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="4" Margin="0,0,0,4">
-                <TextBlock x:Name="HintText" FontSize="11" Foreground="{DynamicResource InkSecondaryBrush}"
+                <TextBlock x:Name="HintText" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkSecondaryBrush}"
                            Text="{Binding [McpTraffic.Hint], Source={x:Static local:LanguageManager.Instance}}" TextWrapping="Wrap" />
             </Border>
 
@@ -142,18 +142,18 @@
                         <Rectangle Style="{StaticResource ToolSeparator}" />
                         <RadioButton x:Name="FilterAll" GroupName="DirFilter" IsChecked="True" Checked="DirectionFilter_Changed"
                                      Content="{Binding [McpTraffic.FilterAll], Source={x:Static local:LanguageManager.Instance}}"
-                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="4,0,8,0" />
+                                     FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="4,0,8,0" />
                         <RadioButton x:Name="FilterRx" GroupName="DirFilter" Checked="DirectionFilter_Changed"
                                      Content="{Binding [McpTraffic.FilterRx], Source={x:Static local:LanguageManager.Instance}}"
-                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                     FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
                         <RadioButton x:Name="FilterTx" GroupName="DirFilter" Checked="DirectionFilter_Changed"
                                      Content="{Binding [McpTraffic.FilterTx], Source={x:Static local:LanguageManager.Instance}}"
-                                     FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                     FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                         <Rectangle Style="{StaticResource ToolSeparator}" />
-                        <ComboBox x:Name="TagFilterBox" MinWidth="90" Height="24" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                        <ComboBox x:Name="TagFilterBox" MinWidth="90" Height="24" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="0,0,6,0"
                                   ToolTip="{Binding [McpTraffic.TagFilterTip], Source={x:Static local:LanguageManager.Instance}}"
                                   SelectionChanged="TagFilter_Changed" />
-                        <ComboBox x:Name="ToolFilterBox" MinWidth="86" Height="24" FontSize="11" VerticalAlignment="Center"
+                        <ComboBox x:Name="ToolFilterBox" MinWidth="86" Height="24" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
                                   ToolTip="{Binding [McpTraffic.ToolFilterTip], Source={x:Static local:LanguageManager.Instance}}"
                                   SelectionChanged="ToolFilter_Changed" />
                     </StackPanel>
@@ -174,19 +174,19 @@
                         <Rectangle Style="{StaticResource ToolSeparator}" />
                         <CheckBox x:Name="FollowTail" IsChecked="True" Checked="FollowTail_Changed" Unchecked="FollowTail_Changed"
                                   Content="{Binding [McpTraffic.FollowTail], Source={x:Static local:LanguageManager.Instance}}"
-                                  FontSize="11" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" />
+                                  FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkPrimaryBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                     <!-- Search box fills the space between the filters and the
                          right-side controls; the placeholder overlays the empty
                          box and Esc clears the filter. -->
                     <Grid Margin="8,0,8,0" VerticalAlignment="Center">
-                        <TextBox x:Name="SearchBox" FontSize="11" Padding="6,2" VerticalContentAlignment="Center"
+                        <TextBox x:Name="SearchBox" FontSize="{StaticResource FontSizeBody}" Padding="6,2" VerticalContentAlignment="Center"
                                  Background="{DynamicResource BgElevatedBrush}" Foreground="{DynamicResource InkPrimaryBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                  ToolTip="{Binding [McpTraffic.SearchHint], Source={x:Static local:LanguageManager.Instance}}"
                                  TextChanged="SearchText_Changed" PreviewKeyDown="SearchBox_PreviewKeyDown" />
                         <TextBlock x:Name="SearchPlaceholder" IsHitTestVisible="False" Margin="7,0,0,0" VerticalAlignment="Center"
-                                   FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                                   FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkTertiaryBrush}"
                                    Text="{Binding [McpTraffic.SearchHint], Source={x:Static local:LanguageManager.Instance}}" />
                     </Grid>
                 </DockPanel>
@@ -195,7 +195,7 @@
             <ListView x:Name="TrafficList" Grid.Row="2"
                       Background="{DynamicResource BgSurfaceBrush}"
                       BorderThickness="0"
-                      FontFamily="Consolas" FontSize="12"
+                      FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBodyLarge}"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
@@ -243,7 +243,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock Text="{Binding Direction}" FontSize="11" FontWeight="SemiBold">
+                                        <TextBlock Text="{Binding Direction}" FontSize="{StaticResource FontSizeBody}" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
@@ -320,13 +320,13 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="DetailMetaText" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
-                               FontSize="10" Foreground="{DynamicResource InkSecondaryBrush}"
+                               FontSize="{StaticResource FontSizeCaption}" Foreground="{DynamicResource InkSecondaryBrush}"
                                TextTrimming="CharacterEllipsis" Margin="0,0,0,3" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" FontSize="11" Foreground="{DynamicResource InkSecondaryBrush}"
+                    <TextBlock Grid.Row="1" Grid.Column="0" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkSecondaryBrush}"
                                VerticalAlignment="Center"
                                Text="{Binding [McpTraffic.DetailText], Source={x:Static local:LanguageManager.Instance}}" />
-                    <TextBox x:Name="DetailTextBox" Grid.Row="1" Grid.Column="1" FontSize="11" FontFamily="Consolas"
+                    <TextBox x:Name="DetailTextBox" Grid.Row="1" Grid.Column="1" FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                              IsReadOnly="True" BorderThickness="0" Background="Transparent"
                              Foreground="{DynamicResource InkPrimaryBrush}" TextWrapping="Wrap" MaxHeight="120"
                              VerticalScrollBarVisibility="Auto" Margin="0,0,6,0" />
@@ -334,10 +334,10 @@
                             Style="{StaticResource DetailCopyButton}" Click="CopyDetailText_Click"
                             ToolTip="{Binding [McpTraffic.CopyText], Source={x:Static local:LanguageManager.Instance}}" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" FontSize="11" Foreground="{DynamicResource InkSecondaryBrush}"
+                    <TextBlock Grid.Row="2" Grid.Column="0" FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkSecondaryBrush}"
                                VerticalAlignment="Center"
                                Text="{Binding [McpTraffic.DetailHex], Source={x:Static local:LanguageManager.Instance}}" Margin="0,3,0,0" />
-                    <TextBox x:Name="DetailHexBox" Grid.Row="2" Grid.Column="1" FontSize="11" FontFamily="Consolas"
+                    <TextBox x:Name="DetailHexBox" Grid.Row="2" Grid.Column="1" FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
                              IsReadOnly="True" BorderThickness="0" Background="Transparent"
                              Foreground="{DynamicResource InkSecondaryBrush}" TextWrapping="Wrap" MaxHeight="120"
                              VerticalScrollBarVisibility="Auto" Margin="0,3,6,0" />
@@ -348,7 +348,7 @@
                     <!-- Shown while nothing is selected; overlay doesn't block
                          clicks so the empty textboxes stay selectable. -->
                     <TextBlock x:Name="DetailHint" Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Grid.ColumnSpan="3"
-                               FontSize="11" Foreground="{DynamicResource InkTertiaryBrush}"
+                               FontSize="{StaticResource FontSizeBody}" Foreground="{DynamicResource InkTertiaryBrush}"
                                VerticalAlignment="Center" IsHitTestVisible="False"
                                Text="{Binding [McpTraffic.DetailHint], Source={x:Static local:LanguageManager.Instance}}" />
                 </Grid>
@@ -357,9 +357,9 @@
             <!-- Status bar: row count + RX/TX tally + file size + last update + paused state -->
             <Border Grid.Row="4" Padding="6,2" Background="Transparent" Margin="0,2,0,0">
                 <DockPanel>
-                    <TextBlock x:Name="RowCountText" DockPanel.Dock="Left" FontSize="11"
+                    <TextBlock x:Name="RowCountText" DockPanel.Dock="Left" FontSize="{StaticResource FontSizeBody}"
                                Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBlock x:Name="StatusText" FontSize="11"
+                    <TextBlock x:Name="StatusText" FontSize="{StaticResource FontSizeBody}"
                                Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center"
                                HorizontalAlignment="Right"
                                TextTrimming="CharacterEllipsis" />
