@@ -244,7 +244,12 @@ public class RxHotPathBenchmarkTests
         for (int i = 0; i < setups; i++)
         {
             // Non-matching pattern: exercises the full-ring scan + register path.
-            var task = buffer.WaitForMatchAsync("NO-SUCH-PATTERN-XYZ", "contains", false, null, 1);
+            // 60s timeout: the assert below must only ever see a synchronous
+            // completion from a MATCH during the setup scan. A tiny timeout
+            // (the old 1ms) let the timeout fire mid-assert under load and
+            // complete the task "successfully" with a null result - a pure
+            // test race, not a setup regression.
+            var task = buffer.WaitForMatchAsync("NO-SUCH-PATTERN-XYZ", "contains", false, null, 60_000);
             Assert.False(task.IsCompletedSuccessfully);
         }
         sw.Stop();
