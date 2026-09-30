@@ -1,0 +1,5 @@
+# dsh-serial-panel 持久化补丁层(bundle layer)
+# 把 dsh-serial-panel 的 loader 条目插入 profile 的 loader 树
+- insert:
+    - id: dsh-serial-panel
+      name: dsh-serial-panel

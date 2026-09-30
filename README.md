@@ -46,6 +46,31 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 ---
 
+## 接入方式（三种模式）
+
+三种模式共享 `src/ACCcom.Core` 业务核心，按场景选用或组合：
+
+| 模式 | 位置 | 说明 |
+|------|------|------|
+| 🖥 **桌面端** | `src/ACCcom`（WPF） | 完整 GUI 调试界面；内嵌 HTTP API（`:8899`）与 WebSocket，供脚本/第三方调用 |
+| 🤖 **MCP Server** | `src/ACCcom.McpServer`（stdio） | 10 个串口工具（`list_ports`/`open_port`/`send`/`read_data`/…），供 Claude Code、DeepSeek Harness 等 AI 客户端直接挂载；独立于桌面端运行（直接模式） |
+| 🔌 **DSH 插件** | `tools/dsh-serial-panel` | DeepSeek Harness 界面内的**串口实时面板**：尾随 MCP 的 `mcp-traffic.jsonl`，实时显示 AI 收发的每条串口数据（TX/RX、HEX、过滤、统计） |
+
+MCP 与插件的关系：MCP 负责"让 AI 能操作串口"，插件负责"让人类看得见 AI 在串口上做了什么"——两者通过共享日志 `%LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl` 解耦，互不依赖运行。
+
+DSH 插件的开发/部署（真源在仓库，部署到 Harness profile）：
+
+```cmd
+cd tools\dsh-serial-panel
+deploy.cmd          :: 部署到 desktop profile，重启 DeepSeek Harness 生效
+node test.js core   :: Host 半区行为测试（20 项断言）
+node test.js window
+```
+
+详见 [tools/dsh-serial-panel/README.md](tools/dsh-serial-panel/README.md)。
+
+---
+
 ## 文档索引
 
 ### 🚀 入门
