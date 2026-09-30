@@ -63,7 +63,7 @@ DSH 插件的开发/部署（真源在仓库，部署到 Harness profile）：
 ```cmd
 cd tools\dsh-serial-panel
 deploy.cmd          :: 部署到 desktop profile，重启 DeepSeek Harness 生效
-node test.js core   :: 行为测试四个模式(core/window/api/client),共 65 项断言
+node test.js core   :: 行为测试四个模式(core/window/api/client),共 67 项断言
 node test.js window
 node test.js api
 node test.js client

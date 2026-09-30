@@ -33,6 +33,7 @@ const path = require('path')
 const ROUTE = '/api/acccom-serial'
 const ROUTE_CLEAR = '/api/acccom-serial/clear'
 const ROUTE_EXPORT = '/api/acccom-serial/export'
+const ROUTE_HELP = '/api/acccom-serial/help'
 
 /** 正整数环境变量读取(非法值回落默认)。 */
 function intEnv(name, fallback) {
@@ -341,6 +342,31 @@ module.exports = {
         }
       },
     }), 'dsh-serial-panel: ' + ROUTE_EXPORT)
+
+    // agent 自发现:返回本目录 AGENTS.md(部署闭包内也有副本),首次读取后缓存
+    let helpBody = null
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: ROUTE_HELP,
+      async handler(req, res) {
+        try {
+          if (req.method !== 'GET') {
+            jsonResponse(res, 405, { ok: false, error: 'GET only' })
+            return
+          }
+          if (helpBody === null) {
+            try { helpBody = fs.readFileSync(path.join(__dirname, 'AGENTS.md'), 'utf8') } catch (e) { helpBody = '# AGENTS.md not deployed\n\n接口速见:GET /api/acccom-serial?since=<seq>&compact=1\n' }
+          }
+          res.writeHead(200, {
+            'content-type': 'text/markdown; charset=utf-8',
+            'cache-control': 'no-store',
+          })
+          res.end(helpBody)
+        } catch (error) {
+          jsonResponse(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    }), 'dsh-serial-panel: ' + ROUTE_HELP)
 
     return () => {
       clearInterval(timer)

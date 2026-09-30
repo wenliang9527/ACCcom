@@ -11,6 +11,7 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/api/acccom-serial/help` | 返回本文件(自发现:agent 找到任一路由后可拉取完整说明) |
 | GET | `/api/acccom-serial?since=<seq>` | 增量:返回 seq 大于 since 的条目;省略 since 返回最近 300 条 |
 | GET | `/api/acccom-serial?since=<seq>&compact=1&max=512` | 紧凑模式(agent 推荐,省 token) |
 | GET | `/api/acccom-serial?stats=1` | 零条目仅统计(存活检查/水位探测的最小开销方式) |

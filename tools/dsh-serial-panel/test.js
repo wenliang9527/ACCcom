@@ -216,6 +216,14 @@ const ok = (cond, label, extra) => {
     ok(rCsv.body.indexOf('"a,b""c\nd"') >= 0, 'T11 csv 逗号/引号/换行转义', JSON.stringify(rCsv.body.slice(-60)))
     const r405 = await call('/api/acccom-serial/export', { method: 'POST', url: '/' })
     ok(r405.ok === false && /GET only/.test(r405.error), 'T11 export 拒绝 POST')
+
+    // T11b help 路由:返回 AGENTS.md(agent 自发现)
+    const rHelp = await callRaw('/api/acccom-serial/help', { method: 'GET', url: '/api/acccom-serial/help' })
+    ok(rHelp.status === 200
+      && /markdown/.test(rHelp.headers['content-type'] || '')
+      && /api\/acccom-serial/.test(rHelp.body), 'T11b help 路由返回 AGENTS.md', { s: rHelp.status, h: rHelp.headers })
+    const rHelp405 = await call('/api/acccom-serial/help', { method: 'POST', url: '/' })
+    ok(rHelp405.ok === false && /GET only/.test(rHelp405.error), 'T11b help 拒绝 POST')
   }
 
   if (mode === 'client') {

@@ -1,4 +1,4 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.5.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.6.0
 
 DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
 "ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
@@ -15,13 +15,15 @@ DSH 版本差异导致 rightbar 服务缺席时,自动回退为整屏 main 面�
 - **实时增量**:自适应轮询(有数据 700ms / 空闲 2.5s / 隐藏或挂起降频),跟随自动挂起(向上翻历史)/回底自动恢复,挂起期间「↓ N 条新数据」浮出按钮
 - **行布局**:时间 · TX/RX 徽章 · 端口色块(**点击=过滤该端口,再点切回全部**) · 工具/端口 · 长度 · Δt 帧间隔 · 载荷(HEX 切换、行内 4000 字符截断、**搜索命中高亮**)
 - **过滤**:方向(全部/RX/TX)、端口下拉、子串/**正则**搜索(`.*` 开关,非法表达式自动回退子串,偏好持久化)
-- **详情区**:点击行看 text+HEX 全文,一键复制(clipboard API,失败回退 execCommand)
+- **详情区**:点击行看 text+HEX 全文(含完整日期,跨天会话可对),一键复制(clipboard API,失败回退 execCommand)
+- **导出**:工具栏「导出」= 当前过滤视图一键下载 JSONL(Blob 本地生成);整个内存环走 Host `/export` 路由
 - **可靠性辅助**:断层标记(Host 环滚出/seq 回退守卫)、清空两段式确认、连接态三色(尾随中/等日志文件/未响应)、空态显示可复制的 API 地址与链路自检(shell 解析、日志大小、坏行数)
 - **快捷键**(面板持有焦点时):空格=暂停/继续,`/`=聚焦搜索,Esc=取消选中;不影响对话输入
 - **流量徽章**:左侧图标红点提示新串口流量(面板关着也能感知,打开并实时跟随时自动消失)
 
 **Agent 接口(同源 HTTP,详见 [AGENTS.md](AGENTS.md))**
 
+- `GET /api/acccom-serial/help` 返回 AGENTS.md(agent 自发现入口)
 - `GET /api/acccom-serial?since=<seq>&compact=1&max=N` 紧凑增量(单字段载荷,码点截断 ≤4096)
 - `GET /api/acccom-serial?stats=1` 零载荷统计(心跳/水位探测)
 - `GET /api/acccom-serial/export?format=jsonl|csv` 导出内存环
@@ -153,10 +155,18 @@ deploy.cmd web    :: 追加部署到 web profile
 首个命中,靠计数上限才停(第一版实现的真实 bug,冒烟测试当场抓住)。
 
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
+## v1.6.0 按需导出与自发现
+
+| 项 | 说明 |
+|---|---|
+| 视图导出 | 工具栏「导出」按钮:当前过滤视图(可见条目,剔除断层标记)一键下载 JSONL,Blob 本地生成不经 Host;整个内存环仍走 `GET /export` |
+| help 端点 | Host 新增 `GET /api/acccom-serial/help` 返回 AGENTS.md(部署闭包内副本,首次读取后缓存)——agent 发现任一路由后可自助获取完整接口说明 |
+| 详情日期 | 详情区时间补完整日期(跨天会话可对) |
+
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(**65 项断言**:core 17 + window 5 + api 15 + client 28),已实测通过:
+Host 半区带一套零依赖行为测试(**67 项断言**:core 17 + window 5 + api 17 + client 28),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"

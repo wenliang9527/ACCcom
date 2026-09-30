@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.5.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.6.0
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -52,6 +52,12 @@
 //   * 正则搜索:.* 开关,非法表达式自动回退子串;命中高亮同样支持正则
 //   * 快捷键(仅面板获得焦点时,绝不影响对话输入):空格=暂停,/ =聚焦搜索,
 //     Esc=取消选中
+//
+//  ── v1.6.0 按需导出与自发现 ──
+//   * 工具栏「导出」:当前过滤视图(可见条目)一键下载 JSONL,Blob 本地生成,
+//     不经 Host(Host /export 仍负责整个内存环)
+//   * Host 新增 GET /help 返回 AGENTS.md:agent 发现端点后可自助,无需先读仓库
+//   * 详情区补完整日期(跨天会话只有时分秒会对不上)
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -204,6 +210,23 @@ window.__ModuleLoader__.load({
           return done
         } catch (e2) { return false }
       }
+    }
+
+    // 当前过滤视图 → JSONL 下载(Blob 本地生成;gap 标记不是数据,剔除)
+    const downloadJsonl = (entries, name) => {
+      try {
+        const lines = entries.filter((e) => !e.kind).map((e) => JSON.stringify(e))
+        const blob = new Blob([lines.join('\n') + (lines.length ? '\n' : '')], { type: 'application/x-ndjson' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = (name || 'acccom-serial-view-') + new Date().toISOString().replace(/[:.]/g, '-') + '.jsonl'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        return true
+      } catch (e) { return false }
     }
 
     // ---- 组件:复制按钮(成功后短暂显示「已复制」) ----
@@ -563,6 +586,7 @@ window.__ModuleLoader__.load({
           style: { flex: '1 1 140px', minWidth: 120, height: 28, fontSize: 12, padding: '0 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)', background: 'var(--dsw-alias-bg-layer-3, #fff)', color: 'var(--dsw-alias-label-primary, #222)', boxSizing: 'border-box' },
         }),
         btn(confirmClear ? '确认清空?' : '清空', clear, confirmClear, '截断共享 mcp-traffic.jsonl(再点一次生效)'),
+        btn('导出', () => downloadJsonl(visible), false, '下载当前过滤视图为 JSONL(整个内存环用 Host /export 路由)'),
         h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)' } }, counterText),
       )
 
@@ -636,7 +660,9 @@ window.__ModuleLoader__.load({
       },
         h('div', { style: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--dsw-alias-label-secondary, #666)' } },
           h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-            '#' + selected.seq + ' · ' + shortTime(selected.ts) + ' · ' + selected.dir + ' · '
+            '#' + selected.seq + ' · ' + shortTime(selected.ts)
+              + (typeof selected.ts === 'string' && selected.ts.length >= 10 ? ' · ' + selected.ts.slice(0, 10) : '')
+              + ' · ' + selected.dir + ' · '
               + selected.tool + (selected.tag ? ' · ' + selected.tag : '') + ' · ' + selected.len + 'B'
               + (selected.dtMs != null ? ' · Δ' + fmtDt(selected.dtMs) : '')),
           selected.text ? h(CopyBtn, { text: selected.text, label: '复制text' }) : null,
