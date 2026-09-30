@@ -203,10 +203,11 @@ ACCcom/
 │           ├── SerialTools.cs      # 基础串口工具 (10 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tools/
-│   └── dsh-serial-panel/    # DSH 插件:串口实时面板(DeepSeek Harness,deploy.cmd 部署)
-│       ├── index.js               # Host 半区(尾随 mcp-traffic.jsonl + 私有路由)
-│       ├── client.js              # Client 半区(sidebar.panellist 图标 + main 面板)
-│       ├── test.js                # Host 半区行为测试(node test.js core|window)
+│   └── dsh-serial-panel/    # DSH 插件 v1.5.0:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
+│       ├── index.js               # Host 半区:尾随 mcp-traffic.jsonl + 同源路由(增量/compact/stats=1/export/clear)
+│       ├── client.js              # Client 半区:rightbar 停靠 tab(兜底整屏 main)+ 流量徽章 + 正则/快捷键
+│       ├── test.js                # 行为测试(node test.js core|window|api|client,65 项断言)
+│       ├── AGENTS.md              # agent 接入说明(路由/seq 语义/干净复现工作流)
 │       └── deploy.cmd             # 部署到 %USERPROFILE%\.dsh\profiles
 ├── tests/
 │   ├── ACCcom.Core.Tests/          # 核心库单元测试（数量以 `dotnet test` 为准）

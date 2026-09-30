@@ -54,7 +54,7 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 |------|------|------|
 | 🖥 **桌面端** | `src/ACCcom`（WPF） | 完整 GUI 调试界面；内嵌 HTTP API（`:8899`）与 WebSocket，供脚本/第三方调用 |
 | 🤖 **MCP Server** | `src/ACCcom.McpServer`（stdio） | 10 个串口工具（`list_ports`/`open_port`/`send`/`read_data`/…），供 Claude Code、DeepSeek Harness 等 AI 客户端直接挂载；独立于桌面端运行（直接模式） |
-| 🔌 **DSH 插件** | `tools/dsh-serial-panel` | DeepSeek Harness 界面内的**串口实时面板**：尾随 MCP 的 `mcp-traffic.jsonl`，实时显示 AI 收发的每条串口数据（TX/RX、HEX、过滤、统计） |
+| 🔌 **DSH 插件** | `tools/dsh-serial-panel` | DeepSeek Harness **右侧停靠栏**内的串口实时面板(对话与串口数据并排可见):尾随 MCP 的 `mcp-traffic.jsonl`,实时显示 AI 收发的每条串口数据(Δt 帧间隔、TX/RX 徽章、端口/正则过滤、断层标记、新流量徽章);带 agent 专用 HTTP API(紧凑增量 / `stats=1` 心律 / jsonl·csv 导出) |
 
 MCP 与插件的关系：MCP 负责"让 AI 能操作串口"，插件负责"让人类看得见 AI 在串口上做了什么"——两者通过共享日志 `%LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl` 解耦，互不依赖运行。
 
@@ -63,11 +63,14 @@ DSH 插件的开发/部署（真源在仓库，部署到 Harness profile）：
 ```cmd
 cd tools\dsh-serial-panel
 deploy.cmd          :: 部署到 desktop profile，重启 DeepSeek Harness 生效
-node test.js core   :: Host 半区行为测试（20 项断言）
+node test.js core   :: 行为测试四个模式(core/window/api/client),共 65 项断言
 node test.js window
+node test.js api
+node test.js client
 ```
 
-详见 [tools/dsh-serial-panel/README.md](tools/dsh-serial-panel/README.md)。
+agent 侧的接口与工作流说明见 [tools/dsh-serial-panel/AGENTS.md](tools/dsh-serial-panel/AGENTS.md);
+更多细节见 [tools/dsh-serial-panel/README.md](tools/dsh-serial-panel/README.md)。
 
 ---
 
@@ -131,7 +134,7 @@ node test.js window
 | 📝 协议 | Roslyn C# Script 引擎、热加载、LRU 缓存、自动代码生成、自动解析器匹配、高亮规则 |
 | 🔧 Modbus | RTU/TCP/ASCII 主站、10 种功能码、自动分片、轮询、从站模拟 |
 | 🎨 界面 | 7 款主题（昼白/墨 + 五幅名画配色：日出·印象、麦田群鸦、神奈川冲浪为亮色，吻、珍珠少女为深色，色相拉开、标题栏画廊挑选含实时预览）、中英文切换（运行时即时生效）、发送历史 |
-| 🤖 AI | MCP Server（10 个基础串口工具）、HTTP REST API、WebSocket 实时推送 |
+| 🤖 AI | MCP Server（10 个基础串口工具）、HTTP REST API、WebSocket 实时推送、**DSH 右侧停靠串口面板**（可视化 AI 串口收发 + agent 查询 API） |
 | 📊 数据 | Channel+RingBuffer 缓冲、实时统计、TXT/JSON/CSV/PCAP 导出 |
 | ⚡ 自动化 | 会话录制回放、多步骤宏、条件触发器、协议测试运行器 |
 | 🧩 工具 | 协议可视化编辑器、数据对比/差异分析、实时波形绘图、包过滤引擎 |
