@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.1.0
+//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.2.0
 //
 //  职责:
 //   1. 尾随 %LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl —— ACCcom.McpServer 的
@@ -19,6 +19,12 @@
 //   * 首次挂载只读文件尾部窗口,大日志不再整文件读入
 //   * 无换行超长写入保护,避免 remainder 无限膨胀
 //   * 只读参数均可用 DSH_SERIAL_PANEL_* 覆盖,便于按现场调优
+//
+//  ── v1.2.0 优化 ──
+//   * 每条记录带 dtMs(相对上一条的帧间隔,Host 统一计算,乱序钳 0)
+//   * stats 增加 badLines/logSize/logMtimeMs/rotated(链路自检,面板与 agent 共用)
+//   * compact=1&max=N 紧凑模式:去掉 text/hex 双份载荷,单字段按码点截断(≤4096)
+//   * GET /api/acccom-serial/export?format=jsonl|csv 导出内存环为附件
 // ============================================================
 
 const fs = require('fs')
@@ -26,6 +32,7 @@ const path = require('path')
 
 const ROUTE = '/api/acccom-serial'
 const ROUTE_CLEAR = '/api/acccom-serial/clear'
+const ROUTE_EXPORT = '/api/acccom-serial/export'
 
 /** 正整数环境变量读取(非法值回落默认)。 */
 function intEnv(name, fallback) {
@@ -55,6 +62,27 @@ function jsonResponse(res, status, body) {
     'cache-control': 'no-store',
   })
   res.end(JSON.stringify(body))
+}
+
+/** 码点安全截断:普通 slice 可能劈开代理对,JSON 序列化会产出孤立代理。 */
+function truncateCodePoints(s, max) {
+  const pts = Array.from(s)
+  return pts.length > max ? pts.slice(0, max).join('') : s
+}
+
+const CSV_COLUMNS = ['seq', 'ts', 'dir', 'tool', 'tag', 'len', 'dtMs', 'text', 'hex']
+
+function csvCell(v) {
+  const s = v == null ? '' : String(v)
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+
+function toCsv(entries) {
+  const rows = entries.map((e) => [
+    e.seq, e.ts, e.dir, e.tool, e.tag, e.len, e.dtMs == null ? '' : e.dtMs, e.text, e.hex,
+  ].map(csvCell).join(','))
+  // BOM 前缀:让 Excel 识别 UTF-8
+  return '\uFEFF' + [CSV_COLUMNS.join(',')].concat(rows).join('\r\n') + (rows.length ? '\r\n' : '')
 }
 
 /**
@@ -103,15 +131,18 @@ module.exports = {
     let remainder = ''      // 半行残留(写入端按行追加,可能读到半行)
     let firstRead = true    // 是否尚未读过(决定能否启用尾部窗口)
     let seq = 0             // 单调递增序号(不随 clear/轮转重置,客户端 since 依赖它)
-    const entries = []      // { seq, id, tool, dir, hex, text, tag, ts, len },seq 递增
-    const stats = { tx: 0, rx: 0, txBytes: 0, rxBytes: 0, lastAt: null, exists: false }
+    let prevTsMs = null     // 上一条记录的毫秒时间戳(Δt 用;坏时间戳不更新基准)
+    const entries = []      // { seq, id, tool, dir, hex, text, tag, ts, len, dtMs },seq 递增
+    const stats = { tx: 0, rx: 0, txBytes: 0, rxBytes: 0, lastAt: null, exists: false, badLines: 0, logSize: 0, logMtimeMs: null, rotated: false }
 
     const reset = () => {
       offset = 0
       remainder = ''
       firstRead = true
+      prevTsMs = null
       entries.length = 0
       stats.tx = 0; stats.rx = 0; stats.txBytes = 0; stats.rxBytes = 0; stats.lastAt = null
+      stats.badLines = 0
     }
 
     const payloadLen = (rec) => {
@@ -127,15 +158,19 @@ module.exports = {
       const lines = data.split('\n')
       remainder = lines.pop() || ''
       // 写入端若长时间不换行(异常/超大帧),丢弃残留而不是无限增长
-      if (remainder.length > MAX_LINE_CHARS) remainder = ''
+      if (remainder.length > MAX_LINE_CHARS) { stats.badLines += 1; remainder = '' }
       for (const line of lines) {
         const s = line.trim()
         if (!s) continue
         let rec
-        try { rec = JSON.parse(s) } catch (e) { continue } // 坏行跳过,不致命
+        try { rec = JSON.parse(s) } catch (e) { stats.badLines += 1; continue } // 坏行跳过,不致命
         seq += 1
         const dir = rec.direction === 'TX' ? 'TX' : 'RX'
         const len = payloadLen(rec)
+        // Δt 相对上一条有效时间戳;乱序(多进程追加)钳到 0,坏时间戳记 null
+        const tsMs = Date.parse(rec.timestamp || '')
+        const dtMs = Number.isFinite(tsMs) && prevTsMs != null ? Math.max(0, tsMs - prevTsMs) : null
+        if (Number.isFinite(tsMs)) prevTsMs = tsMs
         entries.push({
           seq,
           id: rec.id,
@@ -146,6 +181,7 @@ module.exports = {
           tag: rec.portTag || '',
           ts: rec.timestamp || '',
           len,
+          dtMs,
         })
         if (dir === 'TX') { stats.tx += 1; stats.txBytes += len }
         else { stats.rx += 1; stats.rxBytes += len }
@@ -162,6 +198,9 @@ module.exports = {
         let st = null
         try { st = fs.statSync(file) } catch (e) { st = null }
         stats.exists = !!st
+        if (st) { stats.logSize = st.size; stats.logMtimeMs = st.mtimeMs }
+        else { stats.logSize = 0; stats.logMtimeMs = null }
+        try { stats.rotated = fs.existsSync(file + '.1') } catch (e) { stats.rotated = false }
         if (!st) { if (offset !== 0) reset(); return }
         if (st.size < offset) reset() // GUI 清空(截断)或 MCP 轮转成新文件
         if (st.size === offset) return
@@ -200,6 +239,8 @@ module.exports = {
       txBytes: stats.txBytes, rxBytes: stats.rxBytes,
       lastAt: stats.lastAt, exists: stats.exists,
       kept: entries.length, lastSeq: seq, logPath: file,
+      badLines: stats.badLines, logSize: stats.logSize,
+      logMtimeMs: stats.logMtimeMs, rotated: stats.rotated,
       diag: SHELL_DIAG,
     })
 
@@ -229,7 +270,16 @@ module.exports = {
           const url = new URL(req.url, 'http://local')
           const sinceRaw = url.searchParams.get('since')
           const since = Number(sinceRaw)
-          const out = sinceRaw === null ? entries.slice(-DEFAULT_FIRST) : sliceSince(since)
+          let out = sinceRaw === null ? entries.slice(-DEFAULT_FIRST) : sliceSince(since)
+          // 紧凑模式(agent 友好):去掉 text/hex 双份载荷,只留单字段按码点截断
+          if (url.searchParams.get('compact') === '1') {
+            const rawMax = Number(url.searchParams.get('max'))
+            const max = Number.isFinite(rawMax) && rawMax > 0 ? Math.min(Math.floor(rawMax), 4096) : 512
+            out = out.map((e) => ({
+              seq: e.seq, dir: e.dir, tool: e.tool, tag: e.tag, len: e.len, dtMs: e.dtMs,
+              payload: truncateCodePoints(e.text || e.hex || '', max),
+            }))
+          }
           jsonResponse(res, 200, { ok: true, entries: out, stats: view() })
         } catch (error) {
           jsonResponse(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
@@ -259,6 +309,34 @@ module.exports = {
         }
       },
     }), 'dsh-serial-panel: ' + ROUTE_CLEAR)
+
+    // 导出 Host 内存环(≤MAX_ENTRIES 条,非完整磁盘日志)为 jsonl/csv 附件
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: ROUTE_EXPORT,
+      async handler(req, res) {
+        try {
+          if (req.method !== 'GET') {
+            jsonResponse(res, 405, { ok: false, error: 'GET only' })
+            return
+          }
+          const url = new URL(req.url, 'http://local')
+          const format = url.searchParams.get('format') === 'csv' ? 'csv' : 'jsonl'
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+          const body = format === 'csv'
+            ? toCsv(entries)
+            : entries.map((e) => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : '')
+          res.writeHead(200, {
+            'content-type': format === 'csv' ? 'text/csv; charset=utf-8' : 'application/jsonl; charset=utf-8',
+            'content-disposition': 'attachment; filename="acccom-serial-' + stamp + '.' + format + '"',
+            'cache-control': 'no-store',
+          })
+          res.end(body)
+        } catch (error) {
+          jsonResponse(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    }), 'dsh-serial-panel: ' + ROUTE_EXPORT)
 
     return () => {
       clearInterval(timer)

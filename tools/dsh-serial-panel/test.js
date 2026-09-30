@@ -5,6 +5,8 @@
 //  运行(在插件目录下):
 //    node test.js core     # 增量/半行/切片/批量裁剪/轮转/清空/方法守卫/诊断
 //    node test.js window   # 首次挂载只读尾部窗口(大日志不全量读入)
+//    node test.js api      # Δt/compact/导出/链路诊断(需要默认 MAX_ENTRIES≥40,
+//                          #   勿沿用 core 的 =5,否则环裁剪会吞掉断言目标行)
 //
 //  用环境变量把插件参数压小,便于快速触发边界:
 //    DSH_SERIAL_PANEL_LOG / DSH_SERIAL_PANEL_MAX_ENTRIES / DSH_SERIAL_PANEL_FIRST_TAIL
@@ -23,8 +25,8 @@ const logFile = process.env.DSH_SERIAL_PANEL_LOG
 if (!logFile) { console.error('DSH_SERIAL_PANEL_LOG must be set'); process.exit(1) }
 fs.mkdirSync(path.dirname(logFile), { recursive: true })
 
-const line = (id, dir, text, tag) => JSON.stringify({
-  id, tool: 'send', timestamp: '2026-08-18T10:00:00.123+08:00',
+const line = (id, dir, text, tag, ts) => JSON.stringify({
+  id, tool: 'send', timestamp: ts || '2026-08-18T10:00:00.123+08:00',
   direction: dir,
   rawHex: Buffer.from(text, 'utf8').toString('hex').toUpperCase(),
   text, portTag: tag || '',
@@ -41,6 +43,15 @@ let dispose2 = null
 
 const call = (route, req) => new Promise((resolve) => {
   const res = { writeHead() {}, end: (t) => resolve(JSON.parse(t)) }
+  routes[route](req, res)
+})
+// export 路由返回非 JSON 附件,需要捕获状态码/响应头/原始 body
+const callRaw = (route, req) => new Promise((resolve) => {
+  const cap = { status: 0, headers: {}, body: '' }
+  const res = {
+    writeHead: (s, h2) => { cap.status = s; cap.headers = h2 || {} },
+    end: (t) => { cap.body = t; resolve(cap) },
+  }
   routes[route](req, res)
 })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -63,6 +74,7 @@ const ok = (cond, label, extra) => {
     ok(r.ok && r.entries.length === 2, 'T1 首次读取返回全部行')
     ok(r.stats.lastSeq === 2 && r.stats.tx === 1 && r.stats.rx === 1, 'T1 统计与序号正确', r.stats)
     ok(r.stats.diag && typeof r.stats.diag === 'object', 'T1 附带 shell 诊断', r.stats.diag && Object.keys(r.stats.diag))
+    ok(r.entries[0].dtMs === null && r.entries[1].dtMs === 0, 'T1 Δt:首条 null,同毫秒钳 0', r.entries.map((e) => e.dtMs))
 
     // T2 半行拼接(写入端分批写)
     fs.appendFileSync(logFile, line(3, 'RX', 'part'))
@@ -107,6 +119,7 @@ const ok = (cond, label, extra) => {
     await sleep(600)
     r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0' })
     ok(r.ok && r.entries.length === 1 && r.entries[0].text === 'after-bad', 'T7 坏行跳过,后续行照常解析', r.entries)
+    ok(r.stats.badLines === 1, 'T7 坏行计数入 stats', r.stats.badLines)
   }
 
   if (mode === 'window') {
@@ -134,6 +147,69 @@ const ok = (cond, label, extra) => {
     ok(res.entries[res.entries.length - 1].id === 60, 'T8 最后一行完整解析')
     ok(res.entries[0].id > 1 && res.entries[0].id < 60, 'T8 首行来自窗口(证明未全量读入)', res.entries[0].id)
     ok(res.entries.every((e) => typeof e.text === 'string' && e.text.startsWith('payload-')), 'T8 无半行造成的脏数据')
+  }
+
+  if (mode === 'api') {
+    // 防呆:core 模式遗留的 MAX_ENTRIES=5 会把断言目标行裁出内存环
+    const envMax = Number(process.env.DSH_SERIAL_PANEL_MAX_ENTRIES || 0)
+    if (envMax > 0 && envMax < 40) {
+      throw new Error('api 模式需要 MAX_ENTRIES≥40(或 Remove-Item Env:DSH_SERIAL_PANEL_MAX_ENTRIES 后运行)')
+    }
+
+    // T9 Δt / 链路诊断字段
+    const raw = (obj) => JSON.stringify(obj)
+    fs.writeFileSync(logFile, [
+      line(1, 'TX', 'dt1', '', '2026-08-18T10:00:01.000+08:00'),
+      line(2, 'RX', 'dt2', '', '2026-08-18T10:00:02.250+08:00'),
+      line(3, 'TX', 'dt3', '', '2026-08-18T10:00:02.000+08:00'),
+      line(4, 'TX', 'badts', '', 'not-a-date'),
+      raw({ id: 5, tool: 'send', timestamp: '2026-08-18T10:00:03.000+08:00', direction: 'TX', rawHex: '', text: '😀😀', portTag: '' }),
+      raw({ id: 6, tool: 'send', timestamp: '2026-08-18T10:00:03.100+08:00', direction: 'RX', rawHex: '', text: 'x'.repeat(600), portTag: 'p9' }),
+      raw({ id: 7, tool: 'send', timestamp: '2026-08-18T10:00:03.200+08:00', direction: 'RX', rawHex: '', text: 'y'.repeat(5000), portTag: '' }),
+      raw({ id: 8, tool: 'send', timestamp: '2026-08-18T10:00:03.300+08:00', direction: 'TX', rawHex: 'DEADBEEF', text: '', portTag: '' }),
+      raw({ id: 9, tool: 'send', timestamp: '2026-08-18T10:00:03.400+08:00', direction: 'TX', rawHex: '', text: 'a,b"c\nd', portTag: '' }),
+    ].join('\n') + '\n')
+    await sleep(600)
+    let r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0' })
+    const byId = {}
+    for (const e of r.entries) byId[e.id] = e
+    ok(byId[1] && byId[1].dtMs === null, 'T9 首条 Δt 为 null', byId[1] && byId[1].dtMs)
+    ok(byId[2] && byId[2].dtMs === 1250, 'T9 Δt 正常计算', byId[2] && byId[2].dtMs)
+    ok(byId[3] && byId[3].dtMs === 0, 'T9 乱序时间戳钳 0', byId[3] && byId[3].dtMs)
+    ok(byId[4] && byId[4].dtMs === null, 'T9 坏时间戳记 null(基准不推进)', byId[4] && byId[4].dtMs)
+    ok(typeof r.stats.logSize === 'number' && r.stats.logSize > 0
+      && typeof r.stats.logMtimeMs === 'number' && typeof r.stats.rotated === 'boolean'
+      && r.stats.badLines === 0, 'T9 链路诊断字段齐备', r.stats)
+
+    // T10 compact 模式(compact 输出无 id 字段,按 seq 索引;此文件 seq=id)
+    r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0&compact=1' })
+    const c = {}
+    for (const e of r.entries) c[e.seq] = e
+    ok(!('text' in c[1]) && !('hex' in c[1]) && typeof c[1].payload === 'string', 'T10 去掉 text/hex 只留 payload', Object.keys(c[1] || {}))
+    r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0&compact=1&max=1' })
+    ok(r.entries.find((e) => e.seq === 5).payload === '😀', 'T10 截断按码点(代理对不劈开)', r.entries.find((e) => e.seq === 5))
+    ok(c[6].payload.length === 512, 'T10 默认 max=512', c[6] && c[6].payload.length)
+    r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0&compact=1&max=999999' })
+    ok(r.entries.find((e) => e.seq === 7).payload.length === 4096, 'T10 max 上限 4096', r.entries.find((e) => e.seq === 7).payload.length)
+    r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0&compact=1&max=8' })
+    ok(r.entries.find((e) => e.seq === 8).payload === 'DEADBEEF', 'T10 text 空回落 hex', r.entries.find((e) => e.seq === 8))
+
+    // T11 导出 jsonl/csv + 方法守卫
+    const rJsonl = await callRaw('/api/acccom-serial/export', { method: 'GET', url: '/api/acccom-serial/export?format=jsonl' })
+    const jsonlLines = rJsonl.body.split('\n').filter(Boolean)
+    ok(rJsonl.status === 200
+      && /jsonl/.test(rJsonl.headers['content-type'] || '')
+      && /acccom-serial-/.test(rJsonl.headers['content-disposition'] || '')
+      && jsonlLines.length === r.entries.length
+      && typeof JSON.parse(jsonlLines[0]).seq === 'number', 'T11 jsonl 导出逐行可解析', { n: jsonlLines.length, h: rJsonl.headers })
+    const rCsv = await callRaw('/api/acccom-serial/export', { method: 'GET', url: '/api/acccom-serial/export?format=csv' })
+    ok(rCsv.status === 200
+      && /csv/.test(rCsv.headers['content-type'] || '')
+      && rCsv.body.charCodeAt(0) === 0xFEFF
+      && rCsv.body.slice(1).startsWith('seq,ts,dir,tool,tag,len,dtMs,text,hex'), 'T11 csv 表头与 BOM', rCsv.body.slice(0, 60))
+    ok(rCsv.body.indexOf('"a,b""c\nd"') >= 0, 'T11 csv 逗号/引号/换行转义', JSON.stringify(rCsv.body.slice(-60)))
+    const r405 = await call('/api/acccom-serial/export', { method: 'POST', url: '/' })
+    ok(r405.ok === false && /GET only/.test(r405.error), 'T11 export 拒绝 POST')
   }
 
   // 两个实例都要释放:apply 返回的 disposer 会 clearInterval(tail),
