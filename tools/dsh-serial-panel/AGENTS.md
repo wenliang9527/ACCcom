@@ -40,3 +40,10 @@ mtime 很旧 → 写入端疑似挂了;size 在涨但 entries 不涨 → 格式�
 3. `curl "<origin>/api/acccom-serial?since=<S>&compact=1"` 读回本次操作的全部收发。
 
 需要更早的历史时用 `export` 导出完整内存环再离线分析。
+
+## 与 skill 的关系
+
+本机 ZCode 与 DSH 均装有 `acccom-serial` skill(`~/.zcode/skills/` 与
+`~/.dsh/skills/`):那是本工具链的**判断层**(三层接口选择、read_data vs 飞行
+记录仪、干净复现工作流、端口纪律);本文件是 **API 参考**。参数细节以本文件
+(经 `/help` 实时返回)为准,操作策略听 skill。
