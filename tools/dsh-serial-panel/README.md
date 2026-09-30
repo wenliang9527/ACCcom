@@ -1,4 +1,4 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.4.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.5.0
 
 DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
 "ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
@@ -112,11 +112,25 @@ deploy.cmd web    :: 追加部署到 web profile
 | 搜索命中高亮 | 搜索时行内 payload 命中片段高亮(mark,amber 半透明,深浅主题通用) |
 | 语义色接入主题 | 状态点/诊断行/复制成功色改用 DSH 语义 token(`--dsw-alias-state-success/warn/error-primary`、`--dsw-alias-brand-primary`),原十六进制作兜底值,token 缺失时渲染不变 |
 
+## v1.5.0 感知与效率
+
+| 项 | 说明 |
+|---|---|
+| 图标流量徽章 | 左侧 🔌 图标带「有新流量」红点:图标自带 `?stats=1` 零载荷轮询(5s,页面隐藏 8s),tab 体未挂载时徽章仍工作;面板可见且实时跟随时自动标记已读 |
+| 正则搜索 | 工具栏 `.*` 开关;非法表达式自动回退子串匹配;命中高亮同样支持正则(内部克隆加 g 标志,零长匹配防死循环) |
+| 快捷键 | 面板持有焦点时:空格 = 暂停/继续,`/` = 聚焦搜索框,Esc = 取消选中;点击面板非表单区域即获得焦点;对话输入框的事件不经过面板 DOM,不受影响 |
+| 心律端点 | Host 新增 `GET /?stats=1`(零条目仅统计),也供 agent 做存活检查 |
+
+### v1.5.0 测试要点
+
+`highlightRe` 的 exec 循环必须用带 `g` 标志的正则——非全局正则的 `exec` 永远返回
+首个命中,靠计数上限才停(第一版实现的真实 bug,冒烟测试当场抓住)。
+
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(53 项断言),已实测通过:
+Host 半区带一套零依赖行为测试(60 项断言),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"

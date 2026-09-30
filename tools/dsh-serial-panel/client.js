@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.4.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.5.0
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -45,6 +45,13 @@
 //   * 搜索命中在行内高亮(payload/mark)
 //   * 语义色接入 DSH 主题 token(state-success/warn/error、brand,
 //     原十六进制作兜底值,token 缺失时渲染不变)
+//
+//  ── v1.5.0 感知与效率 ──
+//   * 左侧图标「有新流量」圆点:图标自带 ?stats=1 零载荷轮询(5s,页面隐藏 8s),
+//     面板可见且未挂起时即视为已读;tab 体未挂载时徽章仍工作
+//   * 正则搜索:.* 开关,非法表达式自动回退子串;命中高亮同样支持正则
+//   * 快捷键(仅面板获得焦点时,绝不影响对话输入):空格=暂停,/ =聚焦搜索,
+//     Esc=取消选中
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -77,6 +84,36 @@ window.__ModuleLoader__.load({
     const fmtBytes = (n) => (n >= 1024 ? (n / 1024).toFixed(1) + 'K' : String(n | 0))
 
     const DIR_COLOR = { TX: '#d97706', RX: '#059669' }
+    const MARK_STYLE = { background: 'rgba(245, 158, 11, 0.35)', color: 'inherit', borderRadius: 2, padding: '0 1px' }
+
+    // ---- 流量徽章共享态:图标轮询推进 lastSeq,面板可见时标记已读 ----
+    const badgeStore = {
+      lastSeq: 0,
+      lastSeenSeq: 0,
+      subs: new Set(),
+      update(seq) { if (seq > this.lastSeq) { this.lastSeq = seq; this.notify() } },
+      markSeen(seq) { if (seq > this.lastSeenSeq) { this.lastSeenSeq = seq; this.notify() } },
+      unread() { return this.lastSeq > this.lastSeenSeq },
+      notify() { for (const fn of this.subs) { try { fn() } catch (e) { /* 订阅者异常不扩散 */ } } },
+      subscribe(fn) { this.subs.add(fn); return () => this.subs.delete(fn) },
+    }
+
+    // 搜索匹配器:正则开关开启且表达式合法 → RegExp;否则小写子串(空查询 → null)
+    const compileMatcher = (query, useRegex) => {
+      const q = String(query || '').trim()
+      if (!q) return null
+      if (useRegex) {
+        try { return new RegExp(q, 'i') } catch (e) { return q.toLowerCase() } // 非法正则回退子串
+      }
+      return q.toLowerCase()
+    }
+
+    const matcherHit = (matcher, e) => (matcher instanceof RegExp
+      ? matcher.test(e.text || '') || matcher.test(e.hex || '') || matcher.test(e.tool || '') || matcher.test(e.tag || '')
+      : (e.text && e.text.toLowerCase().indexOf(matcher) >= 0)
+        || (e.hex && e.hex.toLowerCase().indexOf(matcher) >= 0)
+        || (e.tool && e.tool.toLowerCase().indexOf(matcher) >= 0)
+        || (e.tag && e.tag.toLowerCase().indexOf(matcher) >= 0))
 
     // ---- 一次性样式:hover/窄宽度降级(inline style 写不了 :hover 与媒体查询) ----
     // 行背景整体走 class:内联 background 会压过样式表,导致 hover 失效
@@ -117,12 +154,29 @@ window.__ModuleLoader__.load({
         const hit = lower.indexOf(needle, i)
         if (hit < 0) { if (i < s.length) out.push(s.slice(i)); break }
         if (hit > i) out.push(s.slice(i, hit))
-        out.push(h('mark', {
-          key: hit,
-          style: { background: 'rgba(245, 158, 11, 0.35)', color: 'inherit', borderRadius: 2, padding: '0 1px' },
-        }, s.slice(hit, hit + needle.length)))
+        out.push(h('mark', { key: hit, style: MARK_STYLE }, s.slice(hit, hit + needle.length)))
         i = hit + needle.length
       }
+      return out.length ? out : [s]
+    }
+
+    // 正则版高亮:exec 循环需要 g 标志(非 g 的 exec 永远返回首个命中 → 死循环),
+    // 内部克隆加 g;零长匹配 lastIndex 前进 1 位防空转
+    const highlightRe = (text, re) => {
+      const s = String(text)
+      const g = re.flags.indexOf('g') >= 0 ? re : new RegExp(re.source, re.flags + 'g')
+      g.lastIndex = 0
+      const out = []
+      let i = 0
+      let m
+      let guard = 0
+      while ((m = g.exec(s)) !== null && guard++ < 1000) {
+        if (m.index > i) out.push(s.slice(i, m.index))
+        out.push(h('mark', { key: i + ':' + m.index, style: MARK_STYLE }, m[0]))
+        i = m.index + (m[0].length || 1)
+        if (!m[0].length) g.lastIndex = i
+      }
+      if (i < s.length) out.push(s.slice(i))
       return out.length ? out : [s]
     }
 
@@ -201,10 +255,12 @@ window.__ModuleLoader__.load({
     )
 
     // ---- 组件:行条目(memo:引用未变的行不重渲染) ----
-    const Row = React.memo(function Row({ e, hex, selected, onSelect, q, onPort }) {
+    const Row = React.memo(function Row({ e, hex, selected, onSelect, matcher, onPort }) {
       const raw = hex ? (fmtHex(e.hex) || e.text) : (e.text || fmtHex(e.hex))
       const payload = raw.length > ROW_PAYLOAD_MAX ? raw.slice(0, ROW_PAYLOAD_MAX) + ' …' : raw
-      const payloadChildren = q ? highlight(payload, q) : payload
+      const payloadChildren = !matcher ? payload
+        : matcher instanceof RegExp ? highlightRe(payload, matcher)
+        : highlight(payload, matcher)
       return h('div', {
         className: 'sp-row' + (selected ? ' sp-sel' : ''),
         onClick: () => onSelect(e),
@@ -281,6 +337,7 @@ window.__ModuleLoader__.load({
       const [dir, setDir] = React.useState(prefs0.dir || 'ALL')
       const [port, setPort] = React.useState(prefs0.port || 'ALL')
       const [follow, setFollow] = React.useState(prefs0.follow !== false)
+      const [useRegex, setUseRegex] = React.useState(!!prefs0.useRegex)
       const [autoSuspended, setAutoSuspended] = React.useState(false) // 向上翻历史时自动挂起跟随(临时态)
       const [newCount, setNewCount] = React.useState(0) // 挂起期间到达的新条数(浮出提示)
       const [confirmClear, setConfirmClear] = React.useState(false)
@@ -289,13 +346,15 @@ window.__ModuleLoader__.load({
       const lastSeqRef = React.useRef(0)
       const pausedRef = React.useRef(paused)
       const listRef = React.useRef(null)
+      const searchRef = React.useRef(null)
+      const rootRef = React.useRef(null)
       const confirmTimerRef = React.useRef(null)
       const inFlightRef = React.useRef(false)
       const autoSuspendedRef = React.useRef(false)
 
       React.useEffect(() => { pausedRef.current = paused }, [paused])
       React.useEffect(() => { autoSuspendedRef.current = autoSuspended }, [autoSuspended])
-      React.useEffect(() => { savePrefs({ hex, dir, follow, port }) }, [hex, dir, follow, port])
+      React.useEffect(() => { savePrefs({ hex, dir, follow, port, useRegex }) }, [hex, dir, follow, port, useRegex])
       React.useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current) }, [])
 
       // ---- 自适应增量轮询(单条 setTimeout 链,避免固定间隔空转) ----
@@ -423,29 +482,23 @@ window.__ModuleLoader__.load({
       }, [entries])
       const portOptions = port !== 'ALL' && ports.indexOf(port) < 0 ? ports.concat(port) : ports
 
-      // ---- 过滤结果缓存:只在数据/方向/端口/关键字变化时重算 ----
+      // ---- 过滤结果缓存:只在数据/方向/端口/匹配器变化时重算 ----
+      const matcher = React.useMemo(() => compileMatcher(search, useRegex), [search, useRegex])
       const visible = React.useMemo(() => {
-        const q = search.trim().toLowerCase()
         const out = []
         for (let i = 0; i < entries.length; i++) {
           const e = entries[i]
           if (e.kind === 'gap') {
-            if (dir === 'ALL' && !q) out.push(e) // 断层标记仅在无过滤时显示
+            if (dir === 'ALL' && !matcher) out.push(e) // 断层标记仅在无过滤时显示
             continue
           }
           if (dir !== 'ALL' && e.dir !== dir) continue
           if (port !== 'ALL' && e.tag !== port) continue
-          if (q) {
-            const hit = (e.text && e.text.toLowerCase().indexOf(q) >= 0)
-              || (e.hex && e.hex.toLowerCase().indexOf(q) >= 0)
-              || (e.tool && e.tool.toLowerCase().indexOf(q) >= 0)
-              || (e.tag && e.tag.toLowerCase().indexOf(q) >= 0)
-            if (!hit) continue
-          }
+          if (matcher && !matcherHit(matcher, e)) continue
           out.push(e)
         }
         return out
-      }, [entries, dir, port, search])
+      }, [entries, dir, port, matcher])
 
       const visibleCount = visible.length
       const rendered = visibleCount > MAX_RENDER_ROWS ? visible.slice(visibleCount - MAX_RENDER_ROWS) : visible
@@ -501,8 +554,11 @@ window.__ModuleLoader__.load({
           h('option', { value: 'ALL' }, '全部端口'),
           portOptions.map((t) => h('option', { key: t, value: t }, t)),
         ),
+        btn('.*', () => setUseRegex(!useRegex), useRegex, '正则模式(非法表达式自动回退子串匹配)'),
         h('input', {
-          value: search, placeholder: '过滤 text/hex/tool/port…',
+          ref: searchRef,
+          value: search,
+          placeholder: useRegex ? '正则过滤 text/hex/tool/port…' : '过滤 text/hex/tool/port…',
           onChange: (e) => setSearch(e.target.value),
           style: { flex: '1 1 140px', minWidth: 120, height: 28, fontSize: 12, padding: '0 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)', background: 'var(--dsw-alias-bg-layer-3, #fff)', color: 'var(--dsw-alias-label-primary, #222)', boxSizing: 'border-box' },
         }),
@@ -548,7 +604,7 @@ window.__ModuleLoader__.load({
               ? h(GapRow, { key: 'gap-' + e.seq, count: e.count })
               : h(Row, {
                   key: e.seq, e, hex,
-                  q: search.trim(),
+                  matcher,
                   onPort: (tag) => setPort(port === tag ? 'ALL' : tag),
                   selected: selected && selected.seq === e.seq, onSelect: setSelected,
                 }))),
@@ -592,10 +648,34 @@ window.__ModuleLoader__.load({
           fmtHex(selected.hex)),
       ) : null
 
+      // ---- 快捷键(仅面板持有焦点时;对话输入框的事件不经过本 DOM,不受影响) ----
+      const isFormField = (t) => {
+        const tag = t && t.tagName
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)
+      }
+      const onKeyDown = (e) => {
+        if (isFormField(e.target) || e.target.tagName === 'BUTTON') return // Space 让按钮保持原生点击
+        if (e.key === ' ') { e.preventDefault(); setPaused(!pausedRef.current) }
+        else if (e.key === '/') { e.preventDefault(); if (searchRef.current) searchRef.current.focus() }
+        else if (e.key === 'Escape') setSelected(null)
+      }
+      // 点击面板任意非表单区域即聚焦根节点,让快捷键随手可用
+      const onMouseDown = (e) => {
+        if (isFormField(e.target) || e.target.tagName === 'BUTTON') return
+        if (rootRef.current) rootRef.current.focus()
+      }
+
+      // 面板可见且未暂停未挂起 = 正在实时看 → 标记已读,清掉左侧图标圆点
+      React.useEffect(() => {
+        if (tabVisible && !paused && !autoSuspended && stats) badgeStore.markSeen(stats.lastSeq || 0)
+      }, [tabVisible, paused, autoSuspended, stats])
+
       return h('div', {
+        ref: rootRef, tabIndex: -1, onKeyDown, onMouseDown,
         style: {
           // 停靠 pane 内必须锁宽:内容(hex 行不换行)会把无宽约束的根撑到比 pane 宽,
           // 被 tabBody 的 overflow:hidden 直接裁掉——拖拽调宽时表现为"数据不跟随"
+          outline: 'none',
           width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden',
           containerType: 'inline-size', containerName: 'sp-panel',
           height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
@@ -608,7 +688,27 @@ window.__ModuleLoader__.load({
     }
 
     // ---- 组件:侧边栏面板入口(点击打开面板;优先右栏 tab,兜底整屏) ----
+    // 自带 ?stats=1 轻量轮询驱动「有新流量」圆点:tab 体未挂载时徽章的唯一数据源
     const PanelIcon = (props) => {
+      const [unread, setUnread] = React.useState(badgeStore.unread())
+      React.useEffect(() => badgeStore.subscribe(() => setUnread(badgeStore.unread())), [])
+      React.useEffect(() => {
+        let alive = true
+        let timer = null
+        const tick = async () => {
+          timer = null
+          if (!alive) return
+          if (document.visibilityState === 'hidden') { timer = setTimeout(tick, 8000); return }
+          try {
+            const r = await fetch(ROUTE + '?stats=1', { cache: 'no-store' })
+            const j = await r.json()
+            if (alive && j && j.ok && j.stats) badgeStore.update(j.stats.lastSeq || 0)
+          } catch (e) { /* Host 未起:静默 */ }
+          if (alive) timer = setTimeout(tick, 5000)
+        }
+        tick()
+        return () => { alive = false; if (timer !== null) clearTimeout(timer) }
+      }, [])
       const onClick = (e) => {
         if (props && typeof props.onOpen === 'function') { props.onOpen(e); return }
         if (props && typeof props.onClick === 'function') { props.onClick(e); return }
@@ -621,14 +721,25 @@ window.__ModuleLoader__.load({
       return h('span', {
         title: props && props.title ? props.title : 'ACCCOM 串口面板',
         onClick,
-        style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', lineHeight: 1 },
-      }, h(PlugGlyph, { size: 16 }))
+        style: { position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', lineHeight: 1 },
+      },
+        h(PlugGlyph, { size: 16 }),
+        unread ? h('span', {
+          title: '有新的串口流量',
+          style: {
+            position: 'absolute', top: -3, right: -5, width: 7, height: 7,
+            borderRadius: 999,
+            background: 'var(--dsw-alias-state-error-primary, #ef4444)',
+            border: '1px solid var(--dsw-alias-bg-layer-2, #fff)',
+          },
+        }) : null,
+      )
     }
 
     return {
       inject: ['slots', 'sidebarRight', 'sidebarRightTabs'],
       // 纯函数仅供 test.js client 模式断言,生产逻辑不依赖
-      _test: { highlight, hueOf, fmtDt, sameStats },
+      _test: { highlight, highlightRe, compileMatcher, matcherHit, hueOf, fmtDt, sameStats, badgeStore },
       apply: function (ctx) {
         const slots = ctx.get('slots')
         if (slots === undefined) return

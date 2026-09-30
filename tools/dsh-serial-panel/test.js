@@ -182,6 +182,11 @@ const ok = (cond, label, extra) => {
       && typeof r.stats.logMtimeMs === 'number' && typeof r.stats.rotated === 'boolean'
       && r.stats.badLines === 0, 'T9 链路诊断字段齐备', r.stats)
 
+    // stats=1 心律模式:零条目仅统计
+    const rh = await call('/api/acccom-serial', { method: 'GET', url: '/?stats=1' })
+    ok(rh.ok && rh.entries.length === 0 && rh.stats.lastSeq === 9 && rh.stats.tx === 6,
+      'T9 stats=1 返回零条目仅统计', rh.stats)
+
     // T10 compact 模式(compact 输出无 id 字段,按 seq 索引;此文件 seq=id)
     r = await call('/api/acccom-serial', { method: 'GET', url: '/?since=0&compact=1' })
     const c = {}
@@ -246,6 +251,35 @@ const ok = (cond, label, extra) => {
     ok(mod._test.highlight('ABC', 'a').length === 2, 'T13 highlight 大小写不敏感')
     ok(mod._test.fmtDt(null) === '—' && mod._test.fmtDt(500) === '500ms' && mod._test.fmtDt(1500) === '1.50s', 'T13 fmtDt 三档格式')
     ok(mod._test.hueOf('COM15') === mod._test.hueOf('COM15') && Number.isInteger(mod._test.hueOf('COM15')), 'T13 hueOf 稳定')
+
+    // T14 v1.5.0:匹配器/正则高亮/徽章共享态
+    const cm = mod._test.compileMatcher
+    ok(cm('ABC', false) === 'abc', 'T14 子串模式小写化', cm('ABC', false))
+    const re = cm('^53 48', true)
+    ok(re instanceof RegExp && re.source === '^53 48' && re.ignoreCase, 'T14 正则模式返回 RegExp', re)
+    ok(cm('((', true) === '((', 'T14 非法正则回退子串', cm('((', true))
+    ok(cm('  ', true) === null, 'T14 空查询返回 null')
+    const hitRe = mod._test.matcherHit(cm('53 48', true), { text: '', hex: '53 48 03', tool: 'send', tag: '' })
+    ok(hitRe === true, 'T14 matcherHit 正则命中 hex 字段', hitRe)
+    const hr = mod._test.highlightRe('ab', /x*/)
+    ok(Array.isArray(hr) && hr.length >= 2, 'T14 正则高亮零长匹配不死循环', hr.map((x) => (typeof x === 'string' ? x : x.type)))
+    const hr2 = mod._test.highlightRe('a1b2', /\d/)
+    ok(hr2.length === 4 && hr2[1].type === 'mark' && hr2[1].children[0] === '1'
+      && hr2[3].children[0] === '2', 'T14 正则高亮包裹数字命中(非 g 正则不死循环)', hr2.map((x) => (typeof x === 'string' ? x : x.children)))
+
+    const bs = mod._test.badgeStore
+    const events = []
+    const un = bs.subscribe(() => events.push(bs.unread()))
+    bs.markSeen(10)
+    bs.update(15)
+    ok(events.length === 2 && events[0] === false && events[1] === true, 'T14 badgeStore markSeen→update 依次通知', events)
+    bs.markSeen(15)
+    ok(events.length === 3 && events[2] === false && bs.unread() === false, 'T14 markSeen 推进已读水位并清零', events)
+    bs.update(15)
+    ok(events.length === 3, 'T14 seq 不前进不重复通知')
+    un()
+    bs.update(20)
+    ok(events.length === 3, 'T14 退订后不再通知')
 
     // 兜底分支:无 rightbar 服务 → main 槽
     const calls = []

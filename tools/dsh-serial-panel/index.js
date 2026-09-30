@@ -270,9 +270,13 @@ module.exports = {
           const url = new URL(req.url, 'http://local')
           const sinceRaw = url.searchParams.get('since')
           const since = Number(sinceRaw)
-          let out = sinceRaw === null ? entries.slice(-DEFAULT_FIRST) : sliceSince(since)
+          // stats=1 心律模式:零条目仅统计(图标徽章轮询/agent 存活检查用)
+          const statsOnly = url.searchParams.get('stats') === '1'
+          let out = statsOnly
+            ? []
+            : (sinceRaw === null ? entries.slice(-DEFAULT_FIRST) : sliceSince(since))
           // 紧凑模式(agent 友好):去掉 text/hex 双份载荷,只留单字段按码点截断
-          if (url.searchParams.get('compact') === '1') {
+          if (!statsOnly && url.searchParams.get('compact') === '1') {
             const rawMax = Number(url.searchParams.get('max'))
             const max = Number.isFinite(rawMax) && rawMax > 0 ? Math.min(Math.floor(rawMax), 4096) : 512
             out = out.map((e) => ({
