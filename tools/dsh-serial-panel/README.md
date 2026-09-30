@@ -1,4 +1,4 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.3.1
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.4.0
 
 DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
 "ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
@@ -103,11 +103,20 @@ deploy.cmd web    :: 追加部署到 web profile
 列表 `overflow-x:hidden`;列降级从视口 `@media`(1920 视口下永不触发)换成
 `@container sp-panel` 容器查询,随面板实际宽度实时生效。
 
+## v1.4.0 易用性
+
+| 项 | 说明 |
+|---|---|
+| 新数据浮出提示 | 跟随挂起(翻历史)期间到达的条目计数,列表右下角浮出「↓ N 条新数据」按钮,点击回底并自动恢复跟随 |
+| 端口色块点击过滤 | 行内 portTag 色块可点击 = 过滤该端口;再点同端口切回全部 |
+| 搜索命中高亮 | 搜索时行内 payload 命中片段高亮(mark,amber 半透明,深浅主题通用) |
+| 语义色接入主题 | 状态点/诊断行/复制成功色改用 DSH 语义 token(`--dsw-alias-state-success/warn/error-primary`、`--dsw-alias-brand-primary`),原十六进制作兜底值,token 缺失时渲染不变 |
+
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(48 项断言),已实测通过:
+Host 半区带一套零依赖行为测试(53 项断言),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"

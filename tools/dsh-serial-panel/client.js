@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.3.1
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.4.0
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -37,6 +37,14 @@
 //     表现为拖拽调宽后内容不重排、右缘被切
 //   * 列降级从视口 @media 换成容器 @container(1920 视口下面板拖到 300px,
 //     media query 永不触发);≤520px 额外隐藏 RX/TX 统计文本
+//
+//  ── v1.4.0 易用性 ──
+//   * 跟随挂起时列表右下角浮出「↓ N 条新数据」按钮,点击回底并恢复跟随
+//     (标准 log-viewer 模式:翻历史期间不再错过新数据)
+//   * 行内端口色块可点击 = 过滤该端口(再点同端口切回全部)
+//   * 搜索命中在行内高亮(payload/mark)
+//   * 语义色接入 DSH 主题 token(state-success/warn/error、brand,
+//     原十六进制作兜底值,token 缺失时渲染不变)
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -96,6 +104,28 @@ window.__ModuleLoader__.load({
 
     const fmtDt = (ms) => (ms == null ? '—' : ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(2) + 's')
 
+    // 搜索命中高亮:大小写不敏感,返回字符串/mark 混合的 children 数组
+    const highlight = (text, q) => {
+      if (!q) return [text]
+      const s = String(text)
+      const lower = s.toLowerCase()
+      const needle = q.toLowerCase()
+      if (!needle) return [s]
+      const out = []
+      let i = 0
+      for (;;) {
+        const hit = lower.indexOf(needle, i)
+        if (hit < 0) { if (i < s.length) out.push(s.slice(i)); break }
+        if (hit > i) out.push(s.slice(i, hit))
+        out.push(h('mark', {
+          key: hit,
+          style: { background: 'rgba(245, 158, 11, 0.35)', color: 'inherit', borderRadius: 2, padding: '0 1px' },
+        }, s.slice(hit, hit + needle.length)))
+        i = hit + needle.length
+      }
+      return out.length ? out : [s]
+    }
+
     // portTag → 稳定色相:多端口流量交错时一眼区分
     const hueOf = (tag) => {
       let hsh = 0
@@ -138,8 +168,8 @@ window.__ModuleLoader__.load({
         style: {
           appearance: 'none', cursor: 'pointer', fontSize: 11, padding: '2px 8px',
           borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #ddd)',
-          background: done ? '#10b981' : 'var(--dsw-alias-bg-layer-3, #fff)',
-          color: done ? '#fff' : 'var(--dsw-alias-label-secondary, #666)', font: 'inherit',
+          background: done ? 'var(--dsw-alias-state-success-primary, #10b981)' : 'var(--dsw-alias-bg-layer-3, #fff)',
+          color: done ? 'var(--dsw-alias-bg-layer-1, #fff)' : 'var(--dsw-alias-label-secondary, #666)', font: 'inherit',
         },
       }, done ? '已复制' : (label || '复制'))
     }
@@ -171,9 +201,10 @@ window.__ModuleLoader__.load({
     )
 
     // ---- 组件:行条目(memo:引用未变的行不重渲染) ----
-    const Row = React.memo(function Row({ e, hex, selected, onSelect }) {
+    const Row = React.memo(function Row({ e, hex, selected, onSelect, q, onPort }) {
       const raw = hex ? (fmtHex(e.hex) || e.text) : (e.text || fmtHex(e.hex))
       const payload = raw.length > ROW_PAYLOAD_MAX ? raw.slice(0, ROW_PAYLOAD_MAX) + ' …' : raw
+      const payloadChildren = q ? highlight(payload, q) : payload
       return h('div', {
         className: 'sp-row' + (selected ? ' sp-sel' : ''),
         onClick: () => onSelect(e),
@@ -193,9 +224,15 @@ window.__ModuleLoader__.load({
           },
         }, e.dir),
         e.tag ? h('span', {
-          title: e.tag,
+          title: '按端口 ' + e.tag + ' 过滤(再点切回全部)',
+          onClick: (ev) => {
+            ev.stopPropagation()
+            if (typeof onPort === 'function') onPort(e.tag)
+          },
           style: {
             flex: '0 0 8px', height: 8, borderRadius: 999, alignSelf: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 0 0 2px transparent',
             background: 'hsl(' + hueOf(e.tag) + ', 55%, 45%)',
           },
         }) : null,
@@ -210,7 +247,7 @@ window.__ModuleLoader__.load({
             flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             fontFamily: 'Consolas, Menlo, monospace', color: 'var(--dsw-alias-label-primary, #222)',
           },
-        }, payload),
+        }, payloadChildren),
       )
     })
 
@@ -245,6 +282,7 @@ window.__ModuleLoader__.load({
       const [port, setPort] = React.useState(prefs0.port || 'ALL')
       const [follow, setFollow] = React.useState(prefs0.follow !== false)
       const [autoSuspended, setAutoSuspended] = React.useState(false) // 向上翻历史时自动挂起跟随(临时态)
+      const [newCount, setNewCount] = React.useState(0) // 挂起期间到达的新条数(浮出提示)
       const [confirmClear, setConfirmClear] = React.useState(false)
       const [search, setSearch] = React.useState('')
       const [selected, setSelected] = React.useState(null)
@@ -253,8 +291,10 @@ window.__ModuleLoader__.load({
       const listRef = React.useRef(null)
       const confirmTimerRef = React.useRef(null)
       const inFlightRef = React.useRef(false)
+      const autoSuspendedRef = React.useRef(false)
 
       React.useEffect(() => { pausedRef.current = paused }, [paused])
+      React.useEffect(() => { autoSuspendedRef.current = autoSuspended }, [autoSuspended])
       React.useEffect(() => { savePrefs({ hex, dir, follow, port }) }, [hex, dir, follow, port])
       React.useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current) }, [])
 
@@ -291,6 +331,8 @@ window.__ModuleLoader__.load({
                 const prevLast = lastSeqRef.current
                 const firstSeq = inc[0].seq
                 lastSeqRef.current = inc[inc.length - 1].seq
+                // 跟随挂起期间到达的数据计数,浮出「新数据」提示
+                if (autoSuspendedRef.current) setNewCount((c) => c + inc.length)
                 setEntries((prev) => {
                   let next
                   if (firstSeq <= prevLast) {
@@ -338,7 +380,16 @@ window.__ModuleLoader__.load({
         const el = listRef.current
         if (!el) return
         const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
-        setAutoSuspended(!atBottom) // 值未变时 React 跳过重渲染
+        autoSuspendedRef.current = !atBottom // ref 同步赋值:事件与轮询之间不留渲染空窗
+        setAutoSuspended(!atBottom)          // 值未变时 React 跳过重渲染
+        if (atBottom) setNewCount(0)
+      }
+
+      // 浮出提示点击:回底部(随后的 scroll 事件会自动恢复跟随并清零计数)
+      const jumpToLatest = () => {
+        const el = listRef.current
+        if (el) el.scrollTop = el.scrollHeight
+        setNewCount(0)
       }
 
       // ---- 清空(两段式确认:webview 可能吞掉原生 confirm 对话框) ----
@@ -420,7 +471,14 @@ window.__ModuleLoader__.load({
       },
         h('span', {
           title: !connected ? 'Host 未响应' : (stats && stats.exists === false) ? '已连接,等待日志文件出现' : '已连接 Host 尾随',
-          style: { width: 8, height: 8, borderRadius: 999, background: !connected ? '#ef4444' : (stats && stats.exists === false) ? '#f59e0b' : '#10b981', flex: '0 0 auto' },
+          style: {
+            width: 8, height: 8, borderRadius: 999, flex: '0 0 auto',
+            background: !connected
+              ? 'var(--dsw-alias-state-error-primary, #ef4444)'
+              : (stats && stats.exists === false)
+                ? 'var(--dsw-alias-state-warn-primary, #f59e0b)'
+                : 'var(--dsw-alias-state-success-primary, #10b981)',
+          },
         }),
         h('span', { className: 'sp-stats', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #666)', fontVariantNumeric: 'tabular-nums' } },
           'RX ' + ((stats && stats.rx) || 0) + '(' + fmtBytes((stats && stats.rxBytes) || 0) + 'B) · TX ' + ((stats && stats.tx) || 0) + '(' + fmtBytes((stats && stats.txBytes) || 0) + 'B)'),
@@ -454,7 +512,9 @@ window.__ModuleLoader__.load({
 
       // 空态:API 地址(agent 可直接 curl)+ 链路状态 + shell 工具解析诊断
       const diag = stats && stats.diag
-      const shellLine = (label, exe, ok, hint) => h('div', { style: { color: ok ? '#059669' : '#d97706' } },
+      const shellLine = (label, exe, ok, hint) => h('div', {
+        style: { color: ok ? 'var(--dsw-alias-state-success-primary, #059669)' : 'var(--dsw-alias-state-warn-primary, #d97706)' },
+      },
         (ok ? '✓ ' : '⚠ ') + label + ' → ' + (exe || '(PATH 中未找到)') + (ok ? '' : '  ·  ' + hint))
       const apiFull = (typeof location !== 'undefined' && location.origin ? location.origin : '') + ROUTE
       const emptyBox = h('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dsw-alias-label-tertiary, #999)', fontSize: 13 } },
@@ -480,13 +540,36 @@ window.__ModuleLoader__.load({
 
       const list = h('div', {
         ref: listRef, onScroll,
-        style: { flex: 1, minHeight: 0, width: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--dsw-alias-bg-layer-2, #fff)' },
+        style: { flex: 1, minHeight: 0, width: '100%', overflowX: 'hidden', overflowY: 'auto' },
       },
         visibleCount === 0
           ? emptyBox
           : rendered.map((e) => (e.kind === 'gap'
               ? h(GapRow, { key: 'gap-' + e.seq, count: e.count })
-              : h(Row, { key: e.seq, e, hex, selected: selected && selected.seq === e.seq, onSelect: setSelected }))),
+              : h(Row, {
+                  key: e.seq, e, hex,
+                  q: search.trim(),
+                  onPort: (tag) => setPort(port === tag ? 'ALL' : tag),
+                  selected: selected && selected.seq === e.seq, onSelect: setSelected,
+                }))),
+      )
+
+      // 跟随挂起期间有新数据 → 右下角浮出提示,点击回底并恢复跟随
+      const listWrap = h('div', {
+        style: { flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', background: 'var(--dsw-alias-bg-layer-2, #fff)' },
+      },
+        list,
+        (autoSuspended && newCount > 0) ? h('button', {
+          type: 'button', onClick: jumpToLatest, title: '跳到最新并恢复跟随',
+          style: {
+            position: 'absolute', bottom: 14, right: 14, zIndex: 5,
+            appearance: 'none', cursor: 'pointer', border: 'none', borderRadius: 999,
+            padding: '6px 12px', fontSize: 12, fontWeight: 600, font: 'inherit',
+            color: 'var(--dsw-alias-bg-layer-1, #fff)',
+            background: 'var(--dsw-alias-brand-primary, #4f6bed)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
+          },
+        }, '↓ ' + newCount + ' 条新数据') : null,
       )
 
       const detail = selected ? h('div', {
@@ -520,7 +603,7 @@ window.__ModuleLoader__.load({
           color: 'var(--dsw-alias-label-primary, #222)',
         },
       },
-        toolbar, list, detail,
+        toolbar, listWrap, detail,
       )
     }
 
@@ -544,6 +627,8 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots', 'sidebarRight', 'sidebarRightTabs'],
+      // 纯函数仅供 test.js client 模式断言,生产逻辑不依赖
+      _test: { highlight, hueOf, fmtDt, sameStats },
       apply: function (ctx) {
         const slots = ctx.get('slots')
         if (slots === undefined) return

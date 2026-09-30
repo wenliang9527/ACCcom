@@ -238,6 +238,15 @@ const ok = (cond, label, extra) => {
     ok(Array.isArray(mod.inject) && mod.inject.includes('slots') && mod.inject.includes('sidebarRightTabs')
       && mod.inject.includes('sidebarRight'), 'T12 inject 声明含 slots + rightbar 服务', mod.inject)
 
+    // 纯函数契约(_test 导出)
+    const hi = mod._test.highlight('hello world hello', 'hello')
+    ok(Array.isArray(hi) && hi.length === 3 && hi[0].type === 'mark' && hi[1] === ' world ' && hi[2].type === 'mark',
+      'T13 highlight 命中包裹为 mark', hi.map((x) => (typeof x === 'string' ? x : x.type)))
+    ok(mod._test.highlight('abc', 'zz').length === 1 && mod._test.highlight('abc', 'zz')[0] === 'abc', 'T13 highlight 无命中原样返回')
+    ok(mod._test.highlight('ABC', 'a').length === 2, 'T13 highlight 大小写不敏感')
+    ok(mod._test.fmtDt(null) === '—' && mod._test.fmtDt(500) === '500ms' && mod._test.fmtDt(1500) === '1.50s', 'T13 fmtDt 三档格式')
+    ok(mod._test.hueOf('COM15') === mod._test.hueOf('COM15') && Number.isInteger(mod._test.hueOf('COM15')), 'T13 hueOf 稳定')
+
     // 兜底分支:无 rightbar 服务 → main 槽
     const calls = []
     const registered = {}
