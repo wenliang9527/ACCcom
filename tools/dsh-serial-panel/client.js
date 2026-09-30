@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.3.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.3.1
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -30,6 +30,13 @@
 //   * 左侧图标 = 打开右侧 tab;右栏 guide 默认页加入口卡片
 //   * DSH 无 rightbar 服务时自动回退整屏 main 模式(行为同 v1.2.0)
 //   * tab 不可见时轮询降为 2s;≤640px 隐藏工具列(停靠宽度下更从容)
+//
+//  ── v1.3.1 修复:停靠栏拖拽时数据不跟随 ──
+//   * 根元素锁宽(width:100%/min-width:0/overflow:hidden):面板体无宽约束时
+//     会被不换行的 hex 行撑到比 pane 宽,遭 tabBody overflow:hidden 裁切,
+//     表现为拖拽调宽后内容不重排、右缘被切
+//   * 列降级从视口 @media 换成容器 @container(1920 视口下面板拖到 300px,
+//     media query 永不触发);≤520px 额外隐藏 RX/TX 统计文本
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -74,6 +81,11 @@ window.__ModuleLoader__.load({
           '.sp-row { background: transparent; }',
           '.sp-row:hover { background: var(--dsw-alias-bg-layer-3, #f5f5f5); }',
           '.sp-row.sp-sel { background: var(--dsw-alias-bg-layer-3, #f0f0f0); }',
+          // 容器查询跟随面板实际宽度(停靠栏拖拽时列降级实时生效);
+          // 旧版 Chromium 不支持时仅失去列降级,media query 作小窗口兜底
+          '@container sp-panel (max-width: 640px) { .sp-tool { display: none; } }',
+          '@container sp-panel (max-width: 560px) { .sp-len { display: none; } }',
+          '@container sp-panel (max-width: 520px) { .sp-stats { display: none; } }',
           '@media (max-width: 640px) { .sp-tool { display: none; } }',
           '@media (max-width: 560px) { .sp-len { display: none; } }',
         ].join('\n')
@@ -167,6 +179,7 @@ window.__ModuleLoader__.load({
         onClick: () => onSelect(e),
         style: {
           display: 'flex', alignItems: 'baseline', gap: 8,
+          minWidth: 0, width: '100%', boxSizing: 'border-box',
           padding: '2px 10px', cursor: 'pointer',
           borderBottom: '1px solid var(--dsw-alias-border-l2, #f0f0f0)',
           fontSize: 12, lineHeight: 1.6,
@@ -409,7 +422,7 @@ window.__ModuleLoader__.load({
           title: !connected ? 'Host 未响应' : (stats && stats.exists === false) ? '已连接,等待日志文件出现' : '已连接 Host 尾随',
           style: { width: 8, height: 8, borderRadius: 999, background: !connected ? '#ef4444' : (stats && stats.exists === false) ? '#f59e0b' : '#10b981', flex: '0 0 auto' },
         }),
-        h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #666)', fontVariantNumeric: 'tabular-nums' } },
+        h('span', { className: 'sp-stats', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #666)', fontVariantNumeric: 'tabular-nums' } },
           'RX ' + ((stats && stats.rx) || 0) + '(' + fmtBytes((stats && stats.rxBytes) || 0) + 'B) · TX ' + ((stats && stats.tx) || 0) + '(' + fmtBytes((stats && stats.txBytes) || 0) + 'B)'),
         btn(paused ? '▶ 继续' : '⏸ 暂停', () => setPaused(!paused), paused, '暂停后数据在 Host 侧继续累积,恢复后拉齐'),
         btn(follow && autoSuspended ? '跟随·挂起' : '跟随', () => setFollow(!follow), effectiveFollow,
@@ -467,7 +480,7 @@ window.__ModuleLoader__.load({
 
       const list = h('div', {
         ref: listRef, onScroll,
-        style: { flex: 1, minHeight: 0, overflow: 'auto', background: 'var(--dsw-alias-bg-layer-2, #fff)' },
+        style: { flex: 1, minHeight: 0, width: '100%', overflowX: 'hidden', overflowY: 'auto', background: 'var(--dsw-alias-bg-layer-2, #fff)' },
       },
         visibleCount === 0
           ? emptyBox
@@ -496,7 +509,17 @@ window.__ModuleLoader__.load({
           fmtHex(selected.hex)),
       ) : null
 
-      return h('div', { style: { height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: 'var(--dsw-alias-bg-layer-2, #fff)', color: 'var(--dsw-alias-label-primary, #222)' } },
+      return h('div', {
+        style: {
+          // 停靠 pane 内必须锁宽:内容(hex 行不换行)会把无宽约束的根撑到比 pane 宽,
+          // 被 tabBody 的 overflow:hidden 直接裁掉——拖拽调宽时表现为"数据不跟随"
+          width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden',
+          containerType: 'inline-size', containerName: 'sp-panel',
+          height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+          background: 'var(--dsw-alias-bg-layer-2, #fff)',
+          color: 'var(--dsw-alias-label-primary, #222)',
+        },
+      },
         toolbar, list, detail,
       )
     }

@@ -1,4 +1,4 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.3.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.3.1
 
 DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
 "ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
@@ -93,7 +93,15 @@ deploy.cmd web    :: 追加部署到 web profile
 | keepMounted | tab 切走/面板收起后组件不卸载,轮询与数据持续;tab 不可见时轮询自动降为 2s |
 | 入口 | 左侧边栏图标点击 = 打开右栏 tab;右栏 guide 默认页有入口卡片(插头图标) |
 | 兜底 | 检测 `sidebarRight`/`sidebarRightTabs` 服务缺席 → 自动回退整屏 main 注册 |
-| 窄宽度 | ≤640px 隐藏工具列、≤560px 隐藏长度列(停靠 45% 宽度/300px 下限都可用) |
+| 窄宽度 | ≤640px 隐藏工具列、≤560px 隐藏长度列、≤520px 隐藏 RX/TX 统计(容器查询,跟随停靠栏拖拽实时生效;media query 作小窗口兜底) |
+
+### v1.3.1 修复:停靠栏拖拽时数据不跟随
+
+面板根元素原先没有宽度约束,dockkit 的 pane 收窄后不换行的 hex 行会把内容撑到
+比 pane 更宽,被 tabBody 的 `overflow:hidden` 直接裁切——表现为拖拽调宽后行不重排、
+右缘内容被切。修复:根元素 `width:100% / min-width:0 / overflow:hidden` 锁宽,
+列表 `overflow-x:hidden`;列降级从视口 `@media`(1920 视口下永不触发)换成
+`@container sp-panel` 容器查询,随面板实际宽度实时生效。
 
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
 

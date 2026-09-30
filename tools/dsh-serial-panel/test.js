@@ -249,7 +249,8 @@ const ok = (cond, label, extra) => {
     mod.apply(ctxNoRight)
     ok(calls.some((c) => c[0] === 'register' && c[1] === 'main'), 'T12 兜底分支注册 main 槽')
     ok(!calls.some((c) => c[1] === 'sidebar.right.pane.tab'), 'T12 兜底分支不注册右栏 tab 体')
-    ok(/sp-row/.test(injectedStyles.text) && /640px/.test(injectedStyles.text), 'T12 一次性样式表注入', injectedStyles.text)
+    ok(/sp-row/.test(injectedStyles.text) && /640px/.test(injectedStyles.text)
+      && /@container sp-panel/.test(injectedStyles.text), 'T12 一次性样式表注入(含容器查询列降级)', injectedStyles.text)
 
     // 右栏分支:tab 类型 + pane.tab 体 + 图标转发 openTab
     calls.length = 0
