@@ -1,6 +1,6 @@
 {
   "name": "dsh-serial-panel",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "ACCCOM 串口实时面板 DSH 插件：侧边栏入口 + 中央面板，尾随 ACCcom MCP 的 mcp-traffic.jsonl 实时显示 AI 串口收发",
   "main": "./index.js",
@@ -8,7 +8,8 @@
     "index.js",
     "client.js",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "AGENTS.md"
   ],
   "exports": {
     ".": "./index.js",

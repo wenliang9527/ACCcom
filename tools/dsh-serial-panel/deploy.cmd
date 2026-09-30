@@ -42,7 +42,7 @@ exit /b 0
 
 :deploy
 if not exist "%~1" mkdir "%~1"
-for %%F in (index.js client.js package.json cordis.patch.yml README.md test.js) do (
+for %%F in (index.js client.js package.json cordis.patch.yml README.md AGENTS.md test.js) do (
   copy /Y "%SRC%%%F" "%~1\" >nul
 )
 echo [deploy] %~1

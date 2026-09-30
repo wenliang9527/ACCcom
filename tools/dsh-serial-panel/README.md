@@ -1,8 +1,9 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.1.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.2.0
 
-DeepSeek Harness 的常驻插件(desktop profile):在侧边栏加一个 🔌 面板入口,
+DeepSeek Harness 的常驻插件(desktop profile):在侧边栏加一个面板入口,
 实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**(等价于 ACCCOM 桌面端的
-"MCP 流量"窗口,但直接长在 DSH 界面里)。
+"MCP 流量"窗口,但直接长在 DSH 界面里)。agent 侧的接口说明见
+[AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
 
 ## 数据链路
 
@@ -10,7 +11,8 @@ DeepSeek Harness 的常驻插件(desktop profile):在侧边栏加一个 🔌 面
 ACCcom.McpServer(MCP 工具收发)
   → McpTrafficLog 追加 %LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl(100ms 刷盘)
   → 本插件 Host 半区尾随增量(默认 400ms 轮询)
-  → 同源私有路由 GET /api/acccom-serial?since=<seq>
+  → 同源私有路由 GET /api/acccom-serial?since=<seq>(另有 compact=1 紧凑模式、
+    /export jsonl|csv 导出、/clear 截断)
   → 浏览器面板自适应增量拉取渲染(有数据 700ms / 空闲 2.5s)
 ```
 
@@ -55,15 +57,37 @@ deploy.cmd web    :: 追加部署到 web profile
 | 行渲染 | 每次 300 行全量重渲染 | `React.memo`,只有变化的行重渲染 |
 | 过滤计算 | 每次 render 重算 | `useMemo` 缓存(entries/方向/关键字变化才算) |
 | stats 更新 | 每轮新建对象 → 触发重渲染 | 逐字段浅比较,无变化不更新 state |
-| 轮询 | 固定 800ms(空闲也空转) | 自适应:有数据 700ms / 空闲 2.5s / 隐藏或暂停 2s |
+| 轮询 | 固定 800ms(空闲也空转) | 自适应:有数据 700ms / 空闲 2.5s / 隐藏 2s / 暂停 1.5s |
 | 保留上限 | 2000 | 5000(与 Host 一致) |
 | 超长帧 | 全量进 DOM | 行内截断 4000 字符(详情区仍显示全文) |
+
+## v1.2.0 优化点
+
+**Host 半区**
+
+| 项 | 说明 |
+|---|---|
+| Δt 帧间隔 | consume 时统一计算 `dtMs`(相对上一条;乱序钳 0,坏时间戳记 null) |
+| 链路诊断 | stats 增加 `badLines/logSize/logMtimeMs/rotated`,面板空态与 agent 共用 |
+| compact 模式 | `?compact=1&max=N`:去 text/hex 双份载荷,按码点截断(≤4096,默认 512) |
+| 导出路由 | `GET /export?format=jsonl\|csv`:导出内存环为附件(csv 带 BOM 与引号转义) |
+
+**Client 半区**
+
+| 项 | 说明 |
+|---|---|
+| Δt 列 + 详情复制 | 行内 Δt 列;详情区 text/hex 一键复制(clipboard API 失败回退 execCommand) |
+| 跟随自动挂起 | 向上翻历史自动暂停跟随,回到底部自动恢复(按钮可强制开关) |
+| 端口过滤 | 端口下拉 + portTag 稳定色块(多端口流量一眼区分) |
+| 断层标记 | 增量 seq 跳变时插入「已省略 N 条」;Host 重启 seq 回退时整体替换防 key 重复 |
+| 连接态三色 | 绿=尾随中 / 黄=等日志文件出现 / 红=Host 未响应 |
+| 其他 | 清空两段式确认(部分 webview 吞原生 confirm);回前台补拉加在途守卫;空态显示可复制的 API 地址;侧边栏图标换 inline SVG;≤560px 隐藏长度列 |
 
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(20 项断言),已实测通过:
+Host 半区带一套零依赖行为测试(36 项断言),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"
@@ -78,10 +102,15 @@ node "$plug\test.js" core
 $env:DSH_SERIAL_PANEL_FIRST_TAIL = '1000'
 $env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'big.jsonl'
 node "$plug\test.js" window
+
+# Δt/compact/导出/链路诊断(需要默认 MAX_ENTRIES≥40,先清掉 core 留下的 =5)
+Remove-Item Env:DSH_SERIAL_PANEL_MAX_ENTRIES -ErrorAction SilentlyContinue
+$env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'api.jsonl'
+node "$plug\test.js" api
 ```
 
 用环境变量把参数压小是为了快速触发边界(上限 5 条即可验证裁剪)。
-`test.js` 只存在于真源目录,不同步到安装闭包。
+`test.js` 由 deploy.cmd 一并同步到两处部署目标,闭包内也可直接跑。
 
 ## 可调环境变量(Host 半区读取)
 
