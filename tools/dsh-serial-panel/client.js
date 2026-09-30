@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.2.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.3.0
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -23,6 +23,13 @@
 //   * 端口下拉过滤 + portTag 稳定色块;断层标记(seq 跳变/Host 重启守卫)
 //   * 连接态三色(绿=尾随中/黄=等日志文件/红=Host 未响应)
 //   * 清空两段式确认;回前台补拉加在途守卫;空态显示 API 地址可复制
+//
+//  ── v1.3.0 布局改造 ──
+//   * 面板从整屏 main 槽迁到右侧停靠栏(rightbar)tab:对话始终可见
+//     (sidebarRightTabs.register 类型 + sidebar.right.pane.tab 挂体,keepMounted)
+//   * 左侧图标 = 打开右侧 tab;右栏 guide 默认页加入口卡片
+//   * DSH 无 rightbar 服务时自动回退整屏 main 模式(行为同 v1.2.0)
+//   * tab 不可见时轮询降为 2s;≤640px 隐藏工具列(停靠宽度下更从容)
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -67,6 +74,7 @@ window.__ModuleLoader__.load({
           '.sp-row { background: transparent; }',
           '.sp-row:hover { background: var(--dsw-alias-bg-layer-3, #f5f5f5); }',
           '.sp-row.sp-sel { background: var(--dsw-alias-bg-layer-3, #f0f0f0); }',
+          '@media (max-width: 640px) { .sp-tool { display: none; } }',
           '@media (max-width: 560px) { .sp-len { display: none; } }',
         ].join('\n')
         document.head.appendChild(el)
@@ -138,6 +146,18 @@ window.__ModuleLoader__.load({
 
     let ctxRef = null // apply 时捕获,供图标兜底切换面板用
 
+    // ---- 组件:串口插头图标(guide 入口卡与侧边栏共用;接受 {size, className}) ----
+    const PlugGlyph = ({ size, className }) => h('svg', {
+      width: size || 16, height: size || 16, viewBox: '0 0 16 16', className,
+      fill: 'none', stroke: 'currentColor', strokeWidth: 1.5,
+      strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' },
+    },
+      h('path', { d: 'M5.5 1.5v3' }),
+      h('path', { d: 'M10.5 1.5v3' }),
+      h('path', { d: 'M3.5 4.5h9v3.2a4.5 4.5 0 0 1-9 0V4.5z' }),
+      h('path', { d: 'M8 12.2v2.3' }),
+    )
+
     // ---- 组件:行条目(memo:引用未变的行不重渲染) ----
     const Row = React.memo(function Row({ e, hex, selected, onSelect }) {
       const raw = hex ? (fmtHex(e.hex) || e.text) : (e.text || fmtHex(e.hex))
@@ -166,7 +186,7 @@ window.__ModuleLoader__.load({
             background: 'hsl(' + hueOf(e.tag) + ', 55%, 45%)',
           },
         }) : null,
-        h('span', { style: { flex: '0 0 110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--dsw-alias-label-secondary, #666)' } }, e.tool + (e.tag ? ' · ' + e.tag : '')),
+        h('span', { className: 'sp-tool', style: { flex: '0 0 110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--dsw-alias-label-secondary, #666)' } }, e.tool + (e.tag ? ' · ' + e.tag : '')),
         h('span', { className: 'sp-len', style: { flex: '0 0 44px', textAlign: 'right', color: 'var(--dsw-alias-label-tertiary, #999)', fontVariantNumeric: 'tabular-nums' } }, e.len),
         h('span', {
           className: 'sp-dt', title: '距上一条',
@@ -193,9 +213,16 @@ window.__ModuleLoader__.load({
       }, '… 已省略 ' + count + ' 条(超出 Host 保留窗口)…')
     })
 
-    // ---- 组件:串口实时面板(中央 main 面板) ----
-    const SerialPanel = () => {
+    // ---- 组件:串口实时面板(右侧停靠栏 tab 体 / 旧版整屏 main 面板) ----
+    const EMPTY_TAB_INFO = { tab: null }
+    const SerialPanel = (props) => {
       const prefs0 = React.useMemo(loadPrefs, [])
+      // 右栏 tab 体:框架注入 useTabInfo;缺席(旧 main 路径)用恒等兜底,hook 仍无条件调用
+      const useTabInfoSafe = props && typeof props.useTabInfo === 'function' ? props.useTabInfo : () => EMPTY_TAB_INFO
+      const tabInfo = useTabInfoSafe()
+      const tabVisible = !(tabInfo && tabInfo.tab && tabInfo.tab.visible === false)
+      const tabVisibleRef = React.useRef(tabVisible)
+      React.useEffect(() => { tabVisibleRef.current = tabVisible }, [tabVisible])
       const [entries, setEntries] = React.useState([])
       const [stats, setStats] = React.useState(null)
       const [connected, setConnected] = React.useState(false)
@@ -233,6 +260,7 @@ window.__ModuleLoader__.load({
           if (!alive) return
           if (pausedRef.current) { schedule(POLL_PAUSED_MS); return }
           if (document.visibilityState === 'hidden') { schedule(POLL_HIDDEN_MS); return }
+          if (!tabVisibleRef.current) { schedule(POLL_HIDDEN_MS); return } // tab 在后台:降频,keepMounted 下仍在积累
           if (inFlightRef.current) { schedule(POLL_ACTIVE_MS); return } // 上一轮仍在途:保持链活,稍后续拉
 
           let got = false
@@ -473,9 +501,10 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // ---- 组件:侧边栏面板图标(inline SVG,替代跨平台渲染不一致的 emoji) ----
+    // ---- 组件:侧边栏面板入口(点击打开面板;优先右栏 tab,兜底整屏) ----
     const PanelIcon = (props) => {
       const onClick = (e) => {
+        if (props && typeof props.onOpen === 'function') { props.onOpen(e); return }
         if (props && typeof props.onClick === 'function') { props.onClick(e); return }
         try {
           // 槽位壳可能只渲染图标本身:兜底自己触发面板切换
@@ -484,41 +513,66 @@ window.__ModuleLoader__.load({
         } catch (e2) { /* layout 服务缺席时静默 */ }
       }
       return h('span', {
-        title: 'ACCCOM 串口面板',
+        title: props && props.title ? props.title : 'ACCCOM 串口面板',
         onClick,
         style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', lineHeight: 1 },
-      },
-        h('svg', {
-          width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none',
-          stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round',
-          style: { display: 'block' },
-        },
-          h('path', { d: 'M5.5 1.5v3' }),
-          h('path', { d: 'M10.5 1.5v3' }),
-          h('path', { d: 'M3.5 4.5h9v3.2a4.5 4.5 0 0 1-9 0V4.5z' }),
-          h('path', { d: 'M8 12.2v2.3' }),
-        ),
-      )
+      }, h(PlugGlyph, { size: 16 }))
     }
 
     return {
-      inject: ['slots'],
+      inject: ['slots', 'sidebarRight', 'sidebarRightTabs'],
       apply: function (ctx) {
         const slots = ctx.get('slots')
         if (slots === undefined) return
         ctxRef = ctx
 
-        // 全局面板图标(sidebar 列)
-        slots.inject('sidebar.panellist', () => slots.register(
-          { name: 'sidebar.panellist', id: 'acccom-serial', order: 80, label: () => 'ACCCOM 串口' },
-          (props) => h(PanelIcon, props),
-        ))
+        const rightTabs = ctx.get('sidebarRightTabs')
+        const right = ctx.get('sidebarRight')
+        const hasRightbar = !!(rightTabs && typeof rightTabs.register === 'function'
+          && right && typeof right.openTab === 'function')
 
-        // 中央面板本体(key = sidebar entry id)
-        slots.inject('main', () => slots.register(
-          { name: 'main', key: 'acccom-serial' },
-          (props) => h(SerialPanel, props),
-        ))
+        if (hasRightbar) {
+          // 主路径:右侧停靠栏 tab —— 对话始终可见;keepMounted 让轮询跨切换/收起存活
+          ctx.effect(() => rightTabs.register({
+            id: 'dsh-serial-panel',
+            kind: 'acccom-serial',
+            title: () => 'ACCCOM 串口',
+            keepMounted: true,
+            guide: [{
+              id: 'acccom-serial',
+              kind: 'acccom-serial',
+              title: () => 'ACCCOM 串口',
+              description: () => 'AI 串口收发实时面板',
+              icon: PlugGlyph,
+            }],
+          }), 'dsh-serial-panel: tab type')
+
+          ctx.effect(() => slots.inject('sidebar.right.pane.tab', () => slots.register(
+            { name: 'sidebar.right.pane.tab', key: 'dsh-serial-panel' },
+            (props) => h(SerialPanel, props),
+          )), 'dsh-serial-panel: pane body')
+
+          // 左侧图标 = 打开右侧 tab(无会话时 openTab 会抛,吞掉即可)
+          slots.inject('sidebar.panellist', () => slots.register(
+            { name: 'sidebar.panellist', id: 'acccom-serial', order: 80, label: () => 'ACCCOM 串口' },
+            (props) => h(PanelIcon, {
+              ...props,
+              title: '打开 ACCCOM 串口面板(右侧停靠,对话保留)',
+              onOpen: () => { try { right.openTab('acccom-serial') } catch (e) { /* 无会话/面板未挂 */ } },
+            }),
+          ))
+        } else {
+          // 兜底:DSH 缺 rightbar 服务(版本差异)→ 整屏 main 模式,行为同 v1.2.0
+          slots.inject('sidebar.panellist', () => slots.register(
+            { name: 'sidebar.panellist', id: 'acccom-serial', order: 80, label: () => 'ACCCOM 串口' },
+            (props) => h(PanelIcon, props),
+          ))
+
+          slots.inject('main', () => slots.register(
+            { name: 'main', key: 'acccom-serial' },
+            (props) => h(SerialPanel, props),
+          ))
+        }
       },
     }
   },

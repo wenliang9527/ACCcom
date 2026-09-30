@@ -7,6 +7,7 @@
 //    node test.js window   # 首次挂载只读尾部窗口(大日志不全量读入)
 //    node test.js api      # Δt/compact/导出/链路诊断(需要默认 MAX_ENTRIES≥40,
 //                          #   勿沿用 core 的 =5,否则环裁剪会吞掉断言目标行)
+//    node test.js client   # client.js 注册结构冒烟(stub React,不起浏览器)
 //
 //  用环境变量把插件参数压小,便于快速触发边界:
 //    DSH_SERIAL_PANEL_LOG / DSH_SERIAL_PANEL_MAX_ENTRIES / DSH_SERIAL_PANEL_FIRST_TAIL
@@ -22,8 +23,8 @@ const mode = process.argv[2] || 'core'
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-sp-'))
 const logFile = process.env.DSH_SERIAL_PANEL_LOG
 
-if (!logFile) { console.error('DSH_SERIAL_PANEL_LOG must be set'); process.exit(1) }
-fs.mkdirSync(path.dirname(logFile), { recursive: true })
+if (!logFile && mode !== 'client') { console.error('DSH_SERIAL_PANEL_LOG must be set'); process.exit(1) }
+if (logFile) fs.mkdirSync(path.dirname(logFile), { recursive: true })
 
 const line = (id, dir, text, tag, ts) => JSON.stringify({
   id, tool: 'send', timestamp: ts || '2026-08-18T10:00:00.123+08:00',
@@ -210,6 +211,80 @@ const ok = (cond, label, extra) => {
     ok(rCsv.body.indexOf('"a,b""c\nd"') >= 0, 'T11 csv 逗号/引号/换行转义', JSON.stringify(rCsv.body.slice(-60)))
     const r405 = await call('/api/acccom-serial/export', { method: 'POST', url: '/' })
     ok(r405.ok === false && /GET only/.test(r405.error), 'T11 export 拒绝 POST')
+  }
+
+  if (mode === 'client') {
+    // T12 client.js 注册结构冒烟:stub 模块环境,验证两条注册分支不跑浏览器
+    const ReactStub = {
+      createElement: (type, props, ...children) => ({ type, props, children }),
+      memo: (f) => f,
+      useState: (v) => [typeof v === 'function' ? v() : v, () => {}],
+      useEffect: () => {},
+      useRef: (v) => ({ current: v }),
+      useMemo: (f) => f(),
+    }
+    let loaded = null
+    globalThis.window = { __ModuleLoader__: { load: (m) => { loaded = m } } }
+    const injectedStyles = { text: '' }
+    globalThis.document = {
+      getElementById: () => null,
+      createElement: () => ({ textContent: '' }),
+      head: { appendChild: (el) => { injectedStyles.text = el.textContent } },
+    }
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} }
+    require(path.join(__dirname, 'client.js'))
+    ok(loaded && typeof loaded.factory === 'function', 'T12 模块经 __ModuleLoader__.load 注册')
+    const mod = loaded.factory(() => ReactStub)
+    ok(Array.isArray(mod.inject) && mod.inject.includes('slots') && mod.inject.includes('sidebarRightTabs')
+      && mod.inject.includes('sidebarRight'), 'T12 inject 声明含 slots + rightbar 服务', mod.inject)
+
+    // 兜底分支:无 rightbar 服务 → main 槽
+    const calls = []
+    const registered = {}
+    const slotsApi = {
+      inject: (name, fn) => { calls.push(['inject', name]); fn() },
+      register: (spec, comp) => { calls.push(['register', spec.name, spec.key || spec.id]); registered[spec.name + '|' + (spec.key || spec.id)] = comp },
+    }
+    const ctxNoRight = { get: (n) => (n === 'slots' ? slotsApi : undefined), effect: (fn) => fn() }
+    mod.apply(ctxNoRight)
+    ok(calls.some((c) => c[0] === 'register' && c[1] === 'main'), 'T12 兜底分支注册 main 槽')
+    ok(!calls.some((c) => c[1] === 'sidebar.right.pane.tab'), 'T12 兜底分支不注册右栏 tab 体')
+    ok(/sp-row/.test(injectedStyles.text) && /640px/.test(injectedStyles.text), 'T12 一次性样式表注入', injectedStyles.text)
+
+    // 右栏分支:tab 类型 + pane.tab 体 + 图标转发 openTab
+    calls.length = 0
+    const tabDefs = []
+    const opened = []
+    const ctxRight = {
+      get: (n) => {
+        if (n === 'slots') return slotsApi
+        if (n === 'sidebarRightTabs') return { register: (d) => tabDefs.push(d) }
+        if (n === 'sidebarRight') return { openTab: (k) => opened.push(k) }
+        return undefined
+      },
+      effect: (fn) => fn(),
+    }
+    mod.apply(ctxRight)
+    ok(tabDefs.length === 1 && tabDefs[0].id === 'dsh-serial-panel' && tabDefs[0].kind === 'acccom-serial'
+      && tabDefs[0].keepMounted === true, 'T12 右栏 tab 类型注册(id/kind/keepMounted)', tabDefs[0])
+    ok(Array.isArray(tabDefs[0].guide) && tabDefs[0].guide.length === 1
+      && tabDefs[0].guide[0].kind === 'acccom-serial' && typeof tabDefs[0].guide[0].icon === 'function',
+    'T12 guide 入口卡声明', tabDefs[0].guide)
+    ok(calls.some((c) => c[0] === 'register' && c[1] === 'sidebar.right.pane.tab' && c[2] === 'dsh-serial-panel'),
+      'T12 pane.tab 体以插件 id 为 key 注册')
+    ok(!calls.some((c) => c[0] === 'register' && c[1] === 'main'), 'T12 右栏分支不再注册整屏 main')
+
+    // 图标点击 → openTab(kind):先渲染包装层,再渲染 PanelIcon 本体拿到 onClick
+    ok(Array.isArray(calls.find((c) => c[0] === 'inject' && c[1] === 'sidebar.panellist')), 'T12 侧边栏图标已注册')
+    const outer = registered['sidebar.panellist|acccom-serial']({})
+    const iconEl = outer.type(outer.props)
+    ok(iconEl && typeof iconEl.props.onClick === 'function', 'T12 图标渲染为可点击元素')
+    iconEl.props.onClick({})
+    ok(opened.length === 1 && opened[0] === 'acccom-serial', 'T12 图标点击转发 openTab(kind)', opened)
+
+    delete globalThis.window
+    delete globalThis.document
+    delete globalThis.localStorage
   }
 
   // 两个实例都要释放:apply 返回的 disposer 会 clearInterval(tail),

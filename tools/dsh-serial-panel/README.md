@@ -1,9 +1,11 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.2.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.3.0
 
-DeepSeek Harness 的常驻插件(desktop profile):在侧边栏加一个面板入口,
-实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**(等价于 ACCCOM 桌面端的
-"MCP 流量"窗口,但直接长在 DSH 界面里)。agent 侧的接口说明见
-[AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
+DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
+"ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
+对话与串口数据并排可见(等价于 ACCCOM 桌面端的"MCP 流量"窗口,但直接长在
+DSH 界面里)。左侧边栏图标点击打开;右栏 guide 默认页也有入口卡片。
+agent 侧的接口说明见 [AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
+DSH 版本差异导致 rightbar 服务缺席时,自动回退为整屏 main 面板(v1.2.0 行为)。
 
 ## 数据链路
 
@@ -83,11 +85,21 @@ deploy.cmd web    :: 追加部署到 web profile
 | 连接态三色 | 绿=尾随中 / 黄=等日志文件出现 / 红=Host 未响应 |
 | 其他 | 清空两段式确认(部分 webview 吞原生 confirm);回前台补拉加在途守卫;空态显示可复制的 API 地址;侧边栏图标换 inline SVG;≤560px 隐藏长度列 |
 
+## v1.3.0 布局改造
+
+| 项 | 说明 |
+|---|---|
+| 右侧停靠 | 面板从整屏 main 槽迁到 rightbar 停靠栏 tab(`sidebarRightTabs.register` 类型 + `sidebar.right.pane.tab` 挂体),对话与串口数据并排可见;右栏自带全屏切换(Strip 控件),全屏时仍可覆盖视口 |
+| keepMounted | tab 切走/面板收起后组件不卸载,轮询与数据持续;tab 不可见时轮询自动降为 2s |
+| 入口 | 左侧边栏图标点击 = 打开右栏 tab;右栏 guide 默认页有入口卡片(插头图标) |
+| 兜底 | 检测 `sidebarRight`/`sidebarRightTabs` 服务缺席 → 自动回退整屏 main 注册 |
+| 窄宽度 | ≤640px 隐藏工具列、≤560px 隐藏长度列(停靠 45% 宽度/300px 下限都可用) |
+
 计数器含义:`渲染 300 / 可见 1234 / 总 5000 条`(过滤后行数超过 300 时只挂载最近 300 行)。
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(36 项断言),已实测通过:
+Host 半区带一套零依赖行为测试(48 项断言),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"
@@ -107,6 +119,9 @@ node "$plug\test.js" window
 Remove-Item Env:DSH_SERIAL_PANEL_MAX_ENTRIES -ErrorAction SilentlyContinue
 $env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'api.jsonl'
 node "$plug\test.js" api
+
+# client.js 注册结构冒烟(stub React,无需浏览器与日志环境变量)
+node "$plug\test.js" client
 ```
 
 用环境变量把参数压小是为了快速触发边界(上限 5 条即可验证裁剪)。
