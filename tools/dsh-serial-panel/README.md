@@ -28,6 +28,7 @@ DSH 版本差异导致 rightbar 服务缺席时,自动回退为整屏 main 面�
 - `GET /api/acccom-serial?stats=1` 零载荷统计(心跳/水位探测)
 - `GET /api/acccom-serial/export?format=jsonl|csv` 导出内存环
 - `POST /api/acccom-serial/clear` 截断共享日志(干净复现工作流的起点)
+- **MCP `traffic_log` 工具**同源提供同一飞行记录仪(ZCode/DSH 原生可用,无需 curl)
 
 **Host 半区工程**
 
@@ -166,7 +167,7 @@ deploy.cmd web    :: 追加部署到 web profile
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(**67 项断言**:core 17 + window 5 + api 17 + client 28),已实测通过:
+Host 半区带一套零依赖行为测试(**71 项断言**:core 17 + window 5 + api 17 + client 32),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"

@@ -20,6 +20,11 @@ public class ToolSchemaBudgetTests
         .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() != null)
         .ToArray();
 
+    private static readonly MethodInfo[] TrafficToolsMethods = typeof(TrafficTools)
+        .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+        .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() != null)
+        .ToArray();
+
     [Fact]
     public void ToolLevelDescriptions_StayWithinBudget()
     {
@@ -50,5 +55,26 @@ public class ToolSchemaBudgetTests
             Assert.False(string.IsNullOrWhiteSpace(desc),
                 $"{tool.Name} is missing a [Description]");
         }
+        foreach (var tool in TrafficToolsMethods)
+        {
+            var desc = tool.GetCustomAttribute<DescriptionAttribute>()?.Description;
+            Assert.False(string.IsNullOrWhiteSpace(desc),
+                $"{tool.Name} is missing a [Description]");
+        }
+    }
+
+    [Fact]
+    public void TrafficTools_CountAndDescriptions_StayWithinBudget()
+    {
+        // 新工具类纳入同一预算纪律:工具数不静默漂移,描述不膨胀。
+        Assert.Single(TrafficToolsMethods);
+        int toolChars = TrafficToolsMethods.Sum(m => m.GetCustomAttribute<DescriptionAttribute>()?.Description?.Length ?? 0);
+        int paramChars = TrafficToolsMethods
+            .SelectMany(m => m.GetParameters())
+            .Sum(p => p.GetCustomAttribute<DescriptionAttribute>()?.Description?.Length ?? 0);
+        Assert.True(toolChars < 900,
+            $"traffic_log tool description {toolChars} chars (budget 900) — workflow notes belong here, parameter detail belongs on parameters");
+        Assert.True(paramChars < 1_200,
+            $"traffic_log parameter descriptions total {paramChars} chars (budget 1200)");
     }
 }

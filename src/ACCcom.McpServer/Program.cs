@@ -37,7 +37,8 @@ builder.Services.AddSingleton<ToolContext>();
 // Register MCP tools
 builder.Services.AddMcpServer()
     .WithStdioServerTransport()
-    .WithTools<SerialTools>();
+    .WithTools<SerialTools>()
+    .WithTools<TrafficTools>();
 
 var app = builder.Build();
 await app.RunAsync().ConfigureAwait(false);

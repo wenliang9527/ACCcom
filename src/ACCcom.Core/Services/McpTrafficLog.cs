@@ -5,6 +5,18 @@ using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
 
+/// <summary>One mirrored traffic exchange as exposed by the in-memory recent
+/// ring (<see cref="McpTrafficLog.ReadRecent"/>). <see cref="Seq"/> is assigned
+/// by the writer itself — process-lifetime monotonic, never reset by rotation
+/// or external truncation — so MCP tools can use it as an incremental cursor.
+/// The JSONL file's own "id" field is NOT usable for that (tool-originated
+/// records all pass 0). A readonly struct, not a class: Record runs on the RX
+/// hot path and one extra heap allocation per line measurably dropped the
+/// Record throughput benchmark (list stores it inline, zero allocation).</summary>
+public readonly record struct TrafficEntry(
+    long Seq, int Id, string Tool, string Timestamp, string Direction,
+    string RawHex, string Text, string PortTag);
+
 /// <summary>
 /// Shared serial-traffic bridge between the MCP server process and the WPF GUI.
 /// Both processes run their own serial stack — the MCP stdio server's bytes live
@@ -56,9 +68,71 @@ public sealed partial class McpTrafficLog : IDisposable
     /// can tune how much history is kept.</summary>
     public static int MaxLines { get; set; } = 5000;
 
-    public McpTrafficLog(string? filePath = null)
+    // ---- 进程内最近流量环(traffic_log MCP 工具的数据源) ----
+    // seq 由写入方分配,进程内单调、轮转/截断都不重置;环只服务会话内的增量
+    // 游标读取,持久层仍是 JSONL 文件。Queue 的 Enqueue/Dequeue 均为 O(1):
+    // 满环后每条记录一次出队,热路径上没有任何搬移(List+RemoveRange 的
+    // memmove 会挤占 RX 吞吐基准的裕量);ReadRecent 是低频工具调用,
+    // 锁内整环快照 O(n) 完全可接受。
+    private readonly Queue<TrafficEntry> _ring = new();
+    private long _seq;
+    private readonly int _ringCapacity;
+
+    /// <summary>Reads the in-memory recent ring incrementally. No cursor
+    /// (sinceSeq ≤ 0 or older than the window) returns the most recent
+    /// <paramref name="limit"/> entries; a live cursor returns everything after
+    /// it. Filters apply after the cursor slice; the filtered result is trimmed
+    /// to the newest <paramref name="limit"/>. Snapshot is copied under the
+    /// record lock, so callers get an immutable slice.</summary>
+    public IReadOnlyList<TrafficEntry> ReadRecent(long sinceSeq, int limit,
+        string? direction = null, string? portTag = null, string? search = null)
+    {
+        if (limit < 1) limit = 1;
+        lock (_lock)
+        {
+            // 快照后按 seq 直接算下标切片(环内 seq 严格递增)。
+            var snapshot = _ring.ToArray();
+            IEnumerable<TrafficEntry> slice;
+            if (snapshot.Length == 0 || sinceSeq >= _seq)
+            {
+                slice = [];
+            }
+            else
+            {
+                var firstSeq = snapshot[0].Seq;
+                var start = sinceSeq >= firstSeq
+                    ? (int)Math.Min(sinceSeq - firstSeq + 1, snapshot.Length)
+                    : Math.Max(0, snapshot.Length - limit); // 游标早于窗口:退化为最近 limit 条
+                slice = snapshot.Skip(start);
+            }
+            if (!string.IsNullOrEmpty(direction))
+                slice = slice.Where(e => string.Equals(e.Direction, direction, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(portTag))
+                slice = slice.Where(e => string.Equals(e.PortTag, portTag, StringComparison.Ordinal));
+            if (!string.IsNullOrEmpty(search))
+                slice = slice.Where(e =>
+                    e.Text.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    e.RawHex.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    e.Tool.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    e.PortTag.Contains(search, StringComparison.OrdinalIgnoreCase));
+            return slice.TakeLast(limit).ToList();
+        }
+    }
+
+    /// <summary>Current ring watermark (last assigned seq) and kept count —
+    /// lets cursor-mode callers anchor even when the slice comes back empty.</summary>
+    public (long LastSeq, int Kept) RecentWatermark()
+    {
+        lock (_lock)
+        {
+            return (_seq, _ring.Count);
+        }
+    }
+
+    public McpTrafficLog(string? filePath = null, int ringCapacity = 2000)
     {
         _filePath = filePath ?? DefaultLogPath;
+        _ringCapacity = ringCapacity > 0 ? ringCapacity : 2000;
         var dir = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
@@ -110,6 +184,12 @@ public sealed partial class McpTrafficLog : IDisposable
             };
             _writer.WriteLine(JsonSerializer.Serialize(record, TrafficJsonContext.Default.TrafficRecord));
             _lineCount++;
+            // 内存环追加:seq 写入方分配,轮转/截断都不重置(游标语义)。
+            // Queue 出队 O(1):满环后每条记录一次出队,热路径零搬移。
+            _seq++;
+            _ring.Enqueue(new TrafficEntry(_seq, id, toolName, record.timestamp, direction, rawHex, text, tag));
+            while (_ring.Count > _ringCapacity)
+                _ring.Dequeue();
             // A non-positive MaxLines would rotate on every write; treat it as
             // "no rotation" rather than thrashing the file.
             if (MaxLines > 0 && _lineCount >= MaxLines)
@@ -205,6 +285,8 @@ public sealed partial class McpTrafficLog : IDisposable
         var fs = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         _writer = new StreamWriter(fs, System.Text.Encoding.UTF8);
         _lineCount = 0;
+        // 外部截断 = 历史被清:内存环同步清空(seq 继续单调,游标不回退)。
+        _ring.Clear();
     }
 
     /// <summary>Renames the current log to a .1 backup and starts fresh, keeping
