@@ -1,0 +1,6 @@
+{
+  "name": "acccom-zcode",
+  "version": "0.1.0",
+  "description": "ACCCOM 串口工具链知识层:acccom-serial skill(三层接口选择/干净复现工作流/端口纪律)+ /acccom-status、/acccom-repro 快捷命令。MCP server 不随插件分发——沿用用户级已配置的 acccom server,避免双进程与工具重复。",
+  "keywords": ["serial", "acccom", "mcp", "embedded", "hardware"]
+}
