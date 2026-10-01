@@ -145,7 +145,12 @@ ACCcom/
 │   │   │   ├── ModbusSlaveService.cs    # Modbus 从站服务
 │   │   │   ├── ModbusSlaveDevice.cs     # Modbus 从站设备模拟
 │   │   │   ├── ModbusUtils.cs           # Modbus 工具方法
-│   │   │   └── VirtualSerialService.cs  # 虚拟串口服务
+│   │   │   ├── VirtualSerialService.cs  # 虚拟串口服务
+│   │   │   ├── McpTrafficLog.cs         # MCP 流量内存环 (traffic_log 工具后端,外部截断同步清环)
+│   │   │   ├── TrafficLogParser.cs      # mcp-traffic.jsonl 解析 (GUI 流量窗口)
+│   │   │   ├── TrafficColumnWidthStore.cs # 流量窗口列宽持久化
+│   │   │   ├── ReplayMerger.cs          # 回放 RX/TX 按时间戳合并
+│   │   │   └── ModbusTransactionMapper.cs # Modbus 事务→日志项映射
 │   │   └── parsers/                 # 内置协议解析器
 │   │       ├── dirui_protocol.csx   # 迪瑞生化分析仪协议
 │   │       ├── esoac_v3.csx
@@ -169,7 +174,7 @@ ACCcom/
 │   │   │   └── en-US.json
 │   │   ├── SchemaEditorWindow.xaml     # 协议可视化编辑器
 │   │   ├── FrameAssemblerConfigWindow.xaml # 多帧拼接配置
-│   │   ├── Themes/                 # 主题资源 (7 款：Dark/Light/MonetSunrise/VanGoghWheat/KlimtKiss/HokusaiWave/VermeerPearl)
+│   │   ├── Themes/                 # 主题资源 (7 款可选：Dark/Light/MonetSunrise/VanGoghWheat/KlimtKiss/HokusaiWave/VermeerPearl + Tokens.xaml 类型标尺,不受主题切换清除)
 │   │   │   ├── LightTheme.xaml
 │   │   ├── Converters/             # WPF 值转换器
 │   │   │   ├── FieldValuesTemplateSelector.cs
@@ -204,10 +209,10 @@ ACCcom/
 │           ├── TrafficTools.cs     # 流量记录仪 (traffic_log,1 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tools/
-│   └── dsh-serial-panel/    # DSH 插件 v1.5.0:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
+│   └── dsh-serial-panel/    # DSH 插件 v1.6.0:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
 │       ├── index.js               # Host 半区:尾随 mcp-traffic.jsonl + 同源路由(增量/compact/stats=1/export/clear)
 │       ├── client.js              # Client 半区:rightbar 停靠 tab(兜底整屏 main)+ 流量徽章 + 正则/快捷键
-│       ├── test.js                # 行为测试(node test.js core|window|api|client,71 项断言)
+│       ├── test.js                # 行为测试(node test.js core|window|api|client,67 项断言)
 │       ├── AGENTS.md              # agent 接入说明(路由/seq 语义/干净复现工作流)
 │       └── deploy.cmd             # 部署到 %USERPROFILE%\.dsh\profiles
 ├── tests/
@@ -256,12 +261,24 @@ ACCcom/
 │   │   ├── ModbusCancellationTests.cs
 │   │   ├── ModbusMergingTests.cs
 │   │   ├── ModbusFunctionCodeExtensionTests.cs
+│   │   ├── McpTrafficLogTests.cs       # traffic_log 内存环/外部截断/游标
+│   │   ├── TrafficLogParserTests.cs    # JSONL 流量日志解析
+│   │   ├── TrafficColumnWidthStoreTests.cs
+│   │   ├── ReplayMergerTests.cs        # 回放 RX/TX 合并
+│   │   ├── ModbusTransactionMapperTests.cs
 │   │   └── TestCollections.cs
-│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (46 个测试)
+│   └── ACCcom.McpServer.Tests/      # MCP 服务单元测试 (112 个测试)
 │       ├── SerialToolsTests.cs
+│       ├── MultiPortToolsTests.cs
+│       ├── TrafficToolsTests.cs       # traffic_log 游标/过滤/compact 码点截断
+│       ├── ToolSchemaBudgetTests.cs   # 工具描述长度预算守卫
+│       ├── McpRxHotPathBenchmarkTests.cs
 │       ├── ToolContextTests.cs
 │       └── TestHelpers/
 │           └── ToolContextFactory.cs
+├── plugins/                          # ZCode 本地市场插件(知识层,MCP 沿用用户级配置)
+│   ├── marketplace.json
+│   └── acccom-zcode/                 # acccom-serial skill + /acccom-status、/acccom-repro 命令
 ├── docs/
 │   ├── design/
 │   └── plan/

@@ -58,12 +58,14 @@ dotnet publish src\ACCcom\ACCcom.csproj -c Release -r win-x64 --self-contained t
 
 MCP 与插件的关系：MCP 负责"让 AI 能操作串口"，插件负责"让人类看得见 AI 在串口上做了什么"——两者通过共享日志 `%LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl` 解耦，互不依赖运行。
 
+ZCode 用户另有本地市场插件 [plugins/acccom-zcode](plugins/acccom-zcode/)：打包 `acccom-serial` skill（接口选择/干净复现等判断层）与 `/acccom-status`、`/acccom-repro` 两个命令；MCP server 沿用用户级已配置的 `acccom`，插件不重复声明，避免双进程。
+
 DSH 插件的开发/部署（真源在仓库，部署到 Harness profile）：
 
 ```cmd
 cd tools\dsh-serial-panel
 deploy.cmd          :: 部署到 desktop profile，重启 DeepSeek Harness 生效
-node test.js core   :: 行为测试四个模式(core/window/api/client),共 71 项断言
+node test.js core   :: 行为测试四个模式(core/window/api/client),共 67 项断言
 node test.js window
 node test.js api
 node test.js client
