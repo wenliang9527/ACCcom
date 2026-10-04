@@ -34,14 +34,18 @@
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
                            ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonUp="OnCounterClick"
-                           TextDecorations="Underline">
+                           MouseLeftButtonUp="OnCounterClick">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                             <Style.Triggers>
+                                <!-- The underline IS the click affordance, so it
+                                     belongs to hover. As a local attribute it was
+                                     unconditional and every counter read as a
+                                     hyperlink at all times. -->
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="TextDecorations" Value="Underline" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -65,14 +69,18 @@
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
                            ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonUp="OnCounterClick"
-                           TextDecorations="Underline">
+                           MouseLeftButtonUp="OnCounterClick">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                             <Style.Triggers>
+                                <!-- The underline IS the click affordance, so it
+                                     belongs to hover. As a local attribute it was
+                                     unconditional and every counter read as a
+                                     hyperlink at all times. -->
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="TextDecorations" Value="Underline" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -95,14 +103,14 @@
         <StatusBarItem>
             <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
                        ToolTip="{Binding [StatusBar.Errors], Source={x:Static local:LanguageManager.Instance}}"
-                       MouseLeftButtonUp="OnCounterClick"
-                       TextDecorations="Underline">
+                       MouseLeftButtonUp="OnCounterClick">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="TextDecorations" Value="Underline" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>

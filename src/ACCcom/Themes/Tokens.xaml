@@ -2,17 +2,32 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!--
-        Type-scale tokens: the single source of truth for font sizes and font
-        families. Before this file, 236 FontSize literals (9-18) and 96
-        FontFamily literals were scattered across the XAML; values here are
-        copied 1:1 from the dominant literals so switching a call site to a
-        token is a zero-visual-change refactor, and a future density/typography
-        retune becomes a one-file edit.
+        ACCcom design tokens — "instrument panel" system
 
-        Scale (name → value, dominant usage):
-          Micro 9 (dense meta) · Caption 10 (toolbar/status) · Body 11 (default UI)
-          BodyLarge 12 (list rows/titles) · Subtitle 13 · Title 14 (section)
-          Heading 15 · Large 16 · Display 18 (stat values)
+        TYPE SCALE
+        The single source of truth for font sizes and font families. Before this
+        file, 236 FontSize literals (9-18) and 96 FontFamily literals were
+        scattered across the XAML; values here are copied 1:1 from the dominant
+        literals so switching a call site to a token is a zero-visual-change
+        refactor, and a future density/typography retune becomes a one-file edit.
+
+        Scale (name to value, dominant usage):
+          Micro 9 (dense meta), Caption 10 (toolbar/status), Body 11 (default UI)
+          BodyLarge 12 (list rows/titles), Subtitle 13, Title 14 (section)
+          Heading 15, Large 16, Display 18 (stat values)
+
+        The scale alone is not a hierarchy: nine sizes all set in the same weight
+        at the same colour gave every label, section title and toolbar caption the
+        same visual voice, which is why section headers read as ordinary body
+        text. The ROLE styles in App.xaml add the missing axis — size is now
+        paired with weight, letter spacing and ink, so a heading is identifiable
+        without being larger.
+
+        Instrument-panel convention: labels are small, engraved and letter-spaced
+        (small-caps micro labels); values are monospace so columns of changing
+        numbers stay aligned. UI prose stays on the Windows system face — a serial
+        debugger is a daily tool, and a decorative face in the chrome would cost
+        more legibility than it buys in character.
     -->
     <sys:Double x:Key="FontSizeMicro">9</sys:Double>
     <sys:Double x:Key="FontSizeCaption">10</sys:Double>
@@ -24,7 +39,65 @@
     <sys:Double x:Key="FontSizeLarge">16</sys:Double>
     <sys:Double x:Key="FontSizeDisplay">18</sys:Double>
 
+    <!-- Letter spacing. Only the engraved roles use it: positive tracking on
+         small text reads as a panel label, and it is the cheapest way to make
+         10px type feel deliberate rather than merely shrunk. -->
+    <sys:Double x:Key="TrackingLabel">0.6</sys:Double>
+    <sys:Double x:Key="TrackingMicro">0.9</sys:Double>
+
     <!-- UI text font and the icon font; mono is used for all data/payload rows. -->
     <FontFamily x:Key="FontFamilyMono">Consolas</FontFamily>
     <FontFamily x:Key="FontFamilyIcons">Segoe MDL2 Assets</FontFamily>
+
+    <!-- ======================================================================
+         SPACING SCALE
+         ======================================================================
+         Every literal gap, pad and margin should come from here. The XAML had
+         3/4/5/6/7/8/9/10/12/14/16/20/22/26px all in use side by side, which is
+         why the panels never looked like they were built on a grid. Values are
+         deliberately the numbers already dominant in the markup, so this is a
+         naming pass, not a re-layout.
+    -->
+    <Thickness x:Key="SpaceInset0">0</Thickness>
+    <Thickness x:Key="SpaceInset1">2</Thickness>
+    <Thickness x:Key="SpaceInset2">4</Thickness>
+    <Thickness x:Key="SpaceInset3">6</Thickness>
+    <Thickness x:Key="SpaceInset4">8</Thickness>
+    <Thickness x:Key="SpaceInset5">10</Thickness>
+    <Thickness x:Key="SpaceInset6">12</Thickness>
+    <Thickness x:Key="SpaceInset8">16</Thickness>
+    <Thickness x:Key="SpaceInset10">20</Thickness>
+
+    <!-- One-sided variants for the cases where a uniform inset is wrong. -->
+    <Thickness x:Key="SpacePadH4">8,0</Thickness>
+    <Thickness x:Key="SpacePadH6">12,0</Thickness>
+    <Thickness x:Key="SpacePadH8">16,0</Thickness>
+    <Thickness x:Key="SpacePadV4">0,8</Thickness>
+    <Thickness x:Key="SpacePadV6">0,12</Thickness>
+    <Thickness x:Key="SpaceCard">12,8</Thickness>
+    <!-- Panel gutter: the 8px inset every data card sits inside. -->
+    <Thickness x:Key="SpaceGutter">8</Thickness>
+
+    <!-- ======================================================================
+         RADIUS SCALE
+         ======================================================================
+         Four sizes, each with one job. The markup previously mixed 3/4/5/6/8/10/11
+         with no rule, so a 4px chip sat flush against a 6px button and an 8px
+         card. Nested surfaces should step DOWN toward their content.
+    -->
+    <CornerRadius x:Key="RadiusChip">3</CornerRadius>
+    <CornerRadius x:Key="RadiusControl">6</CornerRadius>
+    <CornerRadius x:Key="RadiusPanel">8</CornerRadius>
+    <sys:Double x:Key="RadiusPill">11</sys:Double>
+
+    <!-- ======================================================================
+         MOTION
+         ======================================================================
+         Three durations, shared. Durations are deliberately short: this is a
+         dense instrument panel where controls are hit in bursts, and a leisurely
+         transition reads as lag rather than as polish.
+    -->
+    <Duration x:Key="MotionFast">0:0:0.08</Duration>
+    <Duration x:Key="MotionBase">0:0:0.12</Duration>
+    <Duration x:Key="MotionSlow">0:0:0.2</Duration>
 </ResourceDictionary>

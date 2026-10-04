@@ -18,10 +18,20 @@
             <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style x:Key="FieldCombo" TargetType="ComboBox">
+        <!-- BasedOn the implicit ComboBox style is load-bearing, not optional: a
+             keyed style REPLACES the implicit one wholesale, so without this the
+             themed ControlTemplate is dropped and every dropdown falls back to
+             the stock Aero chrome — white fill, black text, which is invisible
+             in the light theme and glaring in all five dark ones. -->
+        <Style x:Key="FieldCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- Icon-only button. Carries the MDL2 font itself so callers can put a
+             private-use glyph straight in Content: HeaderButton sets Segoe UI,
+             and a U+E7xx/E8xx codepoint outside Segoe MDL2 Assets renders as a
+             tofu box. -->
         <Style x:Key="IconBtn" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyIcons}" />
             <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
             <Setter Property="Padding" Value="3,1" />
             <Setter Property="VerticalAlignment" Value="Center" />

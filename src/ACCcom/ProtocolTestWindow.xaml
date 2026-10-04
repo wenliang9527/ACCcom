@@ -77,7 +77,7 @@
                     <DataGridTextColumn Header="{Binding [ProtocolTest.ColRetries], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RetryCount}" Width="60" />
                 </DataGrid.Columns>
             </DataGrid>
-            <TextBlock Grid.Row="1" Visibility="Collapsed">
+            <TextBlock Grid.Row="1">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                         <Style.Triggers>

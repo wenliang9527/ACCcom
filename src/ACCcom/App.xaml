@@ -995,17 +995,69 @@
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
+            <!-- ============================================== -->
+            <!-- Type roles: the instrument-panel hierarchy      -->
+            <!-- ============================================== -->
+            <!-- Size alone never produced a hierarchy — nine    -->
+            <!-- sizes all in the same weight made section      -->
+            <!-- headers read as ordinary body text. These pair  -->
+            <!-- size with weight, tracking and ink so a role is -->
+            <!-- identifiable without being larger.             -->
+
+            <!-- Section header: the panel's top line. Small and
+                 tracked like an engraved instrument label. -->
             <Style x:Key="SectionHeader" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
+            <!-- Panel title: one step above a section header,
+                 used for RX / TX / All column titles. -->
+            <Style x:Key="PanelTitle" TargetType="TextBlock" BasedOn="{StaticResource SectionHeader}">
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+            </Style>
+
+            <!-- Micro label: the engraved caption above/beside a
+                 control. Always tertiary ink — a label competes with
+                 the value it names if it is drawn at full strength. -->
+            <Style x:Key="MicroLabel" TargetType="TextBlock" BasedOn="{StaticResource Label}">
+                <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+            </Style>
+
+            <!-- Numeric value: monospace with tabular figures so
+                 counters and byte totals stay column-aligned as
+                 digits change. -->
+            <Style x:Key="ValueText" TargetType="TextBlock" BasedOn="{StaticResource Label}">
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
+            </Style>
+
+            <!-- Unit suffix: sits beside a ValueText and must
+                 recede — same token size would let "B/s" and "fps"
+                 rival the numbers they measure. -->
+            <Style x:Key="UnitText" TargetType="TextBlock" BasedOn="{StaticResource Label}">
+                <Setter Property="FontSize" Value="{StaticResource FontSizeMicro}" />
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+            </Style>
+
             <!-- Overlay shown on empty lists/grids ("暂无数据"). Layered above the
-                 ItemsControl via a Grid; Visibility driven by a DataTrigger on
-                 Items.Count == 0 in each consumer. -->
+                 ItemsControl via a Grid; each consumer adds a DataTrigger on
+                 Items.Count == 0 that flips Visibility to Visible.
+
+                 The Collapsed default lives HERE as a style setter, never as a
+                 local attribute on the consumer's TextBlock: a local value
+                 outranks a Style trigger in WPF's precedence chain, so writing
+                 Visibility="Collapsed" inline silently beat every one of the 11
+                 DataTriggers and the empty state never rendered anywhere. -->
             <Style x:Key="EmptyListText" TargetType="TextBlock">
+                <Setter Property="Visibility" Value="Collapsed" />
                 <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
                 <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
@@ -1486,11 +1538,17 @@
 
             <!-- ============================================== -->
             <!-- Title Bar Button Styles (chromeless windows)   -->
+            <!-- FontFamily is Segoe MDL2 Assets because every caller  -->
+            <!-- puts a private-use glyph (ChromeClose, Clear, ...)   -->
+            <!-- directly in Content. ChromeTitleBar's own buttons    -->
+            <!-- set this in code, but the ExtraButtons slot is       -->
+            <!-- authored in window XAML and rendered five tofu boxes. -->
             <!-- ============================================== -->
             <Style x:Key="TitleBarButton" TargetType="Button">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyIcons}" />
                 <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />

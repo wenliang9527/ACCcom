@@ -239,7 +239,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
                 <!-- Empty / no-match overlay -->
-                <TextBlock Visibility="Collapsed">
+                <TextBlock>
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                             <Setter Property="Text" Value="{Binding [QuickSend.NoMatch], Source={x:Static local:LanguageManager.Instance}}" />

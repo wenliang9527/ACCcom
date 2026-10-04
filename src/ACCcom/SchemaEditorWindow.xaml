@@ -102,7 +102,11 @@
             </Setter>
         </Style>
 
-        <Style x:Key="PreviewTextBox" TargetType="TextBox">
+        <!-- BasedOn the implicit TextBox style for the same reason FieldCombo
+             needs it: without it this keyed style drops the themed
+             ControlTemplate and FocusRing, so the preview pane renders with
+             stock chrome instead of matching every other input. -->
+        <Style x:Key="PreviewTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="FontFamily" Value="{StaticResource FontFamilyMono}" />
             <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
             <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />

@@ -117,7 +117,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock Grid.Row="1" Visibility="Collapsed">
+            <TextBlock Grid.Row="1">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                         <Style.Triggers>

@@ -222,7 +222,7 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        <TextBlock Grid.Row="2" Visibility="Collapsed">
+                        <TextBlock Grid.Row="2">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                                     <Style.Triggers>
@@ -381,7 +381,7 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <TextBlock Grid.Row="2" Visibility="Collapsed">
+                            <TextBlock Grid.Row="2">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                                         <Style.Triggers>
@@ -551,7 +551,7 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <TextBlock Grid.Row="2" Visibility="Collapsed">
+                            <TextBlock Grid.Row="2">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                                         <Style.Triggers>

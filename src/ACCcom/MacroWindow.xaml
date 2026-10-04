@@ -55,7 +55,7 @@
                     <DataGridTextColumn Header="{Binding [MacroWindow.ColRepeatDelay], Source={x:Static local:LanguageManager.Instance}}" Binding="{Binding RepeatDelayMs}" Width="78" />
                 </DataGrid.Columns>
             </DataGrid>
-            <TextBlock Grid.Column="0" Visibility="Collapsed">
+            <TextBlock Grid.Column="0">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
                         <Style.Triggers>
