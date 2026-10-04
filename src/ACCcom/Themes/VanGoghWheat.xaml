@@ -29,10 +29,15 @@
     <Color x:Key="InkTertiary">#6B6552</Color>
 
     <!-- Accent: ripe wheat gold (dark text on gold for AA) -->
-    <Color x:Key="Accent">#C99700</Color>
-    <Color x:Key="AccentHover">#B38600</Color>
-    <Color x:Key="AccentPressed">#9C7500</Color>
-    <Color x:Key="OnAccent">#1A1400</Color>
+    <!-- Accent: the wheat under storm light. Moved off the gold family entirely
+         toward the painting's deep blue-green, which is both present in the
+         canvas and far from StatusWarning's gold (#E3B93E). An earlier attempt
+         at bronze-on-gold measured dHue 9 against the warning colour AND dropped
+         button text to 3.63:1 (below AA); this clears both. -->
+    <Color x:Key="Accent">#2E6B63</Color>
+    <Color x:Key="AccentHover">#3A837A</Color>
+    <Color x:Key="AccentPressed">#245550</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
 
     <!-- Status semantics (storm-blue sky as the info signal) -->
     <Color x:Key="StatusBlue">#1D4E89</Color>

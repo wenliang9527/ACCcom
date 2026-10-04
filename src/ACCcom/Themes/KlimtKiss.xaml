@@ -25,24 +25,39 @@
     <Color x:Key="InkSecondary">#C6B996</Color>
     <Color x:Key="InkTertiary">#9A8F6E</Color>
 
-    <!-- Accent: the lover's crimson against gold -->
-    <Color x:Key="Accent">#E5484D</Color>
-    <Color x:Key="AccentHover">#EE6368</Color>
-    <Color x:Key="AccentPressed">#D63E44</Color>
+    <!-- Accent: the gold leaf of the mosaic.
+         This was #E5484D, byte-identical to StatusError below. That is a
+         functional defect, not a taste call: the open-port button wears Accent
+         and the close-port state wears BtnDanger, so the single most important
+         toggle in the app had two nearly identical red faces and no readable
+         state change. The accent moves to the painting's actual gold, which
+         also stops every error badge from competing with the primary action. -->
+    <Color x:Key="Accent">#D9A441</Color>
+    <Color x:Key="AccentHover">#E8BC63</Color>
+    <Color x:Key="AccentPressed">#C08C2C</Color>
     <Color x:Key="OnAccent">#141010</Color>
 
-    <!-- Status semantics (gold kept as the mosaic secondary) -->
+    <!-- Status semantics. The crimson stays with the kiss — it is the painting's
+         true second colour and now carries error/danger exclusively, which is
+         exactly the role a red should have in an instrument panel. -->
     <Color x:Key="StatusBlue">#7FA8A0</Color>
     <Color x:Key="StatusGray">#9A8F6E</Color>
     <Color x:Key="StatusGreen">#8FC16A</Color>
-    <Color x:Key="StatusWarning">#E3B93E</Color>
+    <!-- Warning: a Byzantine violet, which the mosaic genuinely contains.
+         Every warm option failed the separation check: gold Accent #D9A441 vs
+         #E3B93E measured dHue 6, and darkening to #C98A22 still measured 2 —
+         amber and gold are one hue at two lightnesses, so no lightness tweak
+         separates them. Violet is the one free hue in this palette (accent
+         gold ~40deg, error crimson ~357, seafoam ~170, moss ~95) and still
+         reads as caution against the warm night ground. -->
+    <Color x:Key="StatusWarning">#B07BD8</Color>
     <Color x:Key="StatusError">#E5484D</Color>
     <!-- Danger button: deep red keeps white button text AA on every state -->
     <Color x:Key="BtnDanger">#CE4227</Color>
     <Color x:Key="BtnDangerHover">#B93A20</Color>
     <Color x:Key="BtnDangerPressed">#9F321B</Color>
 
-    <Color x:Key="StatusWarningBg">#18E3B93E</Color>
+    <Color x:Key="StatusWarningBg">#18B07BD8</Color>
     <Color x:Key="StatusErrorBg">#18E5484D</Color>
 
     <Color x:Key="ConnBadgeBg">#0D8FC16A</Color>

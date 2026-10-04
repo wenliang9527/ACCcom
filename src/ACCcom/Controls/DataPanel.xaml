@@ -7,7 +7,7 @@
              x:Name="DataPanelControl"
              SizeChanged="Root_SizeChanged">
 
-    <Grid Margin="8,6,8,0">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,8 +16,8 @@
         </Grid.RowDefinitions>
 
         <!-- ======== Shared toolbar: layout toggle + joint export ======== -->
-        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                Padding="8,4" Margin="0,0,0,6"
+        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}"
+                Padding="12,4" Margin="0,0,0,0"
                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
             <DockPanel>
                 <ToggleButton DockPanel.Dock="Left" IsChecked="{Binding SplitDataPanes}"
@@ -32,11 +32,11 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
                     <TextBlock Text="{Binding AllCount, StringFormat='  #{0}'}"
-                               Foreground="{DynamicResource InkSecondaryBrush}"
-                               FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                               Style="{StaticResource ValueText}" FontSize="{StaticResource FontSizeCaption}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBlock Text="{Binding [Label.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
-                               Foreground="{DynamicResource InkTertiaryBrush}"
-                               FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                               Style="{StaticResource MicroLabel}"
+                               VerticalAlignment="Center" Margin="0,0,4,0" />
                     <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}"
                             Command="{Binding SaveAllJsonCommand}" Style="{StaticResource HeaderButton}"
                             ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
@@ -57,36 +57,30 @@
         <Grid Grid.Row="1" x:Name="ContentHost">
             <!-- Combined (default) -->
             <Grid x:Name="CombinedPane">
-                <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                        Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
-                <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
-                    <Grid>
+                <Border Background="{DynamicResource BgSurfaceBrush}" />
+                <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="3" />
+                            <RowDefinition Height="2" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- Dual-tone accent: blue RX half + gray TX half -->
-                        <Grid Grid.Row="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Rectangle Grid.Column="0" Fill="{DynamicResource StatusBlueBrush}" RadiusX="0" RadiusY="0" />
-                            <Rectangle Grid.Column="1" Fill="{DynamicResource StatusGrayBrush}" RadiusX="0" RadiusY="0" />
-                        </Grid>
+                        <!-- Signal strip: a 2px RX/TX rule reads as an instrument
+                             channel marker. It was 3px in two saturated halves,
+                             which in the combined view implied a split that the
+                             view does not have. -->
+                        <Rectangle Grid.Row="0" Fill="{DynamicResource AccentBrush}" />
 
-                        <Border Grid.Row="1" Padding="12,8,12,7"
+                        <Border Grid.Row="1" Padding="12,7"
                                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding [Panel.All], Source={x:Static local:LanguageManager.Instance}}"
-                                               Foreground="{DynamicResource StatusBlueBrush}"
-                                               FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                               Style="{StaticResource PanelTitle}"
+                                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding AllCount, StringFormat='  #{0}'}"
-                                               Foreground="{DynamicResource InkSecondaryBrush}"
-                                               FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                               Style="{StaticResource ValueText}" FontSize="{StaticResource FontSizeCaption}"
+                                               VerticalAlignment="Center" Margin="4,0,0,0" />
                                 </StackPanel>
                                 <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -97,9 +91,15 @@
                                                      Text="{Binding AllFilterText, UpdateSourceTrigger=PropertyChanged}"
                                                      TextChanged="SearchBox_Watermark_TextChanged" Tag="AllSearchHint"
                                                      ToolTip="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                            <!-- Short hint only. The watermark previously reused the
+                                                 Tip.SearchAll string, which is a sentence with the
+                                                 regex note and shortcut glued on — it was clipped
+                                                 mid-word inside a 180px box, which reads as a layout
+                                                 bug rather than as guidance. The tooltip keeps the
+                                                 full text and the shortcut lives in the F1 catalog. -->
                                             <TextBlock x:Name="AllSearchHint" Margin="6,0,0,0" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
                                                        IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
-                                                       Text="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
+                                                       Text="搜索…" />
                                         </Grid>
                                         <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                   ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}"
@@ -234,7 +234,6 @@
                             </TextBlock.Style>
                         </TextBlock>
                     </Grid>
-                </controls:PaintedCard>
             </Grid>
 
             <!-- Split (RX | splitter | TX) -->
@@ -247,28 +246,26 @@
 
                 <!-- ======== RX Panel ======== -->
                 <Grid Grid.Column="0">
-                    <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                            Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
-                    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
-                        <Grid>
+                    <Border Background="{DynamicResource BgSurfaceBrush}" />
+                    <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="3" />
+                                <RowDefinition Height="2" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <Rectangle Grid.Row="0" Fill="{DynamicResource StatusBlueBrush}" RadiusX="0" RadiusY="0"
-                                       Height="3" VerticalAlignment="Stretch" />
+                            <Rectangle Grid.Row="0" Fill="{DynamicResource AccentBrush}" />
 
-                            <Border Grid.Row="1" Padding="12,8,12,7"
+                            <Border Grid.Row="1" Padding="12,7"
                                     BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding [Panel.ReceiveFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}"
-                                                   FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding [Panel.ReceiveFull], Source={x:Static local:LanguageManager.Instance}}"
+                                                   Style="{StaticResource PanelTitle}"
+                                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding RxCount, StringFormat='  #{0}'}"
-                                                   Foreground="{DynamicResource InkSecondaryBrush}"
-                                                   FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                   Style="{StaticResource ValueText}" FontSize="{StaticResource FontSizeCaption}"
+                                                   VerticalAlignment="Center" Margin="4,0,0,0" />
                                     </StackPanel>
                                     <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -280,7 +277,7 @@
                                                          ToolTip="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
                                                 <TextBlock x:Name="RxSearchHint" Margin="6,0,0,0" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
                                                            IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
-                                                           Text="{Binding [Tip.SearchRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                                           Text="搜索…" />
                                             </Grid>
                                             <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                       ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}" />
@@ -393,7 +390,6 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Grid>
-                    </controls:PaintedCard>
                 </Grid>
 
                 <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
@@ -417,28 +413,25 @@
 
                 <!-- ======== TX Panel ======== -->
                 <Grid Grid.Column="2">
-                    <Border Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-                            Effect="{DynamicResource CardShadow}" IsHitTestVisible="False" />
-                    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8">
-                        <Grid>
+                    <Border Background="{DynamicResource BgSurfaceBrush}" />
+                    <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="3" />
+                                <RowDefinition Height="2" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <Rectangle Grid.Row="0" Fill="{DynamicResource StatusGrayBrush}" RadiusX="0" RadiusY="0"
-                                       Height="3" VerticalAlignment="Stretch" />
+                            <Rectangle Grid.Row="0" Fill="{DynamicResource StatusGrayBrush}" />
 
-                            <Border Grid.Row="1" Padding="12,8,12,7"
+                            <Border Grid.Row="1" Padding="12,7"
                                     BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding [Panel.TransmitFull], Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkSecondaryBrush}"
-                                                   FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding [Panel.TransmitFull], Source={x:Static local:LanguageManager.Instance}}"
+                                                   Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding TxCount, StringFormat='  #{0}'}"
-                                                   Foreground="{DynamicResource InkSecondaryBrush}"
-                                                   FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                   Style="{StaticResource ValueText}" FontSize="{StaticResource FontSizeCaption}"
+                                                   VerticalAlignment="Center" Margin="4,0,0,0" />
                                     </StackPanel>
                                     <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -450,7 +443,7 @@
                                                          ToolTip="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
                                                 <TextBlock x:Name="TxSearchHint" Margin="6,0,0,0" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
                                                            IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
-                                                           Text="{Binding [Tip.SearchTx], Source={x:Static local:LanguageManager.Instance}}" />
+                                                           Text="搜索…" />
                                             </Grid>
                                             <CheckBox Content=".*" IsChecked="{Binding IsRegexFilter}" Margin="4,0,0,0"
                                                       ToolTip="{Binding [Tip.RegexMode], Source={x:Static local:LanguageManager.Instance}}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}" />
@@ -563,7 +556,6 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Grid>
-                    </controls:PaintedCard>
                 </Grid>
             </Grid>
         </Grid>

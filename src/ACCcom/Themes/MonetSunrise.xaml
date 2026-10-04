@@ -29,13 +29,22 @@
     <Color x:Key="InkTertiary">#5E6B7C</Color>
 
     <!-- Accent: rising sun through mist (darkened for AA button text) -->
-    <Color x:Key="Accent">#C4550A</Color>
-    <Color x:Key="AccentHover">#A84908</Color>
-    <Color x:Key="AccentPressed">#8F3E06</Color>
+    <!-- Accent: the sun's disc. Monet's orange is genuinely close to both the
+         warning gold and the error red, so every orange variant tried here
+         measured dHue < 25 against one of them (#B03A6B gave 25 vs warning,
+         #C2410C gave 8). The accent therefore leaves the warm family entirely
+         for the painting's own shadow blue — which is what actually reads as
+         "sunrise" in the canvas — and frees orange for warning/error alone. -->
+    <Color x:Key="Accent">#1F5FA8</Color>
+    <Color x:Key="AccentHover">#1A4C8B</Color>
+    <Color x:Key="AccentPressed">#163F73</Color>
     <Color x:Key="OnAccent">#FFFFFF</Color>
 
     <!-- Status semantics -->
-    <Color x:Key="StatusBlue">#1D6FDC</Color>
+    <!-- RX channel: the sky blue of the canvas, kept clear of the Accent blue
+         (dHue 2 when both were #1F5FA8-family blues). Accent owns blue here, so
+         RX takes the cooler cyan the same painting uses in its water. -->
+    <Color x:Key="StatusBlue">#0F766E</Color>
     <Color x:Key="StatusGray">#5E6B7C</Color>
     <Color x:Key="StatusGreen">#15803D</Color>
     <Color x:Key="StatusWarning">#B45309</Color>

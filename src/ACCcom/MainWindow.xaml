@@ -113,14 +113,17 @@
         </controls:ChromeTitleBar>
 
         <!-- ============================================================ -->
-        <!-- Row 1: Toolbar — two stable lines                             -->
+        <!-- Row 1: Command bar — two lines                                 -->
         <!--   L1 connection: mode / port / baud / parser | badge refresh  -->
         <!--   L2 tools: views / rx-tx toggles / prefs    | lang theme     -->
         <!--   Heights are Auto so wrapped tool buttons get a second row    -->
         <!--   instead of being clipped when the window narrows.            -->
+        <!--   Both lines sit on ONE surface with a hairline between them;   -->
+        <!--   they were separate stacked bands, which read as two stacked   -->
+        <!--   toolbars rather than one command bar with two rows.           -->
         <!-- ============================================================ -->
         <Border Grid.Row="1" Grid.ColumnSpan="3" Background="{DynamicResource BgSurfaceBrush}"
-                Padding="10,0" Effect="{DynamicResource SubtleShadow}">
+                Padding="10,0" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -128,7 +131,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- ── Line 1: connection (fields wrap; actions stay pinned right) ── -->
-                <DockPanel Grid.Row="0" VerticalAlignment="Center" MinHeight="36" LastChildFill="True">
+                <DockPanel Grid.Row="0" VerticalAlignment="Center" MinHeight="34" LastChildFill="True">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,4">
                         <!-- Connection badge -->
                         <Border Style="{StaticResource ConnBadge}" Margin="0,0,8,0"
@@ -177,7 +180,8 @@
                 </DockPanel>
 
                 <!-- ── Line 2: tools (wrap as groups) | lang / theme pinned right ── -->
-                <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}">
+                <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}"
+                        Background="{DynamicResource BgElevatedBrush}">
                     <DockPanel VerticalAlignment="Center" LastChildFill="True">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,4">
                             <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
@@ -292,16 +296,21 @@
 
         <!-- ============================================================ -->
         <!-- Row 4: Send Bar                                                -->
+        <!-- Flat band + hairline, not a card. The send bar, the aux-ports -->
+        <!-- row and the data panel were three separately-shadowed rounded -->
+        <!-- cards stacked with 6-8px gaps — four elevation levels in one  -->
+        <!-- column, so no surface read as the primary one. Elevation is now -->
+        <!-- reserved for true overlays (menus, popups).                    -->
         <!-- ============================================================ -->
-        <controls:PaintedCard Grid.Row="4" Background="{DynamicResource BgSurfaceBrush}"
-                CornerRadius="8" Effect="{DynamicResource SubtleShadow}"
-                Padding="12,8" Margin="8,6,8,0">
+        <Border Grid.Row="4" Background="{DynamicResource BgSurfaceBrush}"
+                BorderThickness="0,1,0,1" BorderBrush="{DynamicResource DividerBrush}"
+                Padding="12,7">
             <!-- Two rows that each reflow: (1) mode/loop/source/stop/send wrap,
                  (2) send input. Groups are atomic so labels never detach. -->
             <StackPanel Orientation="Vertical">
                 <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
                     <!-- HEX + loop timing as one chip -->
-                    <Border CornerRadius="6" Padding="8,4" Margin="0,0,6,6"
+                    <Border CornerRadius="{StaticResource RadiusControl}" Padding="8,4" Margin="0,0,6,6"
                             Background="{DynamicResource BgElevatedBrush}"
                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                             VerticalAlignment="Center">
@@ -316,11 +325,11 @@
                                      Style="{StaticResource NumericBox}" Width="55"
                                      IsEnabled="{Binding IsLoopSend}"
                                      ToolTip="{Binding [Tip.LoopInterval], Source={x:Static local:LanguageManager.Instance}}" />
-                            <TextBlock Text="ms" Style="{StaticResource Label}" Margin="4,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="ms" Style="{StaticResource UnitText}" Margin="4,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Border>
                     <!-- Loop source as its own chip (can wrap under HEX/loop) -->
-                    <Border CornerRadius="6" Padding="6,4" Margin="0,0,6,6"
+                    <Border CornerRadius="{StaticResource RadiusControl}" Padding="6,4" Margin="0,0,6,6"
                             Background="{DynamicResource BgElevatedBrush}"
                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                             VerticalAlignment="Center">
@@ -384,26 +393,48 @@
                     </Button>
                 </Grid>
             </StackPanel>
-        </controls:PaintedCard>
+        </Border>
 
         <!-- ============================================================ -->
         <!-- Row 5: Multi-port Panel                                        -->
+        <!-- Flat band, same treatment as the send bar.                    -->
         <!-- ============================================================ -->
-        <controls:PaintedCard Grid.Row="5" Background="{DynamicResource BgSurfaceBrush}"
-                CornerRadius="8" Effect="{DynamicResource SubtleShadow}" Margin="8,6,8,4" Padding="10,4">
+        <Border Grid.Row="5" Background="{DynamicResource BgSurfaceBrush}"
+                BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}"
+                Padding="12,4">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding [Label.AuxPorts], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding ConnectedPorts.Count}" FontSize="{StaticResource FontSizeCaption}"
-                               Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding [Label.AuxPorts], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource MicroLabel}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding ConnectedPorts.Count}" Style="{StaticResource ValueText}"
+                               FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBox Text="{Binding NewPortTag, UpdateSourceTrigger=PropertyChanged}"
-                             Width="56" FontSize="{StaticResource FontSizeBody}" Padding="4,2" Margin="0,0,4,0"
-                             ToolTip="{Binding [Tip.NewPortTag], Source={x:Static local:LanguageManager.Instance}}" />
-                    <TextBox Text="{Binding NewPortName, UpdateSourceTrigger=PropertyChanged}"
-                             Width="76" FontSize="{StaticResource FontSizeBody}" Padding="4,2" Margin="0,0,4,0"
-                             ToolTip="{Binding [Tip.NewPortName], Source={x:Static local:LanguageManager.Instance}}" />
+                    <!-- Watermarks: both boxes were empty by default and rendered
+                         as two blank white rectangles, which read as a broken
+                         control rather than an un-filled field. -->
+                    <!-- Short placeholder hints, not the full tooltip strings: the
+                         tip text ("端口名或网络地址（如 COM3 / 192.168.1.10:502）") is
+                         longer than any sensible field width and previously
+                         overflowed the box as visible body text. Full guidance
+                         stays on the tooltip. -->
+                    <Grid>
+                        <TextBox Text="{Binding NewPortTag, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="72" FontSize="{StaticResource FontSizeBody}" Padding="6,2" Margin="0,0,4,0"
+                                 TextChanged="AuxField_TextChanged" Tag="AuxTagHint"
+                                 ToolTip="{Binding [Tip.NewPortTag], Source={x:Static local:LanguageManager.Instance}}" />
+                        <TextBlock x:Name="AuxTagHint" Text="标签"
+                                   Margin="10,0,0,0" VerticalAlignment="Center" FontSize="{StaticResource FontSizeBody}"
+                                   Foreground="{DynamicResource InkTertiaryBrush}" IsHitTestVisible="False" />
+                    </Grid>
+                    <Grid>
+                        <TextBox Text="{Binding NewPortName, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="120" FontSize="{StaticResource FontSizeBody}" Padding="6,2" Margin="0,0,4,0"
+                                 TextChanged="AuxField_TextChanged" Tag="AuxNameHint"
+                                 ToolTip="{Binding [Tip.NewPortName], Source={x:Static local:LanguageManager.Instance}}" />
+                        <TextBlock x:Name="AuxNameHint" Text="端口名 / 地址"
+                                   Margin="10,0,0,0" VerticalAlignment="Center" FontSize="{StaticResource FontSizeBody}"
+                                   Foreground="{DynamicResource InkTertiaryBrush}" IsHitTestVisible="False" />
+                    </Grid>
                     <Button Content="&#xE710;" FontFamily="{StaticResource FontFamilyIcons}" Command="{Binding OpenMultiPortCommand}"
                             Style="{StaticResource OutlineButton}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" Width="22" Height="24"
                             ToolTip="{Binding [Tip.NewPortAdd], Source={x:Static local:LanguageManager.Instance}}" />
@@ -446,7 +477,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </DockPanel>
-        </controls:PaintedCard>
+        </Border>
 
         <!-- ============================================================ -->
         <!-- Row 6: Status Bar                                              -->

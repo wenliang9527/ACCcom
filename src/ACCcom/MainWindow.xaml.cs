@@ -413,6 +413,17 @@ public partial class MainWindow : Window
     private void QuickSendRail_Click(object sender, MouseButtonEventArgs e)
         => _vm.ShowQuickSendSidebar = true;
 
+    /// <summary>Watermark driver for the two aux-port fields: the overlay
+    /// TextBlock (named via the TextBox's Tag) collapses once text exists.
+    /// Same contract as DataPanel's three search boxes — an overlay hint with no
+    /// behaviour looked like a rendering fault, since both boxes start empty.</summary>
+    private void AuxField_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox box || box.Tag is not string hintName) return;
+        if (FindName(hintName) is not TextBlock hint) return;
+        hint.Visibility = string.IsNullOrEmpty(box.Text) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         // While maximized/minimized, Left/Top/Width/Height track the restored

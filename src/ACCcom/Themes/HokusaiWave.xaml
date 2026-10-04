@@ -35,6 +35,10 @@
     <Color x:Key="OnAccent">#FFFFFF</Color>
 
     <!-- Status semantics (ochre boat as the warning) -->
+    <!-- RX channel: the wave's Prussian blue. Accent is the same #1D4E89, which
+         is deliberate — per the accent-single-hue decision the accent IS the RX
+         signal colour, so the "All" panel title and the RX rule agree. dHue 0
+         between them is the intended outcome, not a collision to fix. -->
     <Color x:Key="StatusBlue">#1D4E89</Color>
     <Color x:Key="StatusGray">#636E7F</Color>
     <Color x:Key="StatusGreen">#15803D</Color>
