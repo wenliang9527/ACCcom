@@ -54,9 +54,16 @@ public partial class McpTrafficWindow : Window
     private const int MaxRows = 2000;
 
     /// <summary>Coalescing interval for FileSystemWatcher bursts: the MCP process
-    /// flushes per line, so a fast AI session raises dozens of Changed events per
-    /// second. Batching keeps the UI thread to ~5 refreshes/sec.</summary>
+    /// flushes its buffer on a 100ms timer, so a fast AI session raises dozens of
+    /// Changed events per second. Batching keeps the UI thread to ~5
+    /// refreshes/sec.</summary>
     private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>Watcher-loss safety net cadence: the worst-case staleness after
+    /// the FileSystemWatcher dies silently (its internal buffer can overflow
+    /// under notification storms, ending the session with no exception). Long
+    /// enough to be free, short enough that the tail recovers immediately.</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
     private readonly ObservableCollection<TrafficRow> _allRows = new();
     private readonly ListCollectionView _filteredView;
@@ -67,6 +74,7 @@ public partial class McpTrafficWindow : Window
     private readonly string _logPath;
     private readonly FileSystemWatcher? _watcher;
     private readonly DispatcherTimer _debounceTimer;
+    private readonly DispatcherTimer _pollTimer;
     private long _readOffset;
     private bool _scrolledToEnd = true;
     private bool _loadingExisting;
@@ -173,8 +181,40 @@ public partial class McpTrafficWindow : Window
                 NotifyFilter = NotifyFilters.Size | NotifyFilters.LastWrite
             };
             _watcher.Changed += (_, _) => Dispatcher.BeginInvoke(RequestDebouncedLoad);
+            _watcher.Error += (_, _) => Dispatcher.BeginInvoke(() =>
+            {
+                // An Error means the notification session is gone; re-arm it.
+                // The poll timer covers the gap (and any re-arm failure).
+                try
+                {
+                    _watcher.EnableRaisingEvents = false;
+                    _watcher.EnableRaisingEvents = true;
+                }
+                catch { /* directory gone; poll fallback keeps the tail alive */ }
+            });
             _watcher.EnableRaisingEvents = true;
         }
+
+        // The watcher is the primary feed, but it can die without any exception
+        // surfacing (notification buffer overflow, a directory that only appears
+        // later). The poll probes the file length and re-arms the normal
+        // debounced read whenever it differs from the tail offset — append,
+        // truncation and a log created after startup all flow through the same
+        // path, so a lost watcher degrades the tail from instant to ≤2s instead
+        // of killing it silently.
+        _pollTimer = new DispatcherTimer { Interval = PollInterval };
+        _pollTimer.Tick += (_, _) =>
+        {
+            if (_paused || _newLinesInFlight) return;
+            try
+            {
+                var length = File.Exists(_logPath) ? new FileInfo(_logPath).Length : 0;
+                if (length != _readOffset)
+                    RequestDebouncedLoad();
+            }
+            catch { /* raced with a delete; the next tick re-checks */ }
+        };
+        _pollTimer.Start();
     }
 
     private void RequestDebouncedLoad()
@@ -246,22 +286,16 @@ public partial class McpTrafficWindow : Window
         _loadingExisting = true;
         try
         {
-            using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(fs);
+            var (lines, newOffset) = ReadCompleteLines(0);
             // Only the tail matters: a pre-existing log may hold up to rotation
             // size, and trimming an ObservableCollection from the front per line
-            // is O(n²) — read the newest MaxRows lines and render them in one
-            // pass instead of stalling startup on a huge backlog.
-            var lines = new List<string>(MaxRows + 256);
-            while (reader.ReadLine() is { } line)
-            {
-                lines.Add(line);
-                if (lines.Count > MaxRows + 256)
-                    lines.RemoveRange(0, lines.Count - MaxRows);
-            }
+            // is O(n²) — render the newest MaxRows lines in one pass instead of
+            // stalling startup on a huge backlog.
             if (lines.Count > MaxRows)
                 lines.RemoveRange(0, lines.Count - MaxRows);
-            _readOffset = fs.Length;
+            // Holdback offset: a torn trailing record must not be consumed
+            // half-parsed — the next read picks it up whole.
+            _readOffset = newOffset;
             var rows = new List<TrafficRow>(lines.Count);
             foreach (var line in lines)
             {
@@ -278,6 +312,30 @@ public partial class McpTrafficWindow : Window
             if (TrafficList.Items.Count > 0 && _scrolledToEnd)
                 TrafficList.ScrollIntoView(TrafficList.Items[^1]);
         }
+    }
+
+    /// <summary>Reads every complete line from <paramref name="offset"/> to the
+    /// current end of the log. Returns the byte offset just past the last '\n':
+    /// a trailing torn record (the writer's buffered flushes can split a line
+    /// mid-record) is held back, never consumed half-parsed. An offset past EOF
+    /// means the log was rotated or externally cleared — the read restarts from
+    /// the beginning.</summary>
+    private (List<string> Lines, long NewOffset) ReadCompleteLines(long offset)
+    {
+        using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        if (offset > fs.Length)
+            offset = 0;
+        fs.Seek(offset, SeekOrigin.Begin);
+        var buffer = new byte[fs.Length - offset];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = fs.Read(buffer, read, buffer.Length - read);
+            if (n <= 0) break;
+            read += n;
+        }
+        var (lines, newOffset) = TrafficLogTail.Split(buffer, read, offset);
+        return (lines.ToList(), newOffset);
     }
 
     /// <summary>Reads and parses newly appended lines on a worker thread and
@@ -300,20 +358,16 @@ public partial class McpTrafficWindow : Window
         {
             var result = await Task.Run(() => ReadNewLines(offset)).ConfigureAwait(true);
             _newLinesInFlight = false;
-            if (result.HasValue)
+            if (result.Ok)
             {
-                _readOffset = result.Value.Offset;
-                if (result.Value.Rows.Count > 0)
-                    AddRowsBatch(result.Value.Rows);
+                _readOffset = result.Offset;
+                if (result.Rows.Count > 0)
+                    AddRowsBatch(result.Rows);
             }
-            else
-            {
-                // Rotation deleted the file between events; drop the stale
-                // offset and re-read from the start on the next event.
-                _readOffset = 0;
-            }
-            // A watcher event or a pause/resume landed while the read was
-            // in flight: re-arm so nothing is left behind.
+            // A failed read keeps the old offset so the next watcher event or
+            // poll tick retries; resetting it to 0 used to re-read the whole
+            // log and duplicate every row after a transient lock. Rotation and
+            // external truncation are handled inside the read itself.
             if (_loadPending && !_paused)
             {
                 _loadPending = false;
@@ -326,34 +380,25 @@ public partial class McpTrafficWindow : Window
         }
     }
 
-    /// <summary>Worker half of LoadNewLines: streams new lines from the file and
-    /// parses them into rows. Returns null when the read failed (rotation race).</summary>
-    private (long Offset, List<TrafficRow> Rows)? ReadNewLines(long offset)
+    /// <summary>Worker half of LoadNewLines: reads the complete new lines via
+    /// <see cref="ReadCompleteLines"/> and parses them into rows. Ok=false means
+    /// the read failed (transient lock) — the offset is preserved for a retry.</summary>
+    private (bool Ok, long Offset, List<TrafficRow> Rows) ReadNewLines(long offset)
     {
         try
         {
-            var rows = new List<TrafficRow>(256);
-            long newOffset;
-            using (var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            var (lines, newOffset) = ReadCompleteLines(offset);
+            var rows = new List<TrafficRow>(lines.Count);
+            foreach (var line in lines)
             {
-                // Rotation truncates the file: a stale offset past EOF means the log
-                // was rotated — re-read from the start.
-                if (offset > fs.Length)
-                    offset = 0;
-                fs.Seek(offset, SeekOrigin.Begin);
-                using var reader = new StreamReader(fs);
-                while (reader.ReadLine() is { } line)
-                {
-                    if (TryBuildRow(line, out var row))
-                        rows.Add(row);
-                }
-                newOffset = fs.Length;
+                if (TryBuildRow(line, out var row))
+                    rows.Add(row);
             }
-            return (newOffset, rows);
+            return (true, newOffset, rows);
         }
         catch
         {
-            return null;
+            return (false, offset, []);
         }
     }
 
@@ -1026,6 +1071,7 @@ public partial class McpTrafficWindow : Window
         _widthWatchers.Clear();
         _searchDebounceTimer.Stop();
         _debounceTimer.Stop();
+        _pollTimer.Stop();
         _flashTimer.Stop();
         _watcher?.Dispose();
         base.OnClosed(e);
