@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using ACCcom.Core.Collections;
 using ACCcom.Core.Models;
@@ -54,6 +55,7 @@ public partial class DataPanel : UserControl
             if (DataContext is ViewModels.MainViewModel vm)
                 vm.PropertyChanged += OnVmPropertyChanged;
             ApplyPaneMode(force: true);
+            UpdateSignalStrip();
         };
 
         _widthPersistTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -93,14 +95,80 @@ public partial class DataPanel : UserControl
         CombinedPane.Visibility == Visibility.Visible && SplitPane.Visibility == Visibility.Collapsed;
 
     private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
-        => ApplyPaneMode();
+    {
+        ApplyPaneMode();
+        // The signal strip is the one piece of motion in the panel: it carries
+        // "data is arriving", so it has to react to flow the other way too.
+        UpdateSignalStrip();
+    }
+
+    /// <summary>Brightens the channel rule while the corresponding direction is
+    /// actively receiving. Re-armed on every size change, and driven by
+    /// RxCount/TxCount changes via <see cref="OnVmPropertyChanged"/>.</summary>
+    private void UpdateSignalStrip()
+    {
+        if (DataContext is not ViewModels.MainViewModel vm) return;
+        var pulse = vm.RxCount > 0 || vm.TxCount > 0;
+        if (_signalStripStoryboard == null)
+        {
+            if (!pulse) return;
+            var anim = new DoubleAnimationUsingKeyFrames
+            {
+                Duration = new Duration(TimeSpan.FromSeconds(1.6)),
+                RepeatBehavior = RepeatBehavior.Forever,
+                AutoReverse = true,
+                KeyFrames =
+                {
+                    new LinearDoubleKeyFrame(0.55, KeyTime.FromPercent(0)),
+                    new LinearDoubleKeyFrame(1.0, KeyTime.FromPercent(0.18)),
+                    new LinearDoubleKeyFrame(1.0, KeyTime.FromPercent(0.55)),
+                    new LinearDoubleKeyFrame(0.55, KeyTime.FromPercent(0.75)),
+                }
+            };
+            // Opacity only, no geometry: the strip must never shift the rows below it.
+            Storyboard.SetTargetProperty(anim, new PropertyPath("(UIElement.Opacity)"));
+            _signalStripStoryboard = new Storyboard();
+            _signalStripStoryboard.Children.Add(anim);
+            Storyboard.SetTarget(_signalStripStoryboard, AllSignalStrip);
+        }
+        if (pulse)
+        {
+            _signalStripStoryboard.Begin();
+        }
+        else
+        {
+            _signalStripStoryboard.Stop();
+            AllSignalStrip.Opacity = 1.0;
+        }
+    }
+
+    private Storyboard? _signalStripStoryboard;
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ViewModels.MainViewModel.SplitDataPanes)
             || e.PropertyName == nameof(ViewModels.MainViewModel.DataPaneSplitRatio))
             ApplyPaneMode(force: true);
+
+        // Throttled: RxCount/TxCount tick on every received frame, and during a
+        // burst that is hundreds of notifications a second. The strip only needs
+        // to learn that flow started or stopped, not the exact rate.
+        if (e.PropertyName == nameof(ViewModels.MainViewModel.RxCount)
+            || e.PropertyName == nameof(ViewModels.MainViewModel.TxCount))
+        {
+            if (!_signalStripPending)
+            {
+                _signalStripPending = true;
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+                {
+                    _signalStripPending = false;
+                    UpdateSignalStrip();
+                });
+            }
+        }
     }
+
+    private bool _signalStripPending;
 
     /// <summary>Shows combined vs split based on SplitDataPanes and content width.
     /// Narrow windows always use combined so neither pane falls below its MinWidth.</summary>

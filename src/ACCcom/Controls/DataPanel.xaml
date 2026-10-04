@@ -69,7 +69,7 @@
                              channel marker. It was 3px in two saturated halves,
                              which in the combined view implied a split that the
                              view does not have. -->
-                        <Rectangle Grid.Row="0" Fill="{DynamicResource AccentBrush}" />
+                        <Rectangle x:Name="AllSignalStrip" Grid.Row="0" Fill="{DynamicResource AccentBrush}" />
 
                         <Border Grid.Row="1" Padding="12,7"
                                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">

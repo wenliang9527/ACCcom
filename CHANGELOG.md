@@ -2,9 +2,25 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1372 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，1398 测试全过）
+
+### Fixed
+
+- **三处长期无人发现的渲染缺陷**（均经真机截图核对，非代码推断）：
+  - **深色主题下连接区 8 个下拉框退回系统 Aero 白底黑字**。`ConnectionPanel` 的 `FieldCombo` 是带 `x:Key` 的样式，会整体替换隐式 ComboBox 样式，又缺 `BasedOn`，于是 `App.xaml` 里带 `ControlTemplate` 的隐式样式被丢弃。昼白主题下白底恰好等于主题色所以从未暴露，五套深色主题里全部刺眼。`SchemaEditorWindow` 的 `PreviewTextBox` 同类问题一并修复
+  - **全应用 11 处空态从未显示过**。8 个文件里的空态 TextBlock 同时写了本地属性 `Visibility="Collapsed"` 与 `DataTrigger` 显示逻辑；WPF 属性优先级里本地值高于 Style 触发器，本地值永远赢，DataTrigger 因此从未生效——主窗口约 60% 面积是空洞，右侧栏 1150px 空白同样无提示。Collapsed 默认值收进共享的 `EmptyListText` 样式（样式 setter 优先级低于触发器）
+  - **9 个 MDL2 图标渲染成豆腐块 □**。私有区码位（U+E7xx 等）必须配 `Segoe MDL2 Assets`，直接写 `Content` 会用继承的 Segoe UI 渲染。涉及 `ConnectionPanel` 4 个（预设保存/删除、解析器目录、帧拼接配置）+ 5 个走 `ChromeTitleBar.ExtraButtons` 插槽的标题栏按钮。在 `IconBtn` 与 `TitleBarButton` 两个共享样式上补 `FontFamily`，一次覆盖全部调用点
+- 状态栏 RX/TX/错误三个计数器**永久显示下划线**：`TextDecorations="Underline"` 写成本地属性而无条件生效，任何时候都像超链接；改为 hover 才显示（下划线本就是点击暗示）
 
 ### Changed
+
+- 界面「仪器面板化」（阶段 0-5）：命令栏两行合并为同一 Surface（此前是两个各自带阴影的色带，读起来像两层堆叠工具栏）；发送栏/附加端口行由圆角阴影卡片改为平面色带 + hairline——数据面板、发送栏、附加端口三张卡同列出现四种高度层级，没有任何一面读得出主次，浮起现在只留给真正的浮层（菜单/下拉/气泡）；面板信号条由 3px 双半色改为 2px 单色（合并视图里那条一半蓝一半灰的色带暗示了视图并不存在的左右分栏）
+- **Accent 单色化 + 四处语义撞色修复**，新增可复跑校验 `tools/theme-audit/check-theme-contrast.ps1`（按钮文字走标准 WCAG 相对亮度要求 >= 4.5:1；Accent 与语义色用 HSL 色相距离判定可混淆，阈值 25°）。校验暴露：KlimtKiss `Accent` 与 `StatusError` **字节级相同**（都是 #E5484D）——开口按钮穿 Accent、闭口态穿 BtnDanger，全应用最重要的开关因此有两张几乎一样的红脸，状态切换读不出来；改金箔 #D9A441 后与 StatusWarning 仅差 6°，降琥珀仍只差 2°（琥珀与金是同一色相的两个明度），最终警告色改用拜占庭紫 #B07BD8；MonetSunrise Accent 与警告差 25°、与错误差 17° 正好卡在阈值上，试过 #B03A6B 与 #C2410C 均不合格，最终走出暖色族改用阴影蓝 #1F5FA8；VanGoghWheat 试青铜色 #8A6A12 被校验直接报出按钮文字 3.63:1（低于 AA），改深青 #2E6B63。七套主题现全部通过（按钮文字 5.18~8.40:1）
+- 排版角色落地：面板标题改 `PanelTitle`（12px Bold + 主墨色，此前与正文同为 11px 靠颜色区分，层级读不出来）；计数改 `ValueText`（等宽半粗）；单位后缀（ms / B / s / fps）改 `UnitText`（9px 等宽三级墨，原先与数值同号同重，单位在抢数字注意力）；`SectionHeader` 由 11px 改为 10px 雕刻式微标签
+- 文案分层：三个搜索框 watermark 由完整 Tip 句改为「搜索…」（原文案把「仅支持正则」和快捷键一起塞进 placeholder，在 180px 框里被截断到半个词，读起来像布局故障）；附加端口两个输入框补短提示「标签」「端口名 / 地址」——原本完全没有提示，渲染成两个空白矩形像坏掉的控件，首次尝试复用 Tip 长句仍溢出框外故改短
+- 动效收敛：移除 PrimaryButton / OutlineButton / HeaderButton / OpenCloseButton 的 hover 放大 1.02 + 上浮 1px 弹跳（密集命令栏上按钮是连点burst，弹跳读起来是抖动而非打磨，且让相邻 1px 分隔的控件看起来在相对移动，破坏平面几何）。改为两处有意义的动画：面板信号条在有数据流入时做透明度脉冲（`RxCount`/`TxCount` 变化经 Dispatcher 节流——这两个属性每收一帧就变一次，突发洪流下是每秒数百次通知，而信号条只需知道「开始流了/停了」而非确切速率；只动 Opacity 不动几何，绝不位移下方行）；录制呼吸灯保留并改用 MotionSlow + SineEase。12 处控件圆角改走 RadiusChip/Control/Panel token（按行定位，避免误伤焦点环与滚动条轨道）
+- 新增 Tokens 间距 scale（0/2/4/6/8/10/12/16/20 + 单边变体）与圆角 scale、动效时长 token。取值沿用既有主导值，属命名化而非重排——此前 3/4/5/6/7/8/9/10/11/12/14/16/20/22/26px 混用，面板看起来不像同一套网格
+- README/CONTRIBUTING 测试徽章 1385/1372 → 1398（实测 `ACCcom.Core.Tests` 1286 + `ACCcom.McpServer.Tests` 112）
 
 - 交互手感（R9 轮）：移除 6 处实时列表的 `IsDeferredScrollingEnabled`（Modbus 寄存器/事务日志、虚拟串口流量、DataPanel 合并/RX/TX）——拖动滚动条时内容不再冻结，实时日志可边拖边看；发送框 HEX 校验失败改纯颜色提示（原 1→1.5px 边框变化会让整条发送栏布局跳动）；状态栏 6 个单位标签（RX/TX/Err/Up/Buf/REC）本地化为 `StatusBar.*Label` 语言键——**Run.Text 默认 TwoWay 绑定**，对只读索引器必须在 Binding 内显式 `Mode=OneWay`，否则初始化即抛异常（crash.log 抓到 3 次后才定位）
 - MinWidth 960 与固定宽度下拉框经评估暂不改动：需真机视觉验证收益，避免盲改布局

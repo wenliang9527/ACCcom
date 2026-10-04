@@ -83,7 +83,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource RadiusChip}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -234,82 +234,15 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                    RenderTransformOrigin="0.5,0.5">
-                                <Border.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                        <TranslateTransform Y="0" />
-                                    </TransformGroup>
-                                </Border.RenderTransform>
+                                    CornerRadius="{StaticResource RadiusControl}" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHoverBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="-1" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="1" Duration="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35" />
@@ -337,14 +270,7 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                    RenderTransformOrigin="0.5,0.5">
-                                <Border.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                        <TranslateTransform Y="0" />
-                                    </TransformGroup>
-                                </Border.RenderTransform>
+                                    CornerRadius="{StaticResource RadiusControl}" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -358,36 +284,6 @@
                                         <Condition Binding="{Binding IsOpen}" Value="False" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHoverBrush}" />
-                                    <MultiDataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="-1" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.EnterActions>
-                                    <MultiDataTrigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.ExitActions>
                                 </MultiDataTrigger>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -395,36 +291,6 @@
                                         <Condition Binding="{Binding IsOpen}" Value="True" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerHoverBrush}" />
-                                    <MultiDataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="-1" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.EnterActions>
-                                    <MultiDataTrigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.ExitActions>
                                 </MultiDataTrigger>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -432,30 +298,6 @@
                                         <Condition Binding="{Binding IsOpen}" Value="False" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPressedBrush}" />
-                                    <MultiDataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.EnterActions>
-                                    <MultiDataTrigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.ExitActions>
                                 </MultiDataTrigger>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -463,30 +305,6 @@
                                         <Condition Binding="{Binding IsOpen}" Value="True" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BtnDangerPressedBrush}" />
-                                    <MultiDataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.EnterActions>
-                                    <MultiDataTrigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </MultiDataTrigger.ExitActions>
                                 </MultiDataTrigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -511,15 +329,8 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6"
-                                    Padding="{TemplateBinding Padding}"
-                                    RenderTransformOrigin="0.5,0.5">
-                                <Border.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                        <TranslateTransform Y="0" />
-                                    </TransformGroup>
-                                </Border.RenderTransform>
+                                    CornerRadius="{StaticResource RadiusControl}"
+                                    Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -527,63 +338,9 @@
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderLightBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.02" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgActiveBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="1" Duration="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35" />
@@ -609,83 +366,21 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    CornerRadius="3" Padding="{TemplateBinding Padding}"
-                                    RenderTransformOrigin="0.5,0.5">
-                                <Border.RenderTransform>
-                                    <TransformGroup>
-                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                        <TranslateTransform Y="0" />
-                                    </TransformGroup>
-                                </Border.RenderTransform>
+                                    CornerRadius="{StaticResource RadiusChip}" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHoverBrush}" />
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.04" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.04" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="0.97" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="1" Duration="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                                                                 To="1.0" Duration="0:0:0.12" />
-                                                <DoubleAnimation Storyboard.TargetName="Bd"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                                                                 To="0" Duration="0:0:0.12" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
             </Style>
-
 
             <!-- ============================================== -->
             <!-- ComboBox                                       -->
@@ -708,7 +403,7 @@
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="6">
+                                        CornerRadius="{StaticResource RadiusControl}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -748,7 +443,7 @@
                                     <Border Background="{DynamicResource BgSurfaceBrush}"
                                             BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="8"
+                                            CornerRadius="{StaticResource RadiusPanel}"
                                             MaxHeight="220"
                                             Effect="{DynamicResource CardShadow}">
                                         <ScrollViewer>
@@ -781,7 +476,7 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ComboBoxItem">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    Padding="{TemplateBinding Padding}" CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}" CornerRadius="{StaticResource RadiusChip}"
                                     Margin="4,1">
                                 <ContentPresenter />
                             </Border>
@@ -822,8 +517,7 @@
                                         BorderBrush="{DynamicResource BorderLightBrush}"
                                         BorderThickness="1.5"
                                         CornerRadius="3"
-                                        VerticalAlignment="Center"
-                                        RenderTransformOrigin="0.5,0.5">
+                                        VerticalAlignment="Center">
                                     <Border.RenderTransform>
                                         <ScaleTransform ScaleX="1" ScaleY="1" />
                                     </Border.RenderTransform>
@@ -843,18 +537,6 @@
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
                                     <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="CheckBoxBorder"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                 To="1.12" Duration="0:0:0.08" />
-                                                <DoubleAnimation Storyboard.TargetName="CheckBoxBorder"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.1" BeginTime="0:0:0.08" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
@@ -934,7 +616,7 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6">
+                                    CornerRadius="{StaticResource RadiusControl}">
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -970,7 +652,7 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4">
+                                    CornerRadius="{StaticResource RadiusChip}">
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -1047,10 +729,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
             </Style>
 
-            <!-- Overlay shown on empty lists/grids ("暂无数据"). Layered above the
-                 ItemsControl via a Grid; each consumer adds a DataTrigger on
-                 Items.Count == 0 that flips Visibility to Visible.
-
+            <!-- Empty state. Shown when a list has no items.
                  The Collapsed default lives HERE as a style setter, never as a
                  local attribute on the consumer's TextBlock: a local value
                  outranks a Style trigger in WPF's precedence chain, so writing
@@ -1058,7 +737,7 @@
                  DataTriggers and the empty state never rendered anywhere. -->
             <Style x:Key="EmptyListText" TargetType="TextBlock">
                 <Setter Property="Visibility" Value="Collapsed" />
-                <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
                 <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
@@ -1232,7 +911,7 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
                             <Grid x:Name="Root">
-                                <Border x:Name="Track" Background="{DynamicResource ScrollTrackBrush}" CornerRadius="3" Margin="1,0" />
+                                <Border x:Name="Track" Background="{DynamicResource ScrollTrackBrush}" CornerRadius="{StaticResource RadiusChip}" Margin="1,0" />
                                 <Track x:Name="PART_Track" IsDirectionReversed="True">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Command="ScrollBar.PageUpCommand" Background="Transparent" BorderThickness="0" />
@@ -1300,7 +979,7 @@
                             <Border Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6"
+                                    CornerRadius="{StaticResource RadiusControl}"
                                     Padding="{TemplateBinding Padding}"
                                     Effect="{DynamicResource SubtleShadow}">
                                 <ContentPresenter />
@@ -1326,7 +1005,7 @@
                             <Border Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6"
+                                    CornerRadius="{StaticResource RadiusControl}"
                                     Padding="{TemplateBinding Padding}"
                                     Effect="{DynamicResource CardShadow}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -1484,28 +1163,6 @@
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource InkPrimaryBrush}" />
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgElevatedBrush}" />
-                                    <Trigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Underline"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                 To="1.0" Duration="0:0:0.2">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.EnterActions>
-                                    <Trigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Underline"
-                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                 To="0.0" Duration="0:0:0.15" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
