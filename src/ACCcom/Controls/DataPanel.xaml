@@ -9,58 +9,19 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ======== Shared toolbar: layout toggle + joint export ======== -->
-        <Border Grid.Row="0" Background="{DynamicResource BgSurfaceBrush}"
-                Padding="12,4" Margin="0,0,0,0"
-                BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
-            <DockPanel>
-                <ToggleButton DockPanel.Dock="Left" IsChecked="{Binding SplitDataPanes}"
-                              Style="{StaticResource MiniToggle}" Padding="6,2" Margin="0,0,0,0"
-                              ToolTip="{Binding [Tip.SplitPanes], Source={x:Static local:LanguageManager.Instance}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeSubtitle}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding [DataPanel.ToggleSplit], Source={x:Static local:LanguageManager.Instance}}"
-                                   FontSize="{StaticResource FontSizeBody}" Margin="5,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                </ToggleButton>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
-                            VerticalAlignment="Center">
-                    <TextBlock Text="{Binding AllCount, StringFormat='  #{0}'}"
-                               Style="{StaticResource ValueText}" FontSize="{StaticResource FontSizeCaption}"
-                               VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding [Label.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
-                               Style="{StaticResource MicroLabel}"
-                               VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <Button Content="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}"
-                            Command="{Binding SaveAllJsonCommand}" Style="{StaticResource HeaderButton}"
-                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}"
-                            Command="{Binding SaveAllCsvCommand}" Style="{StaticResource HeaderButton}"
-                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}"
-                            Command="{Binding SaveAllPcapCommand}" Style="{StaticResource HeaderButton}"
-                            ToolTip="{Binding [Tip.PcapExportAll], Source={x:Static local:LanguageManager.Instance}}" />
-                    <Button Content="{Binding [Button.TXT], Source={x:Static local:LanguageManager.Instance}}"
-                            Command="{Binding SaveAllTxtCommand}" Style="{StaticResource HeaderButton}"
-                            ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
         <!-- ======== Content: combined card OR classic RX|TX split ======== -->
-        <Grid Grid.Row="1" x:Name="ContentHost">
+        <Grid Grid.Row="0" x:Name="ContentHost">
             <!-- Combined (default) -->
             <Grid x:Name="CombinedPane">
                 <Border Background="{DynamicResource BgSurfaceBrush}" />
                 <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="2" />
+                            <RowDefinition Height="1" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
@@ -75,6 +36,19 @@
                                 BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerBrush}">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- Split toggle moved inline from the deleted Row 0
+                                         band. It is a layout control, so it belongs with
+                                         the panel it re-lays-out, not on a band of its own. -->
+                                    <ToggleButton IsChecked="{Binding SplitDataPanes}"
+                                                  Style="{StaticResource MiniToggle}" Padding="6,2" Margin="0,0,10,0"
+                                                  ToolTip="{Binding [Tip.SplitPanes], Source={x:Static local:LanguageManager.Instance}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE73E;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding [DataPanel.ToggleSplit], Source={x:Static local:LanguageManager.Instance}}"
+                                                       FontSize="{StaticResource FontSizeBody}" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,10,0" />
                                     <TextBlock Text="{Binding [Panel.All], Source={x:Static local:LanguageManager.Instance}}"
                                                Style="{StaticResource PanelTitle}"
                                                Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
@@ -84,10 +58,10 @@
                                 </StackPanel>
                                 <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="&#xE721;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBodyLarge}"
-                                                   VerticalAlignment="Center" Margin="0,0,4,0" />
+                                        <TextBlock Text="&#xE721;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBody}"
+                                                   VerticalAlignment="Center" Margin="0,0,5,0" />
                                         <Grid MinWidth="80" VerticalAlignment="Center">
-                                            <TextBox x:Name="AllSearchBox" MaxWidth="180" FontSize="{StaticResource FontSizeBody}" Padding="4,1"
+                                            <TextBox x:Name="AllSearchBox" MaxWidth="180" FontSize="{StaticResource FontSizeBody}" Padding="6,2"
                                                      Text="{Binding AllFilterText, UpdateSourceTrigger=PropertyChanged}"
                                                      TextChanged="SearchBox_Watermark_TextChanged" Tag="AllSearchHint"
                                                      ToolTip="{Binding [Tip.SearchAll], Source={x:Static local:LanguageManager.Instance}}" />
@@ -97,7 +71,7 @@
                                                  mid-word inside a 180px box, which reads as a layout
                                                  bug rather than as guidance. The tooltip keeps the
                                                  full text and the shortcut lives in the F1 catalog. -->
-                                            <TextBlock x:Name="AllSearchHint" Margin="6,0,0,0" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
+                                            <TextBlock x:Name="AllSearchHint" Margin="10,0,0,0" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
                                                        IsHitTestVisible="False" Foreground="{DynamicResource InkTertiaryBrush}"
                                                        Text="搜索…" />
                                         </Grid>
@@ -109,7 +83,7 @@
                                                       FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}" Padding="4,1"
                                                       ToolTip="{Binding [Tip.ExpressionFilter], Source={x:Static local:LanguageManager.Instance}}" />
                                     </StackPanel>
-                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="6,0" />
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}"
                                                   IsChecked="{Binding EnableTimestampAll}" />
@@ -118,10 +92,32 @@
                                                       ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}"
                                                       Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" />
                                     </StackPanel>
-                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="6,0" />
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Content="{Binding [Button.CopyAll], Source={x:Static local:LanguageManager.Instance}}"
                                                 Click="CopyAllEntries_Click" Style="{StaticResource HeaderButton}" />
+                                        <!-- Four unlabelled-by-meaning export buttons
+                                             (JSON/CSV/PCAP/TXT) collapsed into one
+                                             dropdown: same four commands, but the
+                                             control now names the action instead of
+                                             making the user match a format to a
+                                             suffix, and three controls leave the bar. -->
+                                        <Button Content="{Binding [Label.ExportAll], Source={x:Static local:LanguageManager.Instance}}"
+                                                Style="{StaticResource HeaderButton}" Margin="6,0,0,0"
+                                                ToolTip="{Binding [Tip.ExportAll], Source={x:Static local:LanguageManager.Instance}}">
+                                            <Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{Binding [Button.JSON], Source={x:Static local:LanguageManager.Instance}}"
+                                                              Command="{Binding SaveAllJsonCommand}" />
+                                                    <MenuItem Header="{Binding [Button.CSV], Source={x:Static local:LanguageManager.Instance}}"
+                                                              Command="{Binding SaveAllCsvCommand}" />
+                                                    <MenuItem Header="{Binding [Button.PCAP], Source={x:Static local:LanguageManager.Instance}}"
+                                                              Command="{Binding SaveAllPcapCommand}" />
+                                                    <MenuItem Header="{Binding [Button.TXT], Source={x:Static local:LanguageManager.Instance}}"
+                                                              Command="{Binding SaveAllTxtCommand}" />
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
                                     </StackPanel>
                                 </WrapPanel>
                             </DockPanel>
@@ -167,7 +163,14 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
+                                                <!-- Fixed, not Auto: the id grows with the
+                                                     session (#1 -> #10000) and an Auto
+                                                     column shoved the timestamp and
+                                                     payload right every time a digit
+                                                     changed, so the eye had to re-find
+                                                     the payload on each row. Sized for
+                                                     the 10000-entry default. -->
+                                                <ColumnDefinition Width="56" />
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
@@ -181,7 +184,7 @@
                                                         <Setter Property="Fill" Value="{DynamicResource StatusGrayBrush}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding Direction}" Value="RX">
-                                                                <Setter Property="Fill" Value="{DynamicResource StatusBlueBrush}" />
+                                                                <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -196,7 +199,8 @@
                                                        Text="{Binding Id, StringFormat='#{0}'}"
                                                        FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                                                        Foreground="{DynamicResource InkTertiaryBrush}"
-                                                       Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                       TextAlignment="Right"
+                                                       Margin="0,0,10,0" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="3"
                                                        Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
                                                        FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
@@ -222,17 +226,39 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        <TextBlock Grid.Row="2">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource EmptyListText}">
+
+                        <!-- Instrument idle state.
+                             A bare "暂无数据" in the middle of 60% of the window
+                             told the user nothing they did not already know and
+                             gave no next step. This states what the panel is for
+                             and what to do instead, with the three shortcuts that
+                             matter here. Hidden by default and revealed only by a
+                             DataTrigger, which is why the Collapsed default must
+                             live in the style rather than on the element. -->
+                        <StackPanel Grid.Row="2" IsHitTestVisible="False"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasItems, ElementName=AllListBox}" Value="False">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                            </StackPanel.Style>
+                            <!-- Hairline "no signal" mark, echoing a scope trace. -->
+                            <Rectangle Width="132" Height="1" HorizontalAlignment="Center"
+                                       Fill="{DynamicResource DividerBrush}" Margin="0,0,0,14" />
+                            <TextBlock Text="{Binding [DataPanel.EmptyHint], Source={x:Static local:LanguageManager.Instance}}"
+                                       Style="{StaticResource Label}" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource InkSecondaryBrush}" />
+                            <TextBlock Text="{Binding [DataPanel.EmptyAction], Source={x:Static local:LanguageManager.Instance}}"
+                                       FontFamily="{StaticResource FontFamilyMono}"
+                                       FontSize="{StaticResource FontSizeMicro}"
+                                       HorizontalAlignment="Center" Margin="0,7,0,0"
+                                       Foreground="{DynamicResource InkTertiaryBrush}" />
+                        </StackPanel>
                     </Grid>
             </Grid>
 
@@ -249,7 +275,7 @@
                     <Border Background="{DynamicResource BgSurfaceBrush}" />
                     <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="2" />
+                                <RowDefinition Height="1" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
@@ -343,7 +369,7 @@
                                             <Grid MinHeight="26">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="56" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
@@ -352,7 +378,8 @@
                                                            Text="{Binding Id, StringFormat='#{0}'}"
                                                            FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                                                            Foreground="{DynamicResource InkTertiaryBrush}"
-                                                           Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                           TextAlignment="Right"
+                                                           Margin="0,0,10,0" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="2"
                                                            Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
                                                            FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
@@ -416,7 +443,7 @@
                     <Border Background="{DynamicResource BgSurfaceBrush}" />
                     <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="2" />
+                                <RowDefinition Height="1" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
@@ -509,7 +536,7 @@
                                             <Grid MinHeight="26">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="56" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
@@ -518,7 +545,8 @@
                                                            Text="{Binding Id, StringFormat='#{0}'}"
                                                            FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
                                                            Foreground="{DynamicResource InkTertiaryBrush}"
-                                                           Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                           TextAlignment="Right"
+                                                           Margin="0,0,10,0" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="2"
                                                            Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss.fff}}"
                                                            FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
@@ -561,7 +589,7 @@
         </Grid>
 
         <!-- ======== Shared field annotation table (both layouts) ======== -->
-        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+        <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                       Background="Transparent" ResizeBehavior="PreviousAndNext"
                       Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">
             <GridSplitter.Template>
@@ -574,7 +602,7 @@
             </GridSplitter.Template>
         </GridSplitter>
 
-        <Border Grid.Row="3" Background="{DynamicResource BgElevatedBrush}"
+        <Border Grid.Row="2" Background="{DynamicResource BgElevatedBrush}"
                 BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderBrush}"
                 MaxHeight="200"
                 Visibility="{Binding HasFields, Converter={StaticResource BoolToVisibility}}">

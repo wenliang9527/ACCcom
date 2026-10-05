@@ -3,10 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:ACCcom">
 
-    <StatusBar Padding="10,2">
-        <StatusBarItem>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Ellipse Width="6" Height="6" Margin="0,0,6,0" ToolTip="{Binding [StatusBar.ConnectionIndicator], Source={x:Static local:LanguageManager.Instance}}">
+    <!--
+        Instrument readout, one line.
+
+        It used to be a two-line stack per counter (bytes on top, rate below) with
+        six 1px separators between seven fields. Units ("B", "B/s", "fps") were set
+        at the same size and weight as the numbers they measure, so a glance could
+        not separate "0 B" from "0.0 B/s". Now: label is an engraved MicroLabel,
+        the number is a ValueText (mono, semibold), and every unit and rate is a
+        recessive UnitText. Separators are spaced by gap, so the eye groups
+        {RX TX} as traffic and {ERR UP BUF} as session state.
+    -->
+    <StatusBar Padding="10,0">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+            <!-- ── Connection state (click clears the status message) ── -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonUp="OnStatusClearClick"
+                        ToolTip="{Binding [StatusBar.StatusText], Source={x:Static local:LanguageManager.Instance}}">
+                <Ellipse x:Name="ConnDot" Width="6" Height="6" Margin="0,0,7,0"
+                         ToolTip="{Binding [StatusBar.ConnectionIndicator], Source={x:Static local:LanguageManager.Instance}}">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
                             <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
@@ -18,178 +34,107 @@
                         </Style>
                     </Ellipse.Style>
                 </Ellipse>
-                <TextBlock Text="{Binding StatusText}" FontSize="{StaticResource FontSizeBody}"
-                          Foreground="{DynamicResource InkSecondaryBrush}"
-                          ToolTip="{Binding [StatusBar.StatusText], Source={x:Static local:LanguageManager.Instance}}"
-                          MouseLeftButtonUp="OnStatusClearClick" />
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource UnitText}"
+                           FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
             </StackPanel>
-        </StatusBarItem>
 
-        <!-- 分隔符 1：连接指示与计数器 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
+            <!-- ── Traffic ── -->
+            <Rectangle Style="{StaticResource StatusDivider}" />
 
-        <!-- RX 计数块（点击重置） -->
-        <StatusBarItem>
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
-                           ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonUp="OnCounterClick">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                            <Style.Triggers>
-                                <!-- The underline IS the click affordance, so it
-                                     belongs to hover. As a local attribute it was
-                                     unconditional and every counter read as a
-                                     hyperlink at all times. -->
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                    <Setter Property="TextDecorations" Value="Underline" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                    <Run Text="{Binding [StatusBar.RxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
-                    <Run Text="{Binding RxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                    <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
-                </TextBlock>
-                <TextBlock Text="{Binding RxRate}" FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
-                           Foreground="{DynamicResource InkSecondaryBrush}"
+            <!-- RX -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonUp="OnCounterClick"
+                        ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding [StatusBar.RxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Text="{Binding RxByteCount, Mode=OneWay}" Style="{StaticResource ValueText}" />
+                <TextBlock Text="B" Style="{StaticResource UnitText}" Margin="3,0,9,0" />
+                <TextBlock Text="{Binding RxRate, Mode=OneWay}" Style="{StaticResource UnitText}"
                            ToolTip="{Binding [StatusBar.RxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
-        </StatusBarItem>
 
-        <!-- 分隔符 2 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
+            <Rectangle Style="{StaticResource StatusDivider}" />
 
-        <!-- TX 计数块（点击重置） -->
-        <StatusBarItem>
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
-                           ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonUp="OnCounterClick">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                            <Style.Triggers>
-                                <!-- The underline IS the click affordance, so it
-                                     belongs to hover. As a local attribute it was
-                                     unconditional and every counter read as a
-                                     hyperlink at all times. -->
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                    <Setter Property="TextDecorations" Value="Underline" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                    <Run Text="{Binding [StatusBar.TxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusGreenBrush}" FontWeight="SemiBold" />
-                    <Run Text="{Binding TxByteCount, Mode=OneWay}" FontWeight="Bold" />
-                    <Run Text=" B" Foreground="{DynamicResource InkTertiaryBrush}" />
-                </TextBlock>
-                <TextBlock Text="{Binding TxRate}" FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
-                           Foreground="{DynamicResource InkSecondaryBrush}"
+            <!-- TX -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonUp="OnCounterClick"
+                        ToolTip="{Binding [StatusBar.ResetCounters], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding [StatusBar.TxLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Text="{Binding TxByteCount, Mode=OneWay}" Style="{StaticResource ValueText}" />
+                <TextBlock Text="B" Style="{StaticResource UnitText}" Margin="3,0,9,0" />
+                <TextBlock Text="{Binding TxRate, Mode=OneWay}" Style="{StaticResource UnitText}"
                            ToolTip="{Binding [StatusBar.TxThroughput], Source={x:Static local:LanguageManager.Instance}}" />
             </StackPanel>
-        </StatusBarItem>
 
-        <!-- 分隔符 3 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
+            <!-- ── Session state ── -->
+            <Rectangle Style="{StaticResource StatusDivider}" />
 
-        <!-- 错误帧计数（点击重置） -->
-        <StatusBarItem>
-            <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Cursor="Hand"
-                       ToolTip="{Binding [StatusBar.Errors], Source={x:Static local:LanguageManager.Instance}}"
-                       MouseLeftButtonUp="OnCounterClick">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                <Setter Property="TextDecorations" Value="Underline" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-                <Run Text="{Binding [StatusBar.ErrLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" FontWeight="SemiBold" />
-                <Run Text="{Binding ErrorFrameCount, Mode=OneWay}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="Bold" />
-            </TextBlock>
-        </StatusBarItem>
+            <!-- Error frames (click resets) -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Cursor="Hand"
+                        MouseLeftButtonUp="OnCounterClick"
+                        ToolTip="{Binding [StatusBar.Errors], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding [StatusBar.ErrLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Text="{Binding ErrorFrameCount, Mode=OneWay}" Style="{StaticResource ValueText}"
+                           Foreground="{DynamicResource RedErrorBrush}" />
+            </StackPanel>
 
-        <!-- 分隔符 4 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
+            <Rectangle Style="{StaticResource StatusDivider}" />
 
-<!-- 连接时长（无点击行为，纯显示）。TextBlock 只用 Run 组合内容：
-     Text 属性与 Run 同时存在会把时长渲染两遍（"12:34Up 12:34"）。 -->
-        <StatusBarItem>
-            <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
-                       ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}"
-                       Foreground="{DynamicResource InkSecondaryBrush}">
-                <Run Text="{Binding [StatusBar.UpLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource InkTertiaryBrush}" FontWeight="SemiBold" />
-                <Run Text="{Binding ConnectionDuration, Mode=OneWay}" FontWeight="Bold" />
-            </TextBlock>
-        </StatusBarItem>
-
-        <!-- 分隔符 5 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
-
-        <!-- 环形缓冲占用率（只读，1Hz 刷新） -->
-        <StatusBarItem>
-            <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}"
-                       ToolTip="{Binding [StatusBar.BufferUsage], Source={x:Static local:LanguageManager.Instance}}"
-                       Foreground="{DynamicResource InkSecondaryBrush}">
-                <Run Text="{Binding [StatusBar.BufLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" Foreground="{DynamicResource StatusBlueBrush}" FontWeight="SemiBold" />
-                <Run Text="{Binding BufferUsageText, Mode=OneWay}" FontWeight="Bold" />
-            </TextBlock>
-        </StatusBarItem>
-
-        <!-- 分隔符 6 -->
-        <Separator Width="1" Height="12" Margin="8,0"
-                   Background="{DynamicResource DividerBrush}" />
-
-        <!-- 录制指示（点击切换录制开关）。隐藏整个控件以避免占用状态栏空间。 -->
-        <StatusBarItem>
-            <StatusBarItem.Style>
-                <Style TargetType="StatusBarItem">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </StatusBarItem.Style>
+            <!-- Uptime. TextBlock with Run children only: binding both Text and a
+                 Run renders the duration twice. -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                        Background="Transparent" MouseLeftButtonUp="OnRecordingClick"
-                        ToolTip="{Binding RecordingFile}">
+                        ToolTip="{Binding [StatusBar.Uptime], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding [StatusBar.UpLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Style="{StaticResource ValueText}">
+                    <TextBlock.Text>
+                        <Binding Path="ConnectionDuration" Mode="OneWay" />
+                    </TextBlock.Text>
+                </TextBlock>
+            </StackPanel>
+
+            <Rectangle Style="{StaticResource StatusDivider}" />
+
+            <!-- Ring buffer occupancy (read-only, 1Hz) -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                        ToolTip="{Binding [StatusBar.BufferUsage], Source={x:Static local:LanguageManager.Instance}}">
+                <TextBlock Text="{Binding [StatusBar.BufLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Text="{Binding BufferUsageText, Mode=OneWay}" Style="{StaticResource ValueText}" />
+            </StackPanel>
+
+            <!-- ── Recording (only while recording, so it must not reserve space) ── -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                        Background="Transparent" Cursor="Hand"
+                        MouseLeftButtonUp="OnRecordingClick"
+                        ToolTip="{Binding RecordingFile}"
+                        Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{Binding [Menu.OpenRecordingsFolder], Source={x:Static local:LanguageManager.Instance}}"
                                   Click="OnOpenRecordingsFolder_Click" />
                     </ContextMenu>
                 </StackPanel.ContextMenu>
-                <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource RedErrorBrush}">
+                <Ellipse x:Name="RecDot" Width="7" Height="7" Margin="0,0,6,0"
+                         Fill="{DynamicResource RedErrorBrush}"
+                         VerticalAlignment="Center">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
+                            <Setter Property="Fill" Value="{DynamicResource RedErrorBrush}" />
+                            <!-- Recording pulse. This earns its motion: a recording
+                                 dot that sits still reads as decoration. Kept slow
+                                 and smoothly eased so it stays peripheral instead of
+                                 strobing, and it is the only looping animation left
+                                 in the chrome. -->
                             <Style.Triggers>
-                                <!-- Recording pulse. This earns its motion: a
-                                     recording dot that sits still reads as
-                                     decoration. It is the only other animated
-                                     element in the app besides the data-arrival
-                                     signal, and it is peripheral (slow, smooth)
-                                     rather than attention-seeking. -->
                                 <Trigger Property="IsVisible" Value="True">
                                     <Trigger.EnterActions>
                                         <BeginStoryboard>
                                             <Storyboard RepeatBehavior="Forever">
                                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                 From="1.0" To="0.45"
+                                                                 From="1.0" To="0.4"
                                                                  Duration="{StaticResource MotionSlow}"
                                                                  AutoReverse="True">
                                                     <DoubleAnimation.EasingFunction>
@@ -204,36 +149,38 @@
                         </Style>
                     </Ellipse.Style>
                 </Ellipse>
-                <TextBlock FontSize="{StaticResource FontSizeBody}" FontFamily="{StaticResource FontFamilyMono}" Foreground="{DynamicResource RedErrorBrush}" FontWeight="SemiBold">
-                    <Run Text="{Binding [StatusBar.RecLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}" />
-                    <Run Text="{Binding RecordedCount, Mode=OneWay}" />
-                </TextBlock>
+                <TextBlock Text="{Binding [StatusBar.RecLabel], Mode=OneWay, Source={x:Static local:LanguageManager.Instance}}"
+                           Style="{StaticResource MicroLabel}" Margin="0,0,5,0" />
+                <TextBlock Text="{Binding RecordedCount, Mode=OneWay}" Style="{StaticResource ValueText}" />
             </StackPanel>
-        </StatusBarItem>
 
-        <!-- 弹性空间 -->
-        <StatusBarItem HorizontalAlignment="Right">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#xE897;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeSubtitle}" Cursor="Hand" Margin="0,0,8,0"
-                           VerticalAlignment="Center" Foreground="{DynamicResource InkTertiaryBrush}"
-                           ToolTip="{Binding [Shortcuts.Title], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonDown="OnShortcutsClick">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-                <TextBlock Text="{Binding HttpUrl}" FontSize="{StaticResource FontSizeBody}" Cursor="Hand"
-                           Foreground="{DynamicResource InkTertiaryBrush}"
-                           ToolTip="{Binding [StatusBar.HttpUrl], Source={x:Static local:LanguageManager.Instance}}"
-                           MouseLeftButtonDown="OnHttpUrlClick" />
-            </StackPanel>
-        </StatusBarItem>
+            <!-- ── Right side ── -->
+            <Grid HorizontalAlignment="Right" Margin="16,0,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="ShortcutsHint" Text="&#xE897;"
+                               FontFamily="{StaticResource FontFamilyIcons}"
+                               FontSize="{StaticResource FontSizeBody}" Cursor="Hand"
+                               Margin="0,0,10,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource InkTertiaryBrush}"
+                               MouseLeftButtonDown="OnShortcutsClick"
+                               ToolTip="{Binding [Shortcuts.Title], Source={x:Static local:LanguageManager.Instance}}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource InkTertiaryBrush}" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding HttpUrl}" Style="{StaticResource UnitText}"
+                               FontSize="{StaticResource FontSizeBody}" Cursor="Hand"
+                               ToolTip="{Binding [StatusBar.HttpUrl], Source={x:Static local:LanguageManager.Instance}}"
+                               MouseLeftButtonDown="OnHttpUrlClick" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
     </StatusBar>
 </UserControl>

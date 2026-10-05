@@ -87,32 +87,43 @@
                     ToolTip="{Binding [Tip.NextBookmark], Source={x:Static local:LanguageManager.Instance}}">
                 <TextBlock Text="&#xE72A;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
             </Button>
-            <Button x:Name="BookmarkListButton" Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}" Margin="0,0,0,0"
-                    ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}" />
-            </Button>
+            <!-- Bookmark list. This was an MDL2 private-use codepoint that renders
+                 as an empty rectangle in Segoe MDL2 Assets, so it read as a broken
+                 button. Per the toolbar rule (bordered = text action, ghost = icon
+                 action) a labelled control is also the clearer choice here: the
+                 neighbouring arrows are self-explanatory, "which bookmark am I on"
+                 is not. -->
+            <Button x:Name="BookmarkListButton" Content="{Binding [Button.BookmarkList], Source={x:Static local:LanguageManager.Instance}}"
+                    Click="BookmarkListButton_Click" Style="{StaticResource OutlineButton}"
+                    Height="28" Margin="0,0,0,0" Padding="10,0"
+                    ToolTip="{Binding [Tip.BookmarkList], Source={x:Static local:LanguageManager.Instance}}" />
         </StackPanel>
 
         <Rectangle Style="{StaticResource ToolSeparator}" Margin="0,0,4,6" />
 
         <!-- Recording + display toggles + prefs -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <!-- Recording is a state, not an icon: a dot that fills red when armed
+                 is unambiguous at 8px and needs no glyph, so it cannot degrade into
+                 a tofu box the way a private-use codepoint can. -->
             <Button Command="{Binding ToggleRecordingCommand}" Style="{StaticResource OutlineButton}" Margin="0,0,4,0"
+                    Width="28" Padding="0"
                     ToolTip="{Binding [Tip.ToggleRecording], Source={x:Static local:LanguageManager.Instance}}">
-                <TextBlock x:Name="RecordGlyph" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeTitle}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="&#xE71A;" />
-                            <Setter Property="Foreground" Value="{DynamicResource InkSecondaryBrush}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                    <Setter Property="Text" Value="&#xEA3F;" />
-                                    <Setter Property="Foreground" Value="{DynamicResource RedErrorBrush}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                <Grid>
+                    <Ellipse x:Name="RecordGlyph" Width="9" Height="9" VerticalAlignment="Center"
+                             Fill="{DynamicResource InkSecondaryBrush}">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{DynamicResource InkTertiaryBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                        <Setter Property="Fill" Value="{DynamicResource RedErrorBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                </Grid>
             </Button>
 
             <CheckBox Content="{Binding [Check.ShowRX], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding ShowRx}"

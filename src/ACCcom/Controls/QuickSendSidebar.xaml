@@ -6,10 +6,13 @@
 
     <UserControl.Resources>
         <!-- Icon button for page navigation -->
+        <!-- Page nav: 24x22 at 12px. It was 26x24 at 14px, which made four bare
+             glyphs the largest marks in a 260px column and read as floating
+             characters rather than controls. -->
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
-            <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="24" />
-            <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
             <Setter Property="Padding" Value="0" />
         </Style>
         <!-- Command row: flat full-width button -->
@@ -40,9 +43,12 @@
         </Style>
     </UserControl.Resources>
 
-    <controls:PaintedCard Background="{DynamicResource BgSurfaceBrush}" CornerRadius="8"
-            Effect="{DynamicResource CardShadow}" Margin="0,6,8,4">
-        <Grid Margin="6,5,6,6">
+    <!-- Flat band, same treatment as the send bar and aux-ports row. This was the
+         last shadowed card left in the main column. -->
+    <Border Background="{DynamicResource BgSurfaceBrush}"
+            BorderThickness="1,0,0,0" BorderBrush="{DynamicResource DividerBrush}"
+            Margin="0,0,0,0">
+        <Grid Margin="10,7,10,8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -52,15 +58,23 @@
             </Grid.RowDefinitions>
 
             <!-- ===== Row 0: Title ===== -->
-            <DockPanel Grid.Row="0" Margin="4,0,2,6">
+            <DockPanel Grid.Row="0" Margin="0,0,0,7">
+                <!-- Title uses PanelTitle (primary ink) rather than Accent: the
+                     data panel's title is the accent-coloured element on this
+                     screen, and two violet titles competed. -->
                 <TextBlock DockPanel.Dock="Left" Text="{Binding [Label.QuickSend], Source={x:Static local:LanguageManager.Instance}}"
-                           Foreground="{DynamicResource AccentBrush}" FontSize="{StaticResource FontSizeBodyLarge}" FontWeight="SemiBold"
+                           Style="{StaticResource PanelTitle}"
                            VerticalAlignment="Center"
                            ToolTip="{Binding [Tip.QuickSendArea], Source={x:Static local:LanguageManager.Instance}}" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding PageIndicator}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
-                           Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding CommandCount}" FontFamily="{StaticResource FontFamilyMono}" FontSize="{StaticResource FontSizeBody}"
-                           Foreground="{DynamicResource InkTertiaryBrush}" VerticalAlignment="Center" Margin="6,0,0,0">
+                <!-- Counters were two unlabelled numbers side by side ("1/1 0").
+                     They are now separated by a hairline and kept recessive, since
+                     neither is the thing you act on. -->
+                <Rectangle DockPanel.Dock="Left" Style="{StaticResource StatusDivider}" Margin="10,0" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding PageIndicator}" Style="{StaticResource UnitText}"
+                           FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center" />
+                <Rectangle DockPanel.Dock="Left" Style="{StaticResource StatusDivider}" Margin="8,0" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CommandCount}" Style="{StaticResource UnitText}"
+                           FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center">
                     <TextBlock.ToolTip>
                         <ToolTip>
                             <TextBlock Text="{Binding [QuickSend.CountTip], Source={x:Static local:LanguageManager.Instance}}" />
@@ -108,10 +122,10 @@
             </WrapPanel>
 
             <!-- ===== Row 2: Search filter ===== -->
-            <DockPanel Grid.Row="2" Margin="4,0,2,6" LastChildFill="True">
-                <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBodyLarge}" VerticalAlignment="Center"
-                           Foreground="{DynamicResource InkTertiaryBrush}" Margin="0,0,4,0" />
-                <Button DockPanel.Dock="Right" Content="&#xE711;" Margin="2,0,0,0" FontFamily="{StaticResource FontFamilyIcons}"
+            <DockPanel Grid.Row="2" Margin="0,0,0,7" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left" Text="&#xE721;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeBody}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource InkTertiaryBrush}" Margin="0,0,6,0" />
+                <Button DockPanel.Dock="Right" Content="&#xE711;" Margin="4,0,0,0" FontFamily="{StaticResource FontFamilyIcons}"
                         Click="ClearFilter_Click"
                         ToolTip="{Binding [QuickSend.ClearFilter], Source={x:Static local:LanguageManager.Instance}}">
                     <Button.Style>
@@ -129,12 +143,22 @@
                         </Style>
                     </Button.Style>
                 </Button>
-                <TextBox x:Name="QuickSendFilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="{StaticResource FontSizeBody}" Padding="4,1" VerticalContentAlignment="Center"
-                         Background="{DynamicResource BgElevatedBrush}"
-                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                         PreviewKeyDown="QuickSendFilterBox_PreviewKeyDown"
-                         ToolTip="{Binding [QuickSend.FilterByName], Source={x:Static local:LanguageManager.Instance}}" />
+                <!-- Watermark: the field starts empty and had no placeholder, so it
+                     rendered as a blank box next to a magnifier glyph. Same
+                     Tag -> FindName contract as the data panel's search boxes. -->
+                <Grid>
+                    <TextBox x:Name="QuickSendFilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="{StaticResource FontSizeBody}" Padding="6,2" VerticalContentAlignment="Center"
+                             TextChanged="FilterBox_Watermark_TextChanged" Tag="QuickSendFilterHint"
+                             PreviewKeyDown="QuickSendFilterBox_PreviewKeyDown"
+                             ToolTip="{Binding [QuickSend.FilterByName], Source={x:Static local:LanguageManager.Instance}}" />
+                    <!-- Short hint only. The Tip.FilterByName sentence overflows a
+                         260px sidebar and clips mid-character, which reads as a
+                         layout fault; full guidance stays on the tooltip. -->
+                    <TextBlock x:Name="QuickSendFilterHint" Text="{Binding [QuickSend.FilterHint], Source={x:Static local:LanguageManager.Instance}}"
+                               Margin="10,0,0,0" VerticalAlignment="Center" FontSize="{StaticResource FontSizeBody}"
+                               Foreground="{DynamicResource InkTertiaryBrush}" IsHitTestVisible="False" />
+                </Grid>
             </DockPanel>
 
             <!-- ===== Row 3: Command list ===== -->
@@ -273,5 +297,5 @@
                         Command="{Binding ExportAllCommand}" />
             </WrapPanel>
         </Grid>
-    </controls:PaintedCard>
+    </Border>
 </UserControl>

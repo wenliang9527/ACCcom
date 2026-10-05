@@ -127,6 +127,16 @@ public partial class QuickSendSidebar : UserControl
         if (Vm != null) Vm.FilterText = "";
     }
 
+    /// <summary>Watermark driver: the overlay TextBlock (named via the TextBox's
+    /// Tag) collapses once text exists. Same contract as DataPanel's search
+    /// boxes — the filter starts empty, so without a hint it read as a blank box.</summary>
+    private void FilterBox_Watermark_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox box || box.Tag is not string hintName) return;
+        if (FindName(hintName) is not TextBlock hint) return;
+        hint.Visibility = string.IsNullOrEmpty(box.Text) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void QuickSendFilterBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (Vm == null) return;
