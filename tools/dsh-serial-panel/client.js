@@ -1,6 +1,6 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.6.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.7.0
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -58,6 +58,21 @@
 //     不经 Host(Host /export 仍负责整个内存环)
 //   * Host 新增 GET /help 返回 AGENTS.md:agent 发现端点后可自助,无需先读仓库
 //   * 详情区补完整日期(跨天会话只有时分秒会对不上)
+//
+//  ── v1.7.0 设计改版:仪器读数台(SIGNAL DESK) ──
+//  纯表现层重构,行为与数据契约零变化。设计概念:把面板从「一列灰字」改成
+//  一台 bench instrument 的读数台——
+//   * 顶部读数条(readout strip):呼吸灯 + RX/TX 账目(等宽 tabular-nums,
+//      engraved 小标签)+ 右侧行数计数器,一眼是「仪器」而不是「网页」;
+//   * 控制条(control strip):全部控件收成 24px 高的 engraved chip,engaged
+//     状态用品牌 9% 淡染(暂停=琥珀、清空确认=错误红),hover/聚焦有态;
+//   * 行解剖:左侧 2px「信号脊」按方向着色(RX 绿 / TX 琥珀 / SYS 中性),
+//     选中时脊线全亮 + 品牌淡染底;方向徽章从实色块改为描边 chip;
+//   * 字阶分层:标签 10px/0.1em 字距大写,数据 12px 等宽 tabular-nums,
+//     全程走 DSH 设计 token(--dsw-alias-*),深浅主题由 body[data-ds-dark-theme]
+//     切换校准值,token 缺失时十六进制作兜底;
+//   * 动效收敛在三处:首屏行错峰淡入(前 12 行 25ms 阶梯)、呼吸灯、
+//     新数据浮钮上浮;prefers-reduced-motion 全部关闭。
 // ============================================================
 
 window.__ModuleLoader__.load({
@@ -89,9 +104,6 @@ window.__ModuleLoader__.load({
     const fmtHex = (hex) => String(hex || '').replace(/[^0-9a-fA-F]/g, '').replace(/(..)/g, '$1 ').trim()
     const fmtBytes = (n) => (n >= 1024 ? (n / 1024).toFixed(1) + 'K' : String(n | 0))
 
-    const DIR_COLOR = { TX: '#d97706', RX: '#059669' }
-    const MARK_STYLE = { background: 'rgba(245, 158, 11, 0.35)', color: 'inherit', borderRadius: 2, padding: '0 1px' }
-
     // ---- 流量徽章共享态:图标轮询推进 lastSeq,面板可见时标记已读 ----
     const badgeStore = {
       lastSeq: 0,
@@ -121,27 +133,291 @@ window.__ModuleLoader__.load({
         || (e.tool && e.tool.toLowerCase().indexOf(matcher) >= 0)
         || (e.tag && e.tag.toLowerCase().indexOf(matcher) >= 0))
 
-    // ---- 一次性样式:hover/窄宽度降级(inline style 写不了 :hover 与媒体查询) ----
-    // 行背景整体走 class:内联 background 会压过样式表,导致 hover 失效
+    // ---- 一次性样式表 ----
+    // inline style 写不了 :hover / 动画 / 容器查询 / 深色覆盖,整panel的视觉
+    // 都收在这里;类名前缀 sp-(serial panel),与 DSH 其余插件无碰撞。
+    // 命名约定:sp- 根与骨架 / sp-row 行 / sp-dir 方向徽章 / sp-btn chip /
+    // sp-ledger 读数账目 / sp-mark 搜索命中 / sp-gap 断层 / sp-detail 详情。
     const injectStyles = () => {
       try {
         if (document.getElementById('dsh-serial-panel-styles')) return
         const el = document.createElement('style')
         el.id = 'dsh-serial-panel-styles'
         el.textContent = [
-          '.sp-row { background: transparent; }',
-          '.sp-row:hover { background: var(--dsw-alias-bg-layer-3, #f5f5f5); }',
-          '.sp-row.sp-sel { background: var(--dsw-alias-bg-layer-3, #f0f0f0); }',
-          // 容器查询跟随面板实际宽度(停靠栏拖拽时列降级实时生效);
-          // 旧版 Chromium 不支持时仅失去列降级,media query 作小窗口兜底
+          // ---------- 根与设计 token ----------
+          // 方向色(RX 绿 / TX 琥珀)在浅色下取校准深值保证 4.5:1 对比,
+          // 深色主题换亮值;品牌淡染用 color-mix,Chromium 111+(DSH 同款写法)。
+          '.sp-root {',
+          '  --sp-rx: #15803d; --sp-rx-soft: rgba(22, 163, 74, 0.12); --sp-rx-line: rgba(22, 163, 74, 0.5);',
+          '  --sp-tx: #b45309; --sp-tx-soft: rgba(217, 119, 6, 0.12); --sp-tx-line: rgba(217, 119, 6, 0.5);',
+          '  --sp-hair: var(--dsw-alias-border-l2, #ececec);',
+          '  --sp-sans: var(--dsw-font-family, "Segoe UI", system-ui, sans-serif);',
+          '  --sp-mono: var(--ds-font-family-code, var(--dsw-font-mono, Consolas, Menlo, monospace));',
+          '  --sp-brand: var(--dsw-alias-brand-primary, #0f1115);',
+          '  --sp-ink-1: var(--dsw-alias-label-primary, #1a1a1a);',
+          '  --sp-ink-2: var(--dsw-alias-label-secondary, #5f6368);',
+          '  --sp-ink-3: var(--dsw-alias-label-tertiary, #81858c);',
+          '  --sp-sunken: var(--dsw-alias-bg-layer-3, #f5f5f5);',
+          '  --sp-wash: color-mix(in srgb, var(--sp-brand) 9%, transparent);',
+          '  --sp-wash-line: color-mix(in srgb, var(--sp-brand) 38%, transparent);',
+          '  --sp-err: var(--dsw-alias-state-error-primary, #dc2626);',
+          '  --sp-ok: var(--dsw-alias-state-success-primary, #16a34a);',
+          '  --sp-warn: var(--dsw-alias-state-warn-primary, #d97706);',
+          '}',
+          'body[data-ds-dark-theme] .sp-root {',
+          '  --sp-rx: #4ed17e; --sp-rx-soft: rgba(78, 209, 126, 0.16); --sp-rx-line: rgba(78, 209, 126, 0.55);',
+          '  --sp-tx: #f7ad31; --sp-tx-soft: rgba(247, 173, 49, 0.16); --sp-tx-line: rgba(247, 173, 49, 0.55);',
+          '  --sp-wash: color-mix(in srgb, var(--sp-brand) 16%, transparent);',
+          '  --sp-wash-line: color-mix(in srgb, var(--sp-brand) 42%, transparent);',
+          '}',
+
+          // ---------- 面板骨架 ----------
+          '.sp-root {',
+          '  container-type: inline-size; container-name: sp-panel;',
+          '  width: 100%; max-width: 100%; min-width: 0; overflow: hidden;',
+          '  height: 100%; box-sizing: border-box; display: flex; flex-direction: column;',
+          '  background: var(--dsw-alias-bg-layer-2, #fff); color: var(--sp-ink-1);',
+          '  font-family: var(--sp-sans); font-size: 12px;',
+          '}',
+
+          // ---------- 读数条:呼吸灯 + RX/TX 账目 + 行数 ----------
+          '.sp-read {',
+          '  flex: none; display: flex; align-items: center; gap: 10px;',
+          '  padding: 7px 10px 6px; border-bottom: 1px solid var(--sp-hair);',
+          '  background: var(--dsw-alias-bg-layer-2, #fff);',
+          '}',
+          '.sp-lamp { position: relative; width: 7px; height: 7px; border-radius: 999px; flex: none; }',
+          '.sp-lamp[data-s="live"] { background: var(--sp-ok); }',
+          '.sp-lamp[data-s="live"]::after {',
+          '  content: ""; position: absolute; inset: -3px; border-radius: 999px;',
+          '  border: 1px solid var(--sp-ok); animation: sp-pulse 2.6s ease-out infinite;',
+          '}',
+          '.sp-lamp[data-s="wait"] { background: var(--sp-warn); }',
+          '.sp-lamp[data-s="dead"] { background: var(--sp-err); }',
+          '@keyframes sp-pulse { 0% { transform: scale(0.55); opacity: 0.9; } 70%, 100% { transform: scale(1.7); opacity: 0; } }',
+          '.sp-ledger { display: flex; align-items: baseline; gap: 5px; font-family: var(--sp-mono); font-variant-numeric: tabular-nums; }',
+          '.sp-k { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }',
+          '.sp-k.rx { color: var(--sp-rx); }',
+          '.sp-k.tx { color: var(--sp-tx); }',
+          '.sp-v { font-size: 12px; font-weight: 600; color: var(--sp-ink-1); }',
+          '.sp-u { font-size: 10px; color: var(--sp-ink-3); }',
+          '.sp-vsep { width: 1px; height: 12px; background: var(--sp-hair); margin: 0 3px; align-self: center; }',
+          '.sp-count { margin-left: auto; font-family: var(--sp-mono); font-size: 10px; color: var(--sp-ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }',
+          '.sp-pausetag {',
+          '  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;',
+          '  color: var(--sp-tx); border: 1px solid var(--sp-tx-line); background: var(--sp-tx-soft);',
+          '  border-radius: 4px; padding: 1px 5px;',
+          '}',
+
+          // ---------- 控制条 ----------
+          '.sp-ctl {',
+          '  flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;',
+          '  padding: 7px 10px; border-bottom: 1px solid var(--sp-hair);',
+          '}',
+          '.sp-btn {',
+          '  --sp-wash: color-mix(in srgb, var(--sp-brand) 9%, transparent);',
+          '  --sp-wash-line: color-mix(in srgb, var(--sp-brand) 38%, transparent);',
+          '  --sp-wash-ink: var(--sp-brand);',
+          '  appearance: none; -webkit-appearance: none; cursor: pointer; font: inherit; font-size: 11px;',
+          '  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px;',
+          '  border-radius: 6px; border: 1px solid var(--sp-hair); background: transparent;',
+          '  color: var(--sp-ink-2); white-space: nowrap;',
+          '  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;',
+          '}',
+          '.sp-btn:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(15, 17, 21, 0.05)); color: var(--sp-ink-1); }',
+          '.sp-btn:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--sp-brand)); outline-offset: 1px; }',
+          '.sp-btn[data-on="1"] { background: var(--sp-wash); border-color: var(--sp-wash-line); color: var(--sp-wash-ink); }',
+          '.sp-btn.sp-warn { --sp-wash: var(--sp-tx-soft); --sp-wash-line: var(--sp-tx-line); --sp-wash-ink: var(--sp-tx); }',
+          '.sp-btn.sp-danger { --sp-wash: color-mix(in srgb, var(--sp-err) 12%, transparent); --sp-wash-line: color-mix(in srgb, var(--sp-err) 45%, transparent); --sp-wash-ink: var(--sp-err); }',
+          '.sp-select {',
+          '  height: 24px; font: inherit; font-size: 11px; border-radius: 6px;',
+          '  border: 1px solid var(--sp-hair); background: var(--sp-sunken); color: var(--sp-ink-1);',
+          '  padding: 0 2px; cursor: pointer;',
+          '}',
+          '.sp-select:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--sp-brand)); outline-offset: 1px; }',
+          '.sp-search {',
+          '  flex: 1 1 150px; min-width: 110px; height: 24px; font: inherit; font-size: 11px;',
+          '  padding: 0 8px; border-radius: 6px; box-sizing: border-box;',
+          '  border: 1px solid var(--sp-hair); background: var(--sp-sunken); color: var(--sp-ink-1);',
+          '}',
+          '.sp-search::placeholder { color: var(--sp-ink-3); }',
+          '.sp-search:focus { outline: none; border-color: var(--sp-wash-line); }',
+          '.sp-search:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--sp-brand)); outline-offset: 1px; }',
+
+          // ---------- 列表与行 ----------
+          '.sp-listwrap {',
+          '  flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column;',
+          '  background: var(--dsw-alias-bg-layer-2, #fff);',
+          '}',
+          '.sp-listwrap[data-paused="1"] .sp-list { box-shadow: inset 0 2px 0 var(--sp-tx); }',
+          '.sp-list {',
+          '  flex: 1; min-height: 0; width: 100%; overflow-x: hidden; overflow-y: auto;',
+          '  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2, rgba(15, 17, 21, 0.18));',
+          '  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2, rgba(15, 17, 21, 0.3));',
+          '  scrollbar-width: thin;',
+          '}',
+          '.sp-row {',
+          '  position: relative; display: flex; align-items: baseline; gap: 8px;',
+          '  min-width: 0; width: 100%; box-sizing: border-box;',
+          '  padding: 3px 10px 3px 12px; cursor: pointer;',
+          '  border-bottom: 0.5px solid var(--sp-hair);',
+          '  font-size: 12px; line-height: 1.7;',
+          '  transition: background-color 0.12s ease;',
+          '  animation: sp-in 0.22s ease both;',
+          '}',
+          '.sp-row::before {',
+          '  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;',
+          '  background: transparent; transition: background-color 0.12s ease;',
+          '}',
+          '.sp-row[data-dir="RX"]::before { background: var(--sp-rx-line); }',
+          '.sp-row[data-dir="TX"]::before { background: var(--sp-tx-line); }',
+          '.sp-row[data-dir="SYS"]::before { background: var(--sp-hair); }',
+          '.sp-row:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(15, 17, 21, 0.045)); }',
+          '.sp-row.sp-sel { background: var(--sp-wash); }',
+          '.sp-row.sp-sel[data-dir="RX"]::before { background: var(--sp-rx); }',
+          '.sp-row.sp-sel[data-dir="TX"]::before { background: var(--sp-tx); }',
+          '.sp-row.sp-sel[data-dir="SYS"]::before { background: var(--sp-ink-3); }',
+          '@keyframes sp-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }',
+          // 首屏错峰:只给前 12 行加阶梯延迟,长列表不做人浪
+          '.sp-list > *:nth-child(1) { animation-delay: 0ms; }',
+          '.sp-list > *:nth-child(2) { animation-delay: 24ms; }',
+          '.sp-list > *:nth-child(3) { animation-delay: 48ms; }',
+          '.sp-list > *:nth-child(4) { animation-delay: 72ms; }',
+          '.sp-list > *:nth-child(5) { animation-delay: 96ms; }',
+          '.sp-list > *:nth-child(6) { animation-delay: 118ms; }',
+          '.sp-list > *:nth-child(7) { animation-delay: 140ms; }',
+          '.sp-list > *:nth-child(8) { animation-delay: 162ms; }',
+          '.sp-list > *:nth-child(9) { animation-delay: 184ms; }',
+          '.sp-list > *:nth-child(10) { animation-delay: 206ms; }',
+          '.sp-list > *:nth-child(11) { animation-delay: 228ms; }',
+          '.sp-list > *:nth-child(12) { animation-delay: 250ms; }',
+          '@media (prefers-reduced-motion: reduce) {',
+          '  .sp-row, .sp-lamp[data-s="live"]::after, .sp-jump, .sp-port, .sp-btn, .sp-copy { animation: none; transition: none; }',
+          '}',
+
+          // 行内单元
+          '.sp-time { flex: 0 0 84px; color: var(--sp-ink-3); font-family: var(--sp-mono); font-variant-numeric: tabular-nums; font-size: 11px; }',
+          '.sp-dir {',
+          '  flex: 0 0 26px; display: inline-flex; align-items: center; justify-content: center;',
+          '  height: 16px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;',
+          '  border: 1px solid var(--sp-hair); background: var(--sp-sunken); color: var(--sp-ink-3);',
+          '}',
+          '.sp-dir[data-dir="RX"] { color: var(--sp-rx); border-color: var(--sp-rx-line); background: var(--sp-rx-soft); }',
+          '.sp-dir[data-dir="TX"] { color: var(--sp-tx); border-color: var(--sp-tx-line); background: var(--sp-tx-soft); }',
+          '.sp-port {',
+          '  flex: 0 0 8px; height: 8px; border-radius: 999px; align-self: center;',
+          '  cursor: pointer; border: 0; padding: 0;',
+          '  box-shadow: 0 0 0 2px transparent;',
+          '  transition: transform 0.12s ease, box-shadow 0.12s ease;',
+          '}',
+          '.sp-port:hover { transform: scale(1.3); box-shadow: 0 0 0 3px var(--dsw-alias-interactive-bg-hover, rgba(15, 17, 21, 0.14)); }',
+          '.sp-tool {',
+          '  flex: 0 0 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
+          '  color: var(--sp-ink-2); font-size: 11px;',
+          '}',
+          '.sp-len { flex: 0 0 44px; text-align: right; color: var(--sp-ink-3); font-family: var(--sp-mono); font-variant-numeric: tabular-nums; font-size: 11px; }',
+          '.sp-dt {',
+          '  flex: 0 0 48px; text-align: right; color: var(--sp-ink-3);',
+          '  font-family: var(--sp-mono); font-variant-numeric: tabular-nums; font-size: 10px;',
+          '}',
+          '.sp-payload {',
+          '  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
+          '  font-family: var(--sp-mono); font-size: 12px; color: var(--sp-ink-1);',
+          '}',
+          '.sp-payload[data-dir="RX"] { color: var(--sp-rx); }',
+          '.sp-payload[data-dir="TX"] { color: var(--sp-tx); }',
+          '.sp-mark {',
+          '  background: color-mix(in srgb, var(--sp-warn) 32%, transparent);',
+          '  color: inherit; border-radius: 2px; padding: 0 1px;',
+          '}',
+
+          // 断层标记
+          '.sp-gap {',
+          '  display: flex; align-items: center; gap: 8px; padding: 4px 10px;',
+          '  font-family: var(--sp-mono); font-size: 10px; color: var(--sp-ink-3);',
+          '  border-bottom: 0.5px solid var(--sp-hair); white-space: nowrap;',
+          '}',
+          '.sp-gap::before, .sp-gap::after {',
+          '  content: ""; flex: 1; height: 1px;',
+          '  background: repeating-linear-gradient(90deg, var(--sp-hair) 0 4px, transparent 4px 8px);',
+          '}',
+
+          // 新数据浮钮
+          '.sp-jump {',
+          '  position: absolute; bottom: 12px; right: 12px; z-index: 5;',
+          '  appearance: none; -webkit-appearance: none; cursor: pointer; border: 0;',
+          '  border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 11px; font-weight: 600;',
+          '  display: inline-flex; align-items: center; gap: 5px;',
+          '  color: var(--dsw-alias-label-primary-inverted, #fff);',
+          '  background: var(--sp-brand);',
+          '  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);',
+          '  animation: sp-rise 0.18s ease both;',
+          '}',
+          '.sp-jump:focus-visible { outline: 2px solid var(--sp-brand); outline-offset: 2px; }',
+          '@keyframes sp-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }',
+
+          // ---------- 详情区 ----------
+          '.sp-detail {',
+          '  flex: none; max-height: 180px; overflow: auto;',
+          '  border-top: 1px solid var(--sp-hair);',
+          '  background: var(--sp-sunken); padding: 8px 10px;',
+          '}',
+          '.sp-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }',
+          '.sp-seq { font-family: var(--sp-mono); font-size: 11px; font-weight: 600; color: var(--sp-ink-1); }',
+          '.sp-metacap { font-size: 10px; color: var(--sp-ink-3); font-variant-numeric: tabular-nums; }',
+          '.sp-metaacts { margin-left: auto; display: flex; gap: 6px; }',
+          '.sp-copy {',
+          '  appearance: none; -webkit-appearance: none; cursor: pointer; font: inherit; font-size: 10px;',
+          '  height: 20px; padding: 0 8px; border-radius: 5px;',
+          '  border: 1px solid var(--sp-hair); background: transparent; color: var(--sp-ink-2);',
+          '  transition: background-color 0.12s ease, color 0.12s ease;',
+          '}',
+          '.sp-copy:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(15, 17, 21, 0.05)); color: var(--sp-ink-1); }',
+          '.sp-copy[data-done="1"] {',
+          '  color: var(--dsw-alias-label-primary-inverted, #fff);',
+          '  background: var(--sp-ok); border-color: var(--sp-ok);',
+          '}',
+          '.sp-copy:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--sp-brand)); outline-offset: 1px; }',
+          '.sp-text {',
+          '  font-family: var(--sp-mono); font-size: 12px; line-height: 1.6;',
+          '  white-space: pre-wrap; word-break: break-all; color: var(--sp-ink-1);',
+          '}',
+          '.sp-hex {',
+          '  font-family: var(--sp-mono); font-size: 11px; line-height: 1.6;',
+          '  white-space: pre-wrap; word-break: break-all; color: var(--sp-ink-3); margin-top: 4px;',
+          '}',
+
+          // ---------- 空态 ----------
+          '.sp-empty {',
+          '  flex: 1; min-height: 100%; display: flex; flex-direction: column;',
+          '  align-items: center; justify-content: center; gap: 9px;',
+          '  padding: 28px 20px; text-align: center;',
+          '}',
+          '.sp-empty-glyph { opacity: 0.14; color: var(--sp-ink-1); }',
+          '.sp-empty-title { font-size: 12px; line-height: 1.7; color: var(--sp-ink-2); max-width: 420px; }',
+          '.sp-api {',
+          '  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;',
+          '  font-family: var(--sp-mono); font-size: 11px; color: var(--sp-ink-2);',
+          '  background: var(--sp-sunken); border: 1px solid var(--sp-hair);',
+          '  border-radius: 6px; padding: 3px 5px 3px 10px;',
+          '}',
+          '.sp-api code { overflow: hidden; text-overflow: ellipsis; }',
+          '.sp-diag { font-size: 11px; line-height: 1.9; text-align: left; }',
+          '.sp-diag .ok { color: var(--sp-ok); }',
+          '.sp-diag .bad { color: var(--sp-warn); }',
+
+          // ---------- 窄宽度降级(容器查询跟随面板实际宽度;media 作小窗口兜底) ----------
+          // 读数账目是面板的「仪器脸」,只在极窄停靠才让位给行数据:
+          // ≤400px 收起右侧行数计数器,RX/TX 账目保留到最后一刻。
           '@container sp-panel (max-width: 640px) { .sp-tool { display: none; } }',
           '@container sp-panel (max-width: 560px) { .sp-len { display: none; } }',
-          '@container sp-panel (max-width: 520px) { .sp-stats { display: none; } }',
+          '@container sp-panel (max-width: 400px) { .sp-count { display: none; } }',
           '@media (max-width: 640px) { .sp-tool { display: none; } }',
           '@media (max-width: 560px) { .sp-len { display: none; } }',
+          '@media (max-width: 420px) { .sp-count { display: none; } }',
         ].join('\n')
         document.head.appendChild(el)
-      } catch (e) { /* 注入失败仅降级 hover 与窄宽度适配 */ }
+      } catch (e) { /* 注入失败仅失去增强样式,布局由内联兜底 */ }
     }
     injectStyles()
 
@@ -160,7 +436,7 @@ window.__ModuleLoader__.load({
         const hit = lower.indexOf(needle, i)
         if (hit < 0) { if (i < s.length) out.push(s.slice(i)); break }
         if (hit > i) out.push(s.slice(i, hit))
-        out.push(h('mark', { key: hit, style: MARK_STYLE }, s.slice(hit, hit + needle.length)))
+        out.push(h('mark', { key: hit, className: 'sp-mark' }, s.slice(hit, hit + needle.length)))
         i = hit + needle.length
       }
       return out.length ? out : [s]
@@ -178,7 +454,7 @@ window.__ModuleLoader__.load({
       let guard = 0
       while ((m = g.exec(s)) !== null && guard++ < 1000) {
         if (m.index > i) out.push(s.slice(i, m.index))
-        out.push(h('mark', { key: i + ':' + m.index, style: MARK_STYLE }, m[0]))
+        out.push(h('mark', { key: i + ':' + m.index, className: 'sp-mark' }, m[0]))
         i = m.index + (m[0].length || 1)
         if (!m[0].length) g.lastIndex = i
       }
@@ -241,13 +517,7 @@ window.__ModuleLoader__.load({
         timerRef.current = setTimeout(() => setDone(false), 1500)
       }
       return h('button', {
-        type: 'button', onClick: onCopy,
-        style: {
-          appearance: 'none', cursor: 'pointer', fontSize: 11, padding: '2px 8px',
-          borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #ddd)',
-          background: done ? 'var(--dsw-alias-state-success-primary, #10b981)' : 'var(--dsw-alias-bg-layer-3, #fff)',
-          color: done ? 'var(--dsw-alias-bg-layer-1, #fff)' : 'var(--dsw-alias-label-secondary, #666)', font: 'inherit',
-        },
+        type: 'button', className: 'sp-copy', 'data-done': done ? '1' : '0', onClick: onCopy,
       }, done ? '已复制' : (label || '复制'))
     }
 
@@ -278,6 +548,7 @@ window.__ModuleLoader__.load({
     )
 
     // ---- 组件:行条目(memo:引用未变的行不重渲染) ----
+    // 视觉走 class(脊线/徽章/等宽),布局参数留在内联(列宽是运行时手势)。
     const Row = React.memo(function Row({ e, hex, selected, onSelect, matcher, onPort }) {
       const raw = hex ? (fmtHex(e.hex) || e.text) : (e.text || fmtHex(e.hex))
       const payload = raw.length > ROW_PAYLOAD_MAX ? raw.slice(0, ROW_PAYLOAD_MAX) + ' …' : raw
@@ -286,60 +557,30 @@ window.__ModuleLoader__.load({
         : highlight(payload, matcher)
       return h('div', {
         className: 'sp-row' + (selected ? ' sp-sel' : ''),
+        'data-dir': e.dir || 'SYS',
         onClick: () => onSelect(e),
-        style: {
-          display: 'flex', alignItems: 'baseline', gap: 8,
-          minWidth: 0, width: '100%', boxSizing: 'border-box',
-          padding: '2px 10px', cursor: 'pointer',
-          borderBottom: '1px solid var(--dsw-alias-border-l2, #f0f0f0)',
-          fontSize: 12, lineHeight: 1.6,
-        },
       },
-        h('span', { style: { flex: '0 0 84px', color: 'var(--dsw-alias-label-tertiary, #999)', fontVariantNumeric: 'tabular-nums' } }, shortTime(e.ts)),
-        h('span', {
-          style: {
-            flex: '0 0 26px', textAlign: 'center', borderRadius: 4, fontSize: 11,
-            fontWeight: 700, color: '#fff', background: DIR_COLOR[e.dir] || '#888', padding: '0 4px',
-          },
-        }, e.dir),
+        h('span', { className: 'sp-time' }, shortTime(e.ts)),
+        h('span', { className: 'sp-dir', 'data-dir': e.dir || 'SYS' }, e.dir),
         e.tag ? h('span', {
+          className: 'sp-port',
           title: '按端口 ' + e.tag + ' 过滤(再点切回全部)',
           onClick: (ev) => {
             ev.stopPropagation()
             if (typeof onPort === 'function') onPort(e.tag)
           },
-          style: {
-            flex: '0 0 8px', height: 8, borderRadius: 999, alignSelf: 'center',
-            cursor: 'pointer',
-            boxShadow: '0 0 0 2px transparent',
-            background: 'hsl(' + hueOf(e.tag) + ', 55%, 45%)',
-          },
+          style: { background: 'hsl(' + hueOf(e.tag) + ', 55%, 45%)' },
         }) : null,
-        h('span', { className: 'sp-tool', style: { flex: '0 0 110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--dsw-alias-label-secondary, #666)' } }, e.tool + (e.tag ? ' · ' + e.tag : '')),
-        h('span', { className: 'sp-len', style: { flex: '0 0 44px', textAlign: 'right', color: 'var(--dsw-alias-label-tertiary, #999)', fontVariantNumeric: 'tabular-nums' } }, e.len),
-        h('span', {
-          className: 'sp-dt', title: '距上一条',
-          style: { flex: '0 0 48px', textAlign: 'right', fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)', fontVariantNumeric: 'tabular-nums' },
-        }, fmtDt(e.dtMs)),
-        h('span', {
-          style: {
-            flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontFamily: 'Consolas, Menlo, monospace', color: 'var(--dsw-alias-label-primary, #222)',
-          },
-        }, payloadChildren),
+        h('span', { className: 'sp-tool' }, e.tool + (e.tag ? ' · ' + e.tag : '')),
+        h('span', { className: 'sp-len' }, e.len ? e.len : ''),
+        h('span', { className: 'sp-dt', title: '距上一条' }, fmtDt(e.dtMs)),
+        h('span', { className: 'sp-payload', 'data-dir': e.dir || 'SYS' }, payloadChildren),
       )
     })
 
     // ---- 组件:断层标记(增量 seq 跳变 / Host 环滚出) ----
     const GapRow = React.memo(function GapRow({ count }) {
-      return h('div', {
-        style: {
-          padding: '3px 10px', textAlign: 'center', fontSize: 11,
-          color: 'var(--dsw-alias-label-tertiary, #999)',
-          background: 'var(--dsw-alias-bg-layer-3, #fafafa)',
-          borderBottom: '1px solid var(--dsw-alias-border-l2, #f0f0f0)',
-        },
-      }, '… 已省略 ' + count + ' 条(超出 Host 保留窗口)…')
+      return h('div', { className: 'sp-gap' }, '… 已省略 ' + count + ' 条(超出 Host 保留窗口)…')
     })
 
     // ---- 组件:串口实时面板(右侧停靠栏 tab 体 / 旧版整屏 main 面板) ----
@@ -528,91 +769,98 @@ window.__ModuleLoader__.load({
       const counterText = (rendered.length < visibleCount ? '渲染 ' + rendered.length + ' / ' : '')
         + visibleCount + ' / ' + entries.length + ' 条'
 
-      const btn = (label, onClick, active, title) => h('button', {
-        type: 'button', title: title || '', onClick,
-        style: {
-          appearance: 'none', cursor: 'pointer', fontSize: 12, padding: '4px 10px',
-          borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)',
-          background: active ? 'var(--dsw-alias-label-primary, #222)' : 'var(--dsw-alias-bg-layer-3, #fff)',
-          color: active ? 'var(--dsw-alias-bg-layer-3, #fff)' : 'var(--dsw-alias-label-primary, #222)',
-          font: 'inherit',
-        },
+      // ---- 控制条 chip:统一 24px 仪器按键,engaged 态走 data-on 淡染 ----
+      const chip = (label, onClick, on, title, variant) => h('button', {
+        type: 'button', onClick,
+        className: 'sp-btn' + (variant ? ' sp-' + variant : ''),
+        'data-on': on ? '1' : '0',
+        title: title || '',
       }, label)
 
-      const toolbar = h('div', {
-        style: {
-          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          padding: '10px 12px', borderBottom: '1px solid var(--dsw-alias-border-l2, #eee)',
-        },
-      },
-        h('span', {
-          title: !connected ? 'Host 未响应' : (stats && stats.exists === false) ? '已连接,等待日志文件出现' : '已连接 Host 尾随',
-          style: {
-            width: 8, height: 8, borderRadius: 999, flex: '0 0 auto',
-            background: !connected
-              ? 'var(--dsw-alias-state-error-primary, #ef4444)'
-              : (stats && stats.exists === false)
-                ? 'var(--dsw-alias-state-warn-primary, #f59e0b)'
-                : 'var(--dsw-alias-state-success-primary, #10b981)',
-          },
-        }),
-        h('span', { className: 'sp-stats', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary, #666)', fontVariantNumeric: 'tabular-nums' } },
-          'RX ' + ((stats && stats.rx) || 0) + '(' + fmtBytes((stats && stats.rxBytes) || 0) + 'B) · TX ' + ((stats && stats.tx) || 0) + '(' + fmtBytes((stats && stats.txBytes) || 0) + 'B)'),
-        btn(paused ? '▶ 继续' : '⏸ 暂停', () => setPaused(!paused), paused, '暂停后数据在 Host 侧继续累积,恢复后拉齐'),
-        btn(follow && autoSuspended ? '跟随·挂起' : '跟随', () => setFollow(!follow), effectiveFollow,
-          autoSuspended ? '翻看历史中已自动挂起,回到底部或再点恢复' : '自动滚动到最新'),
-        btn('HEX', () => setHex(!hex), hex, '以 HEX 显示数据'),
+      // 连接态灯:dead=Host 未响应 / wait=等日志文件 / live=尾随中
+      const lampState = !connected ? 'dead' : (stats && stats.exists === false) ? 'wait' : 'live'
+      const lampTitle = !connected ? 'Host 未响应'
+        : (stats && stats.exists === false) ? '已连接,等待日志文件出现'
+        : '已连接 Host 尾随'
+
+      // 读数账目:0 值的字节单位不占位(未开始通信时读数条保持干净)
+      const rxN = (stats && stats.rx) || 0
+      const txN = (stats && stats.tx) || 0
+      const rxB = (stats && stats.rxBytes) || 0
+      const txB = (stats && stats.txBytes) || 0
+      const head = h('div', { className: 'sp-read' },
+        h('span', { className: 'sp-lamp', 'data-s': lampState, title: lampTitle }),
+        h('span', { className: 'sp-ledger', title: 'RX/TX 帧数与字节账目' },
+          h('span', { className: 'sp-k rx' }, 'RX'),
+          h('span', { className: 'sp-v' }, String(rxN)),
+          rxB > 0 ? h('span', { className: 'sp-u' }, '· ' + fmtBytes(rxB) + 'B') : null,
+          h('span', { className: 'sp-vsep' }),
+          h('span', { className: 'sp-k tx' }, 'TX'),
+          h('span', { className: 'sp-v' }, String(txN)),
+          txB > 0 ? h('span', { className: 'sp-u' }, '· ' + fmtBytes(txB) + 'B') : null,
+        ),
+        paused ? h('span', { className: 'sp-pausetag' }, '已暂停') : null,
+        h('span', { className: 'sp-count' }, counterText),
+      )
+
+      const ctl = h('div', { className: 'sp-ctl' },
+        chip('HEX', () => setHex(!hex), hex, '以 HEX 显示数据'),
         h('select', {
-          value: dir, onChange: (e) => setDir(e.target.value),
-          style: { fontSize: 12, padding: '3px 6px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)', background: 'var(--dsw-alias-bg-layer-3, #fff)', color: 'var(--dsw-alias-label-primary, #222)' },
+          value: dir, onChange: (e) => setDir(e.target.value), className: 'sp-select',
+          'aria-label': '方向过滤',
         },
           h('option', { value: 'ALL' }, '全部'),
           h('option', { value: 'RX' }, 'RX'),
           h('option', { value: 'TX' }, 'TX'),
         ),
         h('select', {
-          value: port, onChange: (e) => setPort(e.target.value), title: '按端口标签过滤',
-          style: { fontSize: 12, padding: '3px 6px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)', background: 'var(--dsw-alias-bg-layer-3, #fff)', color: 'var(--dsw-alias-label-primary, #222)' },
+          value: port, onChange: (e) => setPort(e.target.value), className: 'sp-select',
+          title: '按端口标签过滤', 'aria-label': '端口过滤',
         },
           h('option', { value: 'ALL' }, '全部端口'),
           portOptions.map((t) => h('option', { key: t, value: t }, t)),
         ),
-        btn('.*', () => setUseRegex(!useRegex), useRegex, '正则模式(非法表达式自动回退子串匹配)'),
+        chip('.*', () => setUseRegex(!useRegex), useRegex, '正则模式(非法表达式自动回退子串匹配)'),
         h('input', {
           ref: searchRef,
           value: search,
           placeholder: useRegex ? '正则过滤 text/hex/tool/port…' : '过滤 text/hex/tool/port…',
           onChange: (e) => setSearch(e.target.value),
-          style: { flex: '1 1 140px', minWidth: 120, height: 28, fontSize: 12, padding: '0 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2, #ddd)', background: 'var(--dsw-alias-bg-layer-3, #fff)', color: 'var(--dsw-alias-label-primary, #222)', boxSizing: 'border-box' },
+          className: 'sp-search', 'aria-label': '过滤',
         }),
-        btn(confirmClear ? '确认清空?' : '清空', clear, confirmClear, '截断共享 mcp-traffic.jsonl(再点一次生效)'),
-        btn('导出', () => downloadJsonl(visible), false, '下载当前过滤视图为 JSONL(整个内存环用 Host /export 路由)'),
-        h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)' } }, counterText),
+        chip(paused ? '▶ 继续' : '⏸ 暂停', () => setPaused(!paused), paused,
+          '暂停后数据在 Host 侧继续累积,恢复后拉齐', 'warn'),
+        chip(follow && autoSuspended ? '跟随·挂起' : '跟随', () => setFollow(!follow), effectiveFollow,
+          autoSuspended ? '翻看历史中已自动挂起,回到底部或再点恢复' : '自动滚动到最新'),
+        chip(confirmClear ? '确认清空?' : '清空', clear, confirmClear,
+          '截断共享 mcp-traffic.jsonl(再点一次生效)', 'danger'),
+        chip('导出', () => downloadJsonl(visible), false, '下载当前过滤视图为 JSONL(整个内存环用 Host /export 路由)'),
       )
 
       // 空态:API 地址(agent 可直接 curl)+ 链路状态 + shell 工具解析诊断
       const diag = stats && stats.diag
       const shellLine = (label, exe, ok, hint) => h('div', {
-        style: { color: ok ? 'var(--dsw-alias-state-success-primary, #059669)' : 'var(--dsw-alias-state-warn-primary, #d97706)' },
+        className: ok ? 'ok' : 'bad',
       },
         (ok ? '✓ ' : '⚠ ') + label + ' → ' + (exe || '(PATH 中未找到)') + (ok ? '' : '  ·  ' + hint))
       const apiFull = (typeof location !== 'undefined' && location.origin ? location.origin : '') + ROUTE
-      const emptyBox = h('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dsw-alias-label-tertiary, #999)', fontSize: 13 } },
-        h('div', null,
+      const emptyBox = h('div', { className: 'sp-empty' },
+        h('div', { className: 'sp-empty-glyph' }, h(PlugGlyph, { size: 40 })),
+        h('div', { className: 'sp-empty-title' },
           stats && stats.exists
             ? '日志已连接,等待 AI 串口收发…(让 Agent 调 mcp__acccom__list_ports 试试)'
             : '尚未发现 ' + ((stats && stats.logPath) || 'mcp-traffic.jsonl') + ' — 首次 AI 串口通信后自动出现'),
-        h('div', { style: { marginTop: 6, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 6 } },
-          'API:',
-          h('span', { style: { fontFamily: 'Consolas, Menlo, monospace' } }, apiFull),
+        h('span', { className: 'sp-api' },
+          h('span', null, 'API'),
+          h('code', null, apiFull),
           h(CopyBtn, { text: apiFull, label: '复制' })),
         stats && stats.exists && typeof stats.logSize === 'number'
-          ? h('div', { style: { marginTop: 4, fontSize: 11 } },
+          ? h('div', { className: 'sp-metacap' },
               '日志 ' + fmtBytes(stats.logSize) + 'B · 坏行 ' + (stats.badLines || 0)
               + ' · 轮转文件' + (stats.rotated ? '已生成' : '未生成'))
           : null,
         diag
-          ? h('div', { style: { marginTop: 8, fontSize: 11, lineHeight: 1.8 } },
+          ? h('div', { className: 'sp-diag' },
               shellLine('pwsh', diag.pwsh, diag.pwshOk, 'PATH 中找不到 pwsh.exe'),
               shellLine('bash', diag.bash, diag.bashOk, 'System32 的是 WSL 存根;用 start-dsh-with-gitbash.cmd 启动可换成 Git Bash'))
           : null,
@@ -620,7 +868,7 @@ window.__ModuleLoader__.load({
 
       const list = h('div', {
         ref: listRef, onScroll,
-        style: { flex: 1, minHeight: 0, width: '100%', overflowX: 'hidden', overflowY: 'auto' },
+        className: 'sp-list',
       },
         visibleCount === 0
           ? emptyBox
@@ -635,43 +883,29 @@ window.__ModuleLoader__.load({
       )
 
       // 跟随挂起期间有新数据 → 右下角浮出提示,点击回底并恢复跟随
-      const listWrap = h('div', {
-        style: { flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', background: 'var(--dsw-alias-bg-layer-2, #fff)' },
-      },
+      const listWrap = h('div', { className: 'sp-listwrap', 'data-paused': paused ? '1' : '0' },
         list,
         (autoSuspended && newCount > 0) ? h('button', {
           type: 'button', onClick: jumpToLatest, title: '跳到最新并恢复跟随',
-          style: {
-            position: 'absolute', bottom: 14, right: 14, zIndex: 5,
-            appearance: 'none', cursor: 'pointer', border: 'none', borderRadius: 999,
-            padding: '6px 12px', fontSize: 12, fontWeight: 600, font: 'inherit',
-            color: 'var(--dsw-alias-bg-layer-1, #fff)',
-            background: 'var(--dsw-alias-brand-primary, #4f6bed)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
-          },
+          className: 'sp-jump',
         }, '↓ ' + newCount + ' 条新数据') : null,
       )
 
-      const detail = selected ? h('div', {
-        style: {
-          flex: '0 0 auto', maxHeight: 180, overflow: 'auto', borderTop: '1px solid var(--dsw-alias-border-l2, #eee)',
-          padding: '8px 12px', fontSize: 12, background: 'var(--dsw-alias-bg-layer-3, #fafafa)',
-        },
-      },
-        h('div', { style: { marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--dsw-alias-label-secondary, #666)' } },
-          h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-            '#' + selected.seq + ' · ' + shortTime(selected.ts)
-              + (typeof selected.ts === 'string' && selected.ts.length >= 10 ? ' · ' + selected.ts.slice(0, 10) : '')
-              + ' · ' + selected.dir + ' · '
-              + selected.tool + (selected.tag ? ' · ' + selected.tag : '') + ' · ' + selected.len + 'B'
-              + (selected.dtMs != null ? ' · Δ' + fmtDt(selected.dtMs) : '')),
-          selected.text ? h(CopyBtn, { text: selected.text, label: '复制text' }) : null,
-          selected.hex ? h(CopyBtn, { text: fmtHex(selected.hex), label: '复制HEX' }) : null,
+      const detail = selected ? h('div', { className: 'sp-detail' },
+        h('div', { className: 'sp-meta' },
+          h('span', { className: 'sp-seq' }, '#' + selected.seq),
+          h('span', { className: 'sp-dir', 'data-dir': selected.dir || 'SYS' }, selected.dir),
+          h('span', { className: 'sp-metacap' },
+            (typeof selected.ts === 'string' && selected.ts.length >= 10 ? selected.ts.slice(0, 10) + ' · ' : '')
+            + shortTime(selected.ts) + ' · ' + selected.tool + (selected.tag ? ' · ' + selected.tag : '')
+            + ' · ' + selected.len + 'B'
+            + (selected.dtMs != null ? ' · Δ' + fmtDt(selected.dtMs) : '')),
+          h('span', { className: 'sp-metaacts' },
+            selected.text ? h(CopyBtn, { text: selected.text, label: '复制text' }) : null,
+            selected.hex ? h(CopyBtn, { text: fmtHex(selected.hex), label: '复制HEX' }) : null),
         ),
-        h('div', { style: { fontFamily: 'Consolas, Menlo, monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--dsw-alias-label-primary, #222)' } },
-          selected.text || '(空)'),
-        h('div', { style: { fontFamily: 'Consolas, Menlo, monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--dsw-alias-label-tertiary, #999)', marginTop: 4 } },
-          fmtHex(selected.hex)),
+        h('div', { className: 'sp-text' }, selected.text || '(空)'),
+        h('div', { className: 'sp-hex' }, fmtHex(selected.hex)),
       ) : null
 
       // ---- 快捷键(仅面板持有焦点时;对话输入框的事件不经过本 DOM,不受影响) ----
@@ -698,18 +932,9 @@ window.__ModuleLoader__.load({
 
       return h('div', {
         ref: rootRef, tabIndex: -1, onKeyDown, onMouseDown,
-        style: {
-          // 停靠 pane 内必须锁宽:内容(hex 行不换行)会把无宽约束的根撑到比 pane 宽,
-          // 被 tabBody 的 overflow:hidden 直接裁掉——拖拽调宽时表现为"数据不跟随"
-          outline: 'none',
-          width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden',
-          containerType: 'inline-size', containerName: 'sp-panel',
-          height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
-          background: 'var(--dsw-alias-bg-layer-2, #fff)',
-          color: 'var(--dsw-alias-label-primary, #222)',
-        },
+        className: 'sp-root',
       },
-        toolbar, listWrap, detail,
+        head, ctl, listWrap, detail,
       )
     }
 
