@@ -108,7 +108,9 @@ public sealed partial class McpTrafficLog : IDisposable
             if (!string.IsNullOrEmpty(direction))
                 slice = slice.Where(e => string.Equals(e.Direction, direction, StringComparison.OrdinalIgnoreCase));
             if (!string.IsNullOrEmpty(portTag))
-                slice = slice.Where(e => string.Equals(e.PortTag, portTag, StringComparison.Ordinal));
+                // OrdinalIgnoreCase:工具面其余过滤(direction/search)与 DataBufferService
+                // 全部大小写不敏感,tag "Com1" vs 打开时的 "COM1" 不该静默过滤成空。
+                slice = slice.Where(e => string.Equals(e.PortTag, portTag, StringComparison.OrdinalIgnoreCase));
             if (!string.IsNullOrEmpty(search))
                 slice = slice.Where(e =>
                     e.Text.Contains(search, StringComparison.OrdinalIgnoreCase) ||

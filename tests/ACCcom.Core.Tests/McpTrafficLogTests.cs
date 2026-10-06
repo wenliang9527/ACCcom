@@ -207,6 +207,9 @@ public class McpTrafficLogTests
         Assert.Equal(new long[] { 1 }, log.ReadRecent(0, 50, search: "hello").Select(e => e.Seq));
         Assert.Equal(new long[] { 1 }, log.ReadRecent(0, 50, search: "53 48").Select(e => e.Seq)); // 命中 hex
         Assert.Equal(new long[] { 2 }, log.ReadRecent(0, 50, portTag: "p1").Select(e => e.Seq));
+        // portTag 过滤大小写不敏感,与 direction/search 及 DataBufferService 对齐:
+        // tag "COM1" vs 过滤词 "com1" 不该静默过滤成空。
+        Assert.Equal(new long[] { 2 }, log.ReadRecent(0, 50, portTag: "P1").Select(e => e.Seq));
         Assert.Empty(log.ReadRecent(0, 50, search: "nomatch"));
     }
 

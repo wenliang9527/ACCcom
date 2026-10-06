@@ -41,6 +41,9 @@ internal static class ErrorCodes
     /// <summary>matchMode is not contains/exact/regex, or a regex pattern failed to compile.</summary>
     public const string InvalidPattern = "INVALID_PATTERN";
 
+    /// <summary>A direction filter argument is not one of the documented values (RX/TX, plus SYS on traffic_log).</summary>
+    public const string InvalidDirection = "INVALID_DIRECTION";
+
     /// <summary>An unexpected exception escaped a tool body (message carries type + reason).</summary>
     public const string Internal = "INTERNAL";
 }

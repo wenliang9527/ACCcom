@@ -262,7 +262,7 @@ curl http://127.0.0.1:8899/api/slaves
 
 ### 方案一：MCP Server（推荐）
 
-ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 10 个基础串口工具（list_ports / list_open_ports / open_port / close_port / send / read_data / wait_for_response / wait_for_quiet / send_and_wait / clear_buffer），无需 HTTP 配置。
+ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可直接启动并调用 11 个工具（list_ports / list_open_ports / open_port / close_port / send / read_data / wait_for_response / wait_for_quiet / send_and_wait / clear_buffer / traffic_log），无需 HTTP 配置。
 
 **运行模式：**
 
@@ -345,11 +345,12 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |
-| `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 截断超长文本（默认服务端上限 2000 字符/条，显式指定可放宽至 65536）；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列） |
+| `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 截断超长文本（默认服务端上限 2000 字符/条，显式指定可放宽至 65536）；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列）；`direction` 只认 RX/TX（大小写不敏感、可留空白），其余值报 `INVALID_DIRECTION` |
 | `wait_for_response` | 阻塞等待匹配数据（支持 contains / regex / exact 匹配，可超时） |
 | `wait_for_quiet` | 等待串口静默 quietMs 毫秒（确认流式响应已传输完毕，配合 read_data tail 使用） |
 | `send_and_wait` | 发送数据并等待匹配响应（组合 send + wait_for_response，减少 AI 调用轮次） |
-| `clear_buffer` | 清空缓冲区（rx/tx/all） |
+| `clear_buffer` | 清空缓冲区（rx/tx/all，大小写不敏感；未知值报 `INVALID_CONFIG` 而非静默不清） |
+| `traffic_log` | 串口流量飞行记录仪：所有 MCP 收发（含已被 read_data 消费的数据）的审计层读数；`sinceSeq` 游标增量、`direction`（TX/RX/SYS）/`portTag`（大小写不敏感）/`search` 过滤、`compact` 省 token 投影 |
 
 ### MCP 响应约定
 
@@ -365,7 +366,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 - 失败时按 `error.code` 机器分支，`error.message` 仅面向人类。稳定错误码：
   `PORT_REQUIRED` / `PORT_NOT_OPEN` / `OPEN_FAILED` / `CLOSE_FAILED` /
   `SEND_FAILED` / `EMPTY_DATA` / `INVALID_HEX` / `PATTERN_REQUIRED` / `INVALID_FIELDS` /
-  `INVALID_CONFIG` / `INVALID_PATTERN` / `INTERNAL`
+  `INVALID_CONFIG` / `INVALID_PATTERN` / `INVALID_DIRECTION` / `INTERNAL`
 
 **健壮性契约**
 
@@ -376,6 +377,12 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 - **matchMode 校验**：`wait_for_response` / `send_and_wait` 的 `matchMode` 必须是
   `contains` / `exact` / `regex`（大小写不敏感），regex 模式会先编译校验；未知模式或
   非法 regex 报 `INVALID_PATTERN`（此前未知模式静默按 `contains` 降级、非法 regex 表现为超时）。
+- **direction/clear target 校验**：`read_data` / `wait_for_response` / `send_and_wait` /
+  `traffic_log` 的 `direction` 过滤词归一化（去空白、大小写不敏感、`all` 等价于不过滤），
+  未知值报 `INVALID_DIRECTION`（此前如 `"receive"` 会静默过滤成空结果、wait 工具白等满
+  超时）；`send_and_wait` 的空字符串 `direction` 统一按默认 `RX` 处理（此前被当成
+  「任意方向」，自己的 TX 回显即可满足等待）。`clear_buffer` 的 `target` 未知值报
+  `INVALID_CONFIG`（此前静默 no-op 却返回 success，agent 会误以为旧数据已清空）。
 - **异常信封**：任何工具内部未预期异常都经 `ToolContext.Guard` 转为 `INTERNAL`
   错误码信封（message 含异常类型与原因），不再以原始异常文本逃逸。
 - **形状统一**：`open_port` 已开口响应与新开口同 schema（`port`/`baudRate`/`dataBits`

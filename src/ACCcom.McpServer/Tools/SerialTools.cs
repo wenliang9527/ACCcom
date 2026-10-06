@@ -261,7 +261,7 @@ public class SerialTools
     public Task<string> ReadData(
         [Description("Cursor from a previous call's latestId; entries newer than it are returned (default 0)")] int sinceId = 0,
         [Description("Maximum number of entries to return (default 100)")] int limit = 100,
-        [Description("Filter by direction: RX or TX (null for all)")] string? direction = null,
+        [Description("Filter by direction: RX or TX (null for all; any other value fails with INVALID_DIRECTION)")] string? direction = null,
         [Description("Optional tag of the multi-port session to read (default single-port session if omitted)")] string? tag = null,
         [Description("Return the newest N entries in arrival order; takes precedence over sinceId/limit (default 0 = cursor mode)")] int tail = 0,
         [Description("Truncate text and hex of each entry to this many characters, marking truncated=true (0 = server default 2000; explicit values up to 65536)")] int maxLength = 0,
@@ -278,23 +278,29 @@ public class SerialTools
         if (!McpJson.TryParseFields(fields, out var mask, out var fieldError))
             return _ctx.ToolError(ErrorCodes.InvalidFields, fieldError!);
 
+        // Canonicalize the direction filter before it reaches the buffer: a
+        // value like "receive" or a trailing-space "RX " would filter every
+        // entry out and read as "no data" instead of "bad argument".
+        var dir = ToolArgs.NormalizeDirection(direction, allowSys: false, out var dirError);
+        if (dirError != null) return _ctx.ToolError(ErrorCodes.InvalidDirection, dirError);
+
         var buffer = _ctx.BufferFor(tag);
         List<LogEntry> raw;
         int scannedMaxId;
         if (tail > 0)
         {
-            raw = buffer.GetTailEntries(tail, direction, out scannedMaxId);
+            raw = buffer.GetTailEntries(tail, dir, out scannedMaxId);
         }
         else if (waitMs > 0)
         {
-            var waited = await buffer.WaitEntriesSinceAsync(sinceId, direction, limit, Math.Clamp(waitMs, 0, 60_000)).ConfigureAwait(false);
+            var waited = await buffer.WaitEntriesSinceAsync(sinceId, dir, limit, Math.Clamp(waitMs, 0, 60_000)).ConfigureAwait(false);
             raw = waited.Entries;
             scannedMaxId = waited.ScannedMaxId;
         }
         else
         {
             // Filtering and limit are folded into the buffer's single tail copy.
-            raw = buffer.GetEntriesSince(sinceId, direction, limit, out scannedMaxId);
+            raw = buffer.GetEntriesSince(sinceId, dir, limit, out scannedMaxId);
         }
 
         // Lean projection (McpJson.Lean): drops UI-only state, omits empty
@@ -335,7 +341,7 @@ public class SerialTools
         [Description("Timeout in milliseconds (default 5000, max 60000)")] int timeoutMs = 5000,
         [Description("Match mode: contains, regex, or exact (default contains)")] string matchMode = "contains",
         [Description("Match against hex data instead of text (default false)")] bool matchHex = false,
-        [Description("Filter direction: RX or TX (null for any)")] string? direction = null,
+        [Description("Filter direction: RX or TX (null for any; any other value fails with INVALID_DIRECTION)")] string? direction = null,
         [Description("Optional tag of the multi-port session to wait on (default single-port session if omitted)")] string? tag = null)
         => _ctx.Guard(() => WaitForResponseCore(pattern, timeoutMs, matchMode, matchHex, direction, tag));
 
@@ -349,9 +355,14 @@ public class SerialTools
         var patternError = PatternArgError(matchMode, pattern);
         if (patternError != null)
             return _ctx.ToolError(ErrorCodes.InvalidPattern, patternError);
+        // A direction the matcher never agrees with would burn the whole
+        // timeout and report "no matching data found" while the frame was
+        // already in the buffer — reject it up front instead.
+        var dir = ToolArgs.NormalizeDirection(direction, allowSys: false, out var dirError);
+        if (dirError != null) return _ctx.ToolError(ErrorCodes.InvalidDirection, dirError);
 
         var timeout = Math.Clamp(timeoutMs, 100, 60000);
-        var entry = await WaitForDataInternalAsync(pattern, matchMode, matchHex, direction, timeout, tag).ConfigureAwait(false);
+        var entry = await WaitForDataInternalAsync(pattern, matchMode, matchHex, dir, timeout, tag).ConfigureAwait(false);
         var latestId = _ctx.BufferFor(tag).LastSeq;
         if (entry != null)
             return _ctx.RawJson(new { success = true, data = new { matched = true, entry = McpJson.Lean(entry), latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
@@ -393,7 +404,7 @@ public class SerialTools
         [Description("Timeout in milliseconds (default 5000, max 60000)")] int timeoutMs = 5000,
         [Description("Match mode: contains, regex, or exact (default contains)")] string matchMode = "contains",
         [Description("Match against hex data instead of text (default false)")] bool matchHex = false,
-        [Description("Filter direction: RX or TX (default RX)")] string? direction = "RX",
+        [Description("Filter direction: RX or TX (default RX; any other value fails with INVALID_DIRECTION)")] string? direction = "RX",
         [Description("Optional tag of the multi-port session to use (default single-port session if omitted)")] string? tag = null)
         => _ctx.Guard(() => SendAndWaitCore(data, pattern, isHex, timeoutMs, matchMode, matchHex, direction, tag));
 
@@ -409,6 +420,11 @@ public class SerialTools
         var patternError = PatternArgError(matchMode, pattern);
         if (patternError != null)
             return _ctx.ToolError(ErrorCodes.InvalidPattern, patternError);
+        // Normalize before the ?? default: an explicit "" used to slip past it
+        // and widen the match to any direction (the tool's own TX echo could
+        // then satisfy the wait) — the opposite of read_data's "" semantics.
+        var dir = ToolArgs.NormalizeDirection(direction, allowSys: false, out var dirError) ?? "RX";
+        if (dirError != null) return _ctx.ToolError(ErrorCodes.InvalidDirection, dirError);
 
         // byteLength mirrors send's contract (strict decoded count for hex,
         // UTF-8 count for text) so send_and_wait responses parse with the
@@ -427,7 +443,7 @@ public class SerialTools
 
         // Register waiter BEFORE sending to avoid race condition
         var timeout = Math.Clamp(timeoutMs, 100, 60000);
-        var waiterTask = WaitForDataInternalAsync(pattern, matchMode, matchHex, direction ?? "RX", timeout, tag);
+        var waiterTask = WaitForDataInternalAsync(pattern, matchMode, matchHex, dir, timeout, tag);
 
         if (!SendTo(tag, data, isHex))
             return _ctx.ToolError(ErrorCodes.SendFailed, "Send failed, port may not be open");
@@ -443,7 +459,7 @@ public class SerialTools
         return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = false, message = $"Timeout ({timeout}ms), no matching response", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
     }
 
-    [McpServerTool, Description("Clear the data buffer: rx, tx, or all (default all).")]
+    [McpServerTool, Description("Clear the data buffer: rx, tx, or all (default all). Any other target fails with INVALID_CONFIG instead of silently keeping the buffer.")]
     public Task<string> ClearBuffer(
         [Description("What to clear: rx, tx, or all (default all)")] string? target = null,
         [Description("Optional tag of the multi-port session to clear (default single-port session if omitted)")] string? tag = null)
@@ -456,7 +472,13 @@ public class SerialTools
         var unknownTag = UnknownTagError(tag);
         if (unknownTag != null) return Task.FromResult(unknownTag);
 
-        _ctx.BufferFor(tag).Clear(target);
-        return Task.FromResult(_ctx.RawJson(new { success = true, data = new { cleared = target ?? "all", tag = string.IsNullOrEmpty(tag) ? null : tag } }));
+        // DataBufferService.Clear keeps every entry for an unknown direction
+        // value — reporting success for "everything" would make the agent
+        // believe stale data was gone and misread old frames as new ones.
+        var cleared = ToolArgs.NormalizeClearTarget(target, out var targetError);
+        if (targetError != null) return Task.FromResult(_ctx.ToolError(ErrorCodes.InvalidConfig, targetError));
+
+        _ctx.BufferFor(tag).Clear(cleared);
+        return Task.FromResult(_ctx.RawJson(new { success = true, data = new { cleared, tag = string.IsNullOrEmpty(tag) ? null : tag } }));
     }
 }

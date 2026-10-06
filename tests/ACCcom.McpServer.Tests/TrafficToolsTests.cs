@@ -158,4 +158,43 @@ public class TrafficToolsTests
         }
         finally { sp.Dispose(); }
     }
+
+    [Fact]
+    public async Task TrafficLog_UnknownDirection_FailsWithInvalidDirection()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.TrafficLog.Record(0, "send", "TX", "53 48", "SH");
+            var tools = new TrafficTools(ctx);
+
+            var result = await tools.TrafficLog(direction: "uplink");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_DIRECTION", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task TrafficLog_DirectionIsCanonicalized_IncludingSys()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.TrafficLog.Record(0, "send", "TX", "53 48", "SH");
+            ctx.TrafficLog.Record(0, "open_port", "SYS", "", "opened COM3");
+            var tools = new TrafficTools(ctx);
+
+            var sysResult = await tools.TrafficLog(direction: " sys ");
+            Assert.True(ToolContextFactory.ExtractSuccess(sysResult));
+            var sysData = Data(sysResult);
+            Assert.Equal(1, sysData.GetProperty("entries").GetArrayLength());
+            Assert.Equal("SYS", sysData.GetProperty("entries")[0].GetProperty("dir").GetString());
+
+            var allResult = await tools.TrafficLog(direction: "ALL");
+            Assert.True(ToolContextFactory.ExtractSuccess(allResult));
+            Assert.Equal(2, Data(allResult).GetProperty("entries").GetArrayLength());
+        }
+        finally { sp.Dispose(); }
+    }
 }

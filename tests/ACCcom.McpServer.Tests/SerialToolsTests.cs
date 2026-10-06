@@ -1184,4 +1184,137 @@ public class SerialToolsTests
         public bool Close() => throw new InvalidOperationException("boom");
         public void Dispose() { }
     }
+
+    [Fact]
+    public async Task ReadData_UnknownDirection_FailsWithInvalidDirection()
+    {
+        // "receive" 过滤词会把每一条都滤掉,读成"无数据"而不是"参数错了"。
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var result = await tools.ReadData(direction: "receive");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_DIRECTION", ToolContextFactory.ExtractErrorCode(result));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_DirectionIsTrimmedAndCaseInsensitive()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "rx-row" });
+            var tools = new SerialTools(ctx);
+
+            var result = await tools.ReadData(direction: " rx ");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            Assert.Contains("rx-row", result);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ClearBuffer_UnknownTarget_FailsWithoutClearing()
+    {
+        // 旧行为:未知 target 静默 no-op 却返回 success=true + cleared=target,
+        // agent 会以为旧数据已清空、把陈旧帧当新会话。现在给结构化错误,
+        // 且缓冲区原样保留。
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "stale" });
+            var tools = new SerialTools(ctx);
+
+            var result = await tools.ClearBuffer("everything");
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_CONFIG", ToolContextFactory.ExtractErrorCode(result));
+
+            var read = await tools.ReadData();
+            Assert.Contains("stale", read);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ClearBuffer_TargetIsCanonicalized()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "rx-row" });
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "TX", Text = "tx-row" });
+            var tools = new SerialTools(ctx);
+
+            var result = await tools.ClearBuffer(" RX ");
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            Assert.Equal("RX", doc.RootElement.GetProperty("data").GetProperty("cleared").GetString());
+
+            var read = await tools.ReadData();
+            Assert.DoesNotContain("rx-row", read);
+            Assert.Contains("tx-row", read);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task WaitForResponse_UnknownDirection_FailsFastInsteadOfBurningTimeout()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await tools.WaitForResponse("OK", direction: "uplink");
+            sw.Stop();
+
+            Assert.False(ToolContextFactory.ExtractSuccess(result));
+            Assert.Equal("INVALID_DIRECTION", ToolContextFactory.ExtractErrorCode(result));
+            // 失败必须即时返回——旧行为是白等满 timeout 再报"无匹配数据"。
+            Assert.True(sw.ElapsedMilliseconds < 3000, $"expected fast-fail, took {sw.ElapsedMilliseconds}ms");
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_EmptyDirection_DoesNotMatchOwnTxEcho()
+    {
+        // 显式 "" 曾越过 ?? "RX" 默认值,把匹配面扩大到任意方向——自己的 TX
+        // 回显就能满足等待。统一后 "" 按 RX 处理,TX 回显不算命中。
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.SendAndWait("PING", "PING", direction: "", timeoutMs: 200);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            Assert.False(doc.RootElement.GetProperty("data").GetProperty("matched").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_DirectionIsTrimmedAndCaseInsensitive()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "READY" });
+
+            var result = await tools.SendAndWait("GO", "READY", direction: " rx ", timeoutMs: 2000);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            Assert.True(doc.RootElement.GetProperty("data").GetProperty("matched").GetBoolean());
+        }
+        finally { sp.Dispose(); }
+    }
 }

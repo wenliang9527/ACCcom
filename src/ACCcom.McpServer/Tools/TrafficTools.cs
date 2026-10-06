@@ -23,7 +23,7 @@ public class TrafficTools
         _ctx = ctx;
     }
 
-    [McpServerTool, Description("Read the serial traffic flight recorder: every MCP send/receive is mirrored here, including data already consumed by read_data. Default returns the last `limit` entries; cursor mode returns entries after sinceSeq — note the returned lastSeq BEFORE your serial ops, then call again with sinceSeq to see exactly what happened (clean repro). Filters: direction (TX/RX/SYS), portTag, search (substring over text/hex/tool/port). compact=true merges text/hex into one payload field truncated to maxChars (token-friendly).")]
+    [McpServerTool, Description("Read the serial traffic flight recorder: every MCP send/receive is mirrored here, including data already consumed by read_data. Default returns the last `limit` entries; cursor mode returns entries after sinceSeq — note the returned lastSeq BEFORE your serial ops, then call again with sinceSeq to see exactly what happened (clean repro). Filters: direction (TX/RX/SYS), portTag, search (substring over text/hex/tool/port). compact=true merges text/hex into one payload field truncated to maxChars (token-friendly). Unknown direction fails with INVALID_DIRECTION; portTag matching is case-insensitive.")]
     public Task<string> TrafficLog(
         [Description("Return only entries after this seq (0 = tail mode, last `limit` entries)")] long sinceSeq = 0,
         [Description("Max entries to return (1-500, default 50)")] int limit = 50,
@@ -40,7 +40,10 @@ public class TrafficTools
         if (limit > 500) limit = 500;
         if (maxChars < 1) maxChars = 1;   // 与面板 compact API 一致:允许极小值以便精确测试码点截断
         if (maxChars > 4096) maxChars = 4096;
-        direction = NormalizeFilter(direction);
+        // 未知方向会静默过滤成空结果——与已修掉的"typo tag 读成 no data"同型,
+        // 在入口处拒绝并给结构化错误。
+        direction = ToolArgs.NormalizeDirection(direction, allowSys: true, out var dirError);
+        if (dirError != null) return _ctx.ToolError(ErrorCodes.InvalidDirection, dirError);
         portTag = string.IsNullOrWhiteSpace(portTag) ? null : portTag.Trim();
         search = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
 
@@ -82,12 +85,6 @@ public class TrafficTools
         // Sparse policy matches ToolContext.RawJson: null columns (tag echo)
         // never reach the wire.
         return _ctx.RawJson(new { success = true, data = new { lastSeq, kept, entries = projected.ToList() } });
-    }
-
-    private static string? NormalizeFilter(string? value)
-    {
-        var v = value?.Trim();
-        return string.IsNullOrEmpty(v) || string.Equals(v, "all", StringComparison.OrdinalIgnoreCase) ? null : v;
     }
 
     /// <summary>Codepoint-safe truncation: cutting between a surrogate pair
