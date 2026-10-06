@@ -276,6 +276,22 @@ public class ModbusSlaveTransportTests
     }
 
     [Fact]
+    public void RtuSlaveTransport_HexStringToBytes_ToleratesDirtyAndOddHex()
+    {
+        // 与 RTU/ASCII master 两个容错兄弟同一家族行为:非法字符按 0 处理、
+        // 奇数尾巴丢弃,绝不抛(旧实现 Convert.FromHexString 对脏/奇数 hex
+        // 抛 FormatException,从 OnSerialData 一路炸穿订阅链)。
+        Assert.Equal(new byte[] { 0x01, 0x02, 0xAA },
+            ModbusRtuSlaveTransport.HexStringToBytes("01 02 AA"));
+        Assert.Equal(new byte[] { 0x00, 0x30 },
+            ModbusRtuSlaveTransport.HexStringToBytes("0G 30"));  // G→0 nibble
+        Assert.Equal(new byte[] { 0x00 },
+            ModbusRtuSlaveTransport.HexStringToBytes("0G 3"));   // 奇数尾巴丢弃
+        Assert.Equal(new byte[] { },
+            ModbusRtuSlaveTransport.HexStringToBytes("A"));      // 单 nibble 无配对 → 空
+    }
+
+    [Fact]
     public void RtuTransport_StartStop_CanRestart()
     {
         using var serial = new VirtualSerialService();

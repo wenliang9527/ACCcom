@@ -273,4 +273,17 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("COM3", settings.LastPort);
         Assert.Equal(5, settings.WindowX);
     }
+
+    [Fact]
+    public void Save_NullSettings_ReturnsFalseAndSetsLastError()
+    {
+        // bool+LastError 契约:serializer 的 ArgumentNullException 不得逃出
+        // Save(兄弟类 JsonFilePersistenceManager 对 null 输入同样不抛)。
+        var service = new SettingsService(GetTempSettingsPath());
+
+        var ok = service.Save(null);
+
+        Assert.False(ok);
+        Assert.NotNull(service.LastError);
+    }
 }

@@ -100,10 +100,22 @@ public class ModbusValueParserTests
     }
 
     [Fact]
-    public void ParseRegisterValues_out_of_range_hex_throws()
+    public void ParseRegisterValues_out_of_range_hex_becomes_zero()
     {
-        // 0x1FFFF overflows ushort — must surface as a parse error, not a
-        // silent wrap. The ViewModel's outer try/catch reports it to the user.
-        Assert.Throws<OverflowException>(() => ModbusValueParser.ParseRegisterValues("0x1FFFF"));
+        // 0x1FFFF 超出 ushort — 与十进制 "70000 → 0" 同一条 base 无关规则:
+        // 不可解析一律为 0,不抛(此前 hex 路径用抛异常的 ushort.Parse,
+        // 与同方法十进制分支、XML 文档承诺三方不一致)。
+        var result = ModbusValueParser.ParseRegisterValues("1,0x1FFFF,2");
+
+        Assert.Equal(new ushort[] { 1, 0, 2 }, result);
+    }
+
+    [Fact]
+    public void ParseRegisterValues_malformed_hex_becomes_zero()
+    {
+        // 非法 hex 字符与前缀后为空,同样落入 0 而不是 FormatException。
+        var result = ModbusValueParser.ParseRegisterValues("0xGG,0x,5");
+
+        Assert.Equal(new ushort[] { 0, 0, 5 }, result);
     }
 }

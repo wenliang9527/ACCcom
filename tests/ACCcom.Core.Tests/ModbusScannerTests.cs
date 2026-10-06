@@ -136,6 +136,27 @@ public class ModbusScannerTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
     }
 
+    [Fact]
+    public async Task ScanAsync_FullByteRange_Completes()
+    {
+        // endAddress=255 是 VM 的合法输入。旧实现的 byte 循环在 255 处
+        // addr++ 回绕为 0,255<=255 永真 → 扫描永不结束(无异常,纯挂死,
+        // OnScanCompleted 永不触发)。int 循环修复;假传输即时应答,255 个
+        // 地址的完整扫描应迅速返回且进度事件恰好 255 次。
+        var transport = new FakeTransport(Array.Empty<byte>());
+        using var modbus = MakeService(transport);
+        using var scanner = new ModbusScanner(modbus);
+
+        var progress = new List<int>();
+        scanner.OnScanProgress += i => progress.Add(i);
+
+        var results = await scanner.ScanAsync(1, 255, timeoutMs: 20);
+
+        Assert.Empty(results);
+        Assert.Equal(255, progress.Count);
+        Assert.Equal(255, progress[^1]);
+    }
+
     private sealed class NeverRespondingTransport : IModbusTransport
     {
         public async Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)

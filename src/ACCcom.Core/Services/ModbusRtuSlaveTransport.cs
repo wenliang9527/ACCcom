@@ -91,11 +91,11 @@ public class ModbusRtuSlaveTransport : IDisposable
         _serial.Send(HexHelper.BytesToHexSpaced(adu, 0, adu.Length), isHex: true);
     }
 
-    private static byte[] HexStringToBytes(string hex)
-    {
-        var cleaned = hex.Replace(" ", "");
-        return Convert.FromHexString(cleaned);
-    }
+    // 委托 RTU master transport 的容错解析:非法字符按 0 处理、奇数尾巴丢弃,
+    // 与 ModbusRtuTransport/ModbusAsciiTransport 同一家族行为。此前的
+    // Convert.FromHexString 会对脏/奇数长度 RX hex 抛 FormatException——
+    // OnSerialData 无 try/catch,一帧脏数据就中断从站响应链路。
+    internal static byte[] HexStringToBytes(string hex) => ModbusRtuTransport.HexStringToBytes(hex);
 
     public void Dispose() { if (_disposed) return; _disposed = true; Stop(); }
 }

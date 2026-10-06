@@ -79,4 +79,25 @@ public class PatternMatcherTests
     {
         Assert.False(PatternMatcher.Matches(null, "pattern", "contains", matchHex: false, direction: "RX"));
     }
+
+    [Fact]
+    public void MatchesPattern_null_pattern_returns_false()
+    {
+        // null pattern 语义上是"没有模式"而不是"空模式匹配一切";
+        // 旧行为在 contains/exact 分支抛 ArgumentNullException、regex 分支
+        // 在缓存键处 NRE。DataBufferWaiter 调用侧的防御收编进 API 本体。
+        Assert.False(PatternMatcher.MatchesPattern("target", null, "contains"));
+        Assert.False(PatternMatcher.MatchesPattern("target", null, "exact"));
+        Assert.False(PatternMatcher.MatchesPattern("target", null, "regex"));
+        Assert.False(PatternMatcher.TryRegexMatch("target", null));
+    }
+
+    [Fact]
+    public void MatchesPattern_null_matchMode_degrades_to_contains()
+    {
+        // 旧行为:matchMode.Equals 在 null 上 NRE(调用侧 ?? "contains" 兜底,
+        // 这里把同样的宽容收进 API 本体)。
+        Assert.True(PatternMatcher.MatchesPattern("Hello", "ell", null));
+        Assert.False(PatternMatcher.MatchesPattern("Hello", "xyz", null));
+    }
 }

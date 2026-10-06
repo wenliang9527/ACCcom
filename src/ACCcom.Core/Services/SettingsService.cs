@@ -59,9 +59,16 @@ public class SettingsService
         return new AppSettings();
     }
 
-    public bool Save(AppSettings settings)
+    public bool Save(AppSettings? settings)
     {
         _lastError = null;
+        // null 入参报 LastError 返回 false,而不是让 serializer 的
+        // ArgumentNullException 逃出 bool+LastError 错误契约。
+        if (settings is null)
+        {
+            _lastError = "Settings object was null";
+            return false;
+        }
         try
         {
             // Create only the directory this instance actually writes to — a

@@ -35,11 +35,13 @@ public class ModbusScanner : IDisposable
 
         try
         {
-            for (byte addr = startAddress; addr <= endAddress; addr++)
+            // int 循环:byte 循环在 endAddress=255(VM 的合法输入)时 addr++
+            // 回绕为 0,255 <= 255 永真 → 扫描死循环,OnScanCompleted 永不触发。
+            for (int addr = startAddress; addr <= endAddress; addr++)
             {
                 _cts.Token.ThrowIfCancellationRequested();
 
-                var result = await ProbeDeviceAsync(addr, timeoutMs, _cts.Token).ConfigureAwait(false);
+                var result = await ProbeDeviceAsync((byte)addr, timeoutMs, _cts.Token).ConfigureAwait(false);
                 if (result != null)
                 {
                     results.Add(result);

@@ -25,15 +25,16 @@ public static class ModbusValueParser
 
     /// <summary>Parses register values from a comma-separated string. Tokens
     /// prefixed with 0x (case-insensitive) are parsed as hex; everything else
-    /// is parsed as a decimal ushort. Unparsable tokens become 0 rather than
-    /// throwing, so a stray space or typo can't crash a batch write.
-    /// Null/empty/whitespace input yields null.</summary>
+    /// is parsed as a decimal ushort. Unparsable tokens (malformed hex, empty
+    /// prefix, out-of-range values in either base) become 0 rather than
+    /// throwing — one base-agnostic rule, so a stray space or typo can't crash
+    /// a batch write. Null/empty/whitespace input yields null.</summary>
     public static ushort[]? ParseRegisterValues(string? input)
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
         return input.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                ? ushort.Parse(s[2..], NumberStyles.HexNumber)
+                ? ushort.TryParse(s.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var h) ? h : (ushort)0
                 : ushort.TryParse(s, out var v) ? v : (ushort)0)
             .ToArray();
     }

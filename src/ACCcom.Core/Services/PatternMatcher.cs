@@ -33,16 +33,19 @@ public static class PatternMatcher
     }
 
     /// <summary>
-    /// 检查目标字符串是否匹配指定模式
+    /// 检查目标字符串是否匹配指定模式。null matchMode 按 contains 处理
+    /// (DataBufferWaiter 调用侧的 ?? "contains" 防御收编到 API 本体);
+    /// null pattern 不匹配任何目标——null 在语义上不是"空模式匹配一切"。
     /// </summary>
-    public static bool MatchesPattern(string target, string pattern, string matchMode)
+    public static bool MatchesPattern(string target, string? pattern, string? matchMode)
     {
+        if (pattern is null) return false;
         // OrdinalIgnoreCase comparisons instead of matchMode.ToLowerInvariant() switch:
         // this runs per packet per rule (triggers, waiters) and ToLowerInvariant
         // allocated a fresh string on every call.
-        if (matchMode.Equals("exact", StringComparison.OrdinalIgnoreCase))
+        if (matchMode != null && matchMode.Equals("exact", StringComparison.OrdinalIgnoreCase))
             return string.Equals(target, pattern, StringComparison.OrdinalIgnoreCase);
-        if (matchMode.Equals("regex", StringComparison.OrdinalIgnoreCase))
+        if (matchMode != null && matchMode.Equals("regex", StringComparison.OrdinalIgnoreCase))
             return TryRegexMatch(target, pattern);
         return target.Contains(pattern, StringComparison.OrdinalIgnoreCase);
     }
@@ -50,8 +53,10 @@ public static class PatternMatcher
     /// <summary>
     /// 尝试正则表达式匹配，使用缓存提升性能
     /// </summary>
-    public static bool TryRegexMatch(string input, string pattern)
+    public static bool TryRegexMatch(string input, string? pattern)
     {
+        // null 会在缓存键处 NRE,提前挡掉;空串是合法正则(匹配一切),保留。
+        if (pattern is null) return false;
         var regex = GetOrCompileRegex(pattern);
         if (regex == null)
             return false;
