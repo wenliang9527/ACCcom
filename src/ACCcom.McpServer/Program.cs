@@ -18,6 +18,13 @@ using ACCcom.Core.Services;
 // port or sending data), not to the MCP server process starting up — the
 // server is spawned by background jobs/tests that must stay GUI-free. This is
 // a best-effort side effect; the MCP server must keep working standalone.
+//
+// Opt-out: when the hosting client already provides its own traffic view —
+// e.g. DeepSeek Harness with the dsh-serial-panel plugin, whose browser
+// panel tails the same mcp-traffic.jsonl — set ACCCOM_MCP_NO_GUI=1 in that
+// client's MCP server env to suppress the pop-up. The shared log keeps
+// flowing either way; only the launch is skipped. Clients without a panel
+// (Claude Code et al.) leave the variable unset and keep the auto-launch.
 GuiNotifier.Attach();
 
 var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings { Args = args });
@@ -66,9 +73,35 @@ internal static class GuiNotifier
         SerialTools.GuiRequested += OnGuiRequested;
     }
 
+    /// <summary>Client opt-out for the GUI auto-launch, via the
+    /// ACCCOM_MCP_NO_GUI environment variable (accepts 1/true/yes/on,
+    /// case-insensitive; anything else including unset means "launch").
+    /// Used by clients that already surface the traffic themselves — the
+    /// DeepSeek Harness dsh-serial-panel's browser panel is fed by the same
+    /// mcp-traffic.jsonl, so the desktop pop-up would be a redundant second
+    /// view. The MCP server's serial behavior is identical either way.</summary>
+    private static bool GuiSuppressed()
+    {
+        var raw = Environment.GetEnvironmentVariable("ACCCOM_MCP_NO_GUI")?.Trim();
+        if (string.IsNullOrEmpty(raw)) return false;
+        return raw.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("on", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static void Request()
     {
         if (_launched) return;
+        // Checked before arming the one-shot flag: a suppressed launch must
+        // not consume the flag, and re-checking per call costs nothing (env
+        // is stable for the process lifetime). stderr only — stdout is the
+        // stdio transport's.
+        if (GuiSuppressed())
+        {
+            Console.Error.WriteLine("[acccom-mcp] ACCCOM_MCP_NO_GUI is set: not launching the ACCcom desktop GUI; the shared mcp-traffic.jsonl keeps flowing (dsh-serial-panel or traffic_log still show the traffic).");
+            return;
+        }
         lock (_lock)
         {
             if (_launched) return;

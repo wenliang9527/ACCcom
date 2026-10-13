@@ -266,7 +266,16 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 
 **运行模式：**
 
-> MCP Server 以**直连模式**运行，直接管理串口，串口工具始终可用且不会弹出 GUI。
+> MCP Server 以**直连模式**运行，直接管理串口，串口工具始终可用。
+> 首次真正的串口通信（open_port / send / send_and_wait）时，服务器会尝试拉起桌面 GUI 的「MCP 流量」窗口（每进程一次；GUI 已在运行则不重复拉起），让没有面板的客户端（Claude Code 等）的用户也能看到 AI 的收发。只读调用（list_ports / read_data / traffic_log）不触发。
+
+**ACCCOM_MCP_NO_GUI：禁用 GUI 自动拉起**
+
+当客户端自带流量视图时——典型是 DeepSeek Harness + dsh-serial-panel 插件（浏览器面板尾随同一份 `%LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl`）——在 MCP server 的 env 中设置 `ACCCOM_MCP_NO_GUI=1` 即可彻底禁用自动拉起。取值 `1`/`true`/`yes`/`on`（大小写不敏感）有效；未设置或其它值表示允许拉起。
+
+- 共享日志照常写入，`traffic_log` 工具与 DSH 面板数据不受任何影响；
+- 需要桌面端时随时手动启动 `ACCcom.exe`，工具栏有「MCP 流量」窗口按钮；
+- DSH 的配置位置：`~\.dsh\profiles\{desktop,web}\cordis.patch.yml` 中 `mcp-acccom` 块的 `env` 段。
 
 **连接编程工具（AI 客户端）：**
 
