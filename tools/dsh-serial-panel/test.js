@@ -289,29 +289,34 @@ const ok = (cond, label, extra) => {
     bs.update(20)
     ok(events.length === 3, 'T14 退订后不再通知')
 
-    // 兜底分支:无 rightbar 服务 → main 槽
+    // v1.6.x 注册契约(与 dsh-ocdup-panel v1.3.3/v1.3.4 对齐):
+    //   body 无条件注册进 main keyed slot,key = panellist id(严格同值)——宿主
+    //   的 PanelRow 自己绑 onClick → layout.selectPanel(id),缺 key 会抛错;
+    //   右栏 tab 类型 + guide 卡保留为可选增强(openTab 认 kind,body 认 id)。
     const calls = []
     const registered = {}
+    const tabDefs = []
     const slotsApi = {
       inject: (name, fn) => { calls.push(['inject', name]); fn() },
       register: (spec, comp) => { calls.push(['register', spec.name, spec.key || spec.id]); registered[spec.name + '|' + (spec.key || spec.id)] = comp },
     }
     const ctxNoRight = { get: (n) => (n === 'slots' ? slotsApi : undefined), effect: (fn) => fn() }
     mod.apply(ctxNoRight)
-    ok(calls.some((c) => c[0] === 'register' && c[1] === 'main'), 'T12 兜底分支注册 main 槽')
-    ok(!calls.some((c) => c[1] === 'sidebar.right.pane.tab'), 'T12 兜底分支不注册右栏 tab 体')
+    ok(!!registered['sidebar.panellist|acccom-serial'], 'T12 侧栏图标按 panellist id 注册')
+    ok(!!registered['main|acccom-serial'],
+      'T12 main keyed slot 用**同一个 id** 注册 body(selectPanel 缺 key 会抛)', Object.keys(registered))
+    ok(!calls.some((c) => c[1] === 'sidebar.right.pane.tab'), 'T12 无右栏服务时不注册右栏 body')
     ok(/sp-row/.test(injectedStyles.text) && /640px/.test(injectedStyles.text)
       && /@container sp-panel/.test(injectedStyles.text), 'T12 一次性样式表注入(含容器查询列降级)', injectedStyles.text)
 
-    // 右栏分支:tab 类型 + pane.tab 体 + 图标转发 openTab
+    // 右栏服务在 → 额外出 tab 类型 + guide 卡 + 右栏 body(main 仍然注册)
     calls.length = 0
-    const tabDefs = []
-    const opened = []
+    for (const k of Object.keys(registered)) delete registered[k]
     const ctxRight = {
       get: (n) => {
         if (n === 'slots') return slotsApi
         if (n === 'sidebarRightTabs') return { register: (d) => tabDefs.push(d) }
-        if (n === 'sidebarRight') return { openTab: (k) => opened.push(k) }
+        if (n === 'sidebarRight') return { openTab: () => {} }
         return undefined
       },
       effect: (fn) => fn(),
@@ -320,19 +325,29 @@ const ok = (cond, label, extra) => {
     ok(tabDefs.length === 1 && tabDefs[0].id === 'dsh-serial-panel' && tabDefs[0].kind === 'acccom-serial'
       && tabDefs[0].keepMounted === true, 'T12 右栏 tab 类型注册(id/kind/keepMounted)', tabDefs[0])
     ok(Array.isArray(tabDefs[0].guide) && tabDefs[0].guide.length === 1
-      && tabDefs[0].guide[0].kind === 'acccom-serial' && typeof tabDefs[0].guide[0].icon === 'function',
-    'T12 guide 入口卡声明', tabDefs[0].guide)
+      && tabDefs[0].guide[0].id === 'new' && typeof tabDefs[0].guide[0].icon === 'function',
+      'T12 guide 入口卡声明(无 commandId,terminal 同款)', tabDefs[0].guide)
     ok(calls.some((c) => c[0] === 'register' && c[1] === 'sidebar.right.pane.tab' && c[2] === 'dsh-serial-panel'),
       'T12 pane.tab 体以插件 id 为 key 注册')
-    ok(!calls.some((c) => c[0] === 'register' && c[1] === 'main'), 'T12 右栏分支不再注册整屏 main')
+    ok(!!registered['main|acccom-serial'], 'T12 右栏分支也注册 main(两条入口都在)')
 
-    // 图标点击 → openTab(kind):先渲染包装层,再渲染 PanelIcon 本体拿到 onClick
+    // 图标点击:宿主 button 已绑 selectPanel;PanelIcon 的兜底走 layout.selectPanel(panelId)
     ok(Array.isArray(calls.find((c) => c[0] === 'inject' && c[1] === 'sidebar.panellist')), 'T12 侧边栏图标已注册')
-    const outer = registered['sidebar.panellist|acccom-serial']({})
-    const iconEl = outer.type(outer.props)
+    const selected = []
+    for (const k of Object.keys(registered)) delete registered[k]
+    mod.apply({
+      get: (n) => (n === 'slots' ? slotsApi
+        : n === 'sidebarRightTabs' ? { register: () => {} }
+          : n === 'sidebarRight' ? { openTab: () => {} }
+            : n === 'layout' ? { selectPanel: (id) => selected.push(id) } : undefined),
+      effect: (fn) => fn(),
+    })
+    const outer = registered['sidebar.panellist|acccom-serial']
+    ok(typeof outer === 'function', 'T12 图标可取到')
+    const iconEl = outer({ panelId: 'acccom-serial' }).type({ panelId: 'acccom-serial' })
     ok(iconEl && typeof iconEl.props.onClick === 'function', 'T12 图标渲染为可点击元素')
     iconEl.props.onClick({})
-    ok(opened.length === 1 && opened[0] === 'acccom-serial', 'T12 图标点击转发 openTab(kind)', opened)
+    ok(selected.length === 1 && selected[0] === 'acccom-serial', 'T12 图标点击转发 selectPanel(panelId)', selected)
 
     delete globalThis.window
     delete globalThis.document

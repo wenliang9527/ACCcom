@@ -1,6 +1,17 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.7.0
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.7.1
+//
+//  v1.7.1 修复「侧边栏 ACCCOM 串口点了没反应」(与 dsh-ocdup-panel v1.3.3 同病灶):
+//   宿主 0.2.0-rc.2 的 ui-sidebar PanelRow 自己绑 onClick →
+//   ctx.layout.selectPanel(id),而 selectPanel 只认「main keyed slot 里同一个
+//   id」的注册项,缺 key 直接抛错并保持原面板;侧栏图标 = 全局面板启动器。
+//   旧版把 body 注册在右栏槽(key='dsh-serial-panel')、图标 onOpen 调
+//   openTab(kind='acccom-serial'),两个 rightbar 服务又都在 → 永远不进兜底
+//   分支 → main 一个都没注册 → selectPanel('acccom-serial') 抛错 → 静默。
+//   修法:无条件把 body 注册进 main(key = panellist id 'acccom-serial',
+//   严格同值),PanelIcon.onClick 退为老宿主兜底(带 panelId);右栏 tab 类型 +
+//   guide 卡 + 右栏 body 作为可选增强保留(openTab 认 kind、body 认 id)。
 //
 //  - sidebar.panellist 注册全局面板图标(id=acccom-serial)
 //  - main(keyed) 以同名 key 注册中央面板本体
@@ -964,9 +975,12 @@ window.__ModuleLoader__.load({
         if (props && typeof props.onOpen === 'function') { props.onOpen(e); return }
         if (props && typeof props.onClick === 'function') { props.onClick(e); return }
         try {
-          // 槽位壳可能只渲染图标本身:兜底自己触发面板切换
+          // 槽位壳可能只渲染图标本身:兜底自己触发面板切换(main 已按同 id 注册,
+          // 不会再抛 absent key)
           const layout = ctxRef && ctxRef.get && ctxRef.get('layout')
-          if (layout && typeof layout.selectPanel === 'function') layout.selectPanel('acccom-serial')
+          if (layout && typeof layout.selectPanel === 'function' && props && props.panelId) {
+            layout.selectPanel(props.panelId)
+          }
         } catch (e2) { /* layout 服务缺席时静默 */ }
       }
       return h('span', {
@@ -996,52 +1010,53 @@ window.__ModuleLoader__.load({
         if (slots === undefined) return
         ctxRef = ctx
 
+        // v1.6.x 注册契约对齐宿主 0.2.0-rc.2(与 dsh-ocdup-panel v1.3.3/v1.3.4 同源):
+        //   侧栏 PanelRow 自己绑 onClick → ctx.layout.selectPanel(id),而 selectPanel
+        //   只认「main keyed slot 里同一个 id」的注册项,缺 key 直接抛错并保持原面板。
+        //   旧版把 body 注册在右栏槽、图标 onOpen 调 openTab(kind)——而宿主新架构里
+        //   侧栏图标 = 全局面板启动器,右栏 tab 归 chat/browser/document,于是
+        //   selectPanel 抛错 → 静默无反应(与 OCDUP 面板同一个病)。
+        //   修法:无条件把 body 注册进 **main keyed slot**(key = panellist id,
+        //   严格同值),左侧图标保持(串口面板作为全局面板可用),右栏 tab 类型 +
+        //   guide 卡一并保留(有会话时从右栏进,keepMounted 轮询存活)。
+        const PANEL_ID = 'acccom-serial'
+
+        // 左图标:宿主 button 已包 onClick(选中主面板);onOpen 退为老宿主兜底
+        slots.inject('sidebar.panellist', () => slots.register(
+          { name: 'sidebar.panellist', id: PANEL_ID, order: 80, label: () => 'ACCCOM 串口' },
+          (props) => h(PanelIcon, Object.assign({}, props, { panelId: PANEL_ID })),
+        ))
+
+        slots.inject('main', () => slots.register(
+          { name: 'main', key: PANEL_ID },
+          (props) => h(SerialPanel, props),
+        ))
+
+        // 右栏 tab(可选增强):guide 卡入口 + 右侧停靠。openTab 认 kind,body 认 id
         const rightTabs = ctx.get('sidebarRightTabs')
         const right = ctx.get('sidebarRight')
-        const hasRightbar = !!(rightTabs && typeof rightTabs.register === 'function'
-          && right && typeof right.openTab === 'function')
-
-        if (hasRightbar) {
-          // 主路径:右侧停靠栏 tab —— 对话始终可见;keepMounted 让轮询跨切换/收起存活
+        if (rightTabs && typeof rightTabs.register === 'function') {
           ctx.effect(() => rightTabs.register({
             id: 'dsh-serial-panel',
-            kind: 'acccom-serial',
+            kind: PANEL_ID,
+            multiple: false,
+            priority: 'plugin',
             title: () => 'ACCCOM 串口',
             keepMounted: true,
             guide: [{
-              id: 'acccom-serial',
-              kind: 'acccom-serial',
+              id: 'new', order: 20,
               title: () => 'ACCCOM 串口',
               description: () => 'AI 串口收发实时面板',
               icon: PlugGlyph,
             }],
           }), 'dsh-serial-panel: tab type')
 
-          ctx.effect(() => slots.inject('sidebar.right.pane.tab', () => slots.register(
-            { name: 'sidebar.right.pane.tab', key: 'dsh-serial-panel' },
-            (props) => h(SerialPanel, props),
-          )), 'dsh-serial-panel: pane body')
-
-          // 左侧图标 = 打开右侧 tab(无会话时 openTab 会抛,吞掉即可)
-          slots.inject('sidebar.panellist', () => slots.register(
-            { name: 'sidebar.panellist', id: 'acccom-serial', order: 80, label: () => 'ACCCOM 串口' },
-            (props) => h(PanelIcon, {
-              ...props,
-              title: '打开 ACCCOM 串口面板(右侧停靠,对话保留)',
-              onOpen: () => { try { right.openTab('acccom-serial') } catch (e) { /* 无会话/面板未挂 */ } },
-            }),
-          ))
-        } else {
-          // 兜底:DSH 缺 rightbar 服务(版本差异)→ 整屏 main 模式,行为同 v1.2.0
-          slots.inject('sidebar.panellist', () => slots.register(
-            { name: 'sidebar.panellist', id: 'acccom-serial', order: 80, label: () => 'ACCCOM 串口' },
-            (props) => h(PanelIcon, props),
-          ))
-
-          slots.inject('main', () => slots.register(
-            { name: 'main', key: 'acccom-serial' },
-            (props) => h(SerialPanel, props),
-          ))
+          if (right && typeof right.openTab === 'function') {
+            ctx.effect(() => slots.inject('sidebar.right.pane.tab', () => slots.register(
+              { name: 'sidebar.right.pane.tab', key: 'dsh-serial-panel' },
+              (props) => h(SerialPanel, props),
+            )), 'dsh-serial-panel: pane body')
+          }
         }
       },
     }

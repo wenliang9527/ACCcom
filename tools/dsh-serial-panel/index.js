@@ -1,6 +1,9 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.2.0
+//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.7.1
+//
+//  v1.7.1:注册契约对齐宿主 0.2.0-rc.2(修「侧栏图标点了没反应」)——纯 Client 侧,
+//  数据层无变化,Host 继续哑管道;仅版本号随插件整体 bump。
 //
 //  职责:
 //   1. 尾随 %LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl —— ACCcom.McpServer 的

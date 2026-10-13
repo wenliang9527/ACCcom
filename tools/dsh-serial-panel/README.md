@@ -1,11 +1,21 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.7.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.7.1
 
-DeepSeek Harness 的常驻插件(desktop profile):在**右侧停靠栏**加一个
-"ACCCOM 串口" tab,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
+DeepSeek Harness 的常驻插件(desktop profile):**右侧停靠栏** "ACCCOM 串口" tab +
+**侧边栏图标**(全局面板)双入口,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
 对话与串口数据并排可见(等价于 ACCCOM 桌面端的"MCP 流量"窗口,但直接长在
 DSH 界面里)。左侧边栏图标点击打开;右栏 guide 默认页也有入口卡片。
 agent 侧的接口说明见 [AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
-DSH 版本差异导致 rightbar 服务缺席时,自动回退为整屏 main 面板(v1.2.0 行为)。
+
+## v1.7.1 修复:侧边栏图标点了没反应
+
+与 dsh-ocdup-panel v1.3.3 同病灶(宿主 0.2.0-rc.2 注册契约换代):侧栏 `PanelRow`
+自己绑 `onClick → ctx.layout.selectPanel(id)`,而 `selectPanel` 只认 **main keyed
+slot 里同一个 id** 的注册项,**缺 key 直接抛错**并保持原面板。旧版把 body 只注册在
+右栏槽(`key='dsh-serial-panel'`)、图标 `onOpen` 调 `openTab('acccom-serial')`(传的是
+kind),而两个 rightbar 服务在新宿主仍在 → 永远不进兜底分支 → main 一个都没注册 →
+点击静默无反应。修法:body **无条件**注册进 `main`(key = panellist id
+`acccom-serial`,严格同值),`PanelIcon.onClick` 退为老宿主兜底(带 `panelId`);
+右栏 tab 类型 + guide 卡 + 右栏 body 保留为可选增强(`openTab` 认 kind、body 认 id)。
 
 ## 功能总览(v1.5.0)
 
