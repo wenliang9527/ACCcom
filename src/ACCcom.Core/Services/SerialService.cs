@@ -121,6 +121,7 @@ public class SerialService : ISerialService, IDisposable
             _port.ErrorReceived += OnSerialError;
 
             _port.Open();
+            PreserveParityBytes(_port);
             _lastConfig = config;
             _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
             _reconnectAttempt = 0;
@@ -248,6 +249,33 @@ public class SerialService : ISerialService, IDisposable
         return Send(hex, true);
     }
 
+    /// <summary>
+    /// Keeps the raw on-the-wire byte on parity-framed links. With parity
+    /// enabled, the Windows serial driver replaces any byte that fails the
+    /// parity check with <see cref="SerialPort.ParityReplace"/> (default
+    /// '?' = 0x3F) before <see cref="SerialPort.Read(byte[], int, int)"/>
+    /// hands it to us, so the hex/text view would show 3F instead of the byte
+    /// actually received — the original byte is already lost by then, so this
+    /// cannot be fixed in the display layer. Setting ParityReplace to 0 (null)
+    /// disables that substitution; the parity fault is still reported via
+    /// <see cref="SerialPort.ErrorReceived"/> (SerialError.RXParity). Applied
+    /// post-open so it reaches the live DCB, and guarded so a setter failure
+    /// never discards an otherwise-good open.
+    /// </summary>
+    private static void PreserveParityBytes(SerialPort port)
+    {
+        if (port.Parity == Parity.None) return;
+        try
+        {
+            port.ParityReplace = 0;
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal fallback: worst case the driver keeps its default '?'.
+            Debug.WriteLine($"[SerialService] ParityReplace set failed: {ex.Message}");
+        }
+    }
+
     private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
         if (_port?.IsOpen != true) return;
@@ -361,6 +389,7 @@ public class SerialService : ISerialService, IDisposable
                         WriteTimeout = 1000
                     };
                     tempPort.Open();
+                    PreserveParityBytes(tempPort);
                     ClosePortOnly();
                     _port = tempPort;
                     _port.DataReceived += OnSerialDataReceived;
