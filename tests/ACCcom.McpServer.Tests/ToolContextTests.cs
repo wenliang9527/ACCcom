@@ -1,3 +1,4 @@
+using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 using ACCcom.McpServer.Tests.TestHelpers;
 using ACCcom.McpServer.Tools;
@@ -74,5 +75,54 @@ public class ToolContextTests
             ctx.RemoveBuffer("ghost");
         }
         finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public void BufferFor_Released_WhenPortClosed_ViaMultiPortService()
+    {
+        // Every close path must release the per-tag buffer (~120 KB each).
+        // Previously only the MCP close_port tool called RemoveBuffer, so a
+        // port closed through MultiPortService directly (or a serial drop)
+        // leaked its buffer for the life of the process.
+        var multiPort = new MultiPortService(() => new VirtualSerialService());
+        var ctx = new ToolContext(multiPort, new VirtualSerialService());
+        multiPort.OpenPort("t1", new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        Assert.NotNull(ctx.BufferFor("t1"));
+
+        multiPort.ClosePort("t1"); // NOT the MCP close_port tool
+
+        Assert.False(ctx.Buffers.ContainsKey("t1"));
+    }
+
+    [Fact]
+    public void BufferFor_Released_WhenPortDrops_SerialDisconnect()
+    {
+        // A serial-level disconnect (unplug/error) must also release the
+        // per-tag buffer.
+        var multiPort = new MultiPortService(() => new VirtualSerialService());
+        var ctx = new ToolContext(multiPort, new VirtualSerialService());
+        multiPort.OpenPort("t1", new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        Assert.NotNull(ctx.BufferFor("t1"));
+
+        var service = (VirtualSerialService)multiPort.GetPort("t1")!.Service;
+        service.Close(); // serial-level disconnect (not a MultiPortService close)
+
+        Assert.False(ctx.Buffers.ContainsKey("t1"));
+    }
+
+    [Fact]
+    public void BufferFor_CapsTrackedTags_ForLivePorts()
+    {
+        // Each tracked tag costs ~120 KB; the set must stay bounded even when
+        // a client opens more live ports than the cap.
+        var multiPort = new MultiPortService(() => new VirtualSerialService());
+        var ctx = new ToolContext(multiPort, new VirtualSerialService());
+        for (var i = 0; i < 80; i++)
+        {
+            multiPort.OpenPort($"t{i}", new SerialConfig { PortName = $"COM{i % 20}", BaudRate = 115200 });
+            ctx.BufferFor($"t{i}");
+        }
+
+        Assert.True(ctx.Buffers.Count <= 64, $"tracked buffers should be capped, got {ctx.Buffers.Count}");
     }
 }

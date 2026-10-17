@@ -6,7 +6,13 @@ public class ModbusAsciiTransport : IModbusTransport
 {
     private readonly ISerialService _serial;
     private readonly object _lock = new();
-    private readonly Dictionary<string, TaskCompletionSource<byte[]>> _pending = new();
+    private readonly Dictionary<ModbusKey, TaskCompletionSource<byte[]>> _pending = new();
+    // Entries in _pending, readable on the RX hot path without the lock. When
+    // it is 0 no conversation is waiting, so the packet is dropped before the
+    // hex decode, the RX buffer growth and the key work — no allocation, no
+    // lock. A stale non-zero value only costs the full path (which then finds
+    // nothing pending and returns) — never a wrong answer.
+    private volatile int _pendingCount;
     private readonly Action<LogEntry> _dataHandler;
     private readonly object _rxLock = new();
     private readonly List<byte> _rxBuffer = new();
@@ -26,10 +32,15 @@ public class ModbusAsciiTransport : IModbusTransport
         ArgumentNullException.ThrowIfNull(pdu);
         var adu = BuildAdu(slaveId, functionCode, pdu);
         var asciiFrame = FormatAsciiFrame(adu);
-        var key = MakeKey(slaveId, functionCode);
+        var key = new ModbusKey(slaveId, functionCode);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        lock (_lock) { _pending[key] = tcs; }
+        lock (_lock)
+        {
+            if (!_pending.ContainsKey(key))
+                Interlocked.Increment(ref _pendingCount);
+            _pending[key] = tcs;
+        }
 
         try
         {
@@ -41,13 +52,24 @@ public class ModbusAsciiTransport : IModbusTransport
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
             using var registration = linkedCts.Token.Register(() =>
             {
-                lock (_lock) { if (_pending.TryGetValue(key, out var p) && p == tcs) _pending.Remove(key); }
+                lock (_lock)
+                {
+                    if (_pending.TryGetValue(key, out var p) && p == tcs)
+                    {
+                        _pending.Remove(key);
+                        Interlocked.Decrement(ref _pendingCount);
+                    }
+                }
                 tcs.TrySetException(new OperationCanceledException(ct.IsCancellationRequested ? "Operation cancelled" : $"Timeout after {timeoutMs}ms"));
             }, useSynchronizationContext: false);
 
             if (!_serial.Send(asciiFrame, isHex: false))
             {
-                lock (_lock) _pending.Remove(key);
+                lock (_lock)
+                {
+                    if (_pending.Remove(key))
+                        Interlocked.Decrement(ref _pendingCount);
+                }
                 throw new InvalidOperationException("Send failed");
             }
 
@@ -55,7 +77,11 @@ public class ModbusAsciiTransport : IModbusTransport
         }
         catch (Exception)
         {
-            lock (_lock) _pending.Remove(key);
+            lock (_lock)
+            {
+                if (_pending.Remove(key))
+                    Interlocked.Decrement(ref _pendingCount);
+            }
             throw;
         }
     }
@@ -64,6 +90,9 @@ public class ModbusAsciiTransport : IModbusTransport
     {
         if (entry == null || entry.Direction != "RX") return;
         if (string.IsNullOrEmpty(entry.RawHex)) return;
+        // RX hot path: with no conversation pending, drop the packet before
+        // the hex decode, the RX buffer growth and the key allocation.
+        if (_pendingCount == 0) return;
 
         var rawBytes = HexStringToBytes(entry.RawHex);
 
@@ -107,13 +136,14 @@ public class ModbusAsciiTransport : IModbusTransport
         var slaveId = data[0];
         var funcByte = data[1];
         var function = funcByte & 0x7F;
-        var key = MakeKey(slaveId, (byte)function);
+        var key = new ModbusKey(slaveId, (byte)function);
 
         TaskCompletionSource<byte[]>? tcs;
         lock (_lock)
         {
             if (!_pending.TryGetValue(key, out var p)) return;
             _pending.Remove(key);
+            Interlocked.Decrement(ref _pendingCount);
             tcs = p;
         }
 
@@ -175,8 +205,6 @@ public class ModbusAsciiTransport : IModbusTransport
         return sb.ToString();
     }
 
-    private static string MakeKey(byte slaveId, byte functionCode) => $"{slaveId}:{functionCode}";
-
     internal static byte[] HexStringToBytes(string hex)
     {
         int nonSpaceLen = 0;
@@ -210,6 +238,7 @@ public class ModbusAsciiTransport : IModbusTransport
             foreach (var kv in _pending)
                 kv.Value.TrySetException(new ObjectDisposedException(nameof(ModbusAsciiTransport)));
             _pending.Clear();
+            Interlocked.Exchange(ref _pendingCount, 0);
         }
     }
 }

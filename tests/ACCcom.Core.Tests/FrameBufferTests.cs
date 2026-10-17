@@ -307,4 +307,105 @@ public class FrameBufferTests
 
         Assert.True(true); // reaching here means neither call threw
     }
+
+    // ── Backpressure: pending frames must stay in the ring ──
+
+    /// <summary>
+    /// A parser script that parks until the test creates <paramref name="gatePath"/>.
+    /// Using a file gate (instead of a fixed delay) makes the "parser is still
+    /// running" window deterministic: the test releases it explicitly.
+    /// </summary>
+    private static string BlockingParserCode(string gatePath) => @"
+while (!System.IO.File.Exists(@""" + gatePath + @"""))
+{
+    await System.Threading.Tasks.Task.Delay(10);
+}
+var fields = new List<FieldAnnotation>();
+fields.Add(new FieldAnnotation { Name = ""Byte0"", Offset = 0, Length = 1, RawHex = RawHex(0, 1), DisplayValue = ToUInt16(0, false).ToString(), Color = ""#22C55E"", Severity = FieldSeverity.Normal });
+return fields;
+";
+
+    private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return true;
+            await Task.Delay(20);
+        }
+        return condition();
+    }
+
+    [Fact]
+    public async Task ParsingBacklog_LeavesFramesInRing_InsteadOfExtractingThemAll()
+    {
+        // Regression: ProcessBuffer extracted every buffered frame up front and
+        // fire-and-forget one EmitFrame task per frame. The parse gate serialized
+        // execution but not the queue, so a parser slower than the stream piled
+        // up one pending Task + byte[] per frame — unbounded memory. Frames must
+        // instead stay in the ring (bounded by BufferCapacity) while a frame is
+        // in flight, and the newest frames must survive.
+        var dir = Path.Combine(Path.GetTempPath(), "acccom_fb_backlog_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var gate = Path.Combine(dir, "release.gate");
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "slow.csx"), BlockingParserCode(gate));
+            using var parsers = new ParserManager(dir);
+            Assert.True(parsers.Activate("slow"), $"blocking parser failed to load: {parsers.LastError}");
+
+            const int frameLength = 3;
+            const int ringBytes = 60;    // exactly 20 whole frames
+            const int total = 400;       // 20x what the ring can hold
+
+            var config = new FrameBufferConfig
+            {
+                Strategy = FrameExtractStrategy.FixedLength,
+                FixedLength = frameLength,
+                BufferCapacity = ringBytes,
+                MaxFrameSize = 16,
+                PartialFrameTimeoutMs = 60_000
+            };
+            using var buffer = new FrameBuffer(config, null, parsers);
+
+            int emitted = 0;
+            var payloads = new List<int>();
+            buffer.OnFrameAssembled += e =>
+            {
+                payloads.Add(HexHelper.HexStringToBytes(e.RawHex)[2]);
+                Interlocked.Increment(ref emitted);
+            };
+
+            for (int i = 0; i < total; i++)
+                buffer.Write([(byte)'A', (byte)'B', (byte)i]);
+
+            // The first frame is parked inside the parser; nothing may be emitted.
+            Assert.Equal(0, Volatile.Read(ref emitted));
+
+            File.WriteAllText(gate, "go"); // let the parser run
+
+            // The surviving set is exact, not timing-dependent: exactly one frame
+            // was extracted before the parser parked, and the ring kept only its
+            // final ringBytes bytes — ringBytes / frameLength whole frames. The old
+            // code extracted and emitted all `total`.
+            var expectedEmitted = 1 + ringBytes / frameLength;
+            var drained = await WaitUntilAsync(
+                () => Volatile.Read(ref emitted) >= expectedEmitted, TimeSpan.FromSeconds(20));
+
+            Assert.True(drained, $"only {Volatile.Read(ref emitted)}/{expectedEmitted} frames were emitted");
+            var settled = Volatile.Read(ref emitted);
+            Assert.Equal(expectedEmitted, settled);
+            Assert.Equal(settled, payloads.Count);
+
+            // Drop-oldest, in order: the in-flight frame first, then the newest
+            // ring contents (the payload byte wraps at 256).
+            for (int i = 1; i < payloads.Count; i++)
+                Assert.True(payloads[i] > payloads[i - 1], $"out of order at {i}: {payloads[i - 1]} -> {payloads[i]}");
+            Assert.Equal((byte)((total - 1) & 0xFF), (byte)payloads[^1]);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
 }

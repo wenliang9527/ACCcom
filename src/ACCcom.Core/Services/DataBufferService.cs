@@ -109,20 +109,39 @@ public class DataBufferService : IDisposable
         if (Volatile.Read(ref _waiterCount) == 0)
             return;
 
+        // Prune finished waiters and snapshot the live ones under the lock, then
+        // run the pattern match OUTSIDE it. Matches() evaluates a user-supplied
+        // pattern — a regex has a 2s timeout — so holding _waiterLock across the
+        // scan stalled registration (which takes _lock and then _waiterLock) and
+        // therefore the RX thread behind it. The copy is bounded by the number of
+        // live long-polls, and only happens while one is registered.
+        DataBufferWaiter[] batch;
         lock (_waiterLock)
         {
             for (int i = _waiters.Count - 1; i >= 0; i--)
             {
-                var waiter = _waiters[i];
-                if (waiter.Completed)
+                if (_waiters[i].Completed)
                 {
                     _waiters.RemoveAt(i);
                     Interlocked.Decrement(ref _waiterCount);
-                    continue;
                 }
-                if (waiter.Matches(entry))
-                    waiter.Tcs.TrySetResult(entry);
             }
+
+            if (_waiters.Count == 0) return;
+            batch = _waiters.ToArray();
+        }
+
+        for (int i = 0; i < batch.Length; i++)
+        {
+            var waiter = batch[i];
+            // Completed while the snapshot was being taken (immediate match in
+            // WaitForMatchAsync, timeout, or disposal): nothing to deliver, and
+            // RemoveWaiter has already unlisted it.
+            if (waiter.Completed) continue;
+            // TrySetResult is idempotent, so racing with RemoveWaiter or with a
+            // newer AddEntry is safe.
+            if (waiter.Matches(entry))
+                waiter.Tcs.TrySetResult(entry);
         }
     }
 

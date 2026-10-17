@@ -81,6 +81,32 @@ public class ModbusAsciiTransportTests
     }
 
     [Fact]
+    public async Task SendReceiveAsync_AfterTimeout_SameKey_StillCompletes()
+    {
+        // Guards the RX fast-path pending bookkeeping: a timed-out request
+        // must leave the transport able to match the next response on the
+        // same (slave, function) key. A count that under-decrements makes
+        // the fast path believe nothing is pending and silently swallow the
+        // response (the request then times out).
+        using var serial = new VirtualSerialService();
+        using var transport = new ModbusAsciiTransport(serial);
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 150));
+
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x02], 1000);
+        var respAdu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
+        var respFull = new byte[respAdu.Length + 1];
+        Array.Copy(respAdu, respFull, respAdu.Length);
+        respFull[^1] = Lrc(respAdu);
+        serial.InjectRxData(AsciiFrameHex(respFull));
+        var result = await request;
+
+        Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, result);
+    }
+
+    [Fact]
     public void Dispose_CleansUpResources()
     {
         using var serial = new VirtualSerialService();

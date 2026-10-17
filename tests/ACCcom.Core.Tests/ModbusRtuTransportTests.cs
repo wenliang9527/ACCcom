@@ -146,6 +146,30 @@ public class ModbusRtuTransportTests
     // ── ADU builders ──
 
     [Fact]
+    public async Task SendReceiveAsync_AfterTimeout_SameKey_StillCompletes()
+    {
+        // Guards the RX fast-path pending bookkeeping: a timed-out request
+        // must leave the transport able to match the next response on the
+        // same (slave, function) key. A count that under-decrements makes
+        // the fast path believe nothing is pending and silently swallow the
+        // response (the request then times out).
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 150));
+
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x02], 2000);
+        var adu = new byte[] { 0x01, 0x03, 0x02, 0x12, 0x34 };
+        var crc = CrcHelper.Crc16(adu);
+        var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, frame.Length));
+        var response = await request;
+
+        Assert.Equal([0x01, 0x03, 0x02, 0x12, 0x34], response);
+    }
+
+    [Fact]
     public void BuildReadRequest_ProducesPdu()
     {
         Assert.Equal([0x00, 0x10, 0x00, 0x0A],

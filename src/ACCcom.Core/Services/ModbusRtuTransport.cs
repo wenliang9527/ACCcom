@@ -6,7 +6,14 @@ public class ModbusRtuTransport : IModbusTransport
 {
     private readonly ISerialService _serial;
     private readonly object _lock = new();
-    private readonly Dictionary<string, Queue<TaskCompletionSource<byte[]>>> _pending = new();
+    private readonly Dictionary<ModbusKey, Queue<TaskCompletionSource<byte[]>>> _pending = new();
+    // Number of keys with a live queue in _pending. Read on the RX hot path
+    // WITHOUT the lock: when it is 0 no conversation is waiting, so the packet
+    // is dropped before the hex decode and key work (no allocation, no lock).
+    // A key is added when a queue is created and removed when a queue empties,
+    // so a stale non-zero value only costs the full path (which then finds an
+    // empty queue and returns) — never a wrong answer.
+    private volatile int _keyCount;
     private readonly Action<LogEntry> _dataHandler;
     private bool _disposed;
 
@@ -24,7 +31,7 @@ public class ModbusRtuTransport : IModbusTransport
         ArgumentNullException.ThrowIfNull(pdu);
         var adu = BuildAdu(slaveId, functionCode, pdu);
         var hex = BytesToHex(adu);
-        var key = MakeKey(slaveId, functionCode);
+        var key = new ModbusKey(slaveId, functionCode);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         lock (_lock)
@@ -33,6 +40,7 @@ public class ModbusRtuTransport : IModbusTransport
             {
                 queue = new Queue<TaskCompletionSource<byte[]>>();
                 _pending[key] = queue;
+                Interlocked.Increment(ref _keyCount);
             }
             queue.Enqueue(tcs);
         }
@@ -47,13 +55,13 @@ public class ModbusRtuTransport : IModbusTransport
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
             using var registration = linkedCts.Token.Register(() =>
             {
-                lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
+                lock (_lock) RemoveHeadLocked(key, tcs);
                 tcs.TrySetException(new OperationCanceledException(ct.IsCancellationRequested ? "Operation cancelled" : $"Timeout after {timeoutMs}ms"));
             }, useSynchronizationContext: false);
 
             if (!_serial.Send(hex, isHex: true))
             {
-                lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
+                lock (_lock) RemoveHeadLocked(key, tcs);
                 throw new InvalidOperationException("Send failed");
             }
 
@@ -61,8 +69,25 @@ public class ModbusRtuTransport : IModbusTransport
         }
         catch (Exception)
         {
-            lock (_lock) { if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs) q.Dequeue(); }
+            lock (_lock) RemoveHeadLocked(key, tcs);
             throw;
+        }
+    }
+
+    /// <summary>Caller holds <see cref="_lock"/>. Removes <paramref name="tcs"/>
+    /// when it is the head of its queue, and drops the key when the queue
+    /// empties — keeping the RX fast path (<c>_keyCount == 0</c>) accurate
+    /// after timeouts and send failures.</summary>
+    private void RemoveHeadLocked(ModbusKey key, TaskCompletionSource<byte[]> tcs)
+    {
+        if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs)
+        {
+            q.Dequeue();
+            if (q.Count == 0)
+            {
+                _pending.Remove(key);
+                Interlocked.Decrement(ref _keyCount);
+            }
         }
     }
 
@@ -70,20 +95,30 @@ public class ModbusRtuTransport : IModbusTransport
     {
         if (entry == null || entry.Direction != "RX") return;
         if (string.IsNullOrEmpty(entry.RawHex)) return;
+        // RX hot path: with no conversation pending (the common case for a
+        // port that only occasionally runs Modbus master polls) drop the
+        // packet before decoding the hex string or building a lookup key —
+        // the old path allocated a byte[] and a key string per packet and
+        // then discovered nothing was waiting.
+        if (_keyCount == 0) return;
         var bytes = HexStringToBytes(entry.RawHex);
         if (bytes.Length < 4) return;
 
         var slaveId = bytes[0];
         var funcByte = bytes[1];
         var function = funcByte & 0x7F;
-        var key = MakeKey(slaveId, (byte)function);
+        var key = new ModbusKey(slaveId, (byte)function);
 
         TaskCompletionSource<byte[]>? tcs;
         lock (_lock)
         {
             if (!_pending.TryGetValue(key, out var queue) || queue.Count == 0) return;
             tcs = queue.Dequeue();
-            if (queue.Count == 0) _pending.Remove(key);
+            if (queue.Count == 0)
+            {
+                _pending.Remove(key);
+                Interlocked.Decrement(ref _keyCount);
+            }
         }
 
         if ((funcByte & 0x80) != 0)
@@ -102,8 +137,6 @@ public class ModbusRtuTransport : IModbusTransport
 
         tcs.TrySetResult(bytes.AsSpan(0, bytes.Length - 2).ToArray());
     }
-
-    private static string MakeKey(byte slaveId, byte functionCode) => $"{slaveId}:{functionCode}";
 
     internal static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
     {
@@ -227,6 +260,7 @@ public class ModbusRtuTransport : IModbusTransport
                 foreach (var tcs in kv.Value)
                     tcs.TrySetException(new ObjectDisposedException(nameof(ModbusRtuTransport)));
             _pending.Clear();
+            Interlocked.Exchange(ref _keyCount, 0);
         }
     }
 }

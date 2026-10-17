@@ -42,6 +42,10 @@ public class ParserEngine : IDisposable
     // atomic, so ExecuteAsync needs no lock at all.
     private volatile Script<List<FieldAnnotation>>? _activeScript;
     private readonly MetricsCollector _metrics = MetricsCollector.Instance;
+    // Diagnostics: how many executions had to arm a deadline (i.e. the
+    // submission suspended). A synchronously completing script must not appear
+    // here — see ExecuteAsync.
+    private long _timeoutSourcesCreated;
 
     public event Action<string>? OnError;
 
@@ -57,6 +61,13 @@ public class ParserEngine : IDisposable
     public int MaxCacheSize => _maxCacheSize;
 
     public string? LastError => _lastError;
+
+    /// <summary>
+    /// Number of executions that armed a deadline. A submission that completes
+    /// synchronously inside <c>RunAsync</c> cannot time out, so it must not
+    /// create a timeout source (and its timer). Exposed for diagnostics/tests.
+    /// </summary>
+    internal long TimeoutSourcesCreated => Volatile.Read(ref _timeoutSourcesCreated);
 
     public bool Load(string code)
     {
@@ -109,56 +120,78 @@ public class ParserEngine : IDisposable
         var script = _activeScript;
         if (script == null) return null;
 
-        // CancellationTokenSource throws for non-positive due-times; clamp so a
-        // non-positive timeout behaves as "immediate timeout" instead of
-        // surfacing an ArgumentOutOfRangeException to the caller.
-        var effectiveTimeout = Math.Max(1, timeoutMs);
-        using var cts = new CancellationTokenSource(effectiveTimeout);
         // GetTimestamp avoids the Stopwatch object allocation StartNew makes on
-        // every frame; GetElapsedTime reads the same monotonic clock.
+        // every frame; GetElapsedTime reads the same monotonic clock. Elapsed
+        // time is measured inline rather than through a local function so the
+        // per-frame path allocates no closure.
         var startTimestamp = Stopwatch.GetTimestamp();
-        double ElapsedMs() => Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+
+        // The timeout source is created lazily, only for a submission that has
+        // not already finished. new CancellationTokenSource(ms) arms a
+        // TimerQueueTimer, and a script without awaits completes synchronously
+        // inside RunAsync — so the eager version created and tore down a kernel
+        // timer per parsed frame (~1 kHz in the MCP/RX path) to enforce a
+        // timeout that could no longer fire.
+        CancellationTokenSource? timeoutCts = null;
         try
         {
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
-            var task = script.RunAsync(globals, cts.Token);
-
-            // WaitAsync registers a cancellation callback on the existing CTS
-            // timer (created above with timeoutMs). The old Task.WhenAny + a
-            // second Task.Delay allocated a fresh timer per execution that
-            // stayed alive for the full timeout even when the script finished
-            // instantly — at parser frame rates that stacked up live timers.
-            var result = await task.WaitAsync(cts.Token).ConfigureAwait(false);
-            _metrics.RecordParseCompleted(true, ElapsedMs());
+            // CancellationToken.None: a submission that completes synchronously
+            // cannot observe cancellation anyway, and the deadline is enforced
+            // by WaitAsync below for one that suspends.
+            var task = script.RunAsync(globals, CancellationToken.None);
+            ScriptState<List<FieldAnnotation>> result;
+            if (task.IsCompleted)
+            {
+                result = task.GetAwaiter().GetResult();
+            }
+            else
+            {
+                // CancellationTokenSource throws for non-positive due-times;
+                // clamp so a non-positive timeout behaves as "immediate
+                // timeout" instead of surfacing ArgumentOutOfRangeException.
+                timeoutCts = new CancellationTokenSource(Math.Max(1, timeoutMs));
+                Interlocked.Increment(ref _timeoutSourcesCreated);
+                // WaitAsync registers a cancellation callback on that timer.
+                // The old Task.WhenAny + a second Task.Delay allocated a fresh
+                // timer per execution that stayed alive for the full timeout
+                // even when the script finished instantly.
+                result = await task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            _metrics.RecordParseCompleted(true, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
             return result.ReturnValue;
         }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
         {
             _lastError = $"Script execution timed out after {timeoutMs}ms";
             OnError?.Invoke($"[ParserEngine] Execution timed out after {timeoutMs}ms");
-            _metrics.RecordParseCompleted(false, ElapsedMs());
+            _metrics.RecordParseCompleted(false, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
             return null;
         }
         catch (OperationCanceledException)
         {
             _lastError = $"Script execution cancelled after {timeoutMs}ms";
             OnError?.Invoke($"[ParserEngine] Execution cancelled after {timeoutMs}ms");
-            _metrics.RecordParseCompleted(false, ElapsedMs());
+            _metrics.RecordParseCompleted(false, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
             return null;
         }
         catch (CompilationErrorException ex)
         {
             _lastError = $"Compilation error: {ex.Message}";
             OnError?.Invoke($"[ParserEngine] Compilation error: {ex.Message}");
-            _metrics.RecordParseCompleted(false, ElapsedMs());
+            _metrics.RecordParseCompleted(false, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
             return null;
         }
         catch (Exception ex)
         {
             _lastError = $"Execution failed: {ex.Message}";
             OnError?.Invoke($"[ParserEngine] Execution failed: {ex.Message}");
-            _metrics.RecordParseCompleted(false, ElapsedMs());
+            _metrics.RecordParseCompleted(false, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
             return null;
+        }
+        finally
+        {
+            timeoutCts?.Dispose();
         }
     }
 

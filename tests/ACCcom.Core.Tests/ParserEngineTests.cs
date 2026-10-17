@@ -129,6 +129,47 @@ return result;
     }
 
     [Fact]
+    public async Task Execute_SynchronousSubmission_ArmsNoTimeoutTimer()
+    {
+        // P1-8: every execution eagerly created a CancellationTokenSource(ms),
+        // and constructing it arms a TimerQueueTimer. At parser frame rates
+        // (~1 kHz) that is ~1000 kernel timers created and torn down per second
+        // for a deadline that can no longer fire: a script without awaits
+        // completes synchronously inside RunAsync. Measured alongside: 1064
+        // B/frame with the eager source vs 912 B/frame armed on demand.
+        var engine = new ParserEngine();
+        Assert.True(engine.Load(MinimalScript));
+        var data = new byte[] { 0xAA };
+
+        for (int i = 0; i < 1000; i++)
+            Assert.NotNull(await engine.ExecuteAsync(data, DateTime.Now));
+
+        Assert.Equal(0, engine.TimeoutSourcesCreated);
+
+        // A submission that does suspend still gets its deadline armed — once
+        // per run, so concurrent/successive runs never share one timer.
+        Assert.True(engine.Load(@"
+await System.Threading.Tasks.Task.Delay(5000);
+var result = new List<FieldAnnotation>();
+result.Add(new FieldAnnotation { Name = ""Late"", Offset = 0, Length = 1 });
+return result;
+"));
+
+        Assert.Null(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
+        Assert.Contains("timed out", engine.LastError);
+        Assert.Equal(1, engine.TimeoutSourcesCreated);
+
+        Assert.Null(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
+        Assert.Equal(2, engine.TimeoutSourcesCreated);
+
+        // And the deadline is not sticky: a fast submission afterwards still
+        // completes despite the earlier timeouts.
+        Assert.True(engine.Load(MinimalScript));
+        Assert.NotNull(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
+        Assert.Equal(2, engine.TimeoutSourcesCreated);
+    }
+
+    [Fact]
     public async Task Execute_ScriptWithCrc_ChecksCorrectly()
     {
         var engine = new ParserEngine();

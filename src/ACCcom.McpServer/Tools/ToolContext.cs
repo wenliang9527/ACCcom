@@ -33,9 +33,24 @@ public class ToolContext
 
     /// <summary>Per-tag data buffers, created on demand and isolated from each
     /// other. ConcurrentDictionary so the per-packet BufferFor lookup on the
-    /// multi-port RX path takes no lock (GetOrAdd is atomic — same semantics
-    /// as the old lock(TryGetValue/Add) sequence).</summary>
+    /// multi-port RX path takes no lock. Each entry costs ~120 KB
+    /// (LogEntry?[10000] + int[10000]), so the set is capped: creating a tag
+    /// beyond <see cref="MaxTrackedTags"/> evicts the oldest tag whose port is
+    /// no longer open (falling back to the oldest overall). Every close path —
+    /// MultiPortService.ClosePort, CloseAll, and a serial-level disconnect —
+    /// releases its buffer through <see cref="MultiPortService.OnPortDisconnected"/>;
+    /// the old design only released on the MCP close_port tool, so every other
+    /// close path leaked ~120 KB per tag for the life of the process.</summary>
     public ConcurrentDictionary<string, DataBufferService> Buffers { get; } = new();
+
+    /// <summary>Upper bound for <see cref="Buffers"/>. 64 tags × ~120 KB ≈ 7.7 MB
+    /// worst case; a client needing more concurrent live ports is pathological.</summary>
+    private const int MaxTrackedTags = 64;
+
+    // Creation order of tracked tags, used only when the cap is exceeded.
+    // Entries may be stale (already removed) and are validated/pruned on use.
+    // Never touched on the per-packet path — only create and eviction.
+    private readonly ConcurrentQueue<string> _tagOrder = new();
 
     /// <summary>Traffic mirror sink. Defaults to the process-wide shared JSONL
     /// writer; tests swap in a temp-file instance before triggering traffic so
@@ -73,6 +88,11 @@ public class ToolContext
             buffer.AddEntry(entry);
             RecordReceived(entry, tag);
         };
+
+        // Uniform per-tag buffer release: MultiPortService raises this for
+        // every close path (ClosePort, CloseAll) and for serial-level
+        // disconnects, so no close path can leak a ~120 KB buffer.
+        multiPort.OnPortDisconnected += tag => RemoveBuffer(tag);
     }
 
     /// <summary>Mirrors a received entry into the traffic log. TX entries are
@@ -87,12 +107,63 @@ public class ToolContext
     }
 
     /// <summary>Returns the buffer for a tag: the default single-port buffer for
-    /// the empty tag, otherwise the per-tag buffer (created on demand).</summary>
+    /// the empty tag, otherwise the per-tag buffer (created on demand). Fast
+    /// path is a single hash lookup — the old GetOrAdd ran a factory-aware
+    /// probe on every RX packet even when the tag already existed.</summary>
     public DataBufferService BufferFor(string? tag)
     {
         if (string.IsNullOrEmpty(tag)) return Buffer;
-        return Buffers.GetOrAdd(tag, static _ => new DataBufferService());
+        if (Buffers.TryGetValue(tag, out var existing)) return existing;
+        var created = new DataBufferService();
+        if (Buffers.TryAdd(tag, created))
+        {
+            _tagOrder.Enqueue(tag);
+            EnforceTagCap(tag);
+            return created;
+        }
+        // Lost a creation race against another thread: the winner's instance
+        // is the shared one (same semantics as the old GetOrAdd).
+        return Buffers[tag];
     }
+
+    /// <summary>Keeps <see cref="Buffers"/> within <see cref="MaxTrackedTags"/>.
+    /// Prefers evicting a tag whose port is no longer open (its history is
+    /// stale); falls back to the oldest created tag when every tracked tag
+    /// still has a live port. The just-added tag is never the victim, and the
+    /// creation-order queue is rebuilt (pruning stale entries) in the same
+    /// pass. Only ever runs on the create path — never per packet.</summary>
+    private void EnforceTagCap(string justAdded)
+    {
+        if (Buffers.Count <= MaxTrackedTags) return;
+
+        string? victim = null;
+        var survivors = new List<string>();
+        while (_tagOrder.TryDequeue(out var candidate))
+        {
+            if (!Buffers.ContainsKey(candidate)) continue; // stale queue entry
+            if (victim == null && candidate != justAdded && !IsPortOpen(candidate))
+            {
+                victim = candidate;
+                continue;
+            }
+            survivors.Add(candidate);
+        }
+
+        if (victim == null)
+        {
+            // Every tracked tag still has a live port: evict the oldest.
+            for (var i = 0; i < survivors.Count && victim == null; i++)
+            {
+                if (survivors[i] != justAdded) victim = survivors[i];
+            }
+            if (victim != null) survivors.Remove(victim);
+        }
+
+        if (victim != null) Buffers.TryRemove(victim, out _);
+        foreach (var survivor in survivors) _tagOrder.Enqueue(survivor);
+    }
+
+    private bool IsPortOpen(string tag) => MultiPort.GetPort(tag)?.Service.IsOpen == true;
 
     /// <summary>Drops a tag's per-tag buffer when its port is closed, so a later
     /// reopen of the same tag starts with a clean buffer and does not surface

@@ -870,4 +870,48 @@ public class DataBufferServiceTests
         var results = await Task.WhenAll(waits);
         Assert.All(results, r => Assert.Equal("fanout", Assert.Single(r.Entries).Text));
     }
+
+    // ── AddEntry vs waiter pattern evaluation ──
+
+    [Fact]
+    public async Task AddEntry_slow_waiter_pattern_does_not_block_waiter_registration()
+    {
+        // AddEntry evaluated every registered waiter's pattern while holding
+        // _waiterLock, and PatternMatcher allows a 2s regex timeout — so one
+        // catastrophic pattern stalled waiter registration (and registration
+        // takes _lock inside it, i.e. the RX thread too) for the whole match.
+        // The scan has to run outside the lock.
+        var sut = new DataBufferService(16);
+
+        // ^(a+)+$ against 40 a's plus one b backtracks over every partition of
+        // the a-run and burns the full regex timeout without matching.
+        var catastrophic = new string('a', 40) + "b";
+        var slowWait = sut.WaitForMatchAsync("^(a+)+$", matchMode: "regex", timeoutMs: 5000);
+
+        var addElapsed = TimeSpan.Zero;
+        var add = Task.Run(() =>
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            sut.AddEntry(MakeEntry(1, text: catastrophic));
+            addElapsed = timer.Elapsed;
+        });
+
+        await Task.Delay(100);   // let AddEntry get into the pattern match
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var register = sut.WaitForMatchAsync("never-matches", timeoutMs: 10);
+        sw.Stop();
+
+        await add;
+        await register;
+
+        Assert.True(addElapsed > TimeSpan.FromMilliseconds(400),
+            $"the catastrophic pattern finished in {addElapsed.TotalMilliseconds:F0}ms — too fast to prove anything");
+        // Self-normalizing bound: registration must not wait for the match.
+        Assert.True(sw.Elapsed < addElapsed / 2,
+            $"registration blocked {sw.ElapsedMilliseconds}ms while the pattern match took {addElapsed.TotalMilliseconds:F0}ms");
+
+        sut.Dispose();       // releases the parked waiter
+        await slowWait;
+    }
 }

@@ -36,12 +36,20 @@ public class FrameBuffer : IDisposable
     private readonly object _lock = new();
     private DateTime _lastDataTime;
     private Timer? _timeoutTimer;
-    private bool _disposed;
+    private volatile bool _disposed;
     private static int _entryIdSource;
     // Serializes parser execution so in-flight script runs cannot accumulate
     // without bound when parsing is slower than frame arrival, and so frames
     // complete (and surface via OnFrameAssembled) in arrival order.
     private readonly SemaphoreSlim _parseGate = new(1, 1);
+    // Frames that have been extracted from the ring but not yet emitted. The
+    // parse gate bounds concurrency, not depth: without this cap a slow parser
+    // let every buffered frame be extracted up front, so each pending frame
+    // pinned its own byte[] (unbounded with parser latency). Extracting at most
+    // one frame at a time keeps the backlog inside the ring, which is bounded
+    // by BufferCapacity.
+    private const int MaxInFlightFrames = 1;
+    private int _emitInFlight;
 
     public event Action<LogEntry>? OnFrameAssembled;
     public event Action<string>? OnError;
@@ -120,18 +128,44 @@ public class FrameBuffer : IDisposable
     {
         while (true)
         {
-            byte[]? frame = null;
+            if (_disposed) return;
 
+            byte[]? frame;
             lock (_lock)
             {
                 if (_count == 0) return;
+                // Backpressure: a frame that is still being parsed keeps the
+                // rest of the bytes in the ring. They are bounded by
+                // BufferCapacity (drop-oldest on overflow), so memory no longer
+                // grows with parser latency.
+                if (Volatile.Read(ref _emitInFlight) >= MaxInFlightFrames) return;
+
                 frame = TryExtractFrame();
+                if (frame == null) return;
+                _emitInFlight++;
             }
 
-            if (frame == null) return;
-            // Fire-and-forget: EmitFrame catches its own exceptions; the parse
-            // gate serializes execution so frames surface in arrival order.
-            _ = EmitFrame(frame);
+            var emit = EmitFrame(frame);
+            if (emit.IsCompleted)
+            {
+                // No parser awaited, so the frame was emitted inline: keep
+                // draining iteratively (a burst must never grow the stack).
+                continue;
+            }
+
+            // The parse suspended. Resume draining when the in-flight frame
+            // finally completes. EmitFrame catches its own exceptions, and the
+            // continuation reads Exception so a fault cannot surface later as
+            // an unobserved task exception.
+            _ = emit.ContinueWith(
+                static (task, state) =>
+                {
+                    _ = task.Exception;
+                    ((FrameBuffer)state!).ProcessBuffer();
+                },
+                this, CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return;
         }
     }
 
@@ -253,59 +287,69 @@ public class FrameBuffer : IDisposable
 
     private async Task EmitFrame(byte[] frame)
     {
-        var hex = HexHelper.BytesToHexSpaced(frame, 0, frame.Length);
-        var text = Encoding.UTF8.GetString(frame);
-
-        var entry = new LogEntry
-        {
-            // Display/export row number for the assembled frame. The HTTP/MCP
-            // polling cursor is DataBufferService's own arrival sequence, so
-            // this id no longer has to be globally monotonic — it only has to
-            // be unique among displayed rows.
-            Id = Interlocked.Increment(ref _entryIdSource),
-            // Local time, matching every other receive path (SerialService,
-            // ModbusService, NetworkBridgeService) so exports/replay/PCAP from
-            // this path don't carry a different timezone than the rest.
-            Timestamp = DateTime.Now,
-            Direction = "RX",
-            RawHex = hex,
-            Text = text
-        };
-
         try
         {
-            if (_matcher != null)
-            {
-                var matchedParser = _matcher.MatchParser(frame);
-                if (matchedParser != null && _parserManager != null)
-                {
-                    if (_parserManager.ActiveParserName != matchedParser)
-                        _parserManager.Activate(matchedParser);
-                }
-            }
+            var hex = HexHelper.BytesToHexSpaced(frame, 0, frame.Length);
+            var text = Encoding.UTF8.GetString(frame);
 
-            if (_parserManager?.ActiveParserName != null)
+            var entry = new LogEntry
             {
-                // One parser run at a time: keeps completions in arrival order and
-                // bounds in-flight script executions when the parser is slower
-                // than frame arrival.
-                await _parseGate.WaitAsync().ConfigureAwait(false);
-                try
-                {
-                    entry.Fields = await _parserManager.Engine.ExecuteAsync(frame, entry.Timestamp).ConfigureAwait(false);
-                }
-                finally
-                {
-                    _parseGate.Release();
-                }
-            }
+                // Display/export row number for the assembled frame. The HTTP/MCP
+                // polling cursor is DataBufferService's own arrival sequence, so
+                // this id no longer has to be globally monotonic — it only has to
+                // be unique among displayed rows.
+                Id = Interlocked.Increment(ref _entryIdSource),
+                // Local time, matching every other receive path (SerialService,
+                // ModbusService, NetworkBridgeService) so exports/replay/PCAP from
+                // this path don't carry a different timezone than the rest.
+                Timestamp = DateTime.Now,
+                Direction = "RX",
+                RawHex = hex,
+                Text = text
+            };
 
-            try { OnFrameAssembled?.Invoke(entry); }
-            catch (Exception ex) { OnError?.Invoke($"FrameBuffer callback error: {ex.Message}"); }
+            try
+            {
+                if (_matcher != null)
+                {
+                    var matchedParser = _matcher.MatchParser(frame);
+                    if (matchedParser != null && _parserManager != null)
+                    {
+                        if (_parserManager.ActiveParserName != matchedParser)
+                            _parserManager.Activate(matchedParser);
+                    }
+                }
+
+                if (_parserManager?.ActiveParserName != null)
+                {
+                    // One parser run at a time: keeps completions in arrival order and
+                    // bounds in-flight script executions when the parser is slower
+                    // than frame arrival.
+                    await _parseGate.WaitAsync().ConfigureAwait(false);
+                    try
+                    {
+                        entry.Fields = await _parserManager.Engine.ExecuteAsync(frame, entry.Timestamp).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        _parseGate.Release();
+                    }
+                }
+
+                try { OnFrameAssembled?.Invoke(entry); }
+                catch (Exception ex) { OnError?.Invoke($"FrameBuffer callback error: {ex.Message}"); }
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"FrameBuffer error: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            OnError?.Invoke($"FrameBuffer error: {ex.Message}");
+            // Releases the backlog slot, so it must run for every exit path —
+            // otherwise a frame that failed early would stall the drain and the
+            // remaining frames would never leave the ring.
+            Interlocked.Decrement(ref _emitInFlight);
         }
     }
 
@@ -314,6 +358,12 @@ public class FrameBuffer : IDisposable
         lock (_lock)
         {
             if (_count == 0) return;
+            // While a frame is in flight the bytes left in the ring are frames
+            // queued behind the parser, not a stale partial frame: discarding
+            // them would drop complete frames that simply had not been parsed
+            // yet. The parser's own execution timeout bounds how long this can
+            // defer a reset.
+            if (Volatile.Read(ref _emitInFlight) > 0) return;
             if ((DateTime.UtcNow - _lastDataTime).TotalMilliseconds >= _config.PartialFrameTimeoutMs)
                 Reset();
         }
