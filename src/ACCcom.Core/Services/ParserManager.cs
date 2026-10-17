@@ -136,17 +136,28 @@ public class ParserManager : IDisposable
 
     public void Refresh()
     {
-        var files = Directory.GetFiles(_parserDir, "*.csx")
-            .Select(Path.GetFileNameWithoutExtension)
-            .OrderBy(x => x);
+        // Refresh() is reachable from non-UI threads: HttpService's
+        // WriteParserCode / GenerateParser call it synchronously from HTTP
+        // worker threads, and it mutates AvailableParsers — an
+        // ObservableCollection bound to the WPF UI. Mutating that collection
+        // off the UI thread throws InvalidOperationException, so the whole
+        // body is routed through the dispatcher (the same mechanism
+        // DebounceReload uses). Without a dispatcher (headless/unit use) the
+        // action simply runs inline.
+        Dispatch(() =>
+        {
+            var files = Directory.GetFiles(_parserDir, "*.csx")
+                .Select(Path.GetFileNameWithoutExtension)
+                .OrderBy(x => x);
 
-        AvailableParsers.Clear();
-        AvailableParsers.Add(NoParserName);
-        foreach (var f in files)
-            AvailableParsers.Add(f!);
+            AvailableParsers.Clear();
+            AvailableParsers.Add(NoParserName);
+            foreach (var f in files)
+                AvailableParsers.Add(f!);
 
-        if (ActiveParserName != null && !AvailableParsers.Contains(ActiveParserName))
-            Activate(null);
+            if (ActiveParserName != null && !AvailableParsers.Contains(ActiveParserName))
+                Activate(null);
+        });
     }
 
     /// <summary>

@@ -276,6 +276,70 @@ public class ModbusSlaveTransportTests
     }
 
     [Fact]
+    public async Task RtuTransport_SplitFrameAcrossDeliveries_StillResponds()
+    {
+        // Regression: a request split across two serial deliveries used to be
+        // silently dropped — the 10 ms frame timer fired on the first half,
+        // ProcessBuffer cleared the buffer, and the second half then arrived
+        // as its own (CRC-failing) frame. The transport must retain partial
+        // data and resynchronise on the completed frame instead.
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        device.SetHoldingRegister(0, 0x1234);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("01 03 00 00");
+        await Task.Delay(50); // let the 10 ms frame timer fire on the half frame
+        serial.InjectRxData("00 01 84 0A");
+
+        var sent = await WaitForAsync(() => serial.GetSentData(), d => d.Count > 0);
+        Assert.Single(sent);
+        Assert.StartsWith("0103021234", sent[0].RawHex.Replace(" ", ""));
+    }
+
+    [Fact]
+    public async Task RtuTransport_BackToBackFramesInOneDelivery_RespondsToBoth()
+    {
+        // Regression: two frames arriving in a single RX event used to be
+        // merged into one (CRC-failing) "frame" and both requests were lost.
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        device.SetHoldingRegister(0, 0x1234);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("01 03 00 00 00 01 84 0A 01 03 00 00 00 01 84 0A");
+
+        var sent = await WaitForAsync(() => serial.GetSentData(), d => d.Count >= 2);
+        Assert.Equal(2, sent.Count);
+        Assert.All(sent, s => Assert.StartsWith("0103021234", s.RawHex.Replace(" ", "")));
+    }
+
+    [Fact]
+    public async Task RtuTransport_NoiseBeforeFrame_ResyncsAndResponds()
+    {
+        // Regression: line noise before a valid frame used to fail the
+        // slave-id check on the first byte (0xFF) and the whole buffer —
+        // including the valid frame — was dropped. The transport must skip
+        // noise and resynchronise on the CRC-aligned frame.
+        using var serial = new VirtualSerialService();
+        serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200 });
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 16);
+        device.SetHoldingRegister(0, 0x1234);
+        using var transport = new ModbusRtuSlaveTransport(serial);
+        transport.OnRequestReceived = (slaveId, pdu) => device.HandleRequest(pdu[0], pdu[1..]);
+        transport.Start();
+        serial.InjectRxData("FF FF 01 03 00 00 00 01 84 0A");
+
+        var sent = await WaitForAsync(() => serial.GetSentData(), d => d.Count > 0);
+        Assert.Single(sent);
+        Assert.StartsWith("0103021234", sent[0].RawHex.Replace(" ", ""));
+    }
+
+    [Fact]
     public void RtuSlaveTransport_HexStringToBytes_ToleratesDirtyAndOddHex()
     {
         // 与 RTU/ASCII master 两个容错兄弟同一家族行为:非法字符按 0 处理、

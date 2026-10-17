@@ -57,6 +57,37 @@ public class ParserManagerTests : IDisposable
     }
 
     [Fact]
+    public void Refresh_FromWorkerThread_RoutesMutationThroughDispatch()
+    {
+        // Regression: HttpService.WriteParserCode / GenerateParser call
+        // Refresh() synchronously from HTTP worker threads, and Refresh
+        // mutates AvailableParsers — an ObservableCollection bound to the
+        // WPF UI. Mutating it off the UI thread throws
+        // InvalidOperationException. Refresh must route the mutation through
+        // the injected dispatcher (the way DebounceReload already does).
+        File.WriteAllText(Path.Combine(_tempDir, "worker_parser.csx"), "return new List<FieldAnnotation>();");
+
+        var dispatchCalls = 0;
+        Action<Action> dispatch = action => { dispatchCalls++; action(); };
+        using var manager = new ParserManager(_tempDir, dispatch);
+        var callsAfterConstruction = dispatchCalls;
+
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { manager.Refresh(); }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(failure);
+        Assert.True(dispatchCalls > callsAfterConstruction,
+            "Refresh() must route the AvailableParsers mutation through the dispatcher");
+        Assert.Contains("worker_parser", manager.AvailableParsers);
+    }
+
+    [Fact]
     public void Engine_IsNotNullAfterConstruction()
     {
         // Arrange & Act

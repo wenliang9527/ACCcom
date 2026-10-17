@@ -13,7 +13,11 @@ public class ModbusTcpTransport : IModbusTransport
     private readonly object _lock = new();
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly Dictionary<ushort, TaskCompletionSource<byte[]>> _pending = new();
-    private readonly CancellationTokenSource _receiveCts = new();
+    // Per-connection cancellation token source, replaced on every reconnect.
+    // The receive loop for a connection is bound to that connection's CTS, so
+    // a reconnect stops the old loop instead of leaving it reading whatever
+    // _stream happens to point at.
+    private CancellationTokenSource? _connectionCts;
     private readonly Timer _heartbeatTimer;
     private const ushort HeartbeatTid = ushort.MaxValue;
     private int _transactionId;
@@ -87,8 +91,13 @@ public class ModbusTcpTransport : IModbusTransport
                     _client.Dispose();
                     _client = new TcpClient();
                     await _client.ConnectAsync(_host, _port).ConfigureAwait(false);
-                    _stream = _client.GetStream();
-                    _ = ReceiveLoopAsync(_receiveCts.Token);
+                    var stream = _client.GetStream();
+                    _stream = stream;
+                    var connectionCts = new CancellationTokenSource();
+                    var previous = Interlocked.Exchange(ref _connectionCts, connectionCts);
+                    previous?.Cancel();
+                    previous?.Dispose();
+                    _ = ReceiveLoopAsync(stream, connectionCts.Token);
                     return;
                 }
                 catch
@@ -119,7 +128,7 @@ public class ModbusTcpTransport : IModbusTransport
         }
     }
 
-    private async Task ReceiveLoopAsync(CancellationToken ct)
+    private async Task ReceiveLoopAsync(NetworkStream stream, CancellationToken ct)
     {
         var headerBuf = new byte[6];
         try
@@ -129,7 +138,7 @@ public class ModbusTcpTransport : IModbusTransport
                 var offset = 0;
                 while (offset < 6)
                 {
-                    var read = await _stream!.ReadAsync(headerBuf.AsMemory(offset, 6 - offset), ct).ConfigureAwait(false);
+                    var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset), ct).ConfigureAwait(false);
                     if (read == 0) return;
                     offset += read;
                 }
@@ -142,7 +151,7 @@ public class ModbusTcpTransport : IModbusTransport
                 offset = 0;
                 while (offset < remaining)
                 {
-                    var read = await _stream!.ReadAsync(body.AsMemory(offset, remaining - offset), ct).ConfigureAwait(false);
+                    var read = await stream.ReadAsync(body.AsMemory(offset, remaining - offset), ct).ConfigureAwait(false);
                     if (read == 0) return;
                     offset += read;
                 }
@@ -172,12 +181,14 @@ public class ModbusTcpTransport : IModbusTransport
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            lock (_lock)
-            {
-                foreach (var kv in _pending)
-                    kv.Value.TrySetException(ex);
-                _pending.Clear();
-            }
+            // Deliberately does NOT touch _pending: this loop may belong to a
+            // connection that EnsureConnectedAsync has already replaced, and
+            // failing the shared dictionary from here would also kill requests
+            // that are in flight on the NEW connection. Requests that were
+            // sent on this (now dead) connection are failed by their own
+            // per-request timeout, or by their write throwing inside
+            // SendReceiveAsync.
+            Debug.WriteLine($"MODBUS TCP receive loop ended: {ex.Message}");
         }
     }
 
@@ -206,8 +217,9 @@ public class ModbusTcpTransport : IModbusTransport
         _disposed = true;
         _heartbeatTimer.Stop();
         _heartbeatTimer.Dispose();
-        _receiveCts.Cancel();
-        _receiveCts.Dispose();
+        var connectionCts = Interlocked.Exchange(ref _connectionCts, null);
+        connectionCts?.Cancel();
+        connectionCts?.Dispose();
         _stream?.Dispose();
         _client.Dispose();
         _connectLock.Dispose();
