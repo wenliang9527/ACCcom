@@ -113,6 +113,25 @@ public class LoggerServiceTests : IDisposable
     }
 
     [Fact]
+    public void Write_ManyEntries_AllDrained_InOrder()
+    {
+        // The channel drain must deliver every entry (across the
+        // BufferedFileWriter flush-every-100 boundary) before Dispose
+        // returns, in write order.
+        var path = "";
+        using (var logger = new LoggerService())
+        {
+            path = logger.CurrentLogPath;
+            for (var i = 0; i < 250; i++)
+                logger.Write(new LogEntry { Id = i + 1, Direction = "RX", Timestamp = DateTime.Now, RawHex = $"{i:X2}", Text = $"m{i}" });
+        }
+        var lines = File.ReadAllLines(path);
+        Assert.Equal(250, lines.Length);
+        Assert.Contains("| m0", lines[0]);
+        Assert.Contains("| m249", lines[^1]);
+    }
+
+    [Fact]
     public void Write_null_is_noop()
     {
         var logger = new LoggerService();

@@ -254,8 +254,11 @@ public class SessionRecorder : BufferedFileWriter
     public bool IsPaused { get; set; }
 
     /// <summary>Ensures the drain task is stopped and the channel completed even
-    /// when disposed mid-recording; then hands off to the base writer close.</summary>
-    public new void Dispose()
+    /// when disposed mid-recording; then hands off to the base writer close.
+    /// An override (not a hiding method) so `using` blocks and IDisposable
+    /// dispatch reach it — the old `new` Dispose let a using block skip
+    /// StopRecording and lose the recording tail.</summary>
+    public override void Dispose()
     {
         StopRecording();
         base.Dispose();

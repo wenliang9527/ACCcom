@@ -9,6 +9,63 @@ public class McpTrafficLogTests
     private static string TempPath()
         => Path.Combine(Path.GetTempPath(), $"mcp-traffic-{Guid.NewGuid():N}.jsonl");
 
+    /// <summary>Reads the log while the writer still holds it open. Plain
+    /// File.ReadAllText requests FileShare.Read only, which the writer's write
+    /// access invalidates (sharing has to be compatible in both directions), so
+    /// the share mode is spelled out here.</summary>
+    private static string ReadAllTextShared(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(fs);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>Polls until <paramref name="condition"/> holds. The flush tick
+    /// runs on a timer thread, so a fixed sleep is not a synchronisation point:
+    /// under parallel test load a tick can be starved for far longer than one
+    /// interval. Every truncate test below therefore waits on an observable
+    /// state change (line on disk / ring cleared) instead of on the clock.</summary>
+    private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return true;
+            await Task.Delay(20);
+        }
+        return condition();
+    }
+
+    [Fact]
+    public void Record_ImmediatelyBeforeDispose_AllLinesDrained()
+    {
+        // Record posts to a channel; the drain happens on the flush tick or
+        // in Dispose. Lines posted right before disposal cannot rely on a
+        // tick having fired — Dispose must drain them all.
+        var path = TempPath();
+        using (var log = new McpTrafficLog(path))
+        {
+            for (var i = 0; i < 50; i++)
+                log.Record(i, "send", "TX", $"{i:X2}", $"m{i}");
+        }
+
+        Assert.Equal(50, File.ReadAllLines(path).Length);
+    }
+
+    [Fact]
+    public void Record_AfterDispose_IsDropped()
+    {
+        var path = TempPath();
+        var log = new McpTrafficLog(path);
+        log.Record(1, "send", "TX", "AA", "before");
+        log.Dispose();
+        log.Record(2, "send", "TX", "BB", "after"); // dropped silently
+
+        var content = File.ReadAllText(path);
+        Assert.Contains("before", content);
+        Assert.DoesNotContain("after", content);
+    }
+
     [Fact]
     public async Task Record_AfterExternalTruncate_ReopensCleanly_WithoutSparseHole()
     {
@@ -22,19 +79,32 @@ public class McpTrafficLogTests
             using (var log = new McpTrafficLog(path))
             {
                 log.Record(0, "send", "TX", "", "pre-clear-line");
-                // One flush interval guaranteed: the pre-clear line reaches the
-                // file and the stream position advances past zero.
-                await Task.Delay(300);
+                // Wait for the pre-clear line to actually reach the file: only
+                // then has the writer written anything for the truncation to
+                // shrink below, so only then is the next tick guaranteed to
+                // detect it (a starved tick means "nothing on disk yet" — not a
+                // missed truncation).
+                Assert.True(
+                    await WaitUntilAsync(() => File.Exists(path) && ReadAllTextShared(path).Contains("pre-clear-line")),
+                    "pre-clear line never reached the file");
+
+                // Recorded before the clear, still pending in the channel (or
+                // already on disk): either way it dies with the cleared history.
+                log.Record(0, "send", "TX", "", "mid-clear-line");
 
                 using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
                     fs.SetLength(0);
 
-                log.Record(0, "send", "TX", "", "mid-clear-line");
-                // Next tick detects the shrink, reopens fresh (dropping the
-                // mid-clear line with the cleared history).
-                await Task.Delay(400);
+                // The reopen is observable through the ring: the same tick that
+                // detects the shrink clears it. Waiting here (rather than a fixed
+                // sleep) is what makes the "pending lines are dropped" assertion
+                // deterministic — recording the next line only after the writer
+                // has noticed the clear.
+                Assert.True(
+                    await WaitUntilAsync(() => log.RecentWatermark().Kept == 0),
+                    "writer never detected the external truncate");
+
                 log.Record(0, "send", "TX", "", "post-clear-line");
-                await Task.Delay(400);
             }
 
             var content = File.ReadAllText(path);
@@ -223,33 +293,33 @@ public class McpTrafficLogTests
             {
                 log.Record(0, "send", "TX", "", "pre-clear-1");
                 log.Record(0, "send", "TX", "", "pre-clear-2");
-                await Task.Delay(300);
+                // Both pre-clear lines must be on disk before the truncation can
+                // be detected at all; a starved tick would instead mean "nothing
+                // written yet", which is a different (also valid) state.
+                Assert.True(
+                    await WaitUntilAsync(() => File.Exists(path) && ReadAllTextShared(path).Contains("pre-clear-2")),
+                    "pre-clear lines never reached the file");
+                Assert.Equal(2, log.RecentWatermark().Kept);
 
                 using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
                     fs.SetLength(0);
 
-                log.Record(0, "send", "TX", "", "post-clear-1");
-                await Task.Delay(400);
-                log.Record(0, "send", "TX", "", "post-clear-2");
+                // Wait for the tick that detects the shrink: it clears the ring
+                // in the same pass, so the records below are unambiguously new
+                // (recording before that tick would let it discard them too —
+                // covered by Record_AfterExternalTruncate_*).
+                Assert.True(
+                    await WaitUntilAsync(() => log.RecentWatermark().Kept == 0),
+                    "ring never cleared after external truncate");
 
-                // 收缩检测在 flush tick 上异步发生,并行负载下 tick 可能迟到:
-                // 条件轮询到环里不再有 pre-clear 条目为止(与 R44/R53 同一模式,
-                // 不对 tick 的确切触发时刻做假设)。tick 在"截断前/后"触发决定
-                // post-clear-1 是否也随缓冲一起被丢弃,因此 kept 允许 {3,4} 或 {4}。
-                var deadline = DateTime.UtcNow.AddSeconds(5);
-                IReadOnlyList<TrafficEntry> page;
-                while (true)
-                {
-                    page = log.ReadRecent(0, 50);
-                    if (!page.Any(e => e.Text.StartsWith("pre-clear", StringComparison.Ordinal))) break;
-                    if (DateTime.UtcNow > deadline)
-                        throw new InvalidOperationException("ring never cleared after external truncate");
-                    await Task.Delay(50);
-                }
+                log.Record(0, "send", "TX", "", "post-clear-1");
+                log.Record(0, "send", "TX", "", "post-clear-2");
 
                 var (lastSeq, kept) = log.RecentWatermark();
                 Assert.Equal(4, lastSeq); // seq 不因截断重置(游标语义)
-                Assert.True(kept is 1 or 2, $"kept should be 1 or 2, got {kept}");
+                Assert.Equal(2, kept);
+
+                var page = log.ReadRecent(0, 50);
                 Assert.DoesNotContain(page, e => e.Text.StartsWith("pre-clear", StringComparison.Ordinal));
                 Assert.All(page, e => Assert.StartsWith("post-clear", e.Text, StringComparison.Ordinal));
                 Assert.Equal(page.Select(e => e.Seq).Max(), lastSeq); // 最后一条 = 水位

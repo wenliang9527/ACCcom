@@ -80,7 +80,11 @@ public abstract class BufferedFileWriter : IDisposable
         }
     }
 
-    public void Dispose()
+    // Virtual so subclasses that own a drain task (LoggerService,
+    // SessionRecorder) can complete it before the writer closes. A `using`
+    // block dispatches through IDisposable, which bypasses a hiding `new`
+    // Dispose — only an override is guaranteed to run.
+    public virtual void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
