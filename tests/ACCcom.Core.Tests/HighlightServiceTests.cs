@@ -162,6 +162,19 @@ public class HighlightServiceTests : IDisposable
     }
 
     [Fact]
+    public void GetHighlightColor_regex_is_case_insensitive_like_the_other_match_types()
+    {
+        // Regex used to be the only case-sensitive match type (its cached
+        // expression omitted IgnoreCase while Contains/Exact are
+        // OrdinalIgnoreCase) — the same rule then behaved differently
+        // depending on which match type the user picked.
+        _sut.AddRule(new HighlightRule { Name = "R", Pattern = @"^ok$", Color = "#00FF00", MatchType = HighlightMatchType.Regex });
+
+        Assert.Equal("#00FF00", _sut.GetHighlightColor(MakeEntry(1, text: "OK")));
+        Assert.Equal("#00FF00", _sut.GetHighlightColor(MakeEntry(2, text: "ok")));
+    }
+
+    [Fact]
     public void GetHighlightColor_hex_match()
     {
         _sut.AddRule(new HighlightRule { Name = "HexRule", Pattern = "AA BB", Color = "#FFFF00", MatchHex = true });

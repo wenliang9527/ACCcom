@@ -160,7 +160,10 @@ public class HighlightService
         Regex regex;
         try
         {
-            regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant, RegexTimeout);
+            // IgnoreCase for parity with the Contains/Exact branches (and with
+            // PatternMatcher / RegexFilterCache, the other regex policies in
+            // Core): a regex rule used to be the only case-sensitive match type.
+            regex = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeout);
         }
         catch (ArgumentException)
         {
