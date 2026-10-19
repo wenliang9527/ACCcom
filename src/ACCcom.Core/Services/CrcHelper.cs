@@ -6,17 +6,33 @@ namespace ACCcom.Core.Services;
 public static class CrcHelper
 {
     /// <summary>
+    /// CRC-16/Modbus 查表（反向多项式 0xA001）。逐位实现每字节 8 次移位；
+    /// RTU 主站每次请求/响应、从站每次收发都走这条路。表在类型初始化时构建一次，
+    /// 结果与逐位实现逐位一致（由 CrcHelperTests 的 oracle 测试钉死）。
+    /// </summary>
+    private static readonly ushort[] Table = BuildTable();
+
+    private static ushort[] BuildTable()
+    {
+        var table = new ushort[256];
+        for (int i = 0; i < 256; i++)
+        {
+            ushort crc = (ushort)i;
+            for (int b = 0; b < 8; b++)
+                crc = (crc & 1) != 0 ? (ushort)((crc >> 1) ^ 0xA001) : (ushort)(crc >> 1);
+            table[i] = crc;
+        }
+        return table;
+    }
+
+    /// <summary>
     /// CRC-16/Modbus 校验
     /// </summary>
     public static ushort Crc16(ReadOnlySpan<byte> data)
     {
         ushort crc = 0xFFFF;
         foreach (var b in data)
-        {
-            crc ^= b;
-            for (int i = 0; i < 8; i++)
-                crc = (crc & 1) != 0 ? (ushort)((crc >> 1) ^ 0xA001) : (ushort)(crc >> 1);
-        }
+            crc = (ushort)((crc >> 8) ^ Table[(crc ^ b) & 0xFF]);
         return crc;
     }
 

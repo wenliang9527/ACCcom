@@ -108,99 +108,105 @@ public class DataStatistics
         Interlocked.Exchange(ref _lastFrameTimeTicks, 0);
     }
 
-    /// <summary>Fixed-capacity ring of (ticks, bytes, frames) samples. Thread-safe.</summary>
+    /// <summary>Fixed-capacity ring of (ticks, bytes) samples. Lock-free:
+    /// producers claim a slot with an Interlocked sequence and readers walk
+    /// backwards from a snapshot of it. There are several concurrent producers
+    /// (the serial drain task, the network bridge's receive loop, one drain per
+    /// multi-port session, TX senders on the UI and background threads), so a
+    /// single-writer head pointer would drop samples; the sequence makes every
+    /// producer own its slot. A reader can observe a claimed-but-not-yet-written
+    /// slot and read a stale value — it then breaks out of the newest-first scan
+    /// and undercounts that one tick, which the next 1Hz read corrects.</summary>
     private sealed class SampleRing
     {
         private const int Capacity = 16384;
         private readonly long[] _ticks = new long[Capacity];
         private readonly int[] _bytes = new int[Capacity];
-        private int _head;
+        private long _producerSeq;
         private int _count;
-        private readonly object _lock = new();
 
-        public int Count
-        {
-            get { lock (_lock) return _count; }
-        }
+        public int Count => Volatile.Read(ref _count);
 
         public void Add(long ticks, int byteCount)
         {
-            lock (_lock)
-            {
-                _ticks[_head] = ticks;
-                _bytes[_head] = byteCount;
-                _head = (_head + 1) % Capacity;
-                if (_count < Capacity) _count++;
-            }
+            var slot = Interlocked.Increment(ref _producerSeq);
+            var idx = Idx(slot);
+            _ticks[idx] = ticks;
+            _bytes[idx] = byteCount;
+            if (Volatile.Read(ref _count) < Capacity)
+                Interlocked.Increment(ref _count);
         }
 
         /// <summary>Sums samples newer than <paramref name="cutoffTicks"/> (newest-first scan).
         /// <paramref name="firstTicks"/> is the oldest sample kept in the window.</summary>
         public (long Bytes, int Frames, long FirstTicks, int Count) SumSince(long cutoffTicks)
         {
-            lock (_lock)
+            var seq = Volatile.Read(ref _producerSeq);
+            var count = Volatile.Read(ref _count);
+            long bytes = 0;
+            int frames = 0;
+            long firstTicks = 0;
+            int seen = 0;
+            for (int i = 0; i < count; i++)
             {
-                long bytes = 0;
-                int frames = 0;
-                long firstTicks = 0;
-                int seen = 0;
-                for (int i = 0; i < _count; i++)
-                {
-                    var idx = (_head - 1 - i + Capacity * 2) % Capacity;
-                    var t = _ticks[idx];
-                    if (t < cutoffTicks) break;
-                    bytes += _bytes[idx];
-                    frames++;
-                    seen++;
-                    firstTicks = t; // newest-first scan: last assignment is the oldest in window
-                }
-                return (bytes, frames, firstTicks, seen);
+                var t = Volatile.Read(ref _ticks[Idx(seq - i)]);
+                if (t < cutoffTicks) break;
+                bytes += Volatile.Read(ref _bytes[Idx(seq - i)]);
+                frames++;
+                seen++;
+                firstTicks = t; // newest-first scan: last assignment is the oldest in window
             }
+            return (bytes, frames, firstTicks, seen);
         }
 
         public void Clear()
         {
-            lock (_lock) { _head = 0; _count = 0; }
+            Volatile.Write(ref _producerSeq, 0);
+            Volatile.Write(ref _count, 0);
         }
+
+        /// <summary>Non-negative modulo — the sequence is reset to 0 by Clear,
+        /// so a reader can snapshot a count larger than the new sequence.</summary>
+        private static int Idx(long slot) => (int)(((slot % Capacity) + Capacity) % Capacity);
     }
 
-    /// <summary>Fixed-capacity ring of inter-frame intervals (ms).</summary>
+    /// <summary>Fixed-capacity ring of inter-frame intervals (ms). Same lock-free
+    /// producer-sequence design as <see cref="SampleRing"/>: intervals are
+    /// recorded from every RX producer, not one thread.</summary>
     private sealed class IntervalRing
     {
         private const int Capacity = 1024;
         private readonly double[] _items = new double[Capacity];
-        private int _head;
+        private long _producerSeq;
         private int _count;
-        private readonly object _lock = new();
 
         public void Add(double value)
         {
-            lock (_lock)
-            {
-                _items[_head] = value;
-                _head = (_head + 1) % Capacity;
-                if (_count < Capacity) _count++;
-            }
+            var slot = Interlocked.Increment(ref _producerSeq);
+            var idx = Idx(slot);
+            _items[idx] = value;
+            if (Volatile.Read(ref _count) < Capacity)
+                Interlocked.Increment(ref _count);
         }
 
         /// <summary>Returns the most recent <paramref name="n"/> intervals, oldest first.</summary>
         public List<double> LastN(int n)
         {
-            lock (_lock)
-            {
-                var take = Math.Min(n, _count);
-                var result = new List<double>(take);
-                for (int i = _count - take; i < _count; i++)
-                {
-                    result.Add(_items[(_head - _count + i + Capacity * 2) % Capacity]);
-                }
-                return result;
-            }
+            var seq = Volatile.Read(ref _producerSeq);
+            var count = Volatile.Read(ref _count);
+            var take = Math.Min(n, count);
+            var result = new List<double>(take);
+            for (int i = count - take; i < count; i++)
+                result.Add(_items[Idx(seq - count + i)]);
+            return result;
         }
 
         public void Clear()
         {
-            lock (_lock) { _head = 0; _count = 0; }
+            Volatile.Write(ref _producerSeq, 0);
+            Volatile.Write(ref _count, 0);
         }
+
+        private static int Idx(long slot) => (int)(((slot % Capacity) + Capacity) % Capacity);
     }
 }
