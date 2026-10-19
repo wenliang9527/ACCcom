@@ -87,7 +87,7 @@ public class LoggerService : BufferedFileWriter
     {
         CloseWriter();
         CleanupOldLogs();
-        var fileName = $"ACCCOM_{DateTime.Now:yyyyMMdd_HHmmss}.log";
+        var fileName = TimestampedFileName.Build("ACCCOM", DateTime.Now, extension: "log");
         var filePath = Path.Combine(_logDir, fileName);
         OpenWriter(filePath);
     }

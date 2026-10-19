@@ -18,8 +18,11 @@ public class SerialConnectionManager : IDisposable
     /// If currently open, closes the port and stops duration tracking.
     /// If currently closed, opens the port with the given config.
     /// Returns true if the port is now open, false otherwise.
+    /// The open path awaits <see cref="SerialService.OpenAsync"/>: a failing
+    /// open retries twice with 500ms delays, and on the UI thread those
+    /// Thread.Sleeps froze the window for up to a second.
     /// </summary>
-    public bool ToggleConnection(ISerialService? serial, SerialConfig? config, bool currentlyOpen)
+    public async Task<bool> ToggleConnection(ISerialService? serial, SerialConfig? config, bool currentlyOpen)
     {
         // A null service cannot open or close anything; fail cleanly.
         if (serial == null) return false;
@@ -32,7 +35,7 @@ public class SerialConnectionManager : IDisposable
         }
 
         if (config == null) return false;
-        serial.Open(config);
+        if (!await serial.OpenAsync(config)) return false;
         if (serial.IsOpen)
         {
             StartTracking();

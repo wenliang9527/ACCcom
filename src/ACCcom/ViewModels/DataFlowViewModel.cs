@@ -441,7 +441,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         };
         _flushTimer.Tick += (_, _) => FlushPendingEntries();
 
-        SendCommand = new RelayCommand(_ => SendData());
+        SendCommand = new RelayCommand(_ => _ = SendDataAsync());
         ClearRxCommand = new RelayCommand(_ =>
         {
             if (!ConfirmClear(LanguageManager.Instance["Confirm.ClearRx"])) return;
@@ -939,7 +939,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         catch (Exception ex) { _setStatus(string.Format(LanguageManager.Instance["Status.ParserExecError"], ex.Message)); }
     }
 
-    public void SendData()
+    public async Task SendDataAsync()
     {
         if (string.IsNullOrEmpty(SendText)) return;
         if (IsHexSend && !_hexValidation.IsValid)
@@ -958,7 +958,12 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (_networkBridge.IsConnected)
             sent = _networkBridge.Send(toSend, IsHexSend);
         else
-            sent = _serial.Send(toSend, IsHexSend);
+            // SerialService.Send retries once after a 500ms Thread.Sleep; on
+            // the UI thread that froze the window on a failed write.
+            // SendAsync moves the delay off this thread — the continuation
+            // resumes on it, and the status update below is the same
+            // cross-thread call OnSerialData already makes.
+            sent = await _serial.SendAsync(toSend, IsHexSend);
 
         if (sent)
         {

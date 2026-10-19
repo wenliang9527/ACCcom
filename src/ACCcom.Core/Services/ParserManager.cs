@@ -13,7 +13,6 @@ public class ParserManager : IDisposable
     private readonly string _parserDir;
     private readonly ParserEngine _engine;
     private FileSystemWatcher? _watcher;
-    private string? _activeParserPath;
     private System.Threading.Timer? _debounceTimer;
     private readonly object _debounceLock = new();
     private bool _disposed;
@@ -182,7 +181,6 @@ public class ParserManager : IDisposable
             if (string.IsNullOrEmpty(parserName) || parserName == NoParserName)
             {
                 ActiveParserName = null;
-                _activeParserPath = null;
                 _engine.Clear();
                 return true;
             }
@@ -194,7 +192,6 @@ public class ParserManager : IDisposable
             if (!_engine.Load(code)) return false;
 
             ActiveParserName = parserName;
-            _activeParserPath = path;
             return true;
         }
     }

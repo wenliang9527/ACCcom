@@ -265,23 +265,11 @@ public class SerialService : ISerialService, IDisposable
 
     public bool Send(string? data, bool isHex = false)
     {
-        // Reject null/empty up front: the hex/utf8 conversion would throw
-        // inside the retry loop and burn a full 500ms retry delay before
-        // reporting a misleading failure.
-        if (string.IsNullOrEmpty(data))
-            return false;
-
-        // Parse once before retrying: malformed input cannot be repaired by a retry.
-        byte[] hexBytes = Array.Empty<byte>();
-        if (isHex && !HexHelper.TryHexStringToBytes(data, out hexBytes))
+        if (!TryPrepareSend(data, isHex, out var hexBytes, out var text, out var error))
         {
-            OnError?.Invoke($"[SerialService] Send failed: invalid hex '{data}'");
-            return false;
-        }
-
-        if (_port?.IsOpen != true)
-        {
-            OnError?.Invoke("[SerialService] Send failed: serial port not open");
+            // Empty input is a silent rejection; the other two raise the error
+            // once (they cannot be repaired by a retry).
+            if (error != null) OnError?.Invoke(error);
             return false;
         }
 
@@ -294,44 +282,121 @@ public class SerialService : ISerialService, IDisposable
             if (attempt > 0)
                 Thread.Sleep(retryDelayMs);
 
-            try
-            {
-                long sentBytes;
-                string hexStr;
-                if (isHex)
-                {
-                    hexStr = HexHelper.BytesToHexSpaced(hexBytes, 0, hexBytes.Length);
-                    _port.Write(hexBytes, 0, hexBytes.Length);
-                    sentBytes = hexBytes.Length;
-                }
-                else
-                {
-                    var textBytes = System.Text.Encoding.UTF8.GetBytes(data);
-                    _port.Write(data);
-                    sentBytes = textBytes.Length;
-                    hexStr = HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
-                }
-                _metrics.RecordBytesSent(sentBytes);
-
-                var entry = new LogEntry
-                {
-                    Id = Interlocked.Increment(ref _txEntryId),
-                    Timestamp = DateTime.Now,
-                    Direction = "TX",
-                    RawHex = hexStr,
-                    Text = data
-                };
-                OnDataReceived?.Invoke(entry);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-            }
+            if (TrySendPrepared(hexBytes, text, out lastException)) return true;
         }
 
         OnError?.Invoke($"[SerialService] Send failed after {maxRetries + 1} attempts: {lastException?.Message}");
         return false;
+    }
+
+    /// <summary>Async send. Same retry policy as <see cref="Send"/>, but the
+    /// inter-attempt delay is a Task.Delay instead of a Thread.Sleep, so a
+    /// caller on the WPF UI thread is not frozen for up to 500ms when a write
+    /// fails. Validation and the single write are shared with the sync path, so
+    /// a rejected payload raises its error exactly once and never burns the
+    /// retry delay. The synchronous Send keeps its Thread.Sleep retries — its
+    /// callers (MCP tools, macros, triggers, loop send) are background threads
+    /// where sleeping is harmless.</summary>
+    public async Task<bool> SendAsync(string? data, bool isHex = false)
+    {
+        if (!TryPrepareSend(data, isHex, out var hexBytes, out var text, out var error))
+        {
+            if (error != null) OnError?.Invoke(error);
+            return false;
+        }
+
+        const int maxRetries = 1;
+        const int retryDelayMs = 500;
+        Exception? lastException = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            if (attempt > 0)
+                await Task.Delay(retryDelayMs).ConfigureAwait(false);
+
+            if (TrySendPrepared(hexBytes, text, out lastException)) return true;
+        }
+
+        OnError?.Invoke($"[SerialService] Send failed after {maxRetries + 1} attempts: {lastException?.Message}");
+        return false;
+    }
+
+    /// <summary>Shared up-front validation for <see cref="Send"/>/<see cref="SendAsync"/>.
+    /// Returns false with an error message to raise (null = silent rejection for
+    /// empty input); none of these failures can be repaired by a retry, so
+    /// neither path burns the retry delay on them. On success, exactly one of
+    /// <paramref name="hexBytes"/>/<paramref name="text"/> carries the payload.</summary>
+    private bool TryPrepareSend(string? data, bool isHex, out byte[]? hexBytes, out string? text, out string? error)
+    {
+        hexBytes = null;
+        text = data;
+        error = null;
+
+        if (string.IsNullOrEmpty(data))
+            return false;
+
+        // Parse once before any attempt: malformed input cannot be repaired by a retry.
+        if (isHex)
+        {
+            if (!HexHelper.TryHexStringToBytes(data, out var parsed))
+            {
+                error = $"[SerialService] Send failed: invalid hex '{data}'";
+                return false;
+            }
+            hexBytes = parsed;
+        }
+
+        if (_port?.IsOpen != true)
+        {
+            error = "[SerialService] Send failed: serial port not open";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>One write attempt with the prepared payload. The hex path writes
+    /// the parsed bytes and logs their canonical spaced form; the text path
+    /// writes the string (SerialPort applies its UTF-8 encoding, which is why
+    /// the bytes are encoded separately for the hex display only).</summary>
+    private bool TrySendPrepared(byte[]? hexBytes, string? text, out Exception? error)
+    {
+        error = null;
+        try
+        {
+            long sentBytes;
+            string hexStr;
+            if (hexBytes != null)
+            {
+                hexStr = HexHelper.BytesToHexSpaced(hexBytes, 0, hexBytes.Length);
+                _port!.Write(hexBytes, 0, hexBytes.Length);
+                sentBytes = hexBytes.Length;
+            }
+            else
+            {
+                var textBytes = System.Text.Encoding.UTF8.GetBytes(text!);
+                _port!.Write(text!);
+                sentBytes = textBytes.Length;
+                hexStr = HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
+            }
+            _metrics.RecordBytesSent(sentBytes);
+
+            var entry = new LogEntry
+            {
+                Id = Interlocked.Increment(ref _txEntryId),
+                Timestamp = DateTime.Now,
+                Direction = "TX",
+                RawHex = hexStr,
+                Text = text ?? ""
+            };
+            OnDataReceived?.Invoke(entry);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex;
+            return false;
+        }
     }
 
     public bool SendHex(string hex)

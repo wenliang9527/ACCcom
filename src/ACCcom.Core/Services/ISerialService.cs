@@ -23,6 +23,12 @@ public interface ISerialService : IDisposable
     /// failing open does not hold a thread-pool thread for the retry sleeps.</summary>
     Task<bool> OpenAsync(SerialConfig config) => Task.FromResult(Open(config));
     bool Send(string data, bool isHex = false);
+    /// <summary>Async send. Default wraps the sync <see cref="Send"/> so
+    /// lightweight implementations need no extra member; SerialService
+    /// overrides it with Task.Delay retry waits, so a failing write does not
+    /// freeze a caller on the UI thread for the retry sleeps. Null is forwarded
+    /// to the implementation, whose up-front guard rejects it.</summary>
+    Task<bool> SendAsync(string? data, bool isHex = false) => Task.FromResult(Send(data!, isHex));
     bool SendHex(string hex);
     bool Close();
 }

@@ -134,7 +134,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         _portMonitor = portMonitor;
         _autoBaud = autoBaud;
 
-        OpenCloseCommand = new RelayCommand(_ => ToggleOpenClose());
+        OpenCloseCommand = new RelayCommand(_ => _ = ToggleOpenClose());
         ConnectNetworkCommand = new RelayCommand(_ => _ = ConnectNetworkAsync());
         RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
         AutoDetectBaudCommand = new RelayCommand(
@@ -214,11 +214,11 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ToggleOpenClose()
+    private async Task ToggleOpenClose()
     {
         if (IsOpen)
         {
-            _connectionManager.ToggleConnection(_serial, null, true);
+            await _connectionManager.ToggleConnection(_serial, null, true);
             IsOpen = false;
             _setStatus(LanguageManager.Instance["Status.PortClosed"]);
             ConnectionDuration = "";
@@ -246,7 +246,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                     MaxReconnectAttempts = MaxReconnectAttempts
                 }
             };
-            IsOpen = _connectionManager.ToggleConnection(_serial, config, false);
+            IsOpen = await _connectionManager.ToggleConnection(_serial, config, false);
             _setStatus(IsOpen ? string.Format(LanguageManager.Instance["Status.ConnectedSerial"], SelectedPort, SelectedBaudRate) : LanguageManager.Instance["Status.OpenFailed"]);
         }
     }

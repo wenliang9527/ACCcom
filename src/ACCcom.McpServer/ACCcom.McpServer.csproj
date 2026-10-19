@@ -7,6 +7,10 @@
     <!-- R2R precompiles core code paths: the stdio server starts in ~1s and
          keeps JIT code pages out of the working set. -->
     <PublishReadyToRun>true</PublishReadyToRun>
+    <!-- Long-lived stdio service with no UI: server GC keeps gen2 collections
+         off the request/traffic threads (background, concurrent) instead of
+         workstation GC's tighter but blocking pauses. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,39 +1,40 @@
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
+using Xunit;
 
 namespace ACCcom.Core.Tests;
 
 public class SerialConnectionManagerTests
 {
     [Fact]
-    public void ToggleConnection_WhenClosed_OpensPort()
+    public async Task ToggleConnection_WhenClosed_OpensPort()
     {
         using var serial = new VirtualSerialService();
         using var mgr = new SerialConnectionManager();
         var config = new SerialConfig { PortName = "VIRTUAL", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 };
-        var result = mgr.ToggleConnection(serial, config, currentlyOpen: false);
+        var result = await mgr.ToggleConnection(serial, config, currentlyOpen: false);
         Assert.True(result);
         Assert.True(serial.IsOpen);
     }
 
     [Fact]
-    public void ToggleConnection_WhenOpen_ClosesPort()
+    public async Task ToggleConnection_WhenOpen_ClosesPort()
     {
         using var serial = new VirtualSerialService();
         using var mgr = new SerialConnectionManager();
         var config = new SerialConfig { PortName = "VIRTUAL", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 };
-        mgr.ToggleConnection(serial, config, currentlyOpen: false);
-        var result = mgr.ToggleConnection(serial, config, currentlyOpen: true);
+        await mgr.ToggleConnection(serial, config, currentlyOpen: false);
+        var result = await mgr.ToggleConnection(serial, config, currentlyOpen: true);
         Assert.False(result);
         Assert.False(serial.IsOpen);
     }
 
     [Fact]
-    public void ToggleConnection_WithNullConfig_ReturnsFalse()
+    public async Task ToggleConnection_WithNullConfig_ReturnsFalse()
     {
         using var serial = new VirtualSerialService();
         using var mgr = new SerialConnectionManager();
-        var result = mgr.ToggleConnection(serial, null, currentlyOpen: false);
+        var result = await mgr.ToggleConnection(serial, null, currentlyOpen: false);
         Assert.False(result);
         Assert.False(serial.IsOpen);
     }
@@ -85,21 +86,21 @@ public class SerialConnectionManagerTests
     }
 
     [Fact]
-    public void ToggleConnection_CloseWithoutOpen_ReturnsFalse()
+    public async Task ToggleConnection_CloseWithoutOpen_ReturnsFalse()
     {
         using var serial = new VirtualSerialService();
         using var mgr = new SerialConnectionManager();
-        var result = mgr.ToggleConnection(serial, null, currentlyOpen: true);
+        var result = await mgr.ToggleConnection(serial, null, currentlyOpen: true);
         Assert.False(result);
     }
 
     [Fact]
-    public void ToggleConnection_NullSerial_ReturnsFalse()
+    public async Task ToggleConnection_NullSerial_ReturnsFalse()
     {
         using var mgr = new SerialConnectionManager();
 
         // A null service must not NRE in the close/open path; it fails cleanly.
-        Assert.False(mgr.ToggleConnection(null, null, currentlyOpen: false));
-        Assert.False(mgr.ToggleConnection(null, null, currentlyOpen: true));
+        Assert.False(await mgr.ToggleConnection(null, null, currentlyOpen: false));
+        Assert.False(await mgr.ToggleConnection(null, null, currentlyOpen: true));
     }
 }
