@@ -35,28 +35,35 @@ public class PacketFilterEngine
 public static class RegexFilterCache
 {
     private const int MaxEntries = 16;
-    private static readonly object _lock = new();
-    private static readonly Dictionary<string, System.Text.RegularExpressions.Regex> _cache = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Text.RegularExpressions.Regex> _cache = new(StringComparer.Ordinal);
 
-    /// <summary>Returns a cached compiled regex, compiling and evicting the
-    /// oldest entry (first key) when the pool is full. Callers must still catch
-    /// ArgumentException for invalid patterns — compiling can throw here.</summary>
+    /// <summary>Returns a cached compiled regex, compiling and evicting an
+    /// arbitrary entry when the pool is full. Callers must still catch
+    /// exceptions for invalid patterns — compiling can throw here — and for
+    /// <see cref="System.Text.RegularExpressions.RegexMatchTimeoutException"/>:
+    /// every entry carries a 2-second match timeout, so a user-typed
+    /// backtracking bomb fails the row instead of pinning the filter pass (and
+    /// the UI thread running it) forever.</summary>
     public static System.Text.RegularExpressions.Regex Get(string pattern)
     {
-        lock (_lock)
+        if (_cache.TryGetValue(pattern, out var cached)) return cached;
+
+        var regex = new System.Text.RegularExpressions.Regex(pattern,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled,
+            TimeSpan.FromSeconds(2));
+
+        if (_cache.Count >= MaxEntries)
         {
-            if (_cache.TryGetValue(pattern, out var regex)) return regex;
-            regex = new System.Text.RegularExpressions.Regex(pattern,
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
-            if (_cache.Count >= MaxEntries)
+            // Bounded: drop an arbitrary entry. Keys is a snapshot, but the pool
+            // is capped at 16, so enumerating it is cheap.
+            foreach (var key in _cache.Keys)
             {
-                // Drop an arbitrary old entry (first key) to stay bounded.
-                var oldest = System.Linq.Enumerable.First(_cache.Keys);
-                _cache.Remove(oldest);
+                _cache.TryRemove(key, out _);
+                break;
             }
-            _cache[pattern] = regex;
-            return regex;
         }
+        // A racing thread may have won; GetOrAdd keeps one instance per pattern.
+        return _cache.GetOrAdd(pattern, regex);
     }
 }
 
@@ -149,6 +156,14 @@ internal class ComparisonNode : FilterNode
 
     public override bool Evaluate(LogEntry entry)
     {
+        // Time comparisons work on the numeric TimeOfDay: the old path formatted
+        // entry.Timestamp.ToString("HH:mm:ss") and then TimeSpan.TryParse'd that
+        // same string back — a format plus a parse per row per refresh, for a
+        // value that is already a TimeSpan. Everything else still needs the
+        // string form, so only the time field takes the numeric path.
+        if (_valueIsTimeSpan && string.Equals(_fieldLower, "time", StringComparison.Ordinal))
+            return CompareTimeOfDay(entry);
+
         var actual = GetFieldValue(entry);
         if (actual == null)
             return false;
@@ -162,6 +177,25 @@ internal class ComparisonNode : FilterNode
             ">" => CompareTimeOrString(actual) > 0,
             "<" => CompareTimeOrString(actual) < 0,
             "contains" => actual.Contains(Value, StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    /// <summary>Caller has already checked _valueIsTimeSpan and that Field ==
+    /// "time". Compares against the TimeSpan parsed once in the constructor.
+    /// Note this is stricter than the old string comparison, which truncated
+    /// sub-second precision via the HH:mm:ss format.</summary>
+    private bool CompareTimeOfDay(LogEntry entry)
+    {
+        var cmp = entry.Timestamp.TimeOfDay.CompareTo(_valueTimeSpan);
+        return Op switch
+        {
+            "==" or "=" => cmp == 0,
+            "!=" => cmp != 0,
+            ">=" => cmp >= 0,
+            "<=" => cmp <= 0,
+            ">" => cmp > 0,
+            "<" => cmp < 0,
             _ => false
         };
     }

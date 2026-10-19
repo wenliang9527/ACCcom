@@ -1,3 +1,4 @@
+using System.Globalization;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
 using Xunit;
@@ -230,5 +231,69 @@ public class DataPanelFilterTests
         // A previously-cached entry may have been evicted, but re-fetch works.
         var reFetched = RegexFilterCache.Get("pattern_0");
         Assert.Matches(reFetched, "pattern_0");
+    }
+
+    [Fact]
+    public void RegexFilterCache_concurrent_gets_share_one_instance_per_pattern()
+    {
+        // The pool used to sit behind a process-wide lock (taken by every row
+        // of every filtered list on every refresh); it is now a
+        // ConcurrentDictionary. Lock-freedom itself is not observable, but the
+        // one-instance-per-pattern contract is.
+        var seen = new System.Collections.Concurrent.ConcurrentBag<System.Text.RegularExpressions.Regex>();
+        System.Threading.Tasks.Parallel.For(0, 8, _ =>
+        {
+            for (int i = 0; i < 200; i++)
+                seen.Add(RegexFilterCache.Get(@"shared\d+"));
+        });
+
+        Assert.Equal(1600, seen.Count);
+        Assert.Single(seen.Distinct());
+    }
+
+    [Fact]
+    public void Regex_filter_with_backtracking_bomb_times_out_instead_of_hanging()
+    {
+        // A user-typed catastrophic pattern used to pin the filter pass — and
+        // the UI thread running it — for as long as the backtracking took.
+        // Every cached regex now carries the same 2s timeout PatternMatcher
+        // has, and FilterEntry surfaces it through the error sink.
+        var errors = new List<string>();
+        var entry = MakeEntry(text: new string('a', 40) + "b");
+
+        var result = DataPanelFilter.FilterEntry(entry, "^(a+)+$", useRegex: true,
+            showDirection: true, expressionEngine: null, errorSink: errors.Add);
+
+        Assert.False(result);
+        Assert.Contains(errors, e => e.Contains("timed out", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("10:30:00", ">=", "10:00:00", true)]
+    [InlineData("10:30:00", "<", "11:00:00", true)]
+    [InlineData("10:30:00", "==", "10:30:00", true)]
+    [InlineData("10:30:00", "==", "10:00:00", false)]
+    [InlineData("10:30:00", ">", "10:30:00", false)]
+    [InlineData("10:30:00", "!=", "10:30:00", false)]
+    public void Time_comparisons_use_numeric_semantics(string stamp, string op, string value, bool expected)
+    {
+        var engine = new PacketFilterEngine($"time {op} {value}");
+        var entry = MakeEntry();
+        entry.Timestamp = DateTime.Today + TimeSpan.Parse(stamp, CultureInfo.InvariantCulture);
+
+        Assert.Equal(expected, engine.Matches(entry));
+    }
+
+    [Fact]
+    public void Time_field_sub_second_precision_is_not_truncated()
+    {
+        // The old path formatted HH:mm:ss and compared strings, so 10:30:00.500
+        // matched `time == 10:30:00`. Numeric comparison keeps the precision the
+        // timestamp actually carries.
+        var engine = new PacketFilterEngine("time == 10:30:00");
+        var entry = MakeEntry();
+        entry.Timestamp = DateTime.Today.AddHours(10).AddMinutes(30).AddMilliseconds(500);
+
+        Assert.False(engine.Matches(entry));
     }
 }
