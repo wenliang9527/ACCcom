@@ -17,7 +17,11 @@ public static class ReplayMerger
         var merged = new List<LogEntry>();
         if (rxEntries != null) merged.AddRange(rxEntries);
         if (txEntries != null) merged.AddRange(txEntries);
-        merged.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
-        return merged;
+        // OrderBy is a stable sort; List.Sort is NOT, and the old implementation
+        // leaned on it — with more than one equal-timestamp entry per side the
+        // order was arbitrary. RX-then-TX for ties also matches the UI's
+        // interleave path (its <= tie-break puts RX first), so all three paths
+        // now agree. Export/replay only, so the extra buffer is free.
+        return merged.OrderBy(static e => e.Timestamp).ToList();
     }
 }

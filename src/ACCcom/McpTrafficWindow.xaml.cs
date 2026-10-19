@@ -871,12 +871,9 @@ public partial class McpTrafficWindow : Window
         writer.WriteLine("]");
     }
 
-    private static string CsvCell(string value)
-    {
-        if (value.Contains('"') || value.Contains(',') || value.Contains('\n'))
-            return $"\"{value.Replace("\"", "\"\"")}\"";
-        return value;
-    }
+    /// <summary>Delegates to the shared CSV escaper so the traffic window's
+    /// export quotes exactly like every other CSV path (and handles null).</summary>
+    private static string CsvCell(string? value) => ModbusLogExporter.EscapeCsv(value);
 
     private void SearchText_Changed(object sender, TextChangedEventArgs e)
     {

@@ -527,16 +527,10 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>RX ∪ TX sorted by Timestamp for joint export (not the UI's
-    /// trimmed AllEntries — export always covers the full live buffers).</summary>
-    private List<LogEntry> MergeAllEntries()
-    {
-        var list = new List<LogEntry>(RxEntries.Count + TxEntries.Count);
-        list.AddRange(RxEntries);
-        list.AddRange(TxEntries);
-        if (RxEntries.Count > 0 && TxEntries.Count > 0)
-            list.Sort(static (a, b) => a.Timestamp.CompareTo(b.Timestamp));
-        return list;
-    }
+    /// trimmed AllEntries — export always covers the full live buffers).
+    /// Delegates to the shared merger so the export ordering contract is
+    /// identical to the replay path's (stable sort, RX first on ties).</summary>
+    private List<LogEntry> MergeAllEntries() => ReplayMerger.MergeByTimestamp(RxEntries, TxEntries);
 
     /// <summary>Rebuilds the combined buffer from the surviving RX/TX entries
     /// after a clear (removing only one direction's rows).</summary>

@@ -62,4 +62,21 @@ public class ReplayMergerTests
 
         Assert.Empty(ReplayMerger.MergeByTimestamp(null!, null!));
     }
+
+    [Fact]
+    public void MergeByTimestamp_ManyEqualTimestamps_KeepRxBlockBeforeTxBlock()
+    {
+        // The old List.Sort-based implementation was unstable: with more than
+        // one equal-timestamp entry per side the order was arbitrary, and the
+        // doc comment's "stable" claim was false. This pins the OrderBy-based
+        // contract (RX-then-TX per tie), which also matches the UI interleave
+        // path's RX-first tie-break.
+        var t = new DateTime(2026, 9, 11, 10, 0, 0);
+        var rx = new List<LogEntry> { Entry("RX", t), Entry("RX", t), Entry("RX", t) };
+        var tx = new List<LogEntry> { Entry("TX", t), Entry("TX", t) };
+
+        var merged = ReplayMerger.MergeByTimestamp(rx, tx);
+
+        Assert.Equal(new[] { "RX", "RX", "RX", "TX", "TX" }, merged.Select(e => e.Direction));
+    }
 }
