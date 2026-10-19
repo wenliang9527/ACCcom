@@ -184,8 +184,12 @@ public class DataBufferService : IDisposable
                     lo = mid + 1;
             }
 
-            // Pre-size modestly; most polls return a small tail of new entries.
-            var result = new List<LogEntry>(Math.Min(_count - lo, limit > 0 ? limit : 64));
+            // limit<=0 means "the whole tail since the cursor" — the scan below
+            // runs to the end in that case, so pre-size for it exactly. The old
+            // 64 guess made the result list reallocate (doubling plus copy)
+            // under _lock on every large poll.
+            var take = limit > 0 ? Math.Min(_count - lo, limit) : _count - lo;
+            var result = new List<LogEntry>(take);
             int scanMax = id;
             int returnedMax = id;
             bool truncated = false;

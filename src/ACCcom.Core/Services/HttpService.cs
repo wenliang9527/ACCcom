@@ -18,6 +18,9 @@ public class HttpService : IDisposable
     private readonly AutoBaudDetector? _autoBaud;
     private readonly SessionRecorder? _recorder;
     private readonly DataStatistics? _stats;
+    /// <summary>Compiled-engine cache for parse-raw with an explicit parserName.
+    /// See ParserEngineCache for why hot reload still wins.</summary>
+    private readonly ParserEngineCache _parseRawEngines = new();
     public DataBufferService Buffer { get; }
     public event Action<LogEntry>? OnDataEntry;
 
@@ -192,17 +195,20 @@ public class HttpService : IDisposable
         catch { return (null, "Invalid hex string"); }
 
         var engine = _parserManager.Engine;
-        ParserEngine? tempEngine = null;
         try
         {
             if (!string.IsNullOrEmpty(parserName) && parserName != _parserManager.ActiveParserName)
             {
-                tempEngine = new ParserEngine();
                 if (!_parserManager.TryResolveParserFile(parserName, ".csx", out var path))
                     return (null, $"Invalid parser name: '{parserName}'");
                 if (!File.Exists(path)) return (null, $"Parser '{parserName}' not found");
-                if (!tempEngine.Load(File.ReadAllText(path))) return (null, $"Parser load failed: {tempEngine.LastError}");
-                engine = tempEngine;
+
+                // Used to compile a fresh Roslyn script per request (hundreds of
+                // ms) and throw it away; the cache keeps engines alive keyed by
+                // mtime, so hot reload still takes effect.
+                var cached = _parseRawEngines.GetOrLoad(parserName, path, out var loadError);
+                if (cached == null) return (null, $"Parser load failed: {loadError}");
+                engine = cached;
             }
             if (_parserManager.ActiveParserName == null && string.IsNullOrEmpty(parserName))
                 return (null, "No active parser. Activate one first or specify parserName.");
@@ -212,7 +218,8 @@ public class HttpService : IDisposable
         }
         finally
         {
-            tempEngine?.Dispose();
+            // Engines are owned by the cache (or _parserManager for the active
+            // one) now — a single request must not dispose a shared engine.
         }
     }
 

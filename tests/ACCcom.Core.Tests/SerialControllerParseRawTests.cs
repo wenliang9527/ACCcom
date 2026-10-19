@@ -10,7 +10,8 @@ namespace ACCcom.Core.Tests;
 /// File.Exists check (a TOCTOU window), and any escape surfaced as an
 /// unhandled EmbedIO 500 instead of the ApiResponse.Fail every sibling
 /// endpoint returns. Locking the file reproduces the IOException
-/// deterministically.
+/// deterministically; today ParserEngineCache converts it to a load-failure
+/// error and the endpoint's own catch remains as the last line of defense.
 /// </summary>
 [Collection("SerialTcp")]
 public class SerialControllerParseRawTests : IDisposable
@@ -54,10 +55,14 @@ public class SerialControllerParseRawTests : IDisposable
         var response = await _client.PostAsync("/api/parser/parse-raw",
             new StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
 
-        // A 200 carrying Success=false — not a 500, and not an exception.
+        // A 200 carrying Success=false — not a 500, and not an exception. The
+        // unreadable file is now reported by ParserEngineCache as a load
+        // failure ("Parser load failed: The process cannot access..."), so the
+        // controller's catch is the last line of defense rather than the only
+        // one; either way the contract is a clean failure payload.
         response.EnsureSuccessStatusCode();
         var root = JsonDocument.Parse(await response.Content.ReadAsStreamAsync()).RootElement.Clone();
         Assert.False(root.GetProperty("Success").GetBoolean());
-        Assert.Contains("解析数据异常", root.GetProperty("Error").GetString());
+        Assert.Contains("Parser load failed", root.GetProperty("Error").GetString());
     }
 }

@@ -112,6 +112,23 @@ public class DataBufferServiceTests
     }
 
     [Fact]
+    public void GetEntriesSince_without_limit_returns_the_whole_tail()
+    {
+        // limit<=0 = "everything since the cursor": the scan runs to the end,
+        // and the result is naturally bounded by the ring itself (never more
+        // than the capacity, even after wraparound).
+        var sut = new DataBufferService(capacity: 100);
+        for (int i = 1; i <= 300; i++)
+            sut.AddEntry(MakeEntry(i));
+
+        var all = sut.GetEntriesSince(0);
+
+        Assert.Equal(100, all.Count); // the ring holds the newest 100
+        Assert.Equal(201, all[0].Id);
+        Assert.Equal(300, all[^1].Id);
+    }
+
+    [Fact]
     public void GetEntriesSince_direction_filter_is_case_insensitive()
     {
         // The direction filter matches OrdinalIgnoreCase, so "rx"/"R x"
