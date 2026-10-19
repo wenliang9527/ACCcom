@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.IO.Ports;
+using System.Threading.Channels;
 using ACCcom.Core.Models;
 
 namespace ACCcom.Core.Services;
@@ -17,6 +18,33 @@ public class SerialService : ISerialService, IDisposable
     private bool _waitingForDevice;
     private bool _disposed;
     private readonly MetricsCollector _metrics = MetricsCollector.Instance;
+
+    private const int RxQueueCapacity = 10_000;
+
+    /// <summary>RX dispatch queue. Reading bytes must finish on the
+    /// SerialPort.DataReceived thread as fast as possible (the driver buffer is
+    /// finite — fall behind and bytes are lost), but the subscriber chain — HTTP
+    /// broadcast, trigger evaluation, disk logging, statistics — must not run on
+    /// that thread: any one of them slowing down eats the driver buffer and
+    /// drops data. Bounded + DropOldest keeps TryWrite non-blocking, so the
+    /// receive loop can never be back-pressured by the drain side; a full queue
+    /// means consumers cannot keep up, which is counted rather than swallowed.
+    /// SingleReader keeps arrival order.</summary>
+    private readonly Channel<LogEntry> _rxDispatch =
+        Channel.CreateBounded<LogEntry>(new BoundedChannelOptions(RxQueueCapacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+    private readonly CancellationTokenSource _drainCts = new();
+    private Task? _drainTask;
+    private int _rxDropped;
+
+    public SerialService()
+    {
+        _drainTask = Task.Run(DrainRxAsync);
+    }
 
     public bool IsOpen => _port?.IsOpen ?? false;
     public string? CurrentPort => _port?.PortName;
@@ -146,9 +174,71 @@ public class SerialService : ISerialService, IDisposable
     {
         if (_disposed) return true;
         _reconnectCts?.Cancel();
+        // Entries already read from the port must still reach the buffers and
+        // disk — a close that dropped the tail of the stream would silently
+        // truncate the session log.
+        DrainPendingAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
         ClosePortOnly();
         return true;
     }
+
+    /// <summary>Waits (bounded) for the dispatch queue to drain. Does not
+    /// complete the channel: SerialService instances are reopened across
+    /// sessions, so the queue must outlive an individual Close.</summary>
+    internal async Task DrainPendingAsync(TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (_rxDispatch.Reader.Count > 0 && DateTime.UtcNow < deadline)
+            await Task.Delay(5).ConfigureAwait(false);
+    }
+
+    private async Task DrainRxAsync()
+    {
+        try
+        {
+            await foreach (var entry in _rxDispatch.Reader.ReadAllAsync(_drainCts.Token).ConfigureAwait(false))
+            {
+                try
+                {
+                    OnDataReceived?.Invoke(entry);
+                }
+                catch (Exception ex)
+                {
+                    // One misbehaving subscriber (e.g. a Modbus parser throwing
+                    // on malformed frames) must not kill the drain loop.
+                    OnError?.Invoke($"[SerialService] Subscriber error: {ex.Message}");
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* shutting down */ }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"[SerialService] RX drain stopped: {ex.Message}");
+        }
+    }
+
+    /// <summary>Hands an RX entry to the drain task. The subscriber chain must
+    /// not run on the SerialPort.DataReceived thread; DropOldest makes TryWrite
+    /// always succeed — a full queue evicts the oldest entry instead of
+    /// failing — so the receive loop is never blocked either way. The depth
+    /// read before the write tells whether that write caused an eviction (the
+    /// queue was already full); the receive thread is the only writer in
+    /// practice, which makes this exact.</summary>
+    private void DispatchRx(LogEntry entry)
+    {
+        var wasFull = _rxDispatch.Reader.Count >= RxQueueCapacity;
+        _rxDispatch.Writer.TryWrite(entry);
+
+        if (!wasFull) return;
+
+        var dropped = Interlocked.Increment(ref _rxDropped);
+        if (dropped % 1000 == 1)
+            OnError?.Invoke($"[SerialService] RX dispatch queue overflow; {dropped} entries dropped");
+    }
+
+    /// <summary>Test seam: inject an entry through the same dispatch path the
+    /// receive thread uses, so drop accounting is exercised too.</summary>
+    internal void DispatchForTest(LogEntry entry) => DispatchRx(entry);
 
     private void ClosePortOnly()
     {
@@ -299,20 +389,12 @@ public class SerialService : ISerialService, IDisposable
                     Timestamp = DateTime.Now,
                     Direction = "RX",
                     RawHex = hex,
-                    Text = text
+                    Text = text,
+                    // The producer knows the payload size at read time; carrying
+                    // it saves every consumer a rescan of the hex string.
+                    ByteCount = bytesRead
                 };
-                try
-                {
-                    OnDataReceived?.Invoke(entry);
-                }
-                catch (Exception ex)
-                {
-                    // One misbehaving subscriber (e.g. a Modbus parser throwing on
-                    // malformed frames) must not kill the whole receive loop — the
-                    // exception would otherwise escape to the outer catch below and
-                    // this callback would never fire again. Log and keep draining.
-                    OnError?.Invoke($"[SerialService] Subscriber error: {ex.Message}");
-                }
+                DispatchRx(entry);
             }
             finally
             {
@@ -395,7 +477,7 @@ public class SerialService : ISerialService, IDisposable
                     _port.DataReceived += OnSerialDataReceived;
                     _port.ErrorReceived += OnSerialError;
                     var msg = $"[Auto reconnect] Succeeded on attempt #{_reconnectAttempt}";
-                    OnDataReceived?.Invoke(new LogEntry
+                    DispatchRx(new LogEntry
                     {
                         Id = Interlocked.Increment(ref _rxEntryId),
                         Timestamp = DateTime.Now,
@@ -457,7 +539,11 @@ public class SerialService : ISerialService, IDisposable
             _reconnectCts?.Cancel();
             _reconnectCts?.Dispose();
             _reconnectCts = null;
+            // Close first (it drains entries already read from the port), then
+            // stop the drain loop — cancelling first would discard that tail.
             Close();
+            _drainCts.Cancel();
+            _drainCts.Dispose();
         }
         _disposed = true;
     }

@@ -305,7 +305,8 @@ public class FrameBuffer : IDisposable
                 Timestamp = DateTime.Now,
                 Direction = "RX",
                 RawHex = hex,
-                Text = text
+                Text = text,
+                ByteCount = frame.Length
             };
 
             try

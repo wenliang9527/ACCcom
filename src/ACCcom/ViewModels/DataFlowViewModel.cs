@@ -605,9 +605,11 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             // lines and replaying it showed an empty session.
             _logger.Write(entry);
 
-            int byteCount = 0;
-            if (!string.IsNullOrEmpty(entry.RawHex))
-                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+            // ByteCount is carried by the producer (SerialService knows
+            // bytesRead at read time; FrameBuffer knows the frame length);
+            // ResolvedByteCount only rescans the hex string for producers that
+            // don't fill it.
+            int byteCount = entry.ResolvedByteCount();
 
             // Serial/network events arrive on a background thread. Enqueue is
             // lock-protected and statistics are atomics/ring buffers, so no UI
@@ -698,9 +700,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
             _http.AddEntry(entry);
             _triggerService.Evaluate(entry);
 
-            int byteCount = 0;
-            if (!string.IsNullOrEmpty(entry.RawHex))
-                byteCount = HexHelper.CountHexBytes(entry.RawHex);
+            int byteCount = entry.ResolvedByteCount();
 
             // Frame-buffer callbacks arrive on the receive thread; enqueue is
             // lock-protected and the logger is internally synchronized, so no UI

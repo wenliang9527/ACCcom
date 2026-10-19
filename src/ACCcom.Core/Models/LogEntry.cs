@@ -16,6 +16,17 @@ public class LogEntry : INotifyPropertyChanged
     public string PortTag { get; set; } = "";
     public string RawHex { get; set; } = "";
     public string Text { get; set; } = "";
+
+    /// <summary>Payload size in bytes, filled by the producer when it already
+    /// knows it (SerialService knows bytesRead at read time). 0 means "unknown"
+    /// — callers must fall back to <see cref="HexHelper.CountHexBytes"/>.
+    /// Additive: LogEntry is serialized to the HTTP API / WebSocket, and 0 for
+    /// producers that don't fill it keeps existing payloads valid.</summary>
+    public int ByteCount { get; set; }
+
+    /// <summary>The carried byte count, or a hex rescan when the producer did
+    /// not fill it. Saves rescanning the whole hex string on every packet.</summary>
+    public int ResolvedByteCount() => ByteCount > 0 ? ByteCount : HexHelper.CountHexBytes(RawHex);
     public List<FieldAnnotation>? Fields { get; set; }
     public string? HighlightColor { get; set; }
 
