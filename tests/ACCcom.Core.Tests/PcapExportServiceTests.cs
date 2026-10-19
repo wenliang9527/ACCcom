@@ -153,7 +153,6 @@ public class PcapExportServiceTests : IDisposable
 
     [Theory]
     [InlineData("AA BB CC", new byte[] { 0xAA, 0xBB, 0xCC })]
-    [InlineData("AA-BB-CC", new byte[] { 0xAA, 0xBB, 0xCC })]
     [InlineData("AABBCC", new byte[] { 0xAA, 0xBB, 0xCC })]
     [InlineData("", new byte[0])]
     [InlineData("  ", new byte[0])]
@@ -168,6 +167,19 @@ public class PcapExportServiceTests : IDisposable
     {
         var result = PcapExportService.HexToBytes("0A");
         Assert.Equal(new byte[] { 0x0A }, result);
+    }
+
+    [Theory]
+    [InlineData("AAB")]        // odd digit count — used to be silently zero-padded
+    [InlineData("AA-BB-CC")]   // dash separators — RawHex never contains them
+    [InlineData("ZZ")]         // not hex at all
+    public void HexToBytes_RejectsWhatItUsedToMangle(string input)
+    {
+        // The old private parser left-padded odd runs with "0" and exported the
+        // result: a silently WRONG packet. The export loop skips such entries
+        // (see ExportToPcap_MalformedEntry_IsSkippedWithoutAborting), which is
+        // strictly better than writing corrupt bytes to the file.
+        Assert.Throws<FormatException>(() => PcapExportService.HexToBytes(input));
     }
 
     /// <summary>A malformed entry (invalid hex) must not abort the whole export —

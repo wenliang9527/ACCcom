@@ -20,16 +20,6 @@ public class ModbusServiceTests
         Assert.Equal(0xFFFF, crc);
     }
 
-    [Theory]
-    [InlineData("01 03 00 00 00 01", new byte[] { 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 })]
-    [InlineData("0A 01 FF", new byte[] { 0x0A, 0x01, 0xFF })]
-    [InlineData("", new byte[0])]
-    public void HexStringToBytes_ParsesCorrectly(string hex, byte[] expected)
-    {
-        var result = ModbusService.HexStringToBytes(hex);
-        Assert.Equal(expected, result);
-    }
-
     [Fact]
     public async Task ReadHoldingRegisters_WithVirtualSerial_Success()
     {

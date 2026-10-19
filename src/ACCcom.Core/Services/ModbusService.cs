@@ -149,5 +149,4 @@ public class ModbusService : IDisposable
     internal static byte[] BuildWriteCoilsRequest(ushort startAddr, bool[] values) => ModbusRtuTransport.BuildWriteCoilsRequest(startAddr, values);
     internal static byte[] BuildWriteRegistersRequest(ushort startAddr, ushort[] values) => ModbusRtuTransport.BuildWriteRegistersRequest(startAddr, values);
     internal static ushort Crc16(ReadOnlySpan<byte> data) => CrcHelper.Crc16(data);
-    internal static byte[] HexStringToBytes(string hex) => ModbusRtuTransport.HexStringToBytes(hex);
 }

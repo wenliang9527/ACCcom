@@ -155,28 +155,11 @@ public class ModbusRtuTransport : IModbusTransport
         return adu;
     }
 
-    internal static byte[] HexStringToBytes(string hex)
-    {
-        int nonSpaceLen = 0;
-        foreach (var c in hex.AsSpan())
-            if (c != ' ') nonSpaceLen++;
-        var bytes = new byte[nonSpaceLen / 2];
-        int byteIdx = 0, hi = -1;
-        foreach (var c in hex.AsSpan())
-        {
-            if (c == ' ') continue;
-            int val = c switch
-            {
-                >= '0' and <= '9' => c - '0',
-                >= 'A' and <= 'F' => c - 'A' + 10,
-                >= 'a' and <= 'f' => c - 'a' + 10,
-                _ => 0
-            };
-            if (hi < 0) hi = val;
-            else { bytes[byteIdx++] = (byte)(hi << 4 | val); hi = -1; }
-        }
-        return bytes;
-    }
+    /// <summary>Lenient hex parse (illegal nibbles read as 0, odd trailing
+    /// nibble dropped) — byte-for-byte the shared HexHelper contract, which the
+    /// master, ASCII and slave transports all used to carry their own verbatim
+    /// copy of.</summary>
+    internal static byte[] HexStringToBytes(string hex) => HexHelper.HexStringToBytes(hex);
 
     internal static byte[] BuildMaskWriteRequest(ushort addr, ushort andMask, ushort orMask)
     {

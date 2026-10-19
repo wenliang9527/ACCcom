@@ -78,20 +78,18 @@ public class PcapExportService
         writer.Write(packetData);
     }
 
+    /// <summary>Strict hex parse via the shared HexHelper contract. The previous
+    /// private parser silently left-padded odd digit runs with "0" and padded
+    /// nothing for illegal characters until Convert.ToByte threw mid-loop —
+    /// exporting a WRONG packet is harder to diagnose than a skipped one, and
+    /// the export loop already skips a malformed entry (FormatException).</summary>
     internal static byte[] HexToBytes(string hex)
     {
         if (string.IsNullOrWhiteSpace(hex))
             return [];
 
-        var cleaned = hex.Replace(" ", "").Replace("-", "");
-        if (cleaned.Length % 2 != 0)
-            cleaned = "0" + cleaned;
-
-        var bytes = new byte[cleaned.Length / 2];
-        for (int i = 0; i < bytes.Length; i++)
-        {
-            bytes[i] = Convert.ToByte(cleaned.Substring(i * 2, 2), 16);
-        }
+        if (!HexHelper.TryHexStringToBytes(hex, out var bytes))
+            throw new FormatException($"Invalid hex payload for pcap export: '{hex}'");
         return bytes;
     }
 }
