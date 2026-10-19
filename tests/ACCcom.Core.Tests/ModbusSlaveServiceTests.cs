@@ -45,14 +45,28 @@ public class ModbusSlaveServiceTests
     }
 
     [Fact]
-    public void CreateSlave_Rtu_RegistersAsRtu()
+    public void CreateSlave_Rtu_UnopenablePort_ThrowsAndRegistersNothing()
     {
+        // The Open result used to be discarded, so this registered a zombie
+        // slave that could never answer — surfacing only as unexplained
+        // timeouts on the master's side. (Open retries twice with 500ms
+        // delays, so this takes ~1s.)
         using var service = new ModbusSlaveService();
-        var id = service.CreateSlave(0x01, "rtu", "COM9");
+        var ex = Assert.Throws<ArgumentException>(
+            () => service.CreateSlave(0x01, "rtu", "COM_DOES_NOT_EXIST_XYZ"));
 
-        var info = Assert.Single(service.GetActiveSlaves());
-        Assert.Equal("rtu", info.TransportType);
-        service.RemoveSlave(id);
+        Assert.Contains("COM_DOES_NOT_EXIST_XYZ", ex.Message);
+        Assert.Empty(service.GetActiveSlaves());
+    }
+
+    [Fact]
+    public void CreateSlave_NullOrEmptyTransport_Throws()
+    {
+        // A null transportType used to NRE at ToLowerInvariant before reaching
+        // the switch's unsupported-transport arm.
+        using var service = new ModbusSlaveService();
+        Assert.Throws<ArgumentException>(() => service.CreateSlave(0x01, null!, "COM1"));
+        Assert.Throws<ArgumentException>(() => service.CreateSlave(0x01, "", "COM1"));
     }
 
     [Fact]
@@ -122,6 +136,39 @@ public class ModbusSlaveServiceTests
     }
 
     [Fact]
+    public async Task TcpSlave_DropsMalformedLengthFrame_AndKeepsServing()
+    {
+        var port = TestPortHelper.GetFreePort();
+        using var service = new ModbusSlaveService();
+        service.CreateSlave(0x01, "tcp", port.ToString());
+        service.WriteRegister("slave_1", RegisterType.HoldingRegister, 0, 0x1234);
+
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", port);
+        var stream = client.GetStream();
+
+        // MBAP header declaring a 65535-byte body — above the 254 protocol
+        // maximum. The old code would have blocked the loop waiting for 64 KB
+        // of body bytes (or allocated them); now the frame is dropped.
+        await stream.WriteAsync(new byte[] { 0x00, 0x09, 0x00, 0x00, 0xFF, 0xFF });
+
+        var probe = new byte[1];
+        Assert.Equal(0, await ReadWithTimeoutAsync(stream, probe, TimeSpan.FromMilliseconds(500)));
+
+        // The discriminating half: had the slave consumed the next request as
+        // body bytes of the malformed frame, nothing would come back here.
+        var req = new byte[] { 0x00, 0x0A, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01 };
+        await stream.WriteAsync(req);
+
+        var header = new byte[6];
+        Assert.Equal(6, await ReadFullyAsync(stream, header, TimeSpan.FromSeconds(3)));
+        var bodyLen = (header[4] << 8) | header[5];
+        var body = new byte[bodyLen];
+        Assert.Equal(bodyLen, await ReadFullyAsync(stream, body, TimeSpan.FromSeconds(3)));
+        Assert.Equal(0x34, body[^1]);
+    }
+
+    [Fact]
     public void RemoveSlave_DisposesTransport()
     {
         using var service = new ModbusSlaveService();
@@ -162,5 +209,20 @@ public class ModbusSlaveServiceTests
             offset += read;
         }
         return offset;
+    }
+
+    /// <summary>Single bounded read: 0 means "nothing arrived within the
+    /// timeout" (the cancellation surfaces as an exception, not a short read).</summary>
+    private static async Task<int> ReadWithTimeoutAsync(NetworkStream stream, byte[] buffer, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        try
+        {
+            return await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return 0;
+        }
     }
 }

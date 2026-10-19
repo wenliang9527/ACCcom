@@ -8,6 +8,26 @@ namespace ACCcom.Core.Tests;
 
 public class ModbusTcpTransportTests
 {
+    // The MBAP length field is 16-bit (up to 65535) but Modbus TCP's real
+    // maximum body is 254 (unit id 1 + PDU ≤253). Trusting the wire value let
+    // a malformed peer allocate up to 64 KB per frame.
+    [Theory]
+    [InlineData(2, true)]        // minimum legal: unit id + function code
+    [InlineData(254, true)]      // the maximum itself
+    [InlineData(1, false)]       // below the minimum
+    [InlineData(255, false)]
+    [InlineData(65535, false)]   // the wire field's maximum
+    public void BodyLength_is_validated_against_the_protocol_maximum(int remaining, bool expected)
+    {
+        Assert.Equal(expected, ModbusTcpTransport.IsValidBodyLength(remaining));
+    }
+
+    [Fact]
+    public void MaxBodyLength_matches_the_modbus_tcp_pdu_limit()
+    {
+        Assert.Equal(254, ModbusTcpTransport.MaxBodyLength);
+    }
+
     [Fact]
     public void Dispose_CleansUpResources()
     {

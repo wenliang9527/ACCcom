@@ -18,6 +18,12 @@ public class ModbusSlaveService : IDisposable
     public string CreateSlave(byte slaveId, string transportType, string connectionParam,
         int coils = 1024, int discreteInputs = 1024, int holdingRegisters = 256, int inputRegisters = 256)
     {
+        // A null transportType used to NRE at ToLowerInvariant before reaching
+        // the switch's unsupported-transport arm; the HTTP caller pre-guards,
+        // but the raw public API must fail with the same ArgumentException.
+        if (string.IsNullOrEmpty(transportType))
+            throw new ArgumentException("Unsupported transport: transport type is required", nameof(transportType));
+
         var device = new ModbusSlaveDevice(slaveId, coils, discreteInputs, holdingRegisters, inputRegisters);
         device.OnTransaction += tx => OnTransaction?.Invoke(tx);
         IDisposable transport = transportType.ToLowerInvariant() switch
@@ -34,7 +40,15 @@ public class ModbusSlaveService : IDisposable
     private IDisposable CreateRtuTransport(string port, ModbusSlaveDevice device)
     {
         var serial = new SerialService();
-        serial.Open(new SerialConfig { PortName = port, BaudRate = 115200 });
+        // The Open result used to be discarded: a busy or missing port made
+        // CreateSlave succeed while the slave could never answer, surfacing
+        // only as unexplained timeouts on the master's side. Fail here instead,
+        // naming the port like the TCP path names an invalid one.
+        if (!serial.Open(new SerialConfig { PortName = port, BaudRate = 115200 }))
+        {
+            serial.Dispose();
+            throw new ArgumentException($"Cannot open port: {port}");
+        }
         var transport = new ModbusRtuSlaveTransport(serial);
         transport.OnRequestReceived = (id, pdu) => id != device.SlaveId ? [] : device.HandleRequest(pdu[0], pdu[1..]);
         transport.Start();

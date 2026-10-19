@@ -282,15 +282,26 @@ public class SerialController : WebApiController
     [Route(HttpVerbs.Post, "/parser/parse-raw")]
     public async Task<object> ParseRaw()
     {
-        var req = await ReadBodyAsync<ParseRawRequest>();
-        if (req == null || string.IsNullOrEmpty(req.Hex))
-            return ApiResponse.Fail("需要 hex 参数");
+        try
+        {
+            var req = await ReadBodyAsync<ParseRawRequest>();
+            if (req == null || string.IsNullOrEmpty(req.Hex))
+                return ApiResponse.Fail("需要 hex 参数");
 
-        var (fields, error) = await _service.ParseRawHexAsync(req.Hex, req.ParserName);
-        if (error != null)
-            return ApiResponse.Fail(error);
+            var (fields, error) = await _service.ParseRawHexAsync(req.Hex, req.ParserName);
+            if (error != null)
+                return ApiResponse.Fail(error);
 
-        return ApiResponse.Ok(new { hex = req.Hex, fields, fieldCount = fields?.Count ?? 0 });
+            return ApiResponse.Ok(new { hex = req.Hex, fields, fieldCount = fields?.Count ?? 0 });
+        }
+        catch (Exception ex)
+        {
+            // The only POST endpoint that used to run bare: ParseRawHexAsync
+            // reads the parser file after a File.Exists check (TOCTOU
+            // IOException) and can throw from the engine, and an escape here
+            // was an unhandled EmbedIO 500 instead of a clean failure payload.
+            return ApiResponse.Fail($"解析数据异常: {ex.Message}");
+        }
     }
 
     // POST /api/parser/activate  { name }

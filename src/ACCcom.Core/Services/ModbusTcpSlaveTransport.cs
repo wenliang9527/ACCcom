@@ -80,7 +80,11 @@ public class ModbusTcpSlaveTransport : IDisposable
                 { var read = await stream.ReadAsync(headerBuf.AsMemory(offset, 6 - offset), ct).ConfigureAwait(false); if (read == 0) return; offset += read; }
                 var tidHi = headerBuf[0]; var tidLo = headerBuf[1];
                 var remaining = (headerBuf[4] << 8) | headerBuf[5];
-                if (remaining < 2) continue;
+                // Modbus TCP maximum is 254 (unit id 1 + PDU ≤253); trusting the
+                // wire length lets a malformed peer make us allocate up to 64 KB
+                // per frame.
+                if (!ModbusTcpTransport.IsValidBodyLength(remaining))
+                { Debug.WriteLine($"[ModbusTcpSlave] malformed MBAP length {remaining}; dropping frame"); continue; }
                 var body = new byte[remaining]; offset = 0;
                 while (offset < remaining)
                 { var read = await stream.ReadAsync(body.AsMemory(offset, remaining - offset), ct).ConfigureAwait(false); if (read == 0) return; offset += read; }

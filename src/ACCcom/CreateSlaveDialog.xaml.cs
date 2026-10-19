@@ -27,7 +27,18 @@ public partial class CreateSlaveDialog : Window
             MessageBox.Show(LanguageManager.Instance["CreateSlave.ErrorInvalidRegs"], LanguageManager.Instance["CreateSlave.ErrorTitle"]);
             return;
         }
-        _slaveService.CreateSlave(slaveId, transport, port, holdingRegisters: regs);
+        try
+        {
+            _slaveService.CreateSlave(slaveId, transport, port, holdingRegisters: regs);
+        }
+        catch (Exception ex)
+        {
+            // CreateSlave now reports an unopenable RTU port / unsupported
+            // transport instead of registering a zombie slave that never
+            // answers — surface that instead of crashing the dialog.
+            MessageBox.Show(ex.Message, LanguageManager.Instance["CreateSlave.ErrorTitle"]);
+            return;
+        }
         DialogResult = true;
     }
 

@@ -20,6 +20,16 @@ public class ModbusTcpTransport : IModbusTransport
     private CancellationTokenSource? _connectionCts;
     private readonly Timer _heartbeatTimer;
     private const ushort HeartbeatTid = ushort.MaxValue;
+
+    /// <summary>Largest legal MBAP length field: unit id (1) + PDU (≤253).
+    /// The wire field is 16-bit (up to 65535), so a malformed or hostile peer
+    /// could otherwise make every frame allocate up to 64 KB.</summary>
+    internal const int MaxBodyLength = 254;
+
+    /// <summary>Validates the MBAP length field against the protocol maximum.
+    /// Shared by the master transport and the TCP slave so both reject the same
+    /// malformed frames.</summary>
+    internal static bool IsValidBodyLength(int remaining) => remaining is >= 2 and <= MaxBodyLength;
     private int _transactionId;
     private bool _disposed;
 
@@ -146,7 +156,13 @@ public class ModbusTcpTransport : IModbusTransport
                 var tid = (ushort)((headerBuf[0] << 8) | headerBuf[1]);
                 var remaining = (headerBuf[4] << 8) | headerBuf[5];
 
-                if (remaining < 2) continue;
+                // Trusting the wire length allocates up to 64 KB per malformed
+                // frame; Modbus TCP's real maximum is 254 (unit id + 253-byte PDU).
+                if (!IsValidBodyLength(remaining))
+                {
+                    Debug.WriteLine($"[ModbusTcpTransport] malformed MBAP length {remaining}; dropping frame");
+                    continue;
+                }
                 var body = new byte[remaining];
                 offset = 0;
                 while (offset < remaining)
