@@ -242,6 +242,11 @@ window.__ModuleLoader__.load({
           '.sp-btn.sp-warn { --sp-wash: var(--sp-tx-soft); --sp-wash-line: var(--sp-tx-line); --sp-wash-ink: var(--sp-tx); }',
           '.sp-btn.sp-danger { --sp-wash: color-mix(in srgb, var(--sp-err) 12%, transparent); --sp-wash-line: color-mix(in srgb, var(--sp-err) 45%, transparent); --sp-wash-ink: var(--sp-err); }',
           '.sp-btn.sp-ok { --sp-wash: color-mix(in srgb, var(--sp-ok) 12%, transparent); --sp-wash-line: color-mix(in srgb, var(--sp-ok) 45%, transparent); --sp-wash-ink: var(--sp-ok); }',
+          // MCP 开关(v1.8.1):开态实底绿白字 / 关态中性灰平底 + ●/○ 形状 cue。
+          // 淡染(wash)在 24px chip 上区分度不够,扫一眼必须认出状态
+          '.sp-btn.sp-mcp { font-weight: 600; }',
+          '.sp-btn.sp-mcp[data-on="1"] { background: var(--sp-ok); border-color: var(--sp-ok); color: #fff; }',
+          '.sp-btn.sp-mcp[data-on="0"] { background: var(--sp-sunken); border-color: var(--dsw-alias-border-l2, #d9d9d9); color: var(--sp-ink-3); }',
           '.sp-select {',
           '  height: 24px; font: inherit; font-size: 11px; border-radius: 6px;',
           '  border: 1px solid var(--sp-hair); background: var(--sp-sunken); color: var(--sp-ink-1);',
@@ -868,13 +873,13 @@ window.__ModuleLoader__.load({
         chip(confirmClear ? '确认清空?' : '清空', clear, confirmClear,
           '截断共享 mcp-traffic.jsonl(再点一次生效)', 'danger'),
         chip('导出', () => downloadJsonl(visible), false, '下载当前过滤视图为 JSONL(整个内存环用 Host /export 路由)'),
-        chip(mcpOn ? 'MCP 开' : 'MCP 关', toggleMcp, mcpOn,
+        chip(mcpOn ? '● MCP 开' : '○ MCP 关', toggleMcp, mcpOn,
           mcpAvailable
             ? (mcpOn
               ? '停用 acccom MCP:新会话不再注册 mcp__acccom__* 工具(省 token);当前会话工具列表不变'
               : '启用 acccom MCP:新会话才会注册 mcp__acccom__* 工具;热生效,无需重启 DSH')
             : 'MCP 开关不可用(pluginManager 服务缺失)',
-          mcpAvailable ? (mcpOn ? 'ok' : 'warn') : ''),
+          'mcp'),
       )
 
       // 空态:API 地址(agent 可直接 curl)+ 链路状态 + shell 工具解析诊断

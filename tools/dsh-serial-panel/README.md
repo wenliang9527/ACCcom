@@ -1,10 +1,15 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.8.0
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.8.1
 
 DeepSeek Harness 的常驻插件(desktop profile):**右侧停靠栏** "ACCCOM 串口" tab +
 **侧边栏图标**(全局面板)双入口,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
 对话与串口数据并排可见(等价于 ACCCOM 桌面端的"MCP 流量"窗口,但直接长在
 DSH 界面里)。左侧边栏图标点击打开;右栏 guide 默认页也有入口卡片。
 agent 侧的接口说明见 [AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
+
+## v1.8.1 开关状态对比度
+
+「MCP 开/关」chip 由淡染改为**实底绿(开)/ 中性灰平底(关)**,并加 ●/○ 形状 cue——
+24px chip 上淡染区分度不够,扫一眼必须能认出状态。
 
 ## v1.8.0 MCP 一键开关(面板内热切换)
 
