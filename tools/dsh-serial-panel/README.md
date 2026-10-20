@@ -1,10 +1,22 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.7.1
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.8.0
 
 DeepSeek Harness 的常驻插件(desktop profile):**右侧停靠栏** "ACCCOM 串口" tab +
 **侧边栏图标**(全局面板)双入口,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
 对话与串口数据并排可见(等价于 ACCCOM 桌面端的"MCP 流量"窗口,但直接长在
 DSH 界面里)。左侧边栏图标点击打开;右栏 guide 默认页也有入口卡片。
 agent 侧的接口说明见 [AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
+
+## v1.8.0 MCP 一键开关(面板内热切换)
+
+工具条新增「MCP 开 / MCP 关」chip,直接启停本面板对应的 host 层 MCP 条目
+(`include:mcp-acccom`):关闭后**新会话**不再注册 `mcp__acccom__*` 工具
+(41 个 MCP 工具 schema 约占 9k token/轮,单笔最大的 token 节省),开启后随时可用。
+
+- 切换走 `pluginManager.setPluginEnabled`(改 profile patch 的 `disabled` + **热 reload**),
+  **无需重启 DSH**;状态持久化在 patch 里,重启后保持。
+- 状态实时读 loader,不存偏好——外部改动后面板显示永远说真话。
+- **已开会话的工具列表是快照**,切换只对新会话生效(UI 已提示)。
+- 停用时面板空态显示引导文案;`pluginManager` 服务缺失时 chip 置灰。
 
 ## v1.7.1 修复:侧边栏图标点了没反应
 
@@ -28,6 +40,7 @@ kind),而两个 rightbar 服务在新宿主仍在 → 永远不进兜底分支 �
 - **过滤**:方向(全部/RX/TX)、端口下拉、子串/**正则**搜索(`.*` 开关,非法表达式自动回退子串,偏好持久化)
 - **详情区**:点击行看 text+HEX 全文(含完整日期,跨天会话可对),一键复制(clipboard API,失败回退 execCommand)
 - **导出**:工具栏「导出」= 当前过滤视图一键下载 JSONL(Blob 本地生成);整个内存环走 Host `/export` 路由
+- **MCP 开关**(v1.8.0):工具条「MCP 开/关」一键启停 acccom MCP——不需要串口的项目关掉它,新会话省下 41 个工具的 schema(~9k token/轮);热生效无需重启
 - **可靠性辅助**:断层标记(Host 环滚出/seq 回退守卫)、清空两段式确认、连接态三色(尾随中/等日志文件/未响应)、空态显示可复制的 API 地址与链路自检(shell 解析、日志大小、坏行数)
 - **快捷键**(面板持有焦点时):空格=暂停/继续,`/`=聚焦搜索,Esc=取消选中;不影响对话输入
 - **流量徽章**:左侧图标红点提示新串口流量(面板关着也能感知,打开并实时跟随时自动消失)
@@ -39,6 +52,7 @@ kind),而两个 rightbar 服务在新宿主仍在 → 永远不进兜底分支 �
 - `GET /api/acccom-serial?stats=1` 零载荷统计(心跳/水位探测)
 - `GET /api/acccom-serial/export?format=jsonl|csv` 导出内存环
 - `POST /api/acccom-serial/clear` 截断共享日志(干净复现工作流的起点)
+- `GET /api/acccom-serial/mcp` 读 MCP 条目启停状态;`POST /api/acccom-serial/mcp` `{enabled:bool}` 热切换(见 v1.8.0)
 - **MCP `traffic_log` 工具**同源提供同一飞行记录仪(ZCode/DSH 原生可用,无需 curl)
 
 **Host 半区工程**

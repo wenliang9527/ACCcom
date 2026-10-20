@@ -37,6 +37,10 @@ const ROUTE = '/api/acccom-serial'
 const ROUTE_CLEAR = '/api/acccom-serial/clear'
 const ROUTE_EXPORT = '/api/acccom-serial/export'
 const ROUTE_HELP = '/api/acccom-serial/help'
+const ROUTE_MCP = '/api/acccom-serial/mcp' // v1.8.0:MCP 启停开关(GET 读状态 / POST 切换)
+
+// host 层 MCP 条目 id(住在 profile patch 里,插件面板/本开关共同管理;不属于本插件)
+const MCP_ENTRY_ID = 'include:mcp-acccom'
 
 /** 正整数环境变量读取(非法值回落默认)。 */
 function intEnv(name, fallback) {
@@ -129,6 +133,26 @@ module.exports = {
   apply(ctx) {
     const webServer = ctx.get('webServer')
     if (!webServer || typeof webServer.register !== 'function') return
+
+    // v1.8.0:MCP 启停开关。状态实时读 loader 里对应条目的 disabled(不存偏好,
+    // 重启后、外部改动后都永远说真话);切换走 pluginManager.setPluginEnabled
+    // ——它改 profile patch 的 disabled 并热 reload,无需重启 DSH。
+    const pluginManager = ctx.get('pluginManager')
+    const loaderOf = () => ctx.get('loader') || ctx.loader || null
+    const mcpState = () => {
+      const loader = loaderOf()
+      const entry = loader && typeof loader.entries === 'function'
+        ? loader.entries().find((e) => e.id === MCP_ENTRY_ID)
+        : null
+      if (!entry) return { available: false, enabled: null }
+      return { available: true, enabled: !entry.disabled }
+    }
+    const readJsonBody = async (req) => {
+      const chunks = []
+      for await (const c of req) chunks.push(c)
+      if (!chunks.length) return {}
+      try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch (e) { return {} }
+    }
 
     const file = logPath()
     let offset = 0          // 已读字节偏移
@@ -246,6 +270,7 @@ module.exports = {
       badLines: stats.badLines, logSize: stats.logSize,
       logMtimeMs: stats.logMtimeMs, rotated: stats.rotated,
       diag: SHELL_DIAG,
+      mcp: mcpState(),
     })
 
     /**
@@ -370,6 +395,45 @@ module.exports = {
         }
       },
     }), 'dsh-serial-panel: ' + ROUTE_HELP)
+
+    // v1.8.0:MCP 启停开关。GET 返回当前状态(随主路由 view() 一并给面板轮询);
+    // POST {enabled:bool} 切条目。注意:切换只影响「新会话」的工具注册——
+    // 已开会话的工具列表是快照,不会变(UI 需提示,别让用户以为立刻生效)。
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: ROUTE_MCP,
+      async handler(req, res) {
+        try {
+          if (req.method === 'GET') {
+            jsonResponse(res, 200, { ok: true, mcp: mcpState() })
+            return
+          }
+          if (req.method !== 'POST') {
+            jsonResponse(res, 405, { ok: false, error: 'GET or POST only' })
+            return
+          }
+          const current = mcpState()
+          if (!current.available) {
+            jsonResponse(res, 404, { ok: false, error: 'mcp entry not found: ' + MCP_ENTRY_ID })
+            return
+          }
+          if (!pluginManager || typeof pluginManager.setPluginEnabled !== 'function') {
+            jsonResponse(res, 501, { ok: false, error: 'pluginManager service unavailable' })
+            return
+          }
+          const body = await readJsonBody(req)
+          const enabled = !!(body && body.enabled === true)
+          if (current.enabled === enabled) {
+            jsonResponse(res, 200, { ok: true, mcp: current, changed: false })
+            return
+          }
+          await pluginManager.setPluginEnabled(MCP_ENTRY_ID, enabled)
+          jsonResponse(res, 200, { ok: true, mcp: mcpState(), changed: true })
+        } catch (error) {
+          jsonResponse(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    }), 'dsh-serial-panel: ' + ROUTE_MCP)
 
     return () => {
       clearInterval(timer)

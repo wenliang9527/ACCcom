@@ -94,6 +94,7 @@ window.__ModuleLoader__.load({
 
     const ROUTE = '/api/acccom-serial'
     const ROUTE_CLEAR = '/api/acccom-serial/clear'
+    const ROUTE_MCP = '/api/acccom-serial/mcp'
     const LS = 'dsh-serial-panel/prefs/v1'
 
     const POLL_ACTIVE_MS = 700   // 刚拿到数据:贴近写入端节奏
@@ -240,6 +241,7 @@ window.__ModuleLoader__.load({
           '.sp-btn[data-on="1"] { background: var(--sp-wash); border-color: var(--sp-wash-line); color: var(--sp-wash-ink); }',
           '.sp-btn.sp-warn { --sp-wash: var(--sp-tx-soft); --sp-wash-line: var(--sp-tx-line); --sp-wash-ink: var(--sp-tx); }',
           '.sp-btn.sp-danger { --sp-wash: color-mix(in srgb, var(--sp-err) 12%, transparent); --sp-wash-line: color-mix(in srgb, var(--sp-err) 45%, transparent); --sp-wash-ink: var(--sp-err); }',
+          '.sp-btn.sp-ok { --sp-wash: color-mix(in srgb, var(--sp-ok) 12%, transparent); --sp-wash-line: color-mix(in srgb, var(--sp-ok) 45%, transparent); --sp-wash-ink: var(--sp-ok); }',
           '.sp-select {',
           '  height: 24px; font: inherit; font-size: 11px; border-radius: 6px;',
           '  border: 1px solid var(--sp-hair); background: var(--sp-sunken); color: var(--sp-ink-1);',
@@ -746,6 +748,26 @@ window.__ModuleLoader__.load({
         } catch (e) { /* 忽略 */ }
       }
 
+      // ---- v1.8.0:MCP 启停开关(状态来自 Host view().mcp,随主路由轮询一并刷新) ----
+      const mcp = stats && stats.mcp ? stats.mcp : null
+      const mcpAvailable = !!(mcp && mcp.available)
+      const mcpOn = !!(mcp && mcp.enabled)
+      const toggleMcp = async () => {
+        if (!mcpAvailable) return
+        const next = !mcpOn
+        try {
+          const r = await fetch(ROUTE_MCP, {
+            method: 'POST', cache: 'no-store',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ enabled: next }),
+          })
+          const j = await r.json()
+          if (j && j.ok && j.mcp) {
+            setStats((prev) => (prev ? Object.assign({}, prev, { mcp: j.mcp }) : prev))
+          }
+        } catch (e) { /* 忽略:下一轮轮询会纠正显示 */ }
+      }
+
       // ---- 端口清单(用于下拉;选中项被裁出窗口时保留该选项防值失效) ----
       const ports = React.useMemo(() => {
         const out = []
@@ -846,6 +868,13 @@ window.__ModuleLoader__.load({
         chip(confirmClear ? '确认清空?' : '清空', clear, confirmClear,
           '截断共享 mcp-traffic.jsonl(再点一次生效)', 'danger'),
         chip('导出', () => downloadJsonl(visible), false, '下载当前过滤视图为 JSONL(整个内存环用 Host /export 路由)'),
+        chip(mcpOn ? 'MCP 开' : 'MCP 关', toggleMcp, mcpOn,
+          mcpAvailable
+            ? (mcpOn
+              ? '停用 acccom MCP:新会话不再注册 mcp__acccom__* 工具(省 token);当前会话工具列表不变'
+              : '启用 acccom MCP:新会话才会注册 mcp__acccom__* 工具;热生效,无需重启 DSH')
+            : 'MCP 开关不可用(pluginManager 服务缺失)',
+          mcpAvailable ? (mcpOn ? 'ok' : 'warn') : ''),
       )
 
       // 空态:API 地址(agent 可直接 curl)+ 链路状态 + shell 工具解析诊断
@@ -858,9 +887,11 @@ window.__ModuleLoader__.load({
       const emptyBox = h('div', { className: 'sp-empty' },
         h('div', { className: 'sp-empty-glyph' }, h(PlugGlyph, { size: 40 })),
         h('div', { className: 'sp-empty-title' },
-          stats && stats.exists
-            ? '日志已连接,等待 AI 串口收发…(让 Agent 调 mcp__acccom__list_ports 试试)'
-            : '尚未发现 ' + ((stats && stats.logPath) || 'mcp-traffic.jsonl') + ' — 首次 AI 串口通信后自动出现'),
+          mcpAvailable && !mcpOn
+            ? 'acccom MCP 已停用 — 点工具条「MCP 开」启用;启用后新会话才会注册 mcp__acccom__* 工具'
+            : stats && stats.exists
+              ? '日志已连接,等待 AI 串口收发…(让 Agent 调 mcp__acccom__list_ports 试试)'
+              : '尚未发现 ' + ((stats && stats.logPath) || 'mcp-traffic.jsonl') + ' — 首次 AI 串口通信后自动出现'),
         h('span', { className: 'sp-api' },
           h('span', null, 'API'),
           h('code', null, apiFull),
