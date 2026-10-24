@@ -2,9 +2,28 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，1398 测试全过）
+## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1490 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
 
 ### Fixed
+
+- **SerialService 三处生命周期缺陷**（2026-10-24 审计 P1/P2，`fix(core)` 358e766）：
+  - **重连循环在 Close() 取消后仍可能把新打开的端口换上 `_port`**——取消检查只在循环头，`tempPort.Open()` 成功到换口之间无复查；用户已点关闭时新口被换上，留下一个「已关闭却仍打开」的端口，且与用户 Close 在 `ClosePortOnly` 内交错。换口抽取为 `AdoptReconnectedPort` 并在换口前复查令牌，取消则丢弃新口
+  - **`Close()` 同步阻塞调用线程最长 2 秒**——排空等待 `GetAwaiter().GetResult()` 在 UI 线程执行（`ConnectionViewModel.ToggleOpenClose` → `SerialConnectionManager.ToggleConnection` 同步调 Close），洪流下关端口冻窗到排空上限。`ISerialService` 新增 `CloseAsync`（默认包同步 Close，轻量实现零成本），SerialService 覆写为真异步排空，关闭分支改 await——与 SendAsync 的既有先例同因同解
+  - **并发写串口无串行化**——触发器发送（RX drain 线程）与 UI 发送、并发 MCP 工具调用（SDK 按调用并发派发）可交错写串口（`SerialPort.Write` 无线程安全保证）。`Send/SendAsync` 单写包进 `_sendGate`，重试等待留在门外；交错防护本身**待真机验证**（无硬件只能证干净失败）
+- **触发器/宏/协议测试三处发送缺桥路由**（R167 遗留，`fix(gui,core)` 0822b9c）：桥接模式下这三路发送直连 `_serial.Send`、数据不出网桥（TriggerViewModel:121 / MacroViewModel 宏步骤 / ProtocolTestViewModel.SendCallback）。新增 Core `SendRouter` 统一发送通道（`bridge.IsConnected ? bridge.Send : serial.Send(SendAsync)`），三处补路由 + 主发送/快捷/循环三处内联分支全部委托，六处一个口径；两条路径都自产 TX LogEntry，计数/日志口径不变
+- **Modbus 从站 FC03/FC04 异常码语义颠倒**（`fix(core)` b191a61）：数量超限（>125/0）现在报 0x03 illegal data value、区间越界报 0x02 illegal data address——原映射恰好相反，且与 FC01/FC02 的数量分支不一致；FC01/FC02 区间越界同改 0x02。既有测试 0x07D0→0x07D1（2000 是合法上限，旧请求实为地址越界场景，名不副实），新增 6 个异常码契约测试
+- **7 处源码编码损坏字节**（em-dash/右箭头第三字节被替换成 '?'、1 处 GBK 编码 em-dash；node 字节级扫描定位并修复），全库无效 UTF-8 清零（`fix(core)` b191a61）
+
+### Changed
+
+- **MCP 工具描述瘦身**（`perf(mcp)` b0315d7）：11 工具 name+description+inputSchema 总字节实测 **8757 → 7918（-9.6%）**，契约语义零删减（默认值/范围/错误码/游标语义全保留）；wait 类工具描述补上实现既有的 timeoutMs 下限（clamp 100-60000，原描述只写 max）；tag 参数描述统一短式；`send/send_and_wait` 的 hex 流量记录改走 `HexForTrafficLog`——解码字节按规范空格排布（原样透传任意空格输入），与串口/虚拟口 TX 条目同格式
+- **NetworkBridge/虚拟串口的 LogEntry 生产端补齐 ByteCount**（b191a61）：消费端 `ResolvedByteCount` 不再为桥/虚拟流量逐包回退重扫 hex（SerialService RX 自 R168 起已携带）
+- **五个时敏测试的「证明已发生」门加宽**（5-10s → 15-30s，b191a61）：全量并行下的线程池饥饿误报清零——RX 排空等待、MultiPort 慢发/慢关、RecentRx 并发、Parser 热重载防抖（防抖上限 2→3 保留饥饿余量，仍远小于每写一 reload 的 5）。真回归均为永久阻塞，有限窗口照样捕获
+
+### Added
+
+- **docs/audit-2026-10-24.md：全面审计报告**（基线数据 + 九维度发现 + 已知遗留核实 + 修复对照表）；待确认项已列明：C# Script 死循环线程泄漏（执行模型限制）、MCP set_baud/数值序列新工具（契约变更）、plan 批次 7.4（仓库外 MCP 客户端配置，`.claude/settings.json` 仍指 bin\Debug）
+- 测试 +18（Core +16 / McpServer +2）：重连采纳/取消丢弃、空口 CloseAsync、并发发送干净失败、SendRouter 三向路由（TCP 回环实测）、从站异常码 ×6、生产端 ByteCount ×4（含 TCP 回环双方向）、HexForTrafficLog ×2
 
 - **三处长期无人发现的渲染缺陷**（均经真机截图核对，非代码推断）：
   - **深色主题下连接区 8 个下拉框退回系统 Aero 白底黑字**。`ConnectionPanel` 的 `FieldCombo` 是带 `x:Key` 的样式，会整体替换隐式 ComboBox 样式，又缺 `BasedOn`，于是 `App.xaml` 里带 `ControlTemplate` 的隐式样式被丢弃。昼白主题下白底恰好等于主题色所以从未暴露，五套深色主题里全部刺眼。`SchemaEditorWindow` 的 `PreviewTextBox` 同类问题一并修复
