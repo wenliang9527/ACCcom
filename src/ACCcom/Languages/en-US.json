@@ -462,6 +462,7 @@
   "Status.ConnectionFailed": "{0} connection failed",
   "Status.ParserLoadFailed": "Parser load failed: {0}",
   "Status.ParserSelected": "Parser: {0}",
+  "Status.ParserAutoDeactivated": "Parser {0} auto-deactivated after repeated timeouts (a runaway script cannot be aborted and holds threads); fix the script, then re-activate",
   "Status.ErrorProcessingData": "Error processing data: {0}",
   "Status.ErrorProcessingFrame": "Error processing assembled frame: {0}",
   "Status.ParserExecError": "Parser execution error: {0}",

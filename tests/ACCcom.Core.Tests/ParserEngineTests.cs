@@ -129,22 +129,28 @@ return result;
     }
 
     [Fact]
-    public async Task Execute_SynchronousSubmission_ArmsNoTimeoutTimer()
+    public async Task Execute_FastScript_CompletesWithoutWaitingOutDeadline()
     {
-        // P1-8: every execution eagerly created a CancellationTokenSource(ms),
-        // and constructing it arms a TimerQueueTimer. At parser frame rates
-        // (~1 kHz) that is ~1000 kernel timers created and torn down per second
-        // for a deadline that can no longer fire: a script without awaits
-        // completes synchronously inside RunAsync. Measured alongside: 1064
-        // B/frame with the eager source vs 912 B/frame armed on demand.
+        // P1-8's original form (zero deadline sources for sync submissions)
+        // died with escapability: RunAsync executes a script without awaits ON
+        // THE CALLING THREAD, so a CPU loop could wedge the frame pipeline
+        // inside RunAsync and the deadline could never fire. Scripts are now
+        // hoisted onto the thread pool, which arms exactly one deadline source
+        // per execution — the accepted cost of being able to time out at all.
+        // What must still hold: fast scripts finish quickly (never waiting out
+        // the deadline) and no execution arms a SECOND source.
         var engine = new ParserEngine();
         Assert.True(engine.Load(MinimalScript));
         var data = new byte[] { 0xAA };
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         for (int i = 0; i < 1000; i++)
             Assert.NotNull(await engine.ExecuteAsync(data, DateTime.Now));
-
-        Assert.Equal(0, engine.TimeoutSourcesCreated);
+        sw.Stop();
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(4),
+            $"1000 fast executions took {sw.Elapsed.TotalMilliseconds:F0}ms — the deadline must not be waited out");
+        var sourcesAfterFast = engine.TimeoutSourcesCreated;
+        Assert.True(sourcesAfterFast <= 1000, "at most one deadline source per execution");
 
         // A submission that does suspend still gets its deadline armed — once
         // per run, so concurrent/successive runs never share one timer.
@@ -157,16 +163,15 @@ return result;
 
         Assert.Null(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
         Assert.Contains("timed out", engine.LastError);
-        Assert.Equal(1, engine.TimeoutSourcesCreated);
+        Assert.Equal(sourcesAfterFast + 1, engine.TimeoutSourcesCreated);
 
         Assert.Null(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
-        Assert.Equal(2, engine.TimeoutSourcesCreated);
+        Assert.Equal(sourcesAfterFast + 2, engine.TimeoutSourcesCreated);
 
         // And the deadline is not sticky: a fast submission afterwards still
         // completes despite the earlier timeouts.
         Assert.True(engine.Load(MinimalScript));
         Assert.NotNull(await engine.ExecuteAsync(data, DateTime.Now, timeoutMs: 100));
-        Assert.Equal(2, engine.TimeoutSourcesCreated);
     }
 
     [Fact]

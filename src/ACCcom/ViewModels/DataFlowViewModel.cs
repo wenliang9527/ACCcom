@@ -84,6 +84,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
     private readonly Action<LogEntry> _frameBufferFrameHandler;
     private readonly Action<string> _frameBufferErrorHandler;
     private readonly Action<string> _parserReloadedHandler;
+    private readonly Action<string> _parserAutoDeactivatedHandler;
 
     public ObservableRangeCollection<LogEntry> RxEntries { get; } = new();
     public ObservableRangeCollection<LogEntry> TxEntries { get; } = new();
@@ -324,6 +325,16 @@ public class DataFlowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<string> AvailableParsers => _parserManager.AvailableParsers;
 
+    /// <summary>Circuit breaker tripped: the active parser timed out too many
+    /// times in a row and ParserManager stopped feeding it. Reset the combo so
+    /// the UI matches the manager state (the selection property re-activates
+    /// "no parser", a no-op on the already-cleared engine).</summary>
+    private void OnParserAutoDeactivated(string name)
+    {
+        SelectedParser = ParserManager.NoParserName;
+        _setStatus(string.Format(LanguageManager.Instance["Status.ParserAutoDeactivated"], name));
+    }
+
     private LogEntry? _selectedEntry;
     public LogEntry? SelectedEntry
     {
@@ -406,6 +417,8 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         LoadParserFingerprints();
         _parserReloadedHandler = _ => LoadParserFingerprints();
         _parserManager.OnParserReloaded += _parserReloadedHandler;
+        _parserAutoDeactivatedHandler = OnParserAutoDeactivated;
+        _parserManager.OnParserAutoDeactivated += _parserAutoDeactivatedHandler;
         // API → UI clear direction: /api/clear empties the ring on the HTTP
         // thread; mirror it into the display lists (see OnHttpClearRequested).
         _http.OnClearRequested += OnHttpClearRequested;
@@ -1153,6 +1166,7 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         _frameBuffer.OnFrameAssembled -= _frameBufferFrameHandler;
         _frameBuffer.OnError -= _frameBufferErrorHandler;
         _parserManager.OnParserReloaded -= _parserReloadedHandler;
+        _parserManager.OnParserAutoDeactivated -= _parserAutoDeactivatedHandler;
         _http.OnClearRequested -= OnHttpClearRequested;
         _frameBuffer.Dispose();
     }

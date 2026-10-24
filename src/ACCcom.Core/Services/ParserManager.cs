@@ -40,6 +40,14 @@ public class ParserManager : IDisposable
     public event Action<string>? OnParserReloaded;
 
     /// <summary>
+    /// Raised when the active parser was auto-deactivated by the
+    /// consecutive-timeout circuit breaker (a runaway script cannot be
+    /// aborted, so it is stopped by no longer being fed). The string
+    /// parameter is the deactivated parser's name.
+    /// </summary>
+    public event Action<string>? OnParserAutoDeactivated;
+
+    /// <summary>
     /// Raised when an error occurs during hot-reload or other operations.
     /// UI can subscribe to display error messages to the user.
     /// </summary>
@@ -48,11 +56,25 @@ public class ParserManager : IDisposable
     public ParserManager(string? parserDir = null, Action<Action>? dispatch = null, int parserCacheSize = 10)
     {
         _engine = new ParserEngine(parserCacheSize);
+        _engine.OnStalled += OnEngineStalled;
         _dispatch = dispatch;
         _parserDir = parserDir ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "parsers");
         Directory.CreateDirectory(_parserDir);
         SetupWatcher();
         Refresh();
+    }
+
+    /// <summary>Circuit-breaker trip: the active script burned
+    /// <see cref="ParserEngine.StalledAfterConsecutiveTimeouts"/> executions
+    /// without finishing. It cannot be aborted, so stop feeding it. Runs on
+    /// the timing-out frame thread; Activate is lock-serialized and
+    /// deactivating an already-cleared engine is a no-op, so re-entrancy is
+    /// safe.</summary>
+    private void OnEngineStalled()
+    {
+        var name = ActiveParserName;
+        Activate(null);
+        OnParserAutoDeactivated?.Invoke(name ?? "");
     }
 
     private readonly Action<Action>? _dispatch;

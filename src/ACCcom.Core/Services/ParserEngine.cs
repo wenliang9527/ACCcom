@@ -62,6 +62,24 @@ public class ParserEngine : IDisposable
 
     public string? LastError => _lastError;
 
+    /// <summary>Consecutive-timeout circuit-breaker threshold. .NET cannot
+    /// abort a runaway Roslyn script (no Thread.Abort, no AppDomains), so a
+    /// script that never finishes leaks one thread-pool thread per execution —
+    /// and the active parser runs per frame, so RX traffic multiplies the leak
+    /// fast. When the counter reaches this value, <see cref="OnStalled"/> fires
+    /// and the host (ParserManager) stops feeding the parser. A single
+    /// successful execution, or loading new code, resets the count.</summary>
+    internal const int StalledAfterConsecutiveTimeouts = 3;
+
+    /// <summary>Raised once when the consecutive-timeout counter reaches
+    /// <see cref="StalledAfterConsecutiveTimeouts"/>. The stalled script
+    /// itself keeps running on its thread — it cannot be aborted; the host is
+    /// expected to deactivate the parser so no further executions feed
+    /// it.</summary>
+    public event Action? OnStalled;
+
+    private int _consecutiveTimeouts;
+
     /// <summary>
     /// Number of executions that armed a deadline. A submission that completes
     /// synchronously inside <c>RunAsync</c> cannot time out, so it must not
@@ -78,6 +96,8 @@ public class ParserEngine : IDisposable
             if (_cache.TryGetValue(key, out var cached) && cached is Script<List<FieldAnnotation>> cachedScript)
             {
                 _activeScript = cachedScript;
+                // New (or re-loaded) code starts with a clean stall count.
+                _consecutiveTimeouts = 0;
                 return true;
             }
 
@@ -97,6 +117,7 @@ public class ParserEngine : IDisposable
             _cache.Set(key, compiled, options);
             _activeScript = compiled;
             _lastError = null;
+            _consecutiveTimeouts = 0;
             return true;
         }
         catch (Exception ex)
@@ -136,10 +157,16 @@ public class ParserEngine : IDisposable
         try
         {
             var globals = new ScriptGlobals { RawData = data, Timestamp = timestamp };
-            // CancellationToken.None: a submission that completes synchronously
-            // cannot observe cancellation anyway, and the deadline is enforced
-            // by WaitAsync below for one that suspends.
-            var task = script.RunAsync(globals, CancellationToken.None);
+            // RunAsync executes a script WITHOUT awaits synchronously on the
+            // calling thread — a CPU loop (while(true);) would wedge the frame
+            // pipeline inside RunAsync forever and the WaitAsync deadline below
+            // could never engage. Hoisting onto the thread pool makes every
+            // script escapable: the deadline fires, ExecuteAsync returns null,
+            // and the circuit breaker stops feeding a runaway parser (the
+            // script thread itself still cannot be aborted — that leak is what
+            // the breaker caps). CancellationToken.None: the deadline is
+            // enforced by WaitAsync, not by the submission.
+            var task = Task.Run(() => script.RunAsync(globals, CancellationToken.None));
             ScriptState<List<FieldAnnotation>> result;
             if (task.IsCompleted)
             {
@@ -159,6 +186,9 @@ public class ParserEngine : IDisposable
                 result = await task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
             }
             _metrics.RecordParseCompleted(true, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
+            // Any completed execution proves the script is making progress —
+            // restart the stall count (see StalledAfterConsecutiveTimeouts).
+            Interlocked.Exchange(ref _consecutiveTimeouts, 0);
             return result.ReturnValue;
         }
         catch (OperationCanceledException) when (timeoutCts?.IsCancellationRequested == true)
@@ -166,6 +196,10 @@ public class ParserEngine : IDisposable
             _lastError = $"Script execution timed out after {timeoutMs}ms";
             OnError?.Invoke($"[ParserEngine] Execution timed out after {timeoutMs}ms");
             _metrics.RecordParseCompleted(false, Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
+            // The caller stops waiting, but the script thread keeps running —
+            // count it toward the circuit breaker (one-shot at the threshold).
+            if (Interlocked.Increment(ref _consecutiveTimeouts) == StalledAfterConsecutiveTimeouts)
+                OnStalled?.Invoke();
             return null;
         }
         catch (OperationCanceledException)
@@ -203,6 +237,7 @@ public class ParserEngine : IDisposable
             _cache.Compact(1.0);
             _activeScript = null;
             _lastError = null;
+            _consecutiveTimeouts = 0;
         }
         finally
         {

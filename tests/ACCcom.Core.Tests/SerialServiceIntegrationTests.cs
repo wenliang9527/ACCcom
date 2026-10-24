@@ -86,7 +86,7 @@ public class SerialServiceIntegrationTests : IDisposable
     // --- Parser pipeline ---
 
     [Fact]
-    public void RxData_With_Parser_Produces_Fields()
+    public async Task RxData_With_Parser_Produces_Fields()
     {
         using var serial = new VirtualSerialService();
         using var parserManager = new ParserManager(_tempParserDir);
@@ -108,12 +108,19 @@ public class SerialServiceIntegrationTests : IDisposable
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
         serial.InjectRxData("AA 55 06 01 19 2E");
 
-        var entries = http.GetEntriesSince(0);
-        Assert.NotEmpty(entries);
-        var rx = entries.First(e => e.Direction == "RX");
+        // Parser scripts execute on the thread pool (escapability — see
+        // ParserEngine.ExecuteAsync), so the fields land shortly AFTER
+        // InjectRxData returns; poll instead of asserting immediately.
+        LogEntry? rx = null;
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            rx = http.GetEntriesSince(0).FirstOrDefault(e => e.Direction == "RX" && e.Fields is { Count: > 0 });
+            if (rx != null) break;
+            await Task.Delay(20);
+        }
         Assert.NotNull(rx);
-        Assert.NotNull(rx.Fields);
-        Assert.NotEmpty(rx.Fields!);
+        Assert.NotEmpty(rx!.Fields!);
     }
 
     // --- Buffer capacity ---

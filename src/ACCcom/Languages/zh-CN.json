@@ -462,6 +462,7 @@
   "Status.ConnectionFailed": "{0} 连接失败",
   "Status.ParserLoadFailed": "解析器加载失败：{0}",
   "Status.ParserSelected": "解析器：{0}",
+  "Status.ParserAutoDeactivated": "解析器 {0} 连续超时已自动停用（死循环脚本无法中止、会占用线程），修复脚本后可重新激活",
   "Status.ErrorProcessingData": "数据处理错误：{0}",
   "Status.ErrorProcessingFrame": "组包处理错误：{0}",
   "Status.ParserExecError": "解析器执行错误：{0}",
