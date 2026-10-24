@@ -30,6 +30,13 @@ public interface ISerialService : IDisposable
     /// to the implementation, whose up-front guard rejects it.</summary>
     Task<bool> SendAsync(string? data, bool isHex = false) => Task.FromResult(Send(data!, isHex));
     bool SendHex(string hex);
+    /// <summary>Changes the baud rate of the OPEN port without closing it —
+    /// no DTR/RTS toggle, so devices that reset on reopen stay alive. The
+    /// default returns false (unsupported) so test fakes need no extra
+    /// member; SerialService/VirtualSerialService override it, and any
+    /// implementation that tracks the last config must keep it in sync, or a
+    /// later auto-reconnect would resurrect the old rate.</summary>
+    bool SetBaudRate(int baudRate) => false;
     bool Close();
     /// <summary>Async close. Default wraps the sync <see cref="Close"/> so
     /// lightweight implementations need no extra member; SerialService

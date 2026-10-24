@@ -435,6 +435,29 @@ public class SerialService : ISerialService, IDisposable
         return Send(hex, true);
     }
 
+    /// <summary>Live baud change on the open port (no close/reopen, no
+    /// DTR/RTS toggle). SerialPort applies it to the live DCB; the last
+    /// config is kept in sync so auto-reconnect reopens at the NEW
+    /// rate.</summary>
+    public bool SetBaudRate(int baudRate)
+    {
+        if (baudRate <= 0) return false;
+        var port = _port;
+        if (port?.IsOpen != true) return false;
+        try
+        {
+            port.BaudRate = baudRate;
+            if (_lastConfig != null)
+                _lastConfig.BaudRate = baudRate;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke($"[SerialService] Set baud {baudRate} failed: {ex.Message}");
+            return false;
+        }
+    }
+
     /// <summary>
     /// Keeps the raw on-the-wire byte on parity-framed links. With parity
     /// enabled, the Windows serial driver replaces any byte that fails the

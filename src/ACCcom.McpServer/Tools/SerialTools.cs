@@ -190,6 +190,39 @@ public class SerialTools
         [Description("Multi-port session to close (omit for the default session)")] string? tag = null)
         => _ctx.Guard(() => ClosePortCore(tag));
 
+    [McpServerTool, Description("Change the baud rate of an OPEN port without closing it — no DTR/RTS toggle, so devices that reset on reopen stay alive (baud probing). baudRate must be positive (INVALID_CONFIG); no open port fails PORT_NOT_OPEN.")]
+    public Task<string> SetBaud(
+        [Description("New baud rate (e.g. 9600, 115200)")] int baudRate,
+        [Description("Multi-port session tag (omit for the default session)")] string? tag = null)
+        => _ctx.Guard(() => SetBaudCore(baudRate, tag));
+
+    private Task<string> SetBaudCore(int baudRate, string? tag)
+    {
+        if (baudRate <= 0)
+            return Task.FromResult(_ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid baudRate {baudRate} (must be positive)"));
+        var service = ServiceFor(tag);
+        if (service == null || !service.IsOpen)
+            return Task.FromResult(_ctx.ToolError(ErrorCodes.PortNotOpen,
+                string.IsNullOrEmpty(tag) ? "Port is not open" : $"Port with tag {tag} is not open"));
+        if (!service.SetBaudRate(baudRate))
+            return Task.FromResult(_ctx.ToolError(ErrorCodes.InvalidConfig, $"Failed to set baudRate {baudRate}"));
+        NotifyGuiRequested();
+        _ctx.TrafficLog.Record(0, "set_baud", "SYS", "", baudRate.ToString(), tag ?? "");
+        return Task.FromResult(_ctx.RawJson(new
+        {
+            success = true,
+            data = new
+            {
+                port = service.CurrentPort,
+                baudRate,
+                // The rate actually applied by the service, not the argument
+                // echoed back (mirrors open_port's ActiveConfig discipline).
+                appliedBaudRate = service.BaudRate,
+                tag = string.IsNullOrEmpty(tag) ? null : tag
+            }
+        }));
+    }
+
     private Task<string> ClosePortCore(string? tag)
     {
         if (string.IsNullOrEmpty(tag))

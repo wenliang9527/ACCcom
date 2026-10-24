@@ -30,7 +30,7 @@ public class ToolSchemaBudgetTests
     {
         int total = Tools.Sum(m => m.GetCustomAttribute<DescriptionAttribute>()?.Description?.Length ?? 0);
 
-        Assert.Equal(10, Tools.Length); // MCP tool count must not drift silently
+        Assert.Equal(11, Tools.Length); // MCP tool count must not drift silently
         Assert.True(total < 1_600,
             $"tool-level descriptions total {total} chars (budget 1600) — keep per-parameter detail in [Description] on the parameter, not repeated in the tool summary");
     }

@@ -106,6 +106,15 @@ public class VirtualSerialService : ISerialService, IDisposable
 
     public bool SendHex(string hex) => Send(hex, true);
 
+    public bool SetBaudRate(int baudRate)
+    {
+        if (baudRate <= 0 || !_isOpen) return false;
+        _baudRate = baudRate;
+        if (_lastConfig != null)
+            _lastConfig.BaudRate = baudRate;
+        return true;
+    }
+
     public void InjectRxData(string? hex)
     {
         // A null/empty payload injects nothing — NRE on Replace otherwise.
