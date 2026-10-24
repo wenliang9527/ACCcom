@@ -1778,6 +1778,8 @@ git commit -m "build: Extensions/System.IO.Ports 对齐 net8.0
 
 ## Task 7.4: MCP 客户端改指 dist/（跨仓库，需 R5 备份）
 
+> **2026-10-24 补记（审计轮落地，方案有调整）：** 已改为发布到 `%LOCALAPPDATA%\ACCcom\mcp-server\`——任何构建 / git clean / 仓库搬迁都碰不到的位置，替代本节写的 `dist\ACCcom.McpServer\`（dist 下实际目录名是 `mcp-server`，与本节不符）。仓库侧已完成：`.claude/settings.json` 改指该副本（顺带清掉 R49 已删除的 `--proxy` 死参数），发布入口 `tools/publish-mcp.ps1`，纪律写入 CONTRIBUTING（改 McpServer 后重跑发布，防客户端连旧服务器）。仓库外 `D:\codeSMwork` 真源（canonical.json + 两个 live profile）仍按 R5 纪律由用户自行备份修改，本仓库不越权。
+
 > ⚠️ 改的是 `D:\codeSMwork` 真源，**不在本仓库**。按 R5：先备份、及时 git 提交。
 
 **症状**（本轮实测撞了 3 次）：AI 客户端把 acccom MCP 直连到

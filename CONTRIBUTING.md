@@ -10,11 +10,15 @@
 ```powershell
 dotnet restore ACCcom.sln
 dotnet build ACCcom.sln -c Release        # 零警告零错误是硬门禁
-dotnet test ACCcom.sln -c Release         # 当前 1490 个测试（CI 口径，基准另单列），全过才能合入
+dotnet test ACCcom.sln -c Release         # 当前 1496 个测试（CI 口径，基准另单列），全过才能合入
 
 # 带覆盖率采集时排除吞吐基准（插桩会拖慢热循环导致误报），与 CI 一致：
 dotnet test ACCcom.sln -c Release --no-build --collect:"XPlat Code Coverage" --filter "FullyQualifiedName!~RxHotPathBenchmarkTests"
 dotnet test tests\ACCcom.Core.Tests -c Release --no-build --filter "FullyQualifiedName~RxHotPathBenchmarkTests"   # 基准单独跑，不采集
+
+# 改动 src/ACCcom.McpServer 后必须重跑（MCP 客户端常驻挂载 %LOCALAPPDATA%\ACCcom\mcp-server
+# 的发布副本，不锁 bin；不重跑客户端连的是旧服务器）：
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\publish-mcp.ps1
 dotnet format ACCcom.sln whitespace --verify-no-changes --no-restore
 dotnet format ACCcom.sln style --verify-no-changes --no-restore
 dotnet format ACCcom.sln analyzers --verify-no-changes --no-restore   # 三项全过才能合入
