@@ -31,4 +31,10 @@ public interface ISerialService : IDisposable
     Task<bool> SendAsync(string? data, bool isHex = false) => Task.FromResult(Send(data!, isHex));
     bool SendHex(string hex);
     bool Close();
+    /// <summary>Async close. Default wraps the sync <see cref="Close"/> so
+    /// lightweight implementations need no extra member; SerialService
+    /// overrides it with a real await on the bounded dispatch drain, so a
+    /// caller on the UI thread is not blocked for the drain deadline when the
+    /// RX queue is still working through a flood.</summary>
+    Task<bool> CloseAsync() => Task.FromResult(Close());
 }

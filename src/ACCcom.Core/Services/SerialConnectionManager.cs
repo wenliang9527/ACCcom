@@ -29,7 +29,10 @@ public class SerialConnectionManager : IDisposable
 
         if (currentlyOpen)
         {
-            serial.Close();
+            // CloseAsync, not Close: the close path drains the RX dispatch
+            // queue (bounded at 2s) and this runs on the UI thread — a sync
+            // Close under flood froze the window for the whole deadline.
+            await serial.CloseAsync().ConfigureAwait(true);
             StopTracking();
             return false;
         }

@@ -21,6 +21,14 @@ public class SerialService : ISerialService, IDisposable
 
     private const int RxQueueCapacity = 10_000;
 
+    /// <summary>Serializes port writes. Two real senders can race on one
+    /// SerialService (a trigger firing on the RX drain thread while the UI
+    /// sends; concurrent MCP tool calls), and SerialPort.Write carries no
+    /// thread-safety guarantee — interleaved writes corrupt frames on the
+    /// wire. Retry sleeps stay OUTSIDE the gate so a failing write never
+    /// holds it.</summary>
+    private readonly object _sendGate = new();
+
     /// <summary>RX dispatch queue. Reading bytes must finish on the
     /// SerialPort.DataReceived thread as fast as possible (the driver buffer is
     /// finite — fall behind and bytes are lost), but the subscriber chain — HTTP
@@ -182,6 +190,21 @@ public class SerialService : ISerialService, IDisposable
         return true;
     }
 
+    /// <summary>Async close. Same drain-then-close semantics as <see
+    /// cref="Close"/>, but the bounded drain wait is a real await — a caller
+    /// on the UI thread is not frozen for up to the 2s drain deadline while
+    /// the dispatch queue works through a flood. Sync Close stays for
+    /// background callers (MCP tools, shutdown paths) where blocking is
+    /// harmless.</summary>
+    public async Task<bool> CloseAsync()
+    {
+        if (_disposed) return true;
+        _reconnectCts?.Cancel();
+        await DrainPendingAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        ClosePortOnly();
+        return true;
+    }
+
     /// <summary>Waits (bounded) for the dispatch queue to drain. Does not
     /// complete the channel: SerialService instances are reopened across
     /// sessions, so the queue must outlive an individual Close.</summary>
@@ -222,8 +245,10 @@ public class SerialService : ISerialService, IDisposable
     /// always succeed — a full queue evicts the oldest entry instead of
     /// failing — so the receive loop is never blocked either way. The depth
     /// read before the write tells whether that write caused an eviction (the
-    /// queue was already full); the receive thread is the only writer in
-    /// practice, which makes this exact.</summary>
+    /// queue was already full). The receive thread is the dominant writer, but
+    /// not the only one (reconnect success notes go through here too), so the
+    /// eviction counter is exact for the common case and at worst approximate
+    /// when two writers race a full queue.</summary>
     private void DispatchRx(LogEntry entry)
     {
         var wasFull = _rxDispatch.Reader.Count >= RxQueueCapacity;
@@ -282,7 +307,10 @@ public class SerialService : ISerialService, IDisposable
             if (attempt > 0)
                 Thread.Sleep(retryDelayMs);
 
-            if (TrySendPrepared(hexBytes, text, out lastException)) return true;
+            lock (_sendGate)
+            {
+                if (TrySendPrepared(hexBytes, text, out lastException)) return true;
+            }
         }
 
         OnError?.Invoke($"[SerialService] Send failed after {maxRetries + 1} attempts: {lastException?.Message}");
@@ -314,7 +342,10 @@ public class SerialService : ISerialService, IDisposable
             if (attempt > 0)
                 await Task.Delay(retryDelayMs).ConfigureAwait(false);
 
-            if (TrySendPrepared(hexBytes, text, out lastException)) return true;
+            lock (_sendGate)
+            {
+                if (TrySendPrepared(hexBytes, text, out lastException)) return true;
+            }
         }
 
         OnError?.Invoke($"[SerialService] Send failed after {maxRetries + 1} attempts: {lastException?.Message}");
@@ -537,19 +568,7 @@ public class SerialService : ISerialService, IDisposable
                     };
                     tempPort.Open();
                     PreserveParityBytes(tempPort);
-                    ClosePortOnly();
-                    _port = tempPort;
-                    _port.DataReceived += OnSerialDataReceived;
-                    _port.ErrorReceived += OnSerialError;
-                    var msg = $"[Auto reconnect] Succeeded on attempt #{_reconnectAttempt}";
-                    DispatchRx(new LogEntry
-                    {
-                        Id = Interlocked.Increment(ref _rxEntryId),
-                        Timestamp = DateTime.Now,
-                        Direction = "RX",
-                        RawHex = "",
-                        Text = msg
-                    });
+                    AdoptReconnectedPort(token, tempPort);
                     return;
                 }
                 catch
@@ -588,6 +607,37 @@ public class SerialService : ISerialService, IDisposable
         {
             return intervalMs;
         }
+    }
+
+    /// <summary>Swaps a freshly re-opened port in as the active one. The
+    /// cancellation token is re-checked HERE, after the open succeeded:
+    /// <see cref="Close"/> cancels the token before closing the old port, and
+    /// a swap that lands after that would resurrect a port the user just
+    /// closed — and race <see cref="ClosePortOnly"/> against the closer. On
+    /// cancellation the fresh port is dropped here; the old port is left to
+    /// the closer. Internal for tests (no hardware needed to drive the
+    /// adopt/drop decision itself).</summary>
+    internal void AdoptReconnectedPort(CancellationToken token, SerialPort tempPort)
+    {
+        if (token.IsCancellationRequested)
+        {
+            try { tempPort.Close(); } catch { /* already closing/failed open */ }
+            tempPort.Dispose();
+            return;
+        }
+
+        ClosePortOnly();
+        _port = tempPort;
+        _port.DataReceived += OnSerialDataReceived;
+        _port.ErrorReceived += OnSerialError;
+        DispatchRx(new LogEntry
+        {
+            Id = Interlocked.Increment(ref _rxEntryId),
+            Timestamp = DateTime.Now,
+            Direction = "RX",
+            RawHex = "",
+            Text = $"[Auto reconnect] Succeeded on attempt #{_reconnectAttempt}"
+        });
     }
 
     public void Dispose()
