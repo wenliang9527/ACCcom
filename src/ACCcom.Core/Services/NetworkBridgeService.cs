@@ -157,7 +157,9 @@ public class NetworkBridgeService : IDisposable
                 Timestamp = DateTime.Now,
                 Direction = "TX",
                 RawHex = hexForLog,
-                Text = data
+                Text = data,
+                // Producer knows the payload size; consumers skip the hex rescan.
+                ByteCount = bytes.Length
             };
             OnDataReceived?.Invoke(entry);
             return true;
@@ -265,7 +267,8 @@ public class NetworkBridgeService : IDisposable
             Timestamp = DateTime.Now,
             Direction = "RX",
             RawHex = hex,
-            Text = text
+            Text = text,
+            ByteCount = count
         };
         OnDataReceived?.Invoke(entry);
     }

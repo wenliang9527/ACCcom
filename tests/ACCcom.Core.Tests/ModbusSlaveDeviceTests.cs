@@ -167,7 +167,11 @@ public class ModbusSlaveDeviceTests
     public void HandleRequest_MaxQuantityExceeded_ReturnsIllegalDataValue()
     {
         var device = CreateDevice();
-        var resp = device.HandleRequest(0x01, [0x00, 0x00, 0x07, 0xD0]);
+        // 2001 > the 2000-bit protocol limit: quantity violation → 0x03. (The
+        // old value 0x07D0 = 2000 is AT the limit — against the default 1024
+        // coils it was actually a range overrun, which now correctly maps to
+        // 0x02; see FC01_RangeRunsPastEnd_ReturnsIllegalDataAddress.)
+        var resp = device.HandleRequest(0x01, [0x00, 0x00, 0x07, 0xD1]);
         Assert.Equal(0x81, resp[0]); Assert.Equal(0x03, resp[1]);
     }
 
@@ -455,5 +459,57 @@ public class ModbusTcpSlaveTransportTests
         }
         catch (OperationCanceledException) { }
         Assert.Equal(0, offset);
+    }
+
+    // ── Exception-code semantics: quantity violations are 0x03 (illegal data
+    // value), ranges running past the region end are 0x02 (illegal data
+    // address). The old code had both mappings backwards for FC03/FC04. ──
+
+    [Fact]
+    public void FC03_CountOverLimit_ReturnsIllegalDataValue()
+    {
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 10);
+        var resp = device.HandleRequest(0x03, [0x00, 0x00, 0x00, 126]);
+        Assert.Equal(0x83, resp[0]);
+        Assert.Equal(0x03, resp[1]);
+    }
+
+    [Fact]
+    public void FC03_CountZero_ReturnsIllegalDataValue()
+    {
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 10);
+        var resp = device.HandleRequest(0x03, [0x00, 0x00, 0x00, 0x00]);
+        Assert.Equal(0x83, resp[0]);
+        Assert.Equal(0x03, resp[1]);
+    }
+
+    [Fact]
+    public void FC03_RangeRunsPastEnd_ReturnsIllegalDataAddress()
+    {
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 10);
+        // start 8, count 4 → 8..11 runs past a 10-register region.
+        var resp = device.HandleRequest(0x03, [0x00, 0x08, 0x00, 0x04]);
+        Assert.Equal(0x83, resp[0]);
+        Assert.Equal(0x02, resp[1]);
+    }
+
+    [Fact]
+    public void FC01_RangeRunsPastEnd_ReturnsIllegalDataAddress()
+    {
+        var device = new ModbusSlaveDevice(0x01, coils: 10);
+        var resp = device.HandleRequest(0x01, [0x00, 0x08, 0x00, 0x04]);
+        Assert.Equal(0x81, resp[0]);
+        Assert.Equal(0x02, resp[1]);
+    }
+
+    [Fact]
+    public void FC03_CountAtLimitInsideRegion_StillReads()
+    {
+        // Guard against over-rejection: 125 registers starting at 0 in a
+        // 128-register region is a legal read.
+        var device = new ModbusSlaveDevice(0x01, holdingRegisters: 128);
+        var resp = device.HandleRequest(0x03, [0x00, 0x00, 0x00, 125]);
+        Assert.Equal(0x03, resp[0]);
+        Assert.Equal(250, resp[1]); // byte count = 125 * 2
     }
 }

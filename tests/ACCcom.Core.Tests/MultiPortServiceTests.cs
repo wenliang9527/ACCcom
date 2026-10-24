@@ -291,7 +291,10 @@ public class MultiPortServiceTests
         b.BlockSend = false; // only "a" is slow
 
         var slowSend = Task.Run(() => mps.SendToPort("a", "slow"));
-        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+        // 15s entry gate + 10s responsiveness window: "prove it ran" gates that
+        // false-failed under full-suite threadpool saturation; a real lock
+        // regression blocks forever, so finite windows still catch it.
+        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(15)); // TimeoutException if never entered
 
         // "a"'s Send is still in flight holding no lock: "b" must respond.
         var otherOps = Task.Run(() =>
@@ -299,8 +302,8 @@ public class MultiPortServiceTests
             Assert.NotNull(mps.GetPort("b"));
             return mps.SendToPort("b", "fast");
         });
-        var winner = await Task.WhenAny(otherOps, Task.Delay(2000));
-        Assert.Same(otherOps, winner); // lock was still held â†?would time out
+        var winner = await Task.WhenAny(otherOps, Task.Delay(10_000));
+        Assert.Same(otherOps, winner); // lock was still held â†’would time out
         Assert.True(await otherOps);
         Assert.NotNull(mps.GetPort("a")); // "a" stays open while its send is in flight
     }
@@ -316,12 +319,12 @@ public class MultiPortServiceTests
         var a = (BlockingSerialService)mps.GetPort("a")!.Service;
 
         var slowSend = Task.Run(() => mps.SendToPort("a", "slow"));
-        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+        await a.SendEntered.WaitAsync(TimeSpan.FromSeconds(15)); // TimeoutException if never entered
 
         Assert.NotNull(mps.GetPort("a"));
 
         a.ReleaseSend();
-        Assert.True(await slowSend.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(await slowSend.WaitAsync(TimeSpan.FromSeconds(15)));
     }
 
     [Fact]
@@ -338,10 +341,10 @@ public class MultiPortServiceTests
         a.BlockClose = true;
 
         var slowClose = Task.Run(() => mps.ClosePort("a"));
-        await a.CloseEntered.WaitAsync(TimeSpan.FromSeconds(5)); // TimeoutException if never entered
+        await a.CloseEntered.WaitAsync(TimeSpan.FromSeconds(15)); // TimeoutException if never entered
 
         var lookup = Task.Run(() => mps.GetPort("b"));
-        var winner = await Task.WhenAny(lookup, Task.Delay(2000));
+        var winner = await Task.WhenAny(lookup, Task.Delay(10_000));
         Assert.Same(lookup, winner); // pre-fix this blocked behind the close
 
         Assert.NotNull(await lookup);

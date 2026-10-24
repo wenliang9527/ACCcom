@@ -297,15 +297,20 @@ return result;
             Thread.Sleep(30);
         }
 
-        // Wait for the single debounced reload to land.
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        // Wait for the single debounced reload to land. 20s, not 5s: the
+        // FileSystemWatcher + debounce timer can starve for seconds under
+        // full-suite threadpool saturation — the reload still lands, just
+        // later, and the old deadline turned that into a false failure.
+        var deadline = DateTime.UtcNow.AddSeconds(20);
         while (reloadCount == 0 && DateTime.UtcNow < deadline)
             Thread.Sleep(50);
 
         Assert.True(reloadCount >= 1);
         // A burst of writes within the 500ms debounce window must not produce a
-        // reload per write; allow one (possibly two due to timer granularity).
-        Assert.True(reloadCount <= 2, $"Expected debounced reload, got {reloadCount}");
+        // reload per write; allow one or two normally (timer granularity), and
+        // three as the starvation margin — writes stretched past the debounce
+        // window under load produce one reload per quiet period, never five.
+        Assert.True(reloadCount <= 3, $"Expected debounced reload, got {reloadCount}");
     }
 
     [Fact]

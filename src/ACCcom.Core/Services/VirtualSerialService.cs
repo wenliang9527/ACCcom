@@ -67,11 +67,26 @@ public class VirtualSerialService : ISerialService, IDisposable
         // Hex sends log the canonical spaced form so the TX entry matches every
         // other transport; an unparseable input keeps the compacted original
         // instead of throwing (Send must never fail on log formatting).
-        var hexStr = isHex
-            ? (HexHelper.TryHexStringToBytes(data, out var txBytes)
-                ? HexHelper.BytesToHexSpaced(txBytes, 0, txBytes.Length)
-                : data.Replace(" ", ""))
-            : HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
+        string hexStr;
+        int byteCount;
+        if (isHex)
+        {
+            if (HexHelper.TryHexStringToBytes(data, out var txBytes))
+            {
+                hexStr = HexHelper.BytesToHexSpaced(txBytes, 0, txBytes.Length);
+                byteCount = txBytes.Length;
+            }
+            else
+            {
+                hexStr = data.Replace(" ", "");
+                byteCount = hexStr.Length / 2;
+            }
+        }
+        else
+        {
+            hexStr = HexHelper.BytesToHexSpaced(textBytes, 0, textBytes.Length);
+            byteCount = textBytes.Length;
+        }
 
         var entry = new LogEntry
         {
@@ -79,7 +94,9 @@ public class VirtualSerialService : ISerialService, IDisposable
             Timestamp = DateTime.Now,
             Direction = "TX",
             RawHex = hexStr,
-            Text = data
+            Text = data,
+            // Producer knows the payload size; consumers skip the hex rescan.
+            ByteCount = byteCount
         };
 
         lock (_lock) _sentData.Add(entry);
@@ -103,7 +120,8 @@ public class VirtualSerialService : ISerialService, IDisposable
             Timestamp = DateTime.Now,
             Direction = "RX",
             RawHex = HexHelper.BytesToHexSpaced(bytes, 0, bytes.Length),
-            Text = System.Text.Encoding.UTF8.GetString(bytes)
+            Text = System.Text.Encoding.UTF8.GetString(bytes),
+            ByteCount = bytes.Length
         };
 
         OnDataReceived?.Invoke(entry);

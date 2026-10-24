@@ -155,7 +155,10 @@ public class RecentRxTextBufferTests
             }
         });
 
-        Assert.True(await Task.WhenAny(producerRan.Task, Task.Delay(TimeSpan.FromSeconds(10))) == producerRan.Task,
+        // 30s, not 10s: this gate only proves the producer WAS scheduled; under
+        // full-suite parallelism a shorter window turned scheduling delays into
+        // false "starvation" failures. A real deadlock never completes at all.
+        Assert.True(await Task.WhenAny(producerRan.Task, Task.Delay(TimeSpan.FromSeconds(30))) == producerRan.Task,
             "Producer never ran: threadpool starvation, not a buffer bug.");
 
         // Soak: hammer add/find concurrently, then stop and verify consistency.

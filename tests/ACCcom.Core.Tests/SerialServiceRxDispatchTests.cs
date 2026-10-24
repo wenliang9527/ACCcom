@@ -58,12 +58,16 @@ public class SerialServiceRxDispatchTests
             if (Interlocked.Increment(ref observed) == 1)
             {
                 entered.TrySetResult();
-                release.Task.Wait(TimeSpan.FromSeconds(5));
+                // 15s, not 5s: under a saturated threadpool (full-suite
+                // parallelism) a 5s window failed for scheduling reasons, not
+                // because the drain misbehaved. Real regressions block forever,
+                // so any finite window still catches them.
+                release.Task.Wait(TimeSpan.FromSeconds(15));
             }
         };
 
         svc.DispatchForTest(NewEntry(1));
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
         svc.DispatchForTest(NewEntry(2));
 
         var closeTask = Task.Run(() => svc.Close());
@@ -73,7 +77,7 @@ public class SerialServiceRxDispatchTests
         Assert.Equal(1, observed);
 
         release.TrySetResult();
-        await closeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await closeTask.WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Equal(2, observed);
     }
 

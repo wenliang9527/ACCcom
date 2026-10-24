@@ -8,8 +8,8 @@ namespace ACCcom.Core.Tests;
 /// <summary>
 /// Coarse hot-path throughput checks for the RX pipeline. Assertions use very
 /// wide lower bounds (10x+ below what the optimized path sustains) so CI on
-/// slow machines or under load never flakes, while a real regression â€?e.g.
-/// reintroducing a lock or per-frame allocation â€?that cuts throughput by an
+/// slow machines or under load never flakes, while a real regression â€”e.g.
+/// reintroducing a lock or per-frame allocation â€”that cuts throughput by an
 /// order of magnitude still trips the bound.
 /// NOTE: never run these under coverage collection (coverlet instruments the
 /// measured hot loop itself and trips the bounds); CI runs them in a separate
@@ -180,7 +180,7 @@ public class RxHotPathBenchmarkTests
 
     /// <summary>MCP traffic mirror throughput: every RX/TX entry records one
     /// JSONL line, and (before buffering) that was a synchronous per-line disk
-    /// flush on the serial DataReceived thread â€?the primary MCP RX-path
+    /// flush on the serial DataReceived thread â€”the primary MCP RX-path
     /// bottleneck. Bound is 10x+ below the buffered writer's throughput while
     /// an fsync-per-line writer lands an order of magnitude below it.</summary>
     [Fact]
@@ -228,7 +228,7 @@ public class RxHotPathBenchmarkTests
     }
 
     /// <summary>Wait-registration latency against a full ring: WaitForMatchAsync
-    /// snapshots the ring and scans it for an immediate match. Wide bound â€?
+    /// snapshots the ring and scans it for an immediate match. Wide bound â€”
     /// guards against an accidental O(nÂ²) setup, not against the scan itself
     /// (the fix moved the scan OUT of the buffer lock; see the concurrency
     /// tests in DataBufferServiceTests for the non-blocking contract).</summary>

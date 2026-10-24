@@ -63,7 +63,7 @@ public class MultiPortService : IDisposable
         }
 
         // The expensive part (real port open can take seconds) runs OUTSIDE
-        // _lock ¡ª otherwise one slow open blocks GetPort/SendToPort/close for
+        // _lock â€” otherwise one slow open blocks GetPort/SendToPort/close for
         // every other port. A concurrent opener of the same tag is resolved by
         // the double-check below (loser tears down its own service).
         var service = CreateWiredService(tag);
@@ -214,7 +214,7 @@ public class MultiPortService : IDisposable
         catch (ObjectDisposedException)
         {
             // Narrowed window: the port was removed (and disposed) between the
-            // lookup and the send â€?same observable result as a send to a port
+            // lookup and the send â€”same observable result as a send to a port
             // that was never open.
             return false;
         }

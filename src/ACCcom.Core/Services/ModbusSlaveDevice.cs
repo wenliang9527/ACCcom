@@ -93,8 +93,11 @@ public class ModbusSlaveDevice
             return ErrorResponse(funcCode, 0x03);
         if (startAddr >= bits.Length)
             return ErrorResponse(funcCode, 0x02);
+        // A range that starts inside the region but runs past its end is an
+        // address violation (02), not a value violation — it used to report
+        // 0x03, backwards vs the spec and vs the count check above.
         if (startAddr + count > bits.Length)
-            return ErrorResponse(funcCode, 0x03);
+            return ErrorResponse(funcCode, 0x02);
         var byteCount = (count + 7) / 8;
         var data = new byte[1 + byteCount];
         data[0] = (byte)byteCount;
@@ -108,8 +111,14 @@ public class ModbusSlaveDevice
     {
         var startAddr = (ushort)((pdu[0] << 8) | pdu[1]);
         var count = (ushort)((pdu[2] << 8) | pdu[3]);
-        if (count == 0 || count > 125 || startAddr + count > regs.Length)
-            return ErrorResponse(funcCode, count == 0 ? (byte)0x03 : (byte)0x02);
+        // Quantity violations are value errors (03); a range running past the
+        // region end is an address error (02). The old single condition mapped
+        // count>125 to 02 and the overrun to 03 — exactly backwards vs the
+        // spec and vs HandleReadBits' quantity check.
+        if (count == 0 || count > 125)
+            return ErrorResponse(funcCode, 0x03);
+        if (startAddr + count > regs.Length)
+            return ErrorResponse(funcCode, 0x02);
         var data = new byte[1 + count * 2];
         data[0] = (byte)(count * 2);
         for (int i = 0; i < count; i++)
