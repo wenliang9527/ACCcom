@@ -1318,3 +1318,23 @@ public class SerialToolsTests
         finally { sp.Dispose(); }
     }
 }
+
+public class SerialToolsTrafficLogFormatTests
+{
+    [Fact]
+    public void HexForTrafficLog_hex_input_is_canonicalized_to_spaced_form()
+    {
+        // Raw hex input spacing varies ("ABCD", "AB CD"); the traffic mirror
+        // must carry one canonical form so the panel and traffic_log filters
+        // see a single layout.
+        var parsed = new byte[] { 0xAB, 0xCD };
+        Assert.Equal("AB CD", SerialTools.HexForTrafficLog("ABCD", parsed));
+        Assert.Equal("AB CD", SerialTools.HexForTrafficLog("AB   CD", parsed));
+    }
+
+    [Fact]
+    public void HexForTrafficLog_text_input_logs_utf8_bytes()
+    {
+        Assert.Equal("41 42", SerialTools.HexForTrafficLog("AB", null));
+    }
+}

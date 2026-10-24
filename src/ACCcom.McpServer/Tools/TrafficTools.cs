@@ -23,15 +23,15 @@ public class TrafficTools
         _ctx = ctx;
     }
 
-    [McpServerTool, Description("Read the serial traffic flight recorder: every MCP send/receive is mirrored here, including data already consumed by read_data. Default returns the last `limit` entries; cursor mode returns entries after sinceSeq — note the returned lastSeq BEFORE your serial ops, then call again with sinceSeq to see exactly what happened (clean repro). Filters: direction (TX/RX/SYS), portTag, search (substring over text/hex/tool/port). compact=true merges text/hex into one payload field truncated to maxChars (token-friendly). Unknown direction fails with INVALID_DIRECTION; portTag matching is case-insensitive.")]
+    [McpServerTool, Description("Serial traffic flight recorder: every MCP send/receive is mirrored here, including data already consumed by read_data. Default returns the last `limit` entries; cursor mode returns entries after sinceSeq (note lastSeq before your serial ops, then call with sinceSeq for a clean repro). Filters: direction (TX/RX/SYS), portTag, search (substring over text/hex/tool/port). compact=true merges text/hex into one truncated payload field. Unknown direction fails INVALID_DIRECTION; portTag is case-insensitive.")]
     public Task<string> TrafficLog(
-        [Description("Return only entries after this seq (0 = tail mode, last `limit` entries)")] long sinceSeq = 0,
-        [Description("Max entries to return (1-500, default 50)")] int limit = 50,
-        [Description("Filter by direction: TX, RX, or SYS (port open/close events)")] string? direction = null,
-        [Description("Filter by multi-port session tag")] string? portTag = null,
-        [Description("Substring filter over text/hex/tool/portTag")] string? search = null,
-        [Description("Merge text/hex into a single payload field (token-friendly)")] bool compact = false,
-        [Description("Payload truncation for compact mode (1-4096, default 512)")] int maxChars = 512)
+        [Description("Entries after this seq (0 = tail mode, last `limit`)")] long sinceSeq = 0,
+        [Description("Max entries (1-500, default 50)")] int limit = 50,
+        [Description("TX, RX, or SYS (port open/close events)")] string? direction = null,
+        [Description("Multi-port session tag")] string? portTag = null,
+        [Description("Substring over text/hex/tool/portTag")] string? search = null,
+        [Description("Merge text/hex into one payload field")] bool compact = false,
+        [Description("compact payload truncation (1-4096, default 512)")] int maxChars = 512)
         => _ctx.Guard(() => Task.FromResult(TrafficLogCore(sinceSeq, limit, direction, portTag, search, compact, maxChars)));
 
     private string TrafficLogCore(long sinceSeq, int limit, string? direction, string? portTag, string? search, bool compact, int maxChars)
