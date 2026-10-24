@@ -2,10 +2,11 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1490 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1496 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
 
 ### Fixed
 
+- **解析器死循环可逃生 + 连续超时熔断**（`fix(core)`，2026-10-24 二轮）：实测证伪原假设——Roslyn `RunAsync` 对无 await 的脚本在**调用线程同步执行**，CPU 死循环（`while(true);`）会把组帧管线永困在 RunAsync 内部，5s 超时与一切防线都够不着。`ExecuteAsync` 把脚本提升到线程池（`Task.Run`），`WaitAsync` 期限对 CPU 脚本真正生效；代价是每次执行武装一个期限源（原「快脚本零定时器」优化与可逃生物理不可兼得，契约测试改写为「快完成 + 每次至多一个期限源」）。熔断：连续 3 次超时自动停用该解析器（成功/重载/清空复位计数），状态下拉框复位 + 状态栏提示（新增 zh/en 语言键）；坏脚本代价从「每帧一根永困线程」封顶到 3 根（脚本线程本身仍不可中止——.NET 无安全中止手段，这是上限而非消除）
 - **SerialService 三处生命周期缺陷**（2026-10-24 审计 P1/P2，`fix(core)` 358e766）：
   - **重连循环在 Close() 取消后仍可能把新打开的端口换上 `_port`**——取消检查只在循环头，`tempPort.Open()` 成功到换口之间无复查；用户已点关闭时新口被换上，留下一个「已关闭却仍打开」的端口，且与用户 Close 在 `ClosePortOnly` 内交错。换口抽取为 `AdoptReconnectedPort` 并在换口前复查令牌，取消则丢弃新口
   - **`Close()` 同步阻塞调用线程最长 2 秒**——排空等待 `GetAwaiter().GetResult()` 在 UI 线程执行（`ConnectionViewModel.ToggleOpenClose` → `SerialConnectionManager.ToggleConnection` 同步调 Close），洪流下关端口冻窗到排空上限。`ISerialService` 新增 `CloseAsync`（默认包同步 Close，轻量实现零成本），SerialService 覆写为真异步排空，关闭分支改 await——与 SendAsync 的既有先例同因同解
@@ -22,7 +23,9 @@
 
 ### Added
 
-- **docs/audit-2026-10-24.md：全面审计报告**（基线数据 + 九维度发现 + 已知遗留核实 + 修复对照表）；待确认项已列明：C# Script 死循环线程泄漏（执行模型限制）、MCP set_baud/数值序列新工具（契约变更）、plan 批次 7.4（仓库外 MCP 客户端配置，`.claude/settings.json` 仍指 bin\Debug）
+- **MCP `set_baud` 工具（第 12 号）**（`feat(mcp)`）：开口状态免复位变波特率——`SerialPort.BaudRate` 直改 DCB 不重开端口，不触碰 DTR/RTS，避免「探测波特率把设备打复位」；`ISerialService.SetBaudRate`（默认 false，测试桩零成本），SerialService 同步 `_lastConfig`（否则自动重连用旧波特率复活连接）；非正数 INVALID_CONFIG、无开口 PORT_NOT_OPEN、成功回 `{ port, baudRate, appliedBaudRate, tag }`（回实际生效值，与 open_port 的 ActiveConfig 纪律一致）；+4 测试（全 VirtualSerial 免硬件；DTR 不复位语义待真机验证）。12 工具 schema 实测 **8438 字节**，仍低于本轮 8757 基线
+- **MCP 常驻副本方案落地（plan 7.4 调整版）**（`chore`）：`tools/publish-mcp.ps1` 一键发布到 `%LOCALAPPDATA%\ACCcom\mcp-server\`（任何构建/git 操作碰不到的位置），`.claude/settings.json` 改指该副本（顺带清掉 R49 已删除的 `--proxy` 死参数）——MCP 客户端不再锁 `bin\*`，`dotnet build` 的 MSB3027/3021 反复撞锁根因消除；纪律入 CONTRIBUTING（改 McpServer 后重跑发布，防客户端连旧服务器）；仓库外 `D:\codeSMwork` 真源仍由用户按 R5 纪律自行修改
+- **docs/audit-2026-10-24.md：全面审计报告**（基线数据 + 九维度发现 + 已知遗留核实 + 修复对照表）；待确认项余：MCP 数值序列发送工具（缓，待具体设备场景）
 - 测试 +18（Core +16 / McpServer +2）：重连采纳/取消丢弃、空口 CloseAsync、并发发送干净失败、SendRouter 三向路由（TCP 回环实测）、从站异常码 ×6、生产端 ByteCount ×4（含 TCP 回环双方向）、HexForTrafficLog ×2
 
 - **三处长期无人发现的渲染缺陷**（均经真机截图核对，非代码推断）：
