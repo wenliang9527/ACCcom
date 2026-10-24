@@ -637,7 +637,8 @@ public class MainViewModel : ObservableObject, IDisposable
             new ProtocolTestRunner(),
             _serial,
             () => _connection.IsOpen,
-            msg => StatusText = msg);
+            msg => StatusText = msg,
+            _networkBridge);
 
         _protocolTestWindow = new ProtocolTestWindow(_protocolTest)
         {

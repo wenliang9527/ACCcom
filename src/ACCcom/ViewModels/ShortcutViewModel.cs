@@ -239,11 +239,7 @@ public class ShortcutViewModel : ObservableObject
         var df = _getDataFlow();
         var toSend = item.IsHex ? item.Command : df.ExpandVariables(item.Command);
 
-        bool sent;
-        if (_networkBridge?.IsConnected == true)
-            sent = _networkBridge.Send(toSend, item.IsHex);
-        else
-            sent = _serial.Send(toSend, item.IsHex);
+        var sent = SendRouter.Send(_serial, _networkBridge, toSend, item.IsHex);
 
         if (sent)
         {

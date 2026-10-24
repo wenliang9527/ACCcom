@@ -120,10 +120,7 @@ public class LoopSendViewModel : ObservableObject, IDisposable
         _loopTimer.Elapsed += (_, _) =>
         {
             if (!_getIsOpen()) return;
-            if (_networkBridge?.IsConnected == true)
-                _networkBridge.Send(text, isHex);
-            else
-                _serial.Send(text, isHex);
+            SendRouter.Send(_serial, _networkBridge, text, isHex);
         };
         _loopTimer.Start();
         IsLooping = true;

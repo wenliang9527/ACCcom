@@ -948,16 +948,13 @@ public class DataFlowViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(trimmed)) return;
         var toSend = IsHexSend ? trimmed : ExpandVariables(trimmed);
 
-        bool sent;
-        if (_networkBridge.IsConnected)
-            sent = _networkBridge.Send(toSend, IsHexSend);
-        else
-            // SerialService.Send retries once after a 500ms Thread.Sleep; on
-            // the UI thread that froze the window on a failed write.
-            // SendAsync moves the delay off this thread — the continuation
-            // resumes on it, and the status update below is the same
-            // cross-thread call OnSerialData already makes.
-            sent = await _serial.SendAsync(toSend, IsHexSend);
+        // SendRouter: bridge mode leaves through the bridge; the serial
+        // fallback goes through SendAsync — SerialService.Send retries once
+        // after a 500ms Thread.Sleep, and on the UI thread that froze the
+        // window on a failed write (the async twin's delay keeps this thread
+        // free; the status update below is the same cross-thread call
+        // OnSerialData already makes).
+        var sent = await SendRouter.SendAsync(_serial, _networkBridge, toSend, IsHexSend);
 
         if (sent)
         {

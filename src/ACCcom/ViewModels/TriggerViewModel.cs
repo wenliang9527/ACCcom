@@ -9,6 +9,7 @@ namespace ACCcom.ViewModels;
 public class TriggerViewModel : ObservableObject
 {
     private readonly ISerialService _serial;
+    private readonly NetworkBridgeService? _networkBridge;
     private readonly TriggerService _triggerService;
     private readonly LoggerService _logger;
     private readonly Action<string> _setStatus;
@@ -24,9 +25,11 @@ public class TriggerViewModel : ObservableObject
         ISerialService serial,
         TriggerService triggerService,
         Action<string> setStatus,
-        LoggerService? logger = null)
+        LoggerService? logger = null,
+        NetworkBridgeService? networkBridge = null)
     {
         _serial = serial;
+        _networkBridge = networkBridge;
         _triggerService = triggerService;
         _setStatus = setStatus;
         _logger = logger ?? new LoggerService();
@@ -118,7 +121,9 @@ public class TriggerViewModel : ObservableObject
                         // Counting happens via the TX entry the send raises
                         // (OnSerialData -> flush); a manual TxCount++ here both
                         // double-counted successful sends and counted failures.
-                        if (!_serial.Send(rule.ActionParameter, false))
+                        // SendRouter: in bridge mode the trigger's send must
+                        // leave through the bridge like every other send path.
+                        if (!SendRouter.Send(_serial, _networkBridge, rule.ActionParameter, false))
                             _setStatus(LanguageManager.Instance["Status.PortClosed"]);
                     }
                     break;

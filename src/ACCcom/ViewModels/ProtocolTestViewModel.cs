@@ -23,6 +23,7 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
 
     private readonly ProtocolTestRunner _runner;
     private readonly ISerialService _serial;
+    private readonly NetworkBridgeService? _networkBridge;
     private readonly Func<bool> _getIsOpen;
     private readonly Action<string> _setStatus;
     private readonly ConcurrentQueue<LogEntry> _rxQueue = new();
@@ -68,10 +69,12 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
         ProtocolTestRunner runner,
         ISerialService serial,
         Func<bool> getIsOpen,
-        Action<string> setStatus)
+        Action<string> setStatus,
+        NetworkBridgeService? networkBridge = null)
     {
         _runner = runner;
         _serial = serial;
+        _networkBridge = networkBridge;
         _getIsOpen = getIsOpen;
         _setStatus = setStatus;
 
@@ -224,7 +227,7 @@ public class ProtocolTestViewModel : ObservableObject, IDisposable
 
     private void SendCallback(string command, bool isHex)
     {
-        _serial.Send(command, isHex);
+        SendRouter.Send(_serial, _networkBridge, command, isHex);
     }
 
     private async Task<string?> WaitForResponseAsync(

@@ -9,6 +9,7 @@ namespace ACCcom.ViewModels;
 public class MacroViewModel : ObservableObject
 {
     private readonly ISerialService _serial;
+    private readonly NetworkBridgeService? _networkBridge;
     private readonly MacroManager _macroManager;
     private readonly Func<DataFlowViewModel> _getDataFlow;
     private readonly Func<bool> _getIsOpen;
@@ -43,9 +44,11 @@ public class MacroViewModel : ObservableObject
         MacroManager macroManager,
         Func<DataFlowViewModel> getDataFlow,
         Func<bool> getIsOpen,
-        Action<string> setStatus)
+        Action<string> setStatus,
+        NetworkBridgeService? networkBridge = null)
     {
         _serial = serial;
+        _networkBridge = networkBridge;
         _macroManager = macroManager;
         _getDataFlow = getDataFlow;
         _getIsOpen = getIsOpen;
@@ -107,7 +110,7 @@ public class MacroViewModel : ObservableObject
             df.ClearRecentRxTexts(); // waits only see responses received during this run
             var completed = await _macroManager.RunAsync(
                 macro,
-                send: (cmd, isHex) => _serial.Send(cmd, isHex),
+                send: (cmd, isHex) => SendRouter.Send(_serial, _networkBridge, cmd, isHex),
                 expandVariables: df.ExpandVariables,
                 updateStatus: status => System.Windows.Application.Current.Dispatcher.BeginInvoke(() => MacroStatus = status),
                 findResponse: df.FindRecentRxText);
