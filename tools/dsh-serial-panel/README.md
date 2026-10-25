@@ -278,6 +278,12 @@ node "$plug\test.js" client
 > **环境隔离**：`api` 模式会拒绝残留的 `DSH_SERIAL_PANEL_MAX_ENTRIES<40` 与
 > `DSH_SERIAL_PANEL_FIRST_TAIL<8192`（两者都会把断言目标行裁掉/丢掉首行，
 > 伪装成「Δt 算错」之类的假阴性）。`chunk` 模式自行设置 `FIRST_TAIL=8MiB`。
+>
+> **真实日志护栏**：本套件有几条断言会真的 `POST /clear`（方法守卫、同源放行、
+> curl 式放行），那是**真的截断** `DSH_SERIAL_PANEL_LOG` 指向的文件。因此该变量
+> 被硬性要求落在临时目录内：指向真实的 `%LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl`
+> 或任何临时目录之外的路径都会直接拒绝运行。历史事故：曾有一次 env 未生效回落到
+> 默认路径，把用户真实日志写成了 0 字节。
 
 ## 可调环境变量(Host 半区读取)
 

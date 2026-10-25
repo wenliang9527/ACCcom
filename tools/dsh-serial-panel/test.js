@@ -30,7 +30,31 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-sp-'))
 const logFile = process.env.DSH_SERIAL_PANEL_LOG
 
 if (!logFile && mode !== 'client') { console.error('DSH_SERIAL_PANEL_LOG must be set'); process.exit(1) }
-if (logFile) fs.mkdirSync(path.dirname(logFile), { recursive: true })
+
+// ---- 真实日志护栏 ----
+// 本套件里有几条断言会真的 `POST /clear`(方法守卫、同源放行、curl 式放行),
+// 那是**真的截断** DSH_SERIAL_PANEL_LOG 指向的文件。若哪天 env 漏设/拼错而回落到
+// 插件的默认路径,就会把用户真实的 %LOCALAPPDATA%\ACCcom\mcp-traffic.jsonl 清空
+// (曾发生过一次:文件被写成 0 字节)。这里直接拒绝任何指向真实日志或非临时目录的
+// 路径,让「测试污染真实数据」在物理上不可能发生,而不是靠调用者记得设 env。
+if (logFile) {
+  const resolved = path.resolve(logFile)
+  const realLog = path.resolve(path.join(
+    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'),
+    'ACCcom', 'mcp-traffic.jsonl'))
+  const tmpRoot = path.resolve(os.tmpdir())
+  if (resolved === realLog) {
+    console.error('拒绝运行:DSH_SERIAL_PANEL_LOG 指向真实日志 ' + realLog
+      + '\n本套件会真实截断该文件。请指向临时目录。')
+    process.exit(1)
+  }
+  if (!resolved.startsWith(tmpRoot + path.sep)) {
+    console.error('拒绝运行:DSH_SERIAL_PANEL_LOG 必须在临时目录内(当前 ' + resolved + ')'
+      + '\n理由同上:测试会真实截断该文件。')
+    process.exit(1)
+  }
+  fs.mkdirSync(path.dirname(resolved), { recursive: true })
+}
 
 const line = (id, dir, text, tag, ts) => JSON.stringify({
   id, tool: 'send', timestamp: ts || '2026-08-18T10:00:00.123+08:00',
