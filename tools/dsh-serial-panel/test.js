@@ -8,6 +8,9 @@
 //    node test.js api      # Δt/compact/导出/链路诊断(需要默认 MAX_ENTRIES≥40,
 //                          #   勿沿用 core 的 =5,否则环裁剪会吞掉断言目标行)
 //    node test.js client   # client.js 注册结构冒烟(stub React,不起浏览器)
+//    node test.js mcp      # MCP 启停开关 + 写路由同源防护 + body 上限
+//    node test.js chunk    # 分块尾随读 + 跨块边界多字节字符
+//    node test.js http     # 真实 http.Server 冒烟(桩测不出的连接/流式问题)
 //
 //  用环境变量把插件参数压小,便于快速触发边界:
 //    DSH_SERIAL_PANEL_LOG / DSH_SERIAL_PANEL_MAX_ENTRIES / DSH_SERIAL_PANEL_FIRST_TAIL
@@ -20,6 +23,9 @@ const path = require('path')
 const os = require('os')
 
 const mode = process.argv[2] || 'core'
+// chunk 模式要读**整份**大于 1MiB 的日志来验证分块解码,不能走首次尾部窗口。
+// 插件常量在 require 时求值,所以必须在下面 require 之前设置。
+if (mode === 'chunk') process.env.DSH_SERIAL_PANEL_FIRST_TAIL = String(8 * 1024 * 1024)
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-sp-'))
 const logFile = process.env.DSH_SERIAL_PANEL_LOG
 
@@ -151,10 +157,15 @@ const ok = (cond, label, extra) => {
   }
 
   if (mode === 'api') {
-    // 防呆:core 模式遗留的 MAX_ENTRIES=5 会把断言目标行裁出内存环
+    // 防呆:core 模式遗留的 MAX_ENTRIES=5 会把断言目标行裁出内存环;
+    // FIRST_TAIL 遗留则会让首次读走尾部窗口、丢掉首行,伪装成「Δt 算错」。
     const envMax = Number(process.env.DSH_SERIAL_PANEL_MAX_ENTRIES || 0)
     if (envMax > 0 && envMax < 40) {
       throw new Error('api 模式需要 MAX_ENTRIES≥40(或 Remove-Item Env:DSH_SERIAL_PANEL_MAX_ENTRIES 后运行)')
+    }
+    const envTail = Number(process.env.DSH_SERIAL_PANEL_FIRST_TAIL || 0)
+    if (envTail > 0 && envTail < 8192) {
+      throw new Error('api 模式需要 FIRST_TAIL≥8192 或未设置(否则尾部窗口会吞掉首行,断言变成假阴性)')
     }
 
     // T9 Δt / 链路诊断字段
@@ -226,6 +237,373 @@ const ok = (cond, label, extra) => {
     ok(rHelp405.ok === false && /GET only/.test(rHelp405.error), 'T11b help 拒绝 POST')
   }
 
+  if (mode === 'mcp') {
+    // T15 MCP 启停开关 + 写路由同源防护(v1.8.2 新增覆盖)
+    // 用可编程的 ctx 直接驱动路由,不起浏览器、不碰真实 profile。
+    fs.writeFileSync(logFile, line(1, 'TX', 'seed') + '\n')
+
+    const mkRoutes = (opts) => {
+      const r = {}
+      const fakeLoader = { entries: () => [{ id: 'include:mcp-acccom', disabled: !!opts.disabled }] }
+      const calls = { setPluginEnabled: [] }
+      const ctx = {
+        get: (n) => {
+          if (n === 'webServer') return { register: (x) => { r[x.path] = x.handler } }
+          if (n === 'loader') return opts.noLoader ? undefined : fakeLoader
+          if (n === 'pluginManager') {
+            return opts.noManager ? undefined : {
+              setPluginEnabled: (id, enabled) => {
+                calls.setPluginEnabled.push([id, enabled])
+                opts.disabled = !enabled
+                return Promise.resolve({ changed: true, application: 'applied' })
+              },
+            }
+          }
+          return undefined
+        },
+        effect: (fn) => fn(),
+      }
+      const dispose3 = require(path.join(__dirname, 'index.js')).apply(ctx)
+      return { routes: r, calls, dispose: dispose3 }
+    }
+
+    // 带 headers + 状态码的调用器(async iterable body 供 readJsonBody 用)
+    const callFull = async (routes, path, method, opts) => {
+      const o = opts || {}
+      const cap = { status: 0, body: null }
+      const bodyText = o.body === undefined ? '' : o.body
+      const req = {
+        method,
+        url: o.url || '/',
+        headers: o.headers || {},
+        async* [Symbol.asyncIterator]() {
+          if (bodyText) yield Buffer.from(bodyText, 'utf8')
+        },
+      }
+      const res = {
+        writeHead: (s) => { cap.status = s },
+        end: (t) => { try { cap.body = JSON.parse(t) } catch (e) { cap.body = t } },
+      }
+      await routes[path](req, res)
+      return cap
+    }
+
+    // --- 状态读取(loader 说 enabled / disabled 都要如实反映) ---
+    let h = mkRoutes({ disabled: true })
+    let res = await callFull(h.routes, '/api/acccom-serial/mcp', 'GET')
+    ok(res.status === 200 && res.body.mcp.available === true && res.body.mcp.enabled === false,
+      'T15 GET 状态:entry 存在且 disabled → enabled:false', res.body)
+    h.dispose()
+    h = mkRoutes({ disabled: false })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'GET')
+    ok(res.status === 200 && res.body.mcp.enabled === true, 'T15 GET 状态:未 disabled → enabled:true', res.body)
+    h.dispose()
+
+    // --- loader 里没有该条目 → available:false(UI 据此置灰 chip) ---
+    h = mkRoutes({ noLoader: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'GET')
+    ok(res.status === 200 && res.body.mcp.available === false && res.body.mcp.enabled === null,
+      'T15 loader 缺条目 → available:false', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":true}' })
+    ok(res.status === 404 && /mcp entry not found/.test(res.body.error), 'T15 缺条目时 POST 404', res.body)
+    h.dispose()
+
+    // --- 正常切换走 pluginManager ---
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":true}' })
+    ok(res.status === 200 && res.body.ok === true && res.body.changed === true && res.body.mcp.enabled === true,
+      'T15 POST 切换后 changed:true 且状态翻转', res.body)
+    ok(h.calls.setPluginEnabled.length === 1
+      && h.calls.setPluginEnabled[0][0] === 'include:mcp-acccom'
+      && h.calls.setPluginEnabled[0][1] === true,
+      'T15 切换调用 pluginManager.setPluginEnabled(include:mcp-acccom, true)', h.calls.setPluginEnabled)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":true}' })
+    ok(res.status === 200 && res.body.changed === false && h.calls.setPluginEnabled.length === 1,
+      'T15 幂等:同状态再 POST 不再调 setPluginEnabled', res.body)
+    h.dispose()
+
+    // --- pluginManager 服务缺失 → 501(而不是静默成功) ---
+    h = mkRoutes({ disabled: true, noManager: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":true}' })
+    ok(res.status === 501 && /pluginManager/.test(res.body.error), 'T15 缺 pluginManager → 501', res.body)
+    h.dispose()
+
+    // --- 畸形 body 必须 400,绝不能静默当成 enabled:false(否则=越权关闭 MCP) ---
+    h = mkRoutes({ disabled: false })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":"yes"}' })
+    ok(res.status === 400 && h.calls.setPluginEnabled.length === 0,
+      'T15 非布尔 enabled → 400 且不调 setPluginEnabled', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: 'not json' })
+    ok(res.status === 400 && h.calls.setPluginEnabled.length === 0, 'T15 坏 JSON → 400(不默认关)', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '' })
+    ok(res.status === 400 && h.calls.setPluginEnabled.length === 0, 'T15 空 body → 400', res.body)
+    h.dispose()
+
+    // --- body 上限 → 413,且**必须排空请求体**:否则 keep-alive 连接上
+    //     下一个请求会 ECONNRESET(真实 http.Server 实测到的坑,桩测不出来)。
+    h = mkRoutes({ disabled: false })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: false, pad: 'x'.repeat(70000) }) })
+    ok(res.status === 413 && h.calls.setPluginEnabled.length === 0, 'T15 超大 body → 413', { s: res.status, b: res.body })
+    h.dispose()
+
+    // --- 同源防护:跨站写一律 403(实测过 Origin: evil 能截断日志/关 MCP) ---
+    const CROSS = [
+      ['Sec-Fetch-Site: cross-site', { 'sec-fetch-site': 'cross-site' }],
+      ['异源 Origin', { origin: 'https://evil.example', host: '127.0.0.1:61808' }],
+      ['异源 Referer', { referer: 'https://evil.example/x', host: '127.0.0.1:61808' }],
+    ]
+    for (const [label, headers] of CROSS) {
+      h = mkRoutes({ disabled: false })
+      res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+        { headers: Object.assign({ 'content-type': 'application/json' }, headers), body: '{"enabled":true}' })
+      ok(res.status === 403 && /cross-origin/.test(res.body.error) && h.calls.setPluginEnabled.length === 0,
+        'T15 跨站写被拒(403):' + label, res.body)
+      res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST', { headers })
+      ok(res.status === 403 && /cross-origin/.test(res.body.error),
+        'T15 跨站 clear 被拒(403):' + label, res.body)
+      h.dispose()
+    }
+
+    // --- AGENTS.md 的干净复现工作流:curl 不带浏览器标记 → 必须仍然放行 ---
+    h = mkRoutes({ disabled: false })
+    res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST', {})
+    ok(res.status === 200 && res.body.ok === true, 'T15 无浏览器标记的 curl 式 clear 放行', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":false}' })
+    ok(res.status === 200 && res.body.changed === true, 'T15 无浏览器标记的 curl 式 MCP 切换放行', res.body)
+    h.dispose()
+
+    // --- 同源(Origin 与 Host 一致)→ 放行 ---
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      {
+        headers: {
+          'content-type': 'application/json',
+          'sec-fetch-site': 'same-origin',
+          origin: 'http://127.0.0.1:61808',
+          host: '127.0.0.1:61808',
+        },
+        body: '{"enabled":true}',
+      })
+    ok(res.status === 200 && res.body.changed === true, 'T15 页内同源写放行', res.body)
+    h.dispose()
+
+    // --- 桌面端(Electron)形态:必须放行,否则 MCP 开关在桌面版点了没反应 ---
+    // 桌面壳自定义协议 dsh-app://app 载入界面,forwardWebRequest 会剥掉
+    // host/origin/cookie/sec-fetch-site 再转发 → 后端看到的是「无标记」请求。
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      { headers: { 'content-type': 'application/json' }, body: '{"enabled":true}' })
+    ok(res.status === 200 && res.body.changed === true,
+      'T15 桌面端形态(无 origin/sec-fetch-site)开关放行', res.body)
+    ok(h.calls.setPluginEnabled.length === 1, 'T15 桌面端点击确实调到 setPluginEnabled', h.calls.setPluginEnabled)
+    h.dispose()
+
+    // 桌面壳若将来不再剥头,Origin 会是 dsh-app://app;且跨 scheme 访问必然带
+    // Sec-Fetch-Site: cross-site。这条必须放行(否则桌面端开关再次失效)。
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      {
+        headers: {
+          'content-type': 'application/json',
+          origin: 'dsh-app://app',
+          'sec-fetch-site': 'cross-site', // 跨 scheme 的真实标记
+          host: '127.0.0.1:61808',
+        },
+        body: '{"enabled":true}',
+      })
+    ok(res.status === 200 && res.body.changed === true,
+      'T15 桌面端 Origin=dsh-app://app(即使带 cross-site)仍放行', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST',
+      { headers: { origin: 'dsh-app://app', 'sec-fetch-site': 'cross-site', host: '127.0.0.1:61808' } })
+    ok(res.status === 200, 'T15 桌面端 clear 同样放行', res.body)
+    h.dispose()
+
+    // 但 dsh-app:// 以外的自定义协议不能网开一面
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'POST',
+      {
+        headers: { 'content-type': 'application/json', origin: 'dsh-appx://app', host: '127.0.0.1:61808' },
+        body: '{"enabled":true}',
+      })
+    ok(res.status === 403, 'T15 近似协议名(dsh-appx://)不被误放行', res.body)
+    h.dispose()
+
+    // --- GET 不受同源判定影响(异源 Origin 的读请求照常),方法守卫仍在 ---
+    h = mkRoutes({ disabled: true })
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'GET',
+      { headers: { origin: 'https://evil.example' } })
+    ok(res.status === 200, 'T15 异源 GET 只读放行(写才拦)', res.body)
+    res = await callFull(h.routes, '/api/acccom-serial/mcp', 'PUT', {})
+    ok(res.status === 405, 'T15 PUT → 405 方法守卫', res.body)
+    h.dispose()
+  }
+
+  if (mode === 'chunk') {
+    // T16 v1.8.2 分块读(1MiB/块 + 流式 TextDecoder):
+    //   1) 大于一块的增量必须完整解析;
+    //   2) **多字节字符必须正好骑在块边界上**——这是分块解码最典型的坑。
+    //      不能靠"大概会跨"，必须精确算出偏移并自校验(否则测试是假牙)。
+    const CHUNK = 1024 * 1024
+    const filler = 'a'.repeat(4000)
+    const rows = []
+    let total = 0
+    let guard = 0
+    while (total < CHUNK - 20000 && guard++ < 1000) {
+      const r = line(rows.length + 1, 'TX', filler, '', '2026-08-18T10:00:00.000+08:00')
+      rows.push(r)
+      total += Buffer.byteLength(r + '\n', 'utf8')
+    }
+    // 现在精确构造一行,让其中「汉」的首字节正好落在 CHUNK-1
+    // (即 1 字节在块 1、2 字节在块 2 —— 最坏切法)
+    const mkStraddler = (k) => JSON.stringify({
+      id: rows.length + 1, tool: 'straddle', timestamp: '2026-08-18T10:00:01.000+08:00',
+      direction: 'RX', rawHex: '', text: 'a'.repeat(k) + '汉字跨块' + 'b'.repeat(10), portTag: '',
+    })
+    const prefixLen = total // 本行之前的全部字节(每行都含尾随 \n)
+    const probe = mkStraddler(0)
+    const offInLine = Buffer.byteLength(probe.slice(0, probe.indexOf('汉')), 'utf8')
+    const k = CHUNK - 1 - prefixLen - offInLine
+    if (k < 0 || k > 600000) throw new Error('chunk 模式构造失败:k=' + k + '(调整填充步长)')
+    const straddler = mkStraddler(k)
+    rows.push(straddler)
+    for (let i = 0; i < 8; i++) {
+      rows.push(line(rows.length + 1, i % 2 ? 'TX' : 'RX', '尾部-' + i, '', '2026-08-18T10:00:02.000+08:00'))
+    }
+    const buf = Buffer.from(rows.join('\n') + '\n', 'utf8')
+    fs.writeFileSync(logFile, buf)
+    const fileSize = buf.length
+    const wantText = 'a'.repeat(k) + '汉字跨块' + 'b'.repeat(10)
+
+    // 自校验:确认"汉"的字面字节确实在 CHUNK-1 处被切开
+    const han = Buffer.from('汉', 'utf8') // e6 b1 89
+    const cutOk = buf[CHUNK - 1] === han[0] && buf[CHUNK] === han[1] && buf[CHUNK + 1] === han[2]
+    ok(cutOk, 'T16 前置条件:多字节字符精确骑在块边界上', {
+      at: [buf[CHUNK - 1], buf[CHUNK], buf[CHUNK + 1]].map((b) => b.toString(16)),
+      want: [...han].map((b) => b.toString(16)),
+    })
+    ok(rows.length < 300, 'T16 前置条件:条目数少于首屏上限 300(可单次取全)', rows.length)
+    ok(fileSize > CHUNK, 'T16 前置条件:日志大于单块(1MiB)', fileSize)
+
+    const fresh = require(path.join(__dirname, 'index.js'))
+    const r3 = {}
+    const ctx3 = {
+      get: (n) => (n === 'webServer' ? { register: (r) => { r3[r.path] = r.handler } } : undefined),
+      effect: (fn) => fn(),
+    }
+    dispose2 = fresh.apply(ctx3)
+    const got = await new Promise((resolve) => {
+      const rr = { writeHead() {}, end: (t) => resolve(JSON.parse(t)) }
+      r3['/api/acccom-serial']({ method: 'GET', url: '/?since=0' }, rr)
+    })
+
+    ok(got.stats.badLines === 0, 'T16 分块读无坏行(块边界未截断 JSON 行)', got.stats.badLines)
+    ok(got.entries.length === rows.length, 'T16 分块读条目数与写入行数一致',
+      { got: got.entries.length, want: rows.length })
+    const straddleEntry = got.entries.find((e) => e.tool === 'straddle')
+    ok(!!straddleEntry && straddleEntry.text === wantText,
+      'T16 跨块边界的多字节字符未被劈开(内容逐字节一致)', straddleEntry && {
+        len: (straddleEntry.text || '').length, want: wantText.length,
+      })
+    const hasReplacement = got.entries.some((e) => String(e.text || '').indexOf('\uFFFD') >= 0)
+    ok(!hasReplacement, 'T16 全量文本无 U+FFFD 替换符')
+  }
+
+  if (mode === 'http') {
+    // T17 真实 http.Server 冒烟:把路由挂到真的 http 服务器上,用真的
+    // IncomingMessage/ServerResponse 打一遍。桩(手写 req/res)测不出:
+    //   * keep-alive 连接被未排空的请求体污染(413 之后的 ECONNRESET);
+    //   * fetch 归一化后的 header 大小写与 undici 的分块发送行为。
+    fs.writeFileSync(logFile, line(1, 'TX', 'A', 'COM1') + '\n')
+    const http = require('http')
+    const handlers = {}
+    const setCalls = []
+    const dispose3 = require(path.join(__dirname, 'index.js')).apply({
+      get: (n) => {
+        if (n === 'webServer') return { register: (r) => { handlers[r.path] = r.handler } }
+        if (n === 'loader') return { entries: () => [{ id: 'include:mcp-acccom', disabled: true }] }
+        if (n === 'pluginManager') {
+          return { setPluginEnabled: (id, en) => { setCalls.push([id, en]); return Promise.resolve({}) } }
+        }
+        return undefined
+      },
+      effect: (fn) => fn(),
+    })
+    const server = http.createServer((req, res) => {
+      const h = handlers[req.url.split('?')[0]]
+      if (!h) { res.writeHead(404); res.end('nf'); return }
+      Promise.resolve(h(req, res)).catch((e) => { res.writeHead(500); res.end(String(e)) })
+    })
+    await new Promise((r) => server.listen(0, '127.0.0.1', r))
+    const base = 'http://127.0.0.1:' + server.address().port
+    const hit = async (p, opts) => {
+      const res = await fetch(base + p, opts)
+      let body = null
+      try { body = await res.json() } catch (e) { body = null }
+      return { status: res.status, body }
+    }
+    try {
+      let r = await hit('/api/acccom-serial?stats=1')
+      ok(r.status === 200 && r.body.stats.tx === 1, 'T17 真实 http:GET 统计正常', { s: r.status })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"enabled":true}',
+      })
+      ok(r.status === 200 && r.body.changed === true, 'T17 真实 http:无浏览器标记的写放行', { s: r.status, b: r.body })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST', headers: { 'content-type': 'application/json', 'sec-fetch-site': 'cross-site' },
+        body: '{"enabled":false}',
+      })
+      ok(r.status === 403, 'T17 真实 http:Sec-Fetch-Site cross-site → 403', { s: r.status, b: r.body })
+
+      r = await hit('/api/acccom-serial/clear', { method: 'POST', headers: { origin: 'https://evil.example' } })
+      ok(r.status === 403, 'T17 真实 http:异源 Origin clear → 403', { s: r.status, b: r.body })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: base, 'sec-fetch-site': 'same-origin' },
+        body: '{"enabled":false}',
+      })
+      ok(r.status === 200, 'T17 真实 http:同源 Origin 放行', { s: r.status, b: r.body })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"enabled":"nope"}',
+      })
+      ok(r.status === 400, 'T17 真实 http:非布尔 → 400', { s: r.status })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: '{{{',
+      })
+      ok(r.status === 400, 'T17 真实 http:坏 JSON → 400', { s: r.status })
+
+      r = await hit('/api/acccom-serial/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: false, pad: 'x'.repeat(200000) }),
+      })
+      ok(r.status === 413, 'T17 真实 http:200KB body → 413', { s: r.status })
+
+      // 关键回归:413 之后同一连接上的下一个请求必须成功(请求体已排空)
+      r = await hit('/api/acccom-serial?stats=1')
+      ok(r.status === 200 && r.body.ok === true, 'T17 413 之后连接仍可用(请求体已排空)', { s: r.status })
+
+      const exp = await fetch(base + '/api/acccom-serial/export?format=csv')
+      ok(exp.status === 200 && /csv/.test(exp.headers.get('content-type') || ''), 'T17 真实 http:export csv')
+    } finally {
+      await new Promise((r) => server.close(r))
+      if (typeof dispose3 === 'function') dispose3()
+    }
+  }
+
   if (mode === 'client') {
     // T12 client.js 注册结构冒烟:stub 模块环境,验证两条注册分支不跑浏览器
     const ReactStub = {
@@ -288,6 +666,34 @@ const ok = (cond, label, extra) => {
     un()
     bs.update(20)
     ok(events.length === 3, 'T14 退订后不再通知')
+
+    // T15(客户端纯函数)v1.8.2 新增
+    const tcp = mod._test.truncateCodePoints
+    ok(tcp('😀😀😀', 2) === '😀😀', 'T15b 码点截断不劈开代理对', tcp('😀😀😀', 2))
+    ok(tcp('abc', 5) === 'abc', 'T15b 未超限原样返回')
+    const sm = mod._test.sameMcp
+    ok(sm({ available: true, enabled: false }, { available: true, enabled: false }) === true,
+      'T15b sameMcp 同状态判等')
+    ok(sm({ available: true, enabled: false }, { available: true, enabled: true }) === false,
+      'T15b sameMcp 外部改开关必须判不等(chip 才会刷新)')
+    ok(sm(undefined, undefined) === true && sm(null, null) === true, 'T15b sameMcp 双空判等')
+    ok(sm(undefined, { available: true }) === false, 'T15b sameMcp 单空判不等')
+    // 嵌套 mcp 参与 stats 比较:这是「外部改开关后 chip 显示旧值」那个 bug 的回归点
+    const base = { tx: 1, rx: 2, mcp: { available: true, enabled: false } }
+    ok(mod._test.sameStats(base, Object.assign({}, base, { mcp: { available: true, enabled: false } })) === true,
+      'T15b sameStats:mcp 未变 → 判等(不制造多余重渲染)')
+    ok(mod._test.sameStats(base, Object.assign({}, base, { mcp: { available: true, enabled: true } })) === false,
+      'T15b sameStats:mcp 变了 → 判不等')
+
+    // 徽章轮询让位:面板 live 时 isPanelLive() 应为真,退出后归零
+    const bs2 = mod._test.badgeStore
+    const before = bs2.isPanelLive()
+    bs2.panelLive(true)
+    ok(bs2.isPanelLive() === true, 'T15b panelLive(true) 后 isPanelLive 为真')
+    bs2.panelLive(false)
+    ok(bs2.isPanelLive() === before, 'T15b panelLive(false) 后复原')
+    bs2.panelLive(false)
+    ok(bs2.livePanel >= 0, 'T15b livePanel 不会变成负数(多实例卸载安全)', bs2.livePanel)
 
     // v1.6.x 注册契约(与 dsh-ocdup-panel v1.3.3/v1.3.4 对齐):
     //   body 无条件注册进 main keyed slot,key = panellist id(严格同值)——宿主

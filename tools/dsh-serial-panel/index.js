@@ -1,6 +1,18 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.7.1
+//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.8.2
+//
+//  v1.8.2(安全 + 健壮性,数据契约零变化):
+//   * 写路由同源判定:POST 校验 Sec-Fetch-Site / Origin / Referer,跨站页面伪造的
+//     简单请求一律 403(此前任何人都能 POST /clear 截断日志、POST /mcp 关掉 MCP);
+//     curl/agent 这类不带浏览器标记的非浏览器客户端仍然放行(AGENTS.md 的干净复现
+//     工作流不受影响),桌面端 dsh-app://app 显式放行(详见 crossOriginWrite 注释)。
+//   * POST /mcp 的 body 必须是显式布尔 {enabled:true|false}:旧实现把解析失败的
+//     body 一律读成 enabled:false,畸形请求 = 静默关闭 MCP。
+//   * 增量尾随改分块读(1MiB/块 + 流式 TextDecoder):不再按 delta 大小整块分配,
+//     也不再一次性阻塞读完整段增量;跨块边界的多字节字符不会被劈开。
+//   * POST JSON body 加上限(64KiB),超限回 413 并排空请求体
+//     (不排空会污染 keep-alive,下一个请求 ECONNRESET)。
 //
 //  v1.7.1:注册契约对齐宿主 0.2.0-rc.2(修「侧栏图标点了没反应」)——纯 Client 侧,
 //  数据层无变化,Host 继续哑管道;仅版本号随插件整体 bump。
@@ -65,11 +77,103 @@ function logPath() {
 }
 
 function jsonResponse(res, status, body) {
+  // 413 等提前拒绝的场景:请求体可能还没读完。不声明 Connection: close 并排空,
+  // 未消费的 body 会污染 keep-alive 连接,下一个请求直接 ECONNRESET(真实 http 实测)。
+  if (status === 413 && typeof res.setHeader === 'function') {
+    try { res.setHeader('connection', 'close') } catch (e) { /* ignore */ }
+  }
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
   })
   res.end(JSON.stringify(body))
+}
+
+// ---- 写路由同源保护 ----
+// DSH 宿主的 isTrustedApiRequest 只护 Remote/API 层,webServer.register 挂的自定义
+// 路由完全不经它;所以本插件必须自己判。攻击面是「跨站页面的简单请求」:
+// 任意网页都能 POST /api/acccom-serial/clear(截断共享日志)或 /mcp(关掉 MCP),
+// 无需 preflight、响应读不到也不要紧——副作用已经发生。
+
+/** 大小写不敏感的取头(真实 IncomingMessage 全是小写,这里同时容忍测试桩)。 */
+function headerOf(headers, name) {
+  if (!headers) return undefined
+  const direct = headers[name]
+  if (direct !== undefined) return direct
+  const lower = name.toLowerCase()
+  if (headers[lower] !== undefined) return headers[lower]
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) return headers[key]
+  }
+  return undefined
+}
+
+/** URL 的 authority(含端口),解析失败返回 null。 */
+function authorityOf(url) {
+  try { return new URL(String(url)).host.toLowerCase() } catch (e) { return null }
+}
+
+/**
+ * 判定一次写请求是否来自同源页面。
+ * @returns null = 放行;否则返回拒绝原因(供 403 响应体)
+ *
+ * 判据顺序:Sec-Fetch-Site → Origin → Referer。三者皆无视为非浏览器客户端
+ * (curl / agent 脚本),放行——那是 AGENTS.md 记录的干净复现工作流。浏览器发出的
+ * 跨站写请求一定带 `Sec-Fetch-Site: cross-site`(或异源 Origin),被挡住。
+ *
+ * ── 关于桌面端(Electron)──
+ * 桌面壳用自定义协议 `dsh-app://app/` 载入界面(见宿主 registerSchemesAsPrivileged),
+ * 所以页面内 fetch 的 Origin 是 `dsh-app://app`。但桌面壳的 forwardWebRequest 会把
+ * `host/origin/cookie/sec-fetch-site` 四个头**全部剥掉**再转发给后端,因此插件实际
+ * 收到的是「无 Origin、无 Sec-Fetch-Site」→ 走下面的放行分支,桌面端开关正常。
+ *
+ * 即便如此这里仍显式接纳 `dsh-app://app`:它不可能被外部网站伪造(Scheme 注册在
+ * 桌面进程内,普通网页拿不到),而一旦将来宿主不再剥头,这条兼容分支能避免把桌面端
+ * 自己的写请求判成跨站——即「宁可显式允许一个不可伪造的来源,也不依赖上游一直剥头」。
+ */
+const DESKTOP_ORIGIN = 'dsh-app://app'
+
+function crossOriginWrite(req) {
+  const method = String((req && req.method) || 'GET').toUpperCase()
+  if (method !== 'POST') return null
+  const headers = req && req.headers
+  if (!headers) return null // 无头部信息:无法判定,不阻断(仅测试桩会走到)
+
+  const origin = headerOf(headers, 'origin')
+  // 桌面壳必须先判:它从 `dsh-app://app` 访问 `http://127.0.0.1:port` 属于跨 scheme,
+  // 浏览器会标成 Sec-Fetch-Site: cross-site。若先看 sec-fetch-site,会在读到
+  // Origin 之前就误拒桌面端自己的写请求(开关会「点了没反应」)。
+  if (origin !== undefined && origin !== null && String(origin).toLowerCase() === DESKTOP_ORIGIN) return null
+
+  const site = String(headerOf(headers, 'sec-fetch-site') || '').toLowerCase()
+  if (site && site !== 'same-origin' && site !== 'none') return 'Sec-Fetch-Site: ' + site
+
+  const host = String(headerOf(headers, 'host') || '').toLowerCase()
+  if (origin !== undefined && origin !== null) {
+    const auth = authorityOf(origin)
+    if (!auth || !host || auth !== host) return 'Origin: ' + String(origin)
+    return null
+  }
+
+  const referer = headerOf(headers, 'referer')
+  if (referer !== undefined && referer !== null) {
+    if (String(referer).toLowerCase().indexOf(DESKTOP_ORIGIN) === 0) return null
+    const auth = authorityOf(referer)
+    if (!auth || !host || auth !== host) return 'Referer: ' + String(referer)
+  }
+  return null
+}
+
+const MAX_JSON_BODY = 64 * 1024        // POST body 上限
+const CHUNK_BYTES = 1024 * 1024        // 增量尾随的单块读上限
+
+/** body 超限信号(处理分支转 413;不能静默回落成 {}——那会被读成 enabled:false)。 */
+class BodyTooLarge extends Error {
+  constructor() {
+    super('request body exceeds ' + MAX_JSON_BODY + ' bytes')
+    this.name = 'BodyTooLarge'
+    this.status = 413
+  }
 }
 
 /** 码点安全截断:普通 slice 可能劈开代理对,JSON 序列化会产出孤立代理。 */
@@ -149,9 +253,33 @@ module.exports = {
     }
     const readJsonBody = async (req) => {
       const chunks = []
-      for await (const c of req) chunks.push(c)
+      let total = 0
+      try {
+        for await (const c of req) {
+          total += c.length
+          // 超限直接中止:静默截断成 {} 会让「超大 body」被解释成 enabled:false,
+          // 那等于一次越权关闭 MCP,所以必须显式拒绝而不是回落默认值。
+          if (total > MAX_JSON_BODY) throw new BodyTooLarge()
+          chunks.push(c)
+        }
+      } catch (e) {
+        // 超限时把剩余请求体读掉再抛:提前停止 for-await 会留下未消费的字节,
+        // keep-alive 连接上的下一个请求就会 ECONNRESET(真实 http 实测)。
+        if (e instanceof BodyTooLarge) {
+          try { for await (const _ of req) { /* drain */ } } catch (e2) { /* ignore */ }
+        }
+        throw e
+      }
       if (!chunks.length) return {}
       try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch (e) { return {} }
+    }
+
+    // 写请求同源校验:不通过则回 403 并返回 true(各 POST 处理分支据此提前 return)
+    const blockedForeignWrite = (req, res) => {
+      const reason = crossOriginWrite(req)
+      if (!reason) return false
+      jsonResponse(res, 403, { ok: false, error: 'cross-origin write refused', detail: reason })
+      return true
     }
 
     const file = logPath()
@@ -243,16 +371,31 @@ module.exports = {
 
         const fd = fs.openSync(file, 'r')
         try {
-          const buf = Buffer.allocUnsafe(st.size - from)
-          const read = fs.readSync(fd, buf, 0, buf.length, from)
-          offset = st.size
+          // v1.8.2:分块读 + 流式解码。旧实现按 `st.size - from` 一次性 allocUnsafe
+          // 并阻塞读完整段增量——写入端突发长帧时既可能有巨大临时缓冲,又让
+          // 单次 tail() 长时间占住事件循环。现在按 CHUNK_BYTES 逐块读,块间共享
+          // 一个 TextDecoder(stream:true)保证多字节字符不被块边界劈开。
+          const target = st.size
+          offset = target
           firstRead = false
-          let text = buf.toString('utf8', 0, read)
-          if (dropPartial) {
-            const nl = text.indexOf('\n')
-            text = nl >= 0 ? text.slice(nl + 1) : '' // 本窗口还没写满一行:整段丢弃
+          const decoder = new TextDecoder('utf-8')
+          let dropFirst = dropPartial
+          let pos = from
+          while (pos < target) {
+            const want = Math.min(CHUNK_BYTES, target - pos)
+            const buf = Buffer.allocUnsafe(want)
+            const read = fs.readSync(fd, buf, 0, want, pos)
+            if (read <= 0) break
+            pos += read
+            let text = decoder.decode(buf.subarray(0, read), { stream: pos < target })
+            if (dropFirst) {
+              // 尾部窗口起点落在行中间:丢掉本窗口的第一段残行
+              const nl = text.indexOf('\n')
+              text = nl >= 0 ? text.slice(nl + 1) : ''
+              if (nl >= 0) dropFirst = false
+            }
+            if (text) consume(text)
           }
-          if (text) consume(text)
         } finally {
           try { fs.closeSync(fd) } catch (e) { /* ignore */ }
         }
@@ -329,6 +472,7 @@ module.exports = {
             jsonResponse(res, 405, { ok: false, error: 'POST only' })
             return
           }
+          if (blockedForeignWrite(req, res)) return // v1.8.2:跨站页面不许截断共享日志
           // 截断共享日志(MCP 侧检测收缩会自动重开);目录不存在则先建
           try {
             const dir = path.dirname(file)
@@ -412,6 +556,7 @@ module.exports = {
             jsonResponse(res, 405, { ok: false, error: 'GET or POST only' })
             return
           }
+          if (blockedForeignWrite(req, res)) return // v1.8.2:跨站页面不许关掉 MCP
           const current = mcpState()
           if (!current.available) {
             jsonResponse(res, 404, { ok: false, error: 'mcp entry not found: ' + MCP_ENTRY_ID })
@@ -422,7 +567,13 @@ module.exports = {
             return
           }
           const body = await readJsonBody(req)
-          const enabled = !!(body && body.enabled === true)
+          // v1.8.2:必须是显式布尔。旧实现 `!!(body && body.enabled === true)` 会把
+          // 解析失败的 body / 漏传字段一律当成 false,即「一次畸形请求 = 静默关闭 MCP」。
+          if (!body || typeof body.enabled !== 'boolean') {
+            jsonResponse(res, 400, { ok: false, error: 'body must be {"enabled": true|false}' })
+            return
+          }
+          const enabled = body.enabled
           if (current.enabled === enabled) {
             jsonResponse(res, 200, { ok: true, mcp: current, changed: false })
             return
@@ -430,6 +581,10 @@ module.exports = {
           await pluginManager.setPluginEnabled(MCP_ENTRY_ID, enabled)
           jsonResponse(res, 200, { ok: true, mcp: mcpState(), changed: true })
         } catch (error) {
+          if (error instanceof BodyTooLarge || (error && error.status === 413)) {
+            jsonResponse(res, 413, { ok: false, error: error.message })
+            return
+          }
           jsonResponse(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
         }
       },

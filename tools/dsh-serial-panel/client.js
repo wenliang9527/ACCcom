@@ -1,6 +1,19 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.7.1
+//  dsh-serial-panel — Client 半区(浏览器面板,永久 cordis 插件)  v1.8.2
+//
+//  v1.8.2(体验 + 性能修正,数据契约零变化):
+//   * Row 的 React.memo 此前形同虚设:内联 `onPort` 箭头每次渲染都是新引用,
+//     memo 浅比较必然判不等 → 每次输入/每轮轮询都重渲满 300 行。改 useCallback
+//     后恢复正常(其余 props 已稳定)。
+//   * 空态拆两态:「还没数据」与「有数据但过滤无命中」是两回事。此前后者也显示
+//     「尚未发现日志…首次 AI 串口通信后自动出现」,等于给用户一个假诊断。
+//   * 历史可达:列表此前只挂载最近 300 行,5000 条内存环里更早的条目在 UI 上
+//     根本翻不到。新增「加载更早」按需扩窗 + 滚动锚定(补进的上方行不会把视口
+//     顶走),过滤器变化时自动收回默认窗口。
+//   * 行内 payload 截断改码点安全(此前 slice 可能劈开代理对,Host 侧早有
+//     truncateCodePoints 却没复用)。
+//   * sameStats 纳入 mcp:MCP 开关状态被外部改变时 chip 不再显示旧值。
 //
 //  v1.7.1 修复「侧边栏 ACCCOM 串口点了没反应」(与 dsh-ocdup-panel v1.3.3 同病灶):
 //   宿主 0.2.0-rc.2 的 ui-sidebar PanelRow 自己绑 onClick →
@@ -102,7 +115,8 @@ window.__ModuleLoader__.load({
     const POLL_HIDDEN_MS = 2000  // 面板不可见
     const POLL_PAUSED_MS = 1500  // 用户暂停
     const MAX_ROWS_KEPT = 5000   // 与 Host MAX_ENTRIES 对齐
-    const MAX_RENDER_ROWS = 300  // 单次实际挂载的行数
+    const MAX_RENDER_ROWS = 300  // 首屏实际挂载的行数(= 默认窗口)
+    const LOAD_MORE_ROWS = 300   // 「加载更早」每次向上扩窗的行数
     const ROW_PAYLOAD_MAX = 4000 // 行内 payload 显示上限(详情区不受限)
 
     // ---- 偏好(localStorage,带版本号) ----
@@ -117,13 +131,21 @@ window.__ModuleLoader__.load({
     const fmtBytes = (n) => (n >= 1024 ? (n / 1024).toFixed(1) + 'K' : String(n | 0))
 
     // ---- 流量徽章共享态:图标轮询推进 lastSeq,面板可见时标记已读 ----
+    // v1.8.2:`livePanel` 计数 > 0 表示有面板实例正在实时显示(可见 + 未暂停 + 未挂起)。
+    // 此时图标那条 5s `?stats=1` 轮询没有意义——面板自己的主轮询已经在推进水位,
+    // 让图标跳过请求可以省掉整整一半的轮询量(两处都开着时)。
     const badgeStore = {
       lastSeq: 0,
       lastSeenSeq: 0,
+      livePanel: 0,
       subs: new Set(),
       update(seq) { if (seq > this.lastSeq) { this.lastSeq = seq; this.notify() } },
       markSeen(seq) { if (seq > this.lastSeenSeq) { this.lastSeenSeq = seq; this.notify() } },
       unread() { return this.lastSeq > this.lastSeenSeq },
+      panelLive(on) {
+        this.livePanel = Math.max(0, this.livePanel + (on ? 1 : -1))
+      },
+      isPanelLive() { return this.livePanel > 0 },
       notify() { for (const fn of this.subs) { try { fn() } catch (e) { /* 订阅者异常不扩散 */ } } },
       subscribe(fn) { this.subs.add(fn); return () => this.subs.delete(fn) },
     }
@@ -355,6 +377,12 @@ window.__ModuleLoader__.load({
           '  font-family: var(--sp-mono); font-size: 10px; color: var(--sp-ink-3);',
           '  border-bottom: 0.5px solid var(--sp-hair); white-space: nowrap;',
           '}',
+          // 「加载更早」条:列表顶部,把窗口外更早的条目拉回来
+          '.sp-more {',
+          '  display: flex; justify-content: center; padding: 6px 10px;',
+          '  border-bottom: 0.5px solid var(--sp-hair);',
+          '  background: var(--sp-sunken);',
+          '}',
           '.sp-gap::before, .sp-gap::after {',
           '  content: ""; flex: 1; height: 1px;',
           '  background: repeating-linear-gradient(90deg, var(--sp-hair) 0 4px, transparent 4px 8px);',
@@ -542,13 +570,25 @@ window.__ModuleLoader__.load({
     // stats 浅比较:Host 每轮都回一个全新对象,不比较就会每轮触发重渲染
     const STATS_KEYS = ['tx', 'rx', 'txBytes', 'rxBytes', 'lastAt', 'exists', 'kept', 'lastSeq',
       'badLines', 'logSize', 'logMtimeMs', 'rotated']
+    const sameMcp = (a, b) => {
+      if (!a || !b) return a === b
+      return a.available === b.available && a.enabled === b.enabled
+    }
     const sameStats = (a, b) => {
       if (!a || !b) return false
       for (let i = 0; i < STATS_KEYS.length; i++) {
         const k = STATS_KEYS[i]
         if (a[k] !== b[k]) return false
       }
-      return true
+      // mcp 是嵌套对象,单独比:否则外部改了 disabled(插件管理器/别的工具)之后,
+      // 面板 chip 会一直显示旧状态,直到某个顶层 stats 字段恰好变化。
+      return sameMcp(a.mcp, b.mcp)
+    }
+
+    // 码点安全截断(与 Host 侧 truncateCodePoints 同语义):slice 可能劈开代理对
+    const truncateCodePoints = (s, max) => {
+      const pts = Array.from(String(s))
+      return pts.length > max ? pts.slice(0, max).join('') : String(s)
     }
 
     let ctxRef = null // apply 时捕获,供图标兜底切换面板用
@@ -567,9 +607,11 @@ window.__ModuleLoader__.load({
 
     // ---- 组件:行条目(memo:引用未变的行不重渲染) ----
     // 视觉走 class(脊线/徽章/等宽),布局参数留在内联(列宽是运行时手势)。
+    // 注意:本组件的 memo 只在**所有 props 引用稳定**时才生效。调用点必须用
+    // useCallback 提供 onSelect/onPort,用内联箭头会让 memo 每轮都失效(v1.8.2 修)。
     const Row = React.memo(function Row({ e, hex, selected, onSelect, matcher, onPort }) {
       const raw = hex ? (fmtHex(e.hex) || e.text) : (e.text || fmtHex(e.hex))
-      const payload = raw.length > ROW_PAYLOAD_MAX ? raw.slice(0, ROW_PAYLOAD_MAX) + ' …' : raw
+      const payload = raw.length > ROW_PAYLOAD_MAX ? truncateCodePoints(raw, ROW_PAYLOAD_MAX) + ' …' : raw
       const payloadChildren = !matcher ? payload
         : matcher instanceof RegExp ? highlightRe(payload, matcher)
         : highlight(payload, matcher)
@@ -625,6 +667,8 @@ window.__ModuleLoader__.load({
       const [confirmClear, setConfirmClear] = React.useState(false)
       const [search, setSearch] = React.useState('')
       const [selected, setSelected] = React.useState(null)
+      // 渲染窗口行数(v1.8.2):默认 MAX_RENDER_ROWS,「加载更早」按 LOAD_MORE_ROWS 递增
+      const [renderLimit, setRenderLimit] = React.useState(MAX_RENDER_ROWS)
       const lastSeqRef = React.useRef(0)
       const pausedRef = React.useRef(paused)
       const listRef = React.useRef(null)
@@ -633,6 +677,7 @@ window.__ModuleLoader__.load({
       const confirmTimerRef = React.useRef(null)
       const inFlightRef = React.useRef(false)
       const autoSuspendedRef = React.useRef(false)
+      const anchorRef = React.useRef(null) // 「加载更早」前的 scrollHeight(锚定用)
 
       React.useEffect(() => { pausedRef.current = paused }, [paused])
       React.useEffect(() => { autoSuspendedRef.current = autoSuspended }, [autoSuspended])
@@ -714,8 +759,24 @@ window.__ModuleLoader__.load({
       const effectiveFollow = follow && !autoSuspended
       React.useEffect(() => {
         const el = listRef.current
-        if (el && effectiveFollow) el.scrollTop = el.scrollHeight
-      }, [entries, effectiveFollow])
+        if (!el) return
+        if (effectiveFollow) {
+          el.scrollTop = el.scrollHeight
+          anchorRef.current = null
+          return
+        }
+        // v1.8.2 滚动锚定:「加载更早」往列表**上方**补行会让 scrollHeight 变大,
+        // 若不管,视口会被顶走、正在看的那一行瞬间跑掉。按补进的高度补偿 scrollTop。
+        const anchor = anchorRef.current
+        if (anchor) {
+          el.scrollTop += el.scrollHeight - anchor.height
+          anchorRef.current = null
+        }
+      }, [entries, effectiveFollow, renderLimit])
+
+      // 过滤条件一变,窗口收回默认大小(否则过滤后仍挂着几千行,反而变慢)。
+      // 依赖用 search/useRegex 而非 matcher:matcher 在本函数靠后声明,提前引用会 TDZ。
+      React.useEffect(() => { setRenderLimit(MAX_RENDER_ROWS) }, [dir, port, search, useRegex])
 
       const onScroll = () => {
         const el = listRef.current
@@ -725,6 +786,23 @@ window.__ModuleLoader__.load({
         setAutoSuspended(!atBottom)          // 值未变时 React 跳过重渲染
         if (atBottom) setNewCount(0)
       }
+
+      // 向上扩窗:一次多挂 LOAD_MORE_ROWS 行(配合上面的锚定,视口不跳)
+      const loadEarlier = React.useCallback(() => {
+        const el = listRef.current
+        if (el) anchorRef.current = { height: el.scrollHeight }
+        setRenderLimit((n) => n + LOAD_MORE_ROWS)
+      }, [])
+
+      // v1.8.2:行级回调必须是稳定引用,否则 Row 的 React.memo 全面失效
+      // (此前 onPort 是每次渲染新建的箭头函数 → 输入一字/轮询一轮就重渲满 300 行)。
+      // 注意这里走函数式 setState,回调本身不依赖 port,所以 deps 可为空。
+      const pickPort = React.useCallback((tag) => {
+        setPort((prev) => (prev === tag ? 'ALL' : tag))
+      }, [])
+      const resetFilters = React.useCallback(() => {
+        setDir('ALL'); setPort('ALL'); setSearch(''); setUseRegex(false)
+      }, [])
 
       // 浮出提示点击:回底部(随后的 scroll 事件会自动恢复跟随并清零计数)
       const jumpToLatest = () => {
@@ -803,8 +881,11 @@ window.__ModuleLoader__.load({
       }, [entries, dir, port, matcher])
 
       const visibleCount = visible.length
-      const rendered = visibleCount > MAX_RENDER_ROWS ? visible.slice(visibleCount - MAX_RENDER_ROWS) : visible
-      const counterText = (rendered.length < visibleCount ? '渲染 ' + rendered.length + ' / ' : '')
+      // v1.8.2:渲染窗口是**可向上扩的**,默认最近 300 行。此前后者就是硬上限,
+      // 5000 条内存环里更早的条目在 UI 上永远翻不到(只能导出或走 API)。
+      const rendered = visibleCount > renderLimit ? visible.slice(visibleCount - renderLimit) : visible
+      const hiddenBefore = visibleCount - rendered.length
+      const counterText = (hiddenBefore > 0 ? '渲染 ' + rendered.length + ' / ' : '')
         + visibleCount + ' / ' + entries.length + ' 条'
 
       // ---- 控制条 chip:统一 24px 仪器按键,engaged 态走 data-on 淡染 ----
@@ -812,6 +893,8 @@ window.__ModuleLoader__.load({
         type: 'button', onClick,
         className: 'sp-btn' + (variant ? ' sp-' + variant : ''),
         'data-on': on ? '1' : '0',
+        // 开关类 chip 用 aria-pressed 暴露状态(纯视觉的 data-on 对读屏不可见)
+        'aria-pressed': on ? 'true' : 'false',
         title: title || '',
       }, label)
 
@@ -882,36 +965,54 @@ window.__ModuleLoader__.load({
           'mcp'),
       )
 
-      // 空态:API 地址(agent 可直接 curl)+ 链路状态 + shell 工具解析诊断
+      // 空态分两态(v1.8.2):
+      //   A) 确实还没有任何数据 → 给诊断(日志路径/大小/坏行/shell 解析)
+      //   B) 有数据但当前过滤无命中 → 绝不能显示「尚未发现日志」那种假诊断,
+      //      只说明过滤条件并提供一键清除。这是搜索框打字时最常看到的画面。
       const diag = stats && stats.diag
       const shellLine = (label, exe, ok, hint) => h('div', {
         className: ok ? 'ok' : 'bad',
       },
         (ok ? '✓ ' : '⚠ ') + label + ' → ' + (exe || '(PATH 中未找到)') + (ok ? '' : '  ·  ' + hint))
       const apiFull = (typeof location !== 'undefined' && location.origin ? location.origin : '') + ROUTE
-      const emptyBox = h('div', { className: 'sp-empty' },
-        h('div', { className: 'sp-empty-glyph' }, h(PlugGlyph, { size: 40 })),
-        h('div', { className: 'sp-empty-title' },
-          mcpAvailable && !mcpOn
-            ? 'acccom MCP 已停用 — 点工具条「MCP 开」启用;启用后新会话才会注册 mcp__acccom__* 工具'
-            : stats && stats.exists
-              ? '日志已连接,等待 AI 串口收发…(让 Agent 调 mcp__acccom__list_ports 试试)'
-              : '尚未发现 ' + ((stats && stats.logPath) || 'mcp-traffic.jsonl') + ' — 首次 AI 串口通信后自动出现'),
-        h('span', { className: 'sp-api' },
-          h('span', null, 'API'),
-          h('code', null, apiFull),
-          h(CopyBtn, { text: apiFull, label: '复制' })),
-        stats && stats.exists && typeof stats.logSize === 'number'
-          ? h('div', { className: 'sp-metacap' },
-              '日志 ' + fmtBytes(stats.logSize) + 'B · 坏行 ' + (stats.badLines || 0)
-              + ' · 轮转文件' + (stats.rotated ? '已生成' : '未生成'))
-          : null,
-        diag
-          ? h('div', { className: 'sp-diag' },
-              shellLine('pwsh', diag.pwsh, diag.pwshOk, 'PATH 中找不到 pwsh.exe'),
-              shellLine('bash', diag.bash, diag.bashOk, 'System32 的是 WSL 存根;用 start-dsh-with-gitbash.cmd 启动可换成 Git Bash'))
-          : null,
-      )
+      const filteredEmpty = entries.length > 0
+      const emptyBox = filteredEmpty
+        ? h('div', { className: 'sp-empty' },
+            h('div', { className: 'sp-empty-glyph' }, h(PlugGlyph, { size: 40 })),
+            h('div', { className: 'sp-empty-title' },
+              '当前过滤条件没有匹配到任何条目'
+              + (matcher ? ' — 关键字/正则:' + (matcher instanceof RegExp ? '/' + matcher.source + '/i' : '"' + matcher + '"') : '')
+              + (dir !== 'ALL' ? ' · 方向 ' + dir : '')
+              + (port !== 'ALL' ? ' · 端口 ' + port : '')),
+            h('button', {
+              type: 'button', className: 'sp-btn', onClick: resetFilters,
+              title: '清除方向/端口/关键字过滤',
+            }, '清除过滤'),
+            h('div', { className: 'sp-metacap' },
+              '共收到 ' + entries.length + ' 条数据,过滤后 0 条'))
+        : h('div', { className: 'sp-empty' },
+            h('div', { className: 'sp-empty-glyph' }, h(PlugGlyph, { size: 40 })),
+            h('div', { className: 'sp-empty-title' },
+              mcpAvailable && !mcpOn
+                ? 'acccom MCP 已停用 — 点工具条「MCP 开」启用;启用后新会话才会注册 mcp__acccom__* 工具'
+                : stats && stats.exists
+                  ? '日志已连接,等待 AI 串口收发…(让 Agent 调 mcp__acccom__list_ports 试试)'
+                  : '尚未发现 ' + ((stats && stats.logPath) || 'mcp-traffic.jsonl') + ' — 首次 AI 串口通信后自动出现'),
+            h('span', { className: 'sp-api' },
+              h('span', null, 'API'),
+              h('code', null, apiFull),
+              h(CopyBtn, { text: apiFull, label: '复制' })),
+            stats && stats.exists && typeof stats.logSize === 'number'
+              ? h('div', { className: 'sp-metacap' },
+                  '日志 ' + fmtBytes(stats.logSize) + 'B · 坏行 ' + (stats.badLines || 0)
+                  + ' · 轮转文件' + (stats.rotated ? '已生成' : '未生成'))
+              : null,
+            diag
+              ? h('div', { className: 'sp-diag' },
+                  shellLine('pwsh', diag.pwsh, diag.pwshOk, 'PATH 中找不到 pwsh.exe'),
+                  shellLine('bash', diag.bash, diag.bashOk, 'System32 的是 WSL 存根;用 start-dsh-with-gitbash.cmd 启动可换成 Git Bash'))
+              : null,
+          )
 
       const list = h('div', {
         ref: listRef, onScroll,
@@ -919,14 +1020,24 @@ window.__ModuleLoader__.load({
       },
         visibleCount === 0
           ? emptyBox
-          : rendered.map((e) => (e.kind === 'gap'
-              ? h(GapRow, { key: 'gap-' + e.seq, count: e.count })
-              : h(Row, {
-                  key: e.seq, e, hex,
-                  matcher,
-                  onPort: (tag) => setPort(port === tag ? 'ALL' : tag),
-                  selected: selected && selected.seq === e.seq, onSelect: setSelected,
-                }))),
+          : [
+              // 「加载更早」:窗口之外的条目此前在 UI 上完全不可达(v1.8.2)
+              hiddenBefore > 0
+                ? h('div', { key: 'load-earlier', className: 'sp-more' },
+                    h('button', {
+                      type: 'button', className: 'sp-btn', onClick: loadEarlier,
+                      title: '向上多加载 ' + Math.min(LOAD_MORE_ROWS, hiddenBefore) + ' 条',
+                    }, '↑ 加载更早的 ' + Math.min(LOAD_MORE_ROWS, hiddenBefore) + ' 条(还有 ' + hiddenBefore + ' 条)'))
+                : null,
+              ...rendered.map((e) => (e.kind === 'gap'
+                ? h(GapRow, { key: 'gap-' + e.seq, count: e.count })
+                : h(Row, {
+                    key: e.seq, e, hex,
+                    matcher,
+                    onPort: pickPort,
+                    selected: selected && selected.seq === e.seq, onSelect: setSelected,
+                  }))),
+            ],
       )
 
       // 跟随挂起期间有新数据 → 右下角浮出提示,点击回底并恢复跟随
@@ -977,6 +1088,15 @@ window.__ModuleLoader__.load({
         if (tabVisible && !paused && !autoSuspended && stats) badgeStore.markSeen(stats.lastSeq || 0)
       }, [tabVisible, paused, autoSuspended, stats])
 
+      // v1.8.2:处在「实时看」状态时登记 livePanel,让图标那条 5s 轮询让位
+      // (面板主轮询已在推进水位,图标再来一遍纯属重复带宽)。
+      const liveWatching = tabVisible && !paused && !autoSuspended
+      React.useEffect(() => {
+        if (!liveWatching) return undefined
+        badgeStore.panelLive(true)
+        return () => badgeStore.panelLive(false)
+      }, [liveWatching])
+
       return h('div', {
         ref: rootRef, tabIndex: -1, onKeyDown, onMouseDown,
         className: 'sp-root',
@@ -997,6 +1117,8 @@ window.__ModuleLoader__.load({
           timer = null
           if (!alive) return
           if (document.visibilityState === 'hidden') { timer = setTimeout(tick, 8000); return }
+          // 面板正在实时显示时不发请求:它的主轮询已经把 lastSeq 推上去了
+          if (badgeStore.isPanelLive()) { timer = setTimeout(tick, 5000); return }
           try {
             const r = await fetch(ROUTE + '?stats=1', { cache: 'no-store' })
             const j = await r.json()
@@ -1040,7 +1162,10 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots', 'sidebarRight', 'sidebarRightTabs'],
       // 纯函数仅供 test.js client 模式断言,生产逻辑不依赖
-      _test: { highlight, highlightRe, compileMatcher, matcherHit, hueOf, fmtDt, sameStats, badgeStore },
+      _test: {
+        highlight, highlightRe, compileMatcher, matcherHit, hueOf, fmtDt,
+        sameStats, sameMcp, truncateCodePoints, badgeStore,
+      },
       apply: function (ctx) {
         const slots = ctx.get('slots')
         if (slots === undefined) return
@@ -1076,7 +1201,10 @@ window.__ModuleLoader__.load({
             id: 'dsh-serial-panel',
             kind: PANEL_ID,
             multiple: false,
-            priority: 'plugin',
+            // 档位只认 extension / builtin / fallback(宿主 RANKS 表)。
+            // 'plugin' 不在表内 → RANKS['plugin'] === undefined,排名比较得 NaN;
+            // 插件贡献的类型就是 extension(也是宿主 DEFAULT_BAND)。
+            priority: 'extension',
             title: () => 'ACCCOM 串口',
             keepMounted: true,
             guide: [{

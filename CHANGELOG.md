@@ -6,6 +6,13 @@
 
 ### Fixed
 
+- **dsh-serial-panel v1.8.2：写路由无同源防护 + 增量整流分配 + 两处体验缺陷**（`fix(dsh)`，2026-10-24）
+  - **安全**：`POST /clear` 与 `POST /mcp` 此前只校验 method——任意网页可跨站静默截断共享日志、或把 MCP 关掉（实测 `Origin: https://evil.example` + `text/plain` 直接 200）。现按 `Sec-Fetch-Site` → `Origin` → `Referer` 判同源，跨站写一律 403；curl/agent 不带浏览器标记仍放行（AGENTS.md 干净复现工作流不变）。**桌面端 `dsh-app://app` 必须先于 `sec-fetch-site` 显式放行**——桌面壳跨 scheme 访问必然带 `cross-site`，顺序写反会让桌面版开关「点了没反应」（壳的 `forwardWebRequest` 本就会剥掉 `host/origin/cookie/sec-fetch-site`，两条路径都实测过）。
+  - **`POST /mcp` 语义收紧**：body 必须是显式布尔，缺字段/非布尔/坏 JSON 回 400。旧实现把解析失败一律读成 `enabled:false`，一次畸形请求就等于越权关闭 MCP。
+  - **稳健性**：尾随改 1MiB 分块读 + 流式 `TextDecoder`（跨块边界的多字节字符不再被劈成 U+FFFD）；body 上限 64KiB，超限回 413 **并排空请求体**（不排空会污染 keep-alive，下一请求 ECONNRESET——真实 `http.Server` 实测发现，桩测不出）。
+  - **体验**：过滤无命中时不再显示「尚未发现 mcp-traffic.jsonl」的假诊断（拆成两态 + 一键清除过滤）；列表新增「加载更早」+ 滚动锚定（此前只挂载最近 300 行，5000 条环里更早的条目在 UI 上不可达）；`Row` 的内联 `onPort` 箭头改 `useCallback`，否则 `React.memo` 每轮失效、输入一字即重渲 300 行；chip 补 `aria-pressed`；面板实时显示时图标 5s 轮询让位。
+  - **测试** 69 → **125 断言**（新增 `mcp`/`chunk`/`http` 三模式）。`chunk` 把汉字精确钉在 1MiB 块边界、`http` 用真实 `http.Server` 打洞——两者都用变异测试证明断言有牙（去掉流式解码 → chunk 失败 18288 vs 18290；去掉排空 → http 失败）。另有真实 React 19.2.6 静态渲染验证（主面板/tab 体/侧栏图标三路径，无 hooks 违规）。
+  - 文档对齐：README/AGENTS.md 补 v1.8.2 章节与同源约束说明；`docs/guide/architecture.md` 版本号与断言数（1.6.0/67 → 1.8.2/125）；web profile 部署副本从 v1.1.0 同步到 v1.8.2。
 - **解析器死循环可逃生 + 连续超时熔断**（`fix(core)`，2026-10-24 二轮）：实测证伪原假设——Roslyn `RunAsync` 对无 await 的脚本在**调用线程同步执行**，CPU 死循环（`while(true);`）会把组帧管线永困在 RunAsync 内部，5s 超时与一切防线都够不着。`ExecuteAsync` 把脚本提升到线程池（`Task.Run`），`WaitAsync` 期限对 CPU 脚本真正生效；代价是每次执行武装一个期限源（原「快脚本零定时器」优化与可逃生物理不可兼得，契约测试改写为「快完成 + 每次至多一个期限源」）。熔断：连续 3 次超时自动停用该解析器（成功/重载/清空复位计数），状态下拉框复位 + 状态栏提示（新增 zh/en 语言键）；坏脚本代价从「每帧一根永困线程」封顶到 3 根（脚本线程本身仍不可中止——.NET 无安全中止手段，这是上限而非消除）
 - **SerialService 三处生命周期缺陷**（2026-10-24 审计 P1/P2，`fix(core)` 358e766）：
   - **重连循环在 Close() 取消后仍可能把新打开的端口换上 `_port`**——取消检查只在循环头，`tempPort.Open()` 成功到换口之间无复查；用户已点关闭时新口被换上，留下一个「已关闭却仍打开」的端口，且与用户 Close 在 `ClosePortOnly` 内交错。换口抽取为 `AdoptReconnectedPort` 并在换口前复查令牌，取消则丢弃新口

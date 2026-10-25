@@ -1,10 +1,26 @@
-# dsh-serial-panel — ACCCOM 串口实时面板  v1.8.1
+# dsh-serial-panel — ACCCOM 串口实时面板  v1.8.2
 
 DeepSeek Harness 的常驻插件(desktop profile):**右侧停靠栏** "ACCCOM 串口" tab +
 **侧边栏图标**(全局面板)双入口,实时显示 **AI 通过 ACCCOM MCP 工具收发的串口数据**——
 对话与串口数据并排可见(等价于 ACCCOM 桌面端的"MCP 流量"窗口,但直接长在
 DSH 界面里)。左侧边栏图标点击打开;右栏 guide 默认页也有入口卡片。
 agent 侧的接口说明见 [AGENTS.md](AGENTS.md)(compact 增量、导出、干净复现工作流)。
+
+## v1.8.2 安全与可达性
+
+四个真问题,数据契约零变化:
+
+| 面 | 修法 |
+|---|---|
+| **写路由无同源防护** | `POST /clear`、`POST /mcp` 此前只校验 method:任意网页可跨站静默截断共享日志、或把 MCP 关掉(实测 `Origin: https://evil.example` + `text/plain` 直接 200)。现按 `Sec-Fetch-Site` → `Origin` → `Referer` 判同源,跨站写一律 **403**;不带浏览器标记的 curl/agent 仍放行(AGENTS.md 的干净复现工作流不受影响)。**桌面端(Electron,`dsh-app://app` 自定义协议)显式放行**——壳的 `forwardWebRequest` 本就会剥掉 `host/origin/cookie/sec-fetch-site` 四个头,且跨 scheme 访问必然带 `cross-site`,若不在 `sec-fetch-site` 之前先认 Origin,桌面版开关会「点了没反应」。 |
+| **增量整流一次性分配** | 尾随改 **1MiB 分块读 + 流式 `TextDecoder`**:不再按 delta 大小整块 `allocUnsafe`,块边界上的多字节字符也不会被劈成 U+FFFD(`chunk` 测试把汉字精确钉在边界上,并用变异测试证明断言有牙)。 |
+| **过滤无命中显示假诊断** | 空态拆两态:「还没有数据」才给日志路径/坏行/shell 诊断;「有数据但过滤 0 命中」只说明过滤条件 + 一键「清除过滤」。此前搜索框打字到无命中时,面板会说「尚未发现 mcp-traffic.jsonl」。 |
+| **历史翻不到 / memo 失效** | 列表默认挂载最近 300 行,更早的 4700 条此前在 UI 上不可达 → 新增「加载更早」按需扩窗 + 滚动锚定(补行不顶走视口),过滤变更自动收回窗口。同时把 `Row` 的内联 `onPort` 箭头改成 `useCallback`——否则 `React.memo` 每轮都失效,输入一字就要重渲 300 行。 |
+
+附带:`POST /mcp` 的 body 现在必须是显式布尔(畸形 body 回 **400** 而非静默当 `enabled:false`)、
+body 上限 64KiB 且超限后**排空请求体**(否则 keep-alive 连接上的下一个请求会 ECONNRESET)、
+`sameStats` 纳入 `mcp`(外部改开关后 chip 不再显示旧值)、行内 payload 截断改码点安全、
+面板实时显示时图标那条 5s `?stats=1` 轮询让位(省一半轮询)。
 
 ## v1.8.1 开关状态对比度
 
@@ -197,8 +213,8 @@ deploy.cmd web    :: 追加部署到 web profile
 ## v1.7.0 设计改版:仪器读数台(SIGNAL DESK)
 
 纯表现层重构:数据链路、接口契约、轮询/过滤/快捷键行为一律未动,`test.js`
-四模式 67 项断言全绿(改版前后同一套)。视觉概念:把面板从「一列灰字」改成
-一台 bench instrument 的读数台。
+四模式断言全绿(改版前后同一套;当前为 125 项,见「测试」)。视觉概念:把面板
+从「一列灰字」改成一台 bench instrument 的读数台。
 
 | 面 | 做法 |
 |---|---|
@@ -217,7 +233,8 @@ deploy.cmd web    :: 追加部署到 web profile
 
 ## 测试
 
-Host 半区带一套零依赖行为测试(**67 项断言**:core 17 + window 5 + api 17 + client 28),已实测通过:
+Host 半区带一套零依赖行为测试(**现在 125 项断言**:core 17 + window 5 + api 17 +
+client 41 + mcp 28 + chunk 7 + http 10),已实测通过:
 
 ```powershell
 $plug = "$env:USERPROFILE\.dsh\profiles\desktop\dsh-serial-panel"
@@ -238,12 +255,29 @@ Remove-Item Env:DSH_SERIAL_PANEL_MAX_ENTRIES -ErrorAction SilentlyContinue
 $env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'api.jsonl'
 node "$plug\test.js" api
 
+# v1.8.2:分块读 + 跨块边界多字节字符(测试内部会把汉字精确定位到 1MiB 边界)
+$env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'chunk.jsonl'
+node "$plug\test.js" chunk
+
+# v1.8.2:MCP 启停开关 / 写路由同源防护 / body 上限(纯 stub,不碰真 profile)
+$env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'mcp.jsonl'
+node "$plug\test.js" mcp
+
+# v1.8.2:真实 http.Server 冒烟——桩测不出的 keep-alive 污染(413 后排空请求体)
+$env:DSH_SERIAL_PANEL_LOG = Join-Path $t 'http.jsonl'
+node "$plug\test.js" http
+
 # client.js 注册结构冒烟(stub React,无需浏览器与日志环境变量)
 node "$plug\test.js" client
 ```
 
 用环境变量把参数压小是为了快速触发边界(上限 5 条即可验证裁剪)。
-`test.js` 由 deploy.cmd 一并同步到两处部署目标,闭包内也可直接跑。
+`mcp` 模式会把 `DSH_SERIAL_PANEL_LOG` 指向一个种子文件但**不会**真的写 profile——
+它用可编程 ctx 替代 `loader`/`pluginManager`，所以可以在任何机器上跑。
+
+> **环境隔离**：`api` 模式会拒绝残留的 `DSH_SERIAL_PANEL_MAX_ENTRIES<40` 与
+> `DSH_SERIAL_PANEL_FIRST_TAIL<8192`（两者都会把断言目标行裁掉/丢掉首行，
+> 伪装成「Δt 算错」之类的假阴性）。`chunk` 模式自行设置 `FIRST_TAIL=8MiB`。
 
 ## 可调环境变量(Host 半区读取)
 

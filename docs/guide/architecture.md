@@ -209,10 +209,10 @@ ACCcom/
 │           ├── TrafficTools.cs     # 流量记录仪 (traffic_log,1 个)
 │           └── ToolContext.cs      # 工具上下文
 ├── tools/
-│   └── dsh-serial-panel/    # DSH 插件 v1.6.0:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
-│       ├── index.js               # Host 半区:尾随 mcp-traffic.jsonl + 同源路由(增量/compact/stats=1/export/clear)
+│   └── dsh-serial-panel/    # DSH 插件 v1.8.2:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
+│       ├── index.js               # Host 半区:尾随 mcp-traffic.jsonl(分块读)+ 同源路由(增量/compact/stats=1/export/clear/mcp)
 │       ├── client.js              # Client 半区:rightbar 停靠 tab(兜底整屏 main)+ 流量徽章 + 正则/快捷键
-│       ├── test.js                # 行为测试(node test.js core|window|api|client,67 项断言)
+│       ├── test.js                # 行为测试(node test.js core|window|api|client|mcp|chunk|http,109 项断言)
 │       ├── AGENTS.md              # agent 接入说明(路由/seq 语义/干净复现工作流)
 │       └── deploy.cmd             # 部署到 %USERPROFILE%\.dsh\profiles
 ├── tests/
