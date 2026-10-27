@@ -35,10 +35,14 @@ var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSetti
 // Route whatever still logs to stderr only.
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 
-builder.Services.AddSingleton<ISerialService, SerialService>();
+// Port-name dispatching: "COM3" → SerialService, "tcp://host:port" (or bare
+// "host:port") → TcpSerialService (wireless-DAP UART bridge). The same
+// dispatching type backs the default session and the multi-port factory, so
+// both session kinds accept TCP endpoints.
+builder.Services.AddSingleton<ISerialService, EndpointSerialService>();
 // Multi-port service: each non-empty tag owns an independent ISerialService.
 // The default single-port session (empty tag) is the ToolContext's Serial.
-builder.Services.AddSingleton(new MultiPortService(() => new SerialService()));
+builder.Services.AddSingleton(new MultiPortService(() => new EndpointSerialService()));
 builder.Services.AddSingleton<ToolContext>();
 
 // Register MCP tools

@@ -35,7 +35,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 - `ObservableObject` — MVVM 基类，统一 `INotifyPropertyChanged` + `SetField<T>` 实现
 - `JsonFilePersistenceManager<T>` — JSON 持久化基类，`ShortcutManager`/`PresetManager`/`MacroManager` 继承
 - `BufferedFileWriter` — 缓冲写入基类，`LoggerService`/`SessionRecorder` 继承（定时刷新 + 计数器）
-- `ISerialService` — 串口服务接口，支持真实串口和虚拟串口
+- `ISerialService` — 串口服务接口，支持真实串口、虚拟串口与 TCP 传输（`EndpointSerialService` 按端口名分发）
 - `IModbusTransport` — Modbus 传输层接口，支持 RTU 和 TCP
 
 ### 性能优化
@@ -135,6 +135,9 @@ ACCcom/
 │   │   │   ├── ModbusScanner.cs         # Modbus 设备扫描器
 │   │   │   ├── IModbusTransport.cs      # Modbus 传输层接口
 │   │   │   ├── ISerialService.cs        # 串口服务接口
+│   │   │   ├── TcpEndpoint.cs           # TCP 端点解析 (tcp://host:port + 裸 host:port)
+│   │   │   ├── TcpSerialService.cs      # TCP 串口传输 (首包波特率握手/断线重连/set_baud 重连换速)
+│   │   │   ├── EndpointSerialService.cs # 按端口名分发 COM/TCP 传输 (默认会话与多端口工厂共用)
 │   │   │   ├── ModbusService.cs         # Modbus 主站服务
 │   │   │   ├── ModbusConnectionManager.cs # Modbus 连接管理器
 │   │   │   ├── ModbusRtuTransport.cs    # Modbus RTU 传输层
@@ -249,6 +252,9 @@ ACCcom/
 │   │   ├── AutoParserMatcherTests.cs
 │   │   ├── VirtualSerialServiceTests.cs
 │   │   ├── SerialServiceIntegrationTests.cs
+│   │   ├── TcpSerialServiceTests.cs     # TCP 传输契约 + TcpEndpoint 解析 (LoopbackServer 回环)
+│   │   ├── EndpointSerialServiceTests.cs # COM/TCP 分发契约 (回环端到端)
+│   │   ├── TcpLoopbackServer.cs         # 回环 TCP 对端 (测试辅助,录每连接每包)
 │   │   ├── SerialConnectionManagerTests.cs
 │   │   ├── NetworkBridgeServiceTests.cs
 │   │   ├── MultiPortServiceTests.cs

@@ -104,7 +104,7 @@ public class SerialTools
 
     [McpServerTool, Description("Open a serial port. Defaults 115200 8N1, no DTR/RTS. tag opens a named multi-port session; omit for the default session. Out-of-range values fail INVALID_CONFIG.")]
     public Task<string> OpenPort(
-        [Description("Serial port name, e.g. COM3")] string port,
+        [Description("Serial port name (COM3) or TCP endpoint (tcp://host:port)")] string port,
         [Description("Baud rate (default 115200)")] int baudRate = 115200,
         [Description("Data bits 5-8 (default 8)")] int dataBits = 8,
         [Description("Stop bits: 0=None, 1=One, 2=Two (default 1)")] int stopBits = 1,
@@ -131,6 +131,11 @@ public class SerialTools
             return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid stopBits {stopBits} (expected 0=None, 1=One, 2=Two)");
         if (parity is not (0 or 1 or 2))
             return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid parity {parity} (expected 0=None, 1=Odd, 2=Even)");
+        // TCP endpoints carry the baud to the bridge as a first-packet command
+        // with a firmware-side cap — reject doomed rates up front instead of
+        // sending a handshake the bridge silently drops.
+        if (baudRate > TcpEndpoint.MaxBridgeBaud && TcpEndpoint.TryParse(port, out _))
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"TCP endpoint baudRate {baudRate} exceeds bridge cap {TcpEndpoint.MaxBridgeBaud}");
 
         var config = new SerialConfig { PortName = port, BaudRate = baudRate, DataBits = dataBits, StopBits = stopBits, Parity = parity, DtrEnable = dtr, RtsEnable = rts };
 
@@ -156,7 +161,10 @@ public class SerialTools
             {
                 NotifyGuiRequested();
                 _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, "");
-                return _ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag = (string?)null } });
+                // CurrentPort echoes the endpoint the service actually opened
+                // (identical to the argument for COM; the normalized
+                // tcp://host:port for bare host:port input).
+                return _ctx.RawJson(new { success = true, data = new { port = _serial.CurrentPort ?? port, baudRate, dataBits, tag = (string?)null } });
             }
             return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port}");
         }
@@ -180,7 +188,8 @@ public class SerialTools
         {
             NotifyGuiRequested();
             _ctx.TrafficLog.Record(0, "open_port", "SYS", "", port, tag);
-            return _ctx.RawJson(new { success = true, data = new { port, baudRate, dataBits, tag } });
+            var opened = _ctx.MultiPort.GetPort(tag);
+            return _ctx.RawJson(new { success = true, data = new { port = opened?.Service.CurrentPort ?? port, baudRate, dataBits, tag } });
         }
         return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port} with tag {tag}");
     }

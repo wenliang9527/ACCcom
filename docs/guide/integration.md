@@ -351,7 +351,7 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 |------|------|
 | `list_ports` | 列出可用串口 |
 | `list_open_ports` | 列出已打开会话 |
-| `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS） |
+| `open_port` | 打开串口（波特率、数据位、停止位、校验位、DTR/RTS），`port` 也接受 TCP 端点（见下节） |
 | `close_port` | 关闭串口 |
 | `send` | 发送数据（ASCII 或 HEX） |
 | `read_data` | 读取缓冲数据：`sinceId`/`limit`/`direction` 增量拉取、`tail=N` 取最新 N 条、`waitMs` 长轮询（游标耗尽时挂起等待新数据，事件驱动、到达即返回）；`maxLength` 截断超长文本（默认服务端上限 2000 字符/条，显式指定可放宽至 65536）；`fields` 按列裁剪响应（如 `fields=text` 省掉 hex 列）；`direction` 只认 RX/TX（大小写不敏感、可留空白），其余值报 `INVALID_DIRECTION` |
@@ -360,6 +360,27 @@ ACCcom.McpServer 是一个独立进程的 MCP stdio 服务器，AI 客户端可�
 | `send_and_wait` | 发送数据并等待匹配响应（组合 send + wait_for_response，减少 AI 调用轮次） |
 | `clear_buffer` | 清空缓冲区（rx/tx/all，大小写不敏感；未知值报 `INVALID_CONFIG` 而非静默不清） |
 | `traffic_log` | 串口流量飞行记录仪：所有 MCP 收发（含已被 read_data 消费的数据）的审计层读数；`sinceSeq` 游标增量、`direction`（TX/RX/SYS）/`portTag`（大小写不敏感）/`search` 过滤、`compact` 省 token 投影 |
+
+**TCP 端点（串口桥）**
+
+`open_port` 的 `port` 参数除 `COM3` 外还接受 TCP 端点：规范形式 `tcp://host:port` 与裸
+`host:port`（Windows 串口名不含冒号，二者不冲突；响应统一回显归一化的 `tcp://host:port`）。
+典型场景是无线 DAP（windowsair 固件）的 UART-TCP 桥（默认端口 1234）——SWD 走 usbip、
+串口走 TCP，两条通路互不干扰，可同时无线烧录+无线看日志。语义要点：
+
+- **波特率握手**：TCP 打开后服务会**把 baudRate 作为首包发出**（纯 ASCII 数字）。对
+  windowsair 桥这是其约定的换速指令：桥侧 UART 切到该波特率、指令被桥吞掉不达目标板，
+  且首包窗口被确定占用——之后发送任何纯数字载荷（菜单码、PIN 等）都会原样转发，不会被
+  误当指令。握手作为一条 TX 记录进缓冲与 traffic_log（连接后看到 TX "115200" 是预期行为，
+  不是脏数据）。波特率上限 1999999（桥固件约束，超出报 `INVALID_CONFIG`）。
+- **非 windowsair 的裸 TCP 端点**（如 USR 类网串服务器）不认识该握手，会收到 6 字节
+  `115200`——接这类设备时把这一点计入排障清单。
+- **set_baud 透明重连**：换速指令只在连接后的首包有效，因此 TCP 上的 `set_baud` 通过
+  快速断开重连+重握手实现；tag/缓冲/会话保持不变，但重连间隙（局域网毫秒级）内目标板
+  发出的字节会丢（桥在无客户端期间丢弃 UART RX）。
+- **单客户端**：windowsair 桥只允许一个 TCP 客户端，已有客户端时新连接被拒。agent 挂着
+  会话时 PuTTY 连不上是固件固有语义，不是故障。
+- 数据位/停止位/校验位/DTR/RTS 对 TCP 端点无意义，参数被忽略。
 
 ### MCP 响应约定
 
