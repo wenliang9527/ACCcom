@@ -100,16 +100,21 @@ return result;
         engine.Load(MinimalScript);
 
         // A non-positive timeout used to throw ArgumentOutOfRangeException
-        // inside CancellationTokenSource (outside the try). Clamped to 1ms,
-        // the fast script simply completes within it — the point is that no
-        // ArgumentOutOfRangeException surfaces.
+        // inside CancellationTokenSource (outside the try). Clamped to 1ms it
+        // is an immediate-timeout REQUEST: the contract under test is only
+        // "no throw" — whether the script finishes inside the clamped window
+        // depends on thread-pool dispatch timing (null = timeout legitimately
+        // fired), so a completed result is validated but not required.
         var fields = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now, timeoutMs: 0);
-        Assert.NotNull(fields);
-        Assert.Equal("0xAA", fields![0].DisplayValue);
+        if (fields != null) Assert.Equal("0xAA", fields[0].DisplayValue);
 
         var fields2 = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now, timeoutMs: -100);
-        Assert.NotNull(fields2);
-        Assert.Equal("0xAA", fields2![0].DisplayValue);
+        if (fields2 != null) Assert.Equal("0xAA", fields2[0].DisplayValue);
+
+        // The parse itself stays deterministic under the default timeout.
+        var fields3 = await engine.ExecuteAsync(new byte[] { 0xAA }, DateTime.Now);
+        Assert.NotNull(fields3);
+        Assert.Equal("0xAA", fields3![0].DisplayValue);
     }
 
     [Fact]
