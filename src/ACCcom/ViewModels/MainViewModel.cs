@@ -472,7 +472,12 @@ public class MainViewModel : ObservableObject, IDisposable
         _connection.SelectedLanguage = _settings.Language;
         LanguageManager.Instance.LoadLanguage(_settings.Language);
         Stage("language");
-        if (!string.IsNullOrEmpty(_settings.LastPort) && _connection.AvailablePorts.Contains(_settings.LastPort))
+        // A TCP endpoint (tcp://host:port) is a valid remembered port even
+        // though it never appears in the OS COM list; only COM names must
+        // still be present to be restored.
+        if (!string.IsNullOrEmpty(_settings.LastPort) &&
+            (ACCcom.Core.Services.TcpEndpoint.TryParse(_settings.LastPort, out _) ||
+             _connection.AvailablePorts.Contains(_settings.LastPort)))
             _connection.SelectedPort = _settings.LastPort;
         RestoreConnectionSettings();
 
@@ -1002,7 +1007,11 @@ public class MainViewModel : ObservableObject, IDisposable
         _settings.Theme = _selectedTheme;
         _settings.IsDarkTheme = IsDarkTheme;
         _settings.Language = _connection.SelectedLanguage;
-        _settings.LastPort = _connection.SelectedPort;
+        // While a port is open (panel OR adopted API-side connection), persist
+        // the endpoint actually in use — the picker may still hold a stale
+        // COM name from before an HTTP-API open adopted a tcp:// endpoint.
+        var livePort = _serial.CurrentPort ?? _connection.SelectedPort;
+        _settings.LastPort = livePort;
         _settings.LastBaudRate = _connection.SelectedBaudRate;
         _settings.LastDataBits = _connection.SelectedDataBits;
         _settings.LastStopBits = _connection.SelectedStopBits;
