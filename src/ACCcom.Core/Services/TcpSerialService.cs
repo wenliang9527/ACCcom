@@ -68,6 +68,16 @@ public class TcpSerialService : ISerialService, IDisposable
     private const int MaxOpenRetries = 2;
     private const int OpenRetryDelayMs = 500;
 
+    /// <summary>Grace between tearing a connection down and re-dialing the
+    /// same bridge. The v3 firmware releases the slot when it processes the
+    /// FIN — but the FIN and the new SYN travel on different TCP connections,
+    /// so a WiFi retransmit can let the SYN overtake the FIN: the newcomer
+    /// then arrives while the old connection is still "valid" and is kicked
+    /// (a kick cannot be detected synchronously — the connect succeeds and
+    /// the RST lands asynchronously). Waiting here makes the swap
+    /// deterministic; the firmware team's measured busy window is ~200ms.</summary>
+    internal const int ReconnectGraceMs = 300;
+
     /// <summary>The bridge's line-config command for a config: baud digits
     /// plus a parity suffix letter (None → no suffix, matching "plain digits
     /// = 8N1"). Internal for tests — the exact wire bytes are the contract
@@ -458,6 +468,9 @@ public class TcpSerialService : ISerialService, IDisposable
             _tearingDown = true; // read loop exits quietly — this is not a "disconnect"
             TeardownCurrent();
             _lastConfig.BaudRate = baudRate;
+            // See ReconnectGraceMs: let the FIN land before the new SYN can
+            // overtake it on the wireless hop.
+            Task.Delay(ReconnectGraceMs).GetAwaiter().GetResult();
 
             if (TryConnectOnceAsync(_lastConfig).GetAwaiter().GetResult())
             {

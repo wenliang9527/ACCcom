@@ -161,7 +161,14 @@ public class TcpSerialServiceTests : IDisposable
         Assert.True(await _server.WaitPacketAsync(0, 0), "initial handshake not received");
         Assert.Equal("115200", _server.PacketText(0, 0));
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         Assert.True(service.SetBaudRate(9600));
+        sw.Stop();
+        // The reconnect grace is part of the contract (ReconnectGraceMs): it
+        // keeps the teardown FIN ahead of the new SYN on the wireless hop.
+        // Lower bound only — Task.Delay never fires early.
+        Assert.True(sw.Elapsed >= TimeSpan.FromMilliseconds(TcpSerialService.ReconnectGraceMs - 50),
+            $"SetBaudRate returned in {sw.ElapsedMilliseconds}ms — reconnect grace missing?");
 
         // Transparent reconnect: a second connection whose FIRST packet
         // carries the new rate; the session stays open throughout.
