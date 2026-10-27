@@ -49,7 +49,7 @@
                                  Title="{Binding [App.Title], Source={x:Static local:LanguageManager.Instance}}">
             <controls:ChromeTitleBar.CenterContent>
                 <!-- 真正居中：连接状态徽章（始终可见，未连接灰色，已连接绿色） -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" x:Name="ConnBadgeHost">
                 <Border CornerRadius="10" Padding="10,2" VerticalAlignment="Center"
                         BorderThickness="1">
                     <Border.Style>
@@ -85,6 +85,7 @@
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsOpen}" Value="True">
                                             <Setter Property="Foreground" Value="{DynamicResource StatusGreenBrush}" />
+                                            <Setter Property="Text" Value="{Binding [Conn.BadgeConnected], Source={x:Static local:LanguageManager.Instance}}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

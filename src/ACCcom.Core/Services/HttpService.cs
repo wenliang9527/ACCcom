@@ -31,6 +31,13 @@ public class HttpService : IDisposable
     /// bounce back into the caller that already cleared its own lists.</summary>
     public event Action<string?>? OnClearRequested;
 
+    /// <summary>Raised when the default session's connection state changes via
+    /// a non-panel path (HTTP API open/close): the applied config after a
+    /// successful open, null after a successful close. The connection panel
+    /// adopts this so its fields and the title-bar badge reflect connections
+    /// it did not initiate itself.</summary>
+    public event Action<SerialConfig?>? OnConnectionAdopted;
+
     public HttpService(HttpServiceOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -104,7 +111,13 @@ public class HttpService : IDisposable
         // A null/invalid request (e.g. JSON deserialization failure upstream)
         // must not NRE on req.Port below.
         if (req == null || string.IsNullOrEmpty(req.Port)) return false;
-        if (_serialService.IsOpen) return true;
+        if (_serialService.IsOpen)
+        {
+            // Already open (possibly by the panel): the requested config was
+            // not applied, so adopt the LIVE state, not the request.
+            OnConnectionAdopted?.Invoke(_serialService.ActiveConfig);
+            return true;
+        }
 
         var config = new SerialConfig
         {
@@ -116,12 +129,16 @@ public class HttpService : IDisposable
             DtrEnable = req.Dtr,
             RtsEnable = req.Rts
         };
-        return _serialService.Open(config);
+        var opened = _serialService.Open(config);
+        if (opened) OnConnectionAdopted?.Invoke(_serialService.ActiveConfig ?? config);
+        return opened;
     }
 
     public bool ClosePort()
     {
-        return _serialService?.Close() ?? true;
+        var closed = _serialService?.Close() ?? true;
+        if (closed) OnConnectionAdopted?.Invoke(null);
+        return closed;
     }
 
     public object GetStatus()

@@ -2,7 +2,7 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1558 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1561 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
 
 ### Added
 
@@ -19,6 +19,7 @@
 
 ### Fixed
 
+- **GUI 面板对非面板路径的开关连接零感知——标题徽章永远「未连接」**（`fix(gui)`，2026-10-27）：HTTP `/api/port/open|close` 直改串口服务，`ConnectionViewModel.IsOpen` 只由面板自己的开关按钮维护，于是 API 开桥后面板字段停在默认值、徽章恒灰、计时器不走（真机截图暴露：底部「已连」与顶部「未连接」同屏矛盾）。修复两层：① `HttpService` 新增 `OnConnectionAdopted` 事件（open 成功携**实际生效的 ActiveConfig**——含已开早退分支，回显的是真实状态而非被忽略的请求；close 成功发 null），`MainViewModel` 订阅转 `ConnectionViewModel.AdoptExternalConnection`：经 Dispatcher 切回 Serial 模式、把端点/波特率/校验位填进选择器、置 IsOpen + 启动计时（断线方向本就有 `_serialDisconnectedHandler` 先例，此为补连接方向）；② 顶部徽章修**独立老 bug**——它住在 `ChromeTitleBar.CenterContent`（DP + ContentControl 绑定的承载链）里，Style 触发器上的继承 DataContext 绑定挂上后**永不重估**（可视树探针实证 DataContext 正确却恒灰），给宿主显式 `DataContext = _vm` 免疫；顺带补文字切换（原设计只变色不换字）：新增 `Conn.BadgeConnected` 中英键，连接态显示绿「已连接」。测试 +3（采纳携生效配置/已开早退采纳真实状态/关闭发 null），主套件 1561
 - **dsh-serial-panel v1.8.2：写路由无同源防护 + 增量整流分配 + 两处体验缺陷**（`fix(dsh)`，2026-10-24）
   - **安全**：`POST /clear` 与 `POST /mcp` 此前只校验 method——任意网页可跨站静默截断共享日志、或把 MCP 关掉（实测 `Origin: https://evil.example` + `text/plain` 直接 200）。现按 `Sec-Fetch-Site` → `Origin` → `Referer` 判同源，跨站写一律 403；curl/agent 不带浏览器标记仍放行（AGENTS.md 干净复现工作流不变）。**桌面端 `dsh-app://app` 必须先于 `sec-fetch-site` 显式放行**——桌面壳跨 scheme 访问必然带 `cross-site`，顺序写反会让桌面版开关「点了没反应」（壳的 `forwardWebRequest` 本就会剥掉 `host/origin/cookie/sec-fetch-site`，两条路径都实测过）。
   - **`POST /mcp` 语义收紧**：body 必须是显式布尔，缺字段/非布尔/坏 JSON 回 400。旧实现把解析失败一律读成 `enabled:false`，一次畸形请求就等于越权关闭 MCP。

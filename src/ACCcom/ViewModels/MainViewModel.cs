@@ -374,6 +374,11 @@ public class MainViewModel : ObservableObject, IDisposable
 
         _triggerService.OnTriggerFired += _triggerFiredHandler;
 
+        // HTTP-API opens/closes of the default session must reach the panel:
+        // adopt the live state so the fields and the title-bar badge reflect
+        // connections the panel did not initiate itself.
+        _http.OnConnectionAdopted += cfg => _connection.AdoptExternalConnection(cfg);
+
         OpenSchemaEditorCommand = new RelayCommand(_ => OpenSchemaEditor());
 
         _multiPortDataHandler = _dataFlow.OnSerialData;

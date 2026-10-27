@@ -442,6 +442,7 @@
   "Status.PortDisconnected": "端口已断开",
   "Status.NetworkDisconnected": "网络已断开",
   "Conn.BadgeDisconnected": "未连接",
+  "Conn.BadgeConnected": "已连接",
   "Conn.BadgeDisconnectedTip": "当前未连接 — 在工具栏选择端口并点击「打开串口」",
   "Status.PlotWindowOpened": "图表窗口已打开 - 从 RX 数据中接收数值",
   "Status.FrameAssemblyEnabled": "帧组包已启用：header={0}",

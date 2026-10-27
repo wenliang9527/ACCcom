@@ -251,6 +251,46 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Adopts a default-session connection opened/closed outside this
+    /// panel (the HTTP API path): syncs the picker fields to the applied
+    /// config and drives IsOpen (title-bar badge) plus the duration timer, so
+    /// the UI reflects connections it did not initiate itself. HttpService
+    /// raises this on a worker thread — everything here is marshalled to the
+    /// UI thread.</summary>
+    public void AdoptExternalConnection(SerialConfig? config)
+    {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed) return;
+
+            if (config == null)
+            {
+                if (!IsOpen) return;
+                IsOpen = false;
+                _connectionManager.StopTracking();
+                ConnectionDuration = "";
+                _setStatus(LanguageManager.Instance["Status.PortClosed"]);
+                return;
+            }
+
+            // The default session is always a serial-mode connection (a COM
+            // port or a tcp:// endpoint typed into the port box), so surface
+            // it in the serial fields even if the mode picker sits on TCP/UDP.
+            SelectedConnectionType = "Serial";
+            SelectedPort = config.PortName;
+            SelectedBaudRate = config.BaudRate;
+            SelectedDataBits = config.DataBits;
+            SelectedStopBits = config.StopBits;
+            SelectedParity = config.Parity;
+            if (!IsOpen)
+            {
+                IsOpen = true;
+                _connectionManager.StartTracking();
+            }
+            _setStatus(string.Format(LanguageManager.Instance["Status.ConnectedSerial"], config.PortName, config.BaudRate));
+        });
+    }
+
     /// <summary>
     /// Connects/disconnects the TCP/UDP bridge. Blocking socket work runs on a
     /// background thread; all VM state changes stay on the UI thread.

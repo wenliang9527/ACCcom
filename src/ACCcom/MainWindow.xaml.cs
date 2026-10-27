@@ -30,6 +30,12 @@ public partial class MainWindow : Window
         vmSw.Stop();
         System.Diagnostics.Trace.WriteLine($"[startup] MainViewModel ctor total = {vmSw.ElapsedMilliseconds}ms");
         DataContext = _vm;
+        // The badge lives in ChromeTitleBar.CenterContent — content hosted via a
+        // DP + ContentControl binding — where inherited-DataContext bindings on
+        // Style triggers demonstrably never re-evaluate (they attach before the
+        // element joins the tree). A direct DataContext makes every {Binding
+        // IsOpen} trigger in the badge fire off the VM's PropertyChanged.
+        ConnBadgeHost.DataContext = _vm;
 
         // Secondary windows persist their position/size through this settings
         // instance (see WindowHelper.AttachWindowState).

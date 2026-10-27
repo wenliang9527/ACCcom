@@ -308,6 +308,92 @@ public class HttpServiceTests : IDisposable
     }
 
     [Fact]
+    public void OpenPort_RaisesConnectionAdopted_WithAppliedConfig()
+    {
+        using var service = new HttpService(new HttpServiceOptions { SerialService = new AdoptFakeSerial() });
+        ACCcom.Core.Models.SerialConfig? adopted = null;
+        service.OnConnectionAdopted += cfg => adopted = cfg;
+
+        Assert.True(service.OpenPort(new ACCcom.Core.Models.OpenPortRequest { Port = "COM3", BaudRate = 19200, Parity = 2 }));
+
+        Assert.NotNull(adopted);
+        Assert.Equal("COM3", adopted!.PortName);
+        Assert.Equal(19200, adopted.BaudRate);
+    }
+
+    [Fact]
+    public void OpenPort_AlreadyOpen_AdoptsActiveConfig_NotIgnoredRequest()
+    {
+        var fake = new AdoptFakeSerial();
+        using var service = new HttpService(new HttpServiceOptions { SerialService = fake });
+        service.OpenPort(new ACCcom.Core.Models.OpenPortRequest { Port = "COM9", BaudRate = 9600 });
+
+        ACCcom.Core.Models.SerialConfig? adopted = null;
+        service.OnConnectionAdopted += cfg => adopted = cfg;
+        // The second request short-circuits on the open port; the adoption
+        // must carry the LIVE config, never the ignored request's.
+        Assert.True(service.OpenPort(new ACCcom.Core.Models.OpenPortRequest { Port = "tcp://10.0.0.8:1234", BaudRate = 115200 }));
+
+        Assert.NotNull(adopted);
+        Assert.Equal("COM9", adopted!.PortName);
+        Assert.Equal(9600, adopted.BaudRate);
+    }
+
+    [Fact]
+    public void ClosePort_RaisesConnectionAdopted_Null()
+    {
+        var fake = new AdoptFakeSerial();
+        using var service = new HttpService(new HttpServiceOptions { SerialService = fake });
+        service.OpenPort(new ACCcom.Core.Models.OpenPortRequest { Port = "COM3", BaudRate = 9600 });
+
+        ACCcom.Core.Models.SerialConfig? adopted = new();
+        service.OnConnectionAdopted += cfg => adopted = cfg;
+
+        Assert.True(service.ClosePort());
+        Assert.Null(adopted);
+        Assert.False(fake.IsOpen);
+    }
+
+    /// <summary>Minimal open/close bookkeeping fake so the adoption events have
+    /// a real ActiveConfig lifecycle to report.</summary>
+    private sealed class AdoptFakeSerial : ISerialService
+    {
+#pragma warning disable CS0067 // events are interface surface; the fake never raises them
+        public event Action<ACCcom.Core.Models.LogEntry>? OnDataReceived;
+        public event Action<string>? OnError;
+        public event Action? OnDisconnected;
+        public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+        public bool IsOpen { get; private set; }
+        public string? CurrentPort { get; private set; }
+        public int BaudRate { get; private set; }
+        public ACCcom.Core.Models.SerialConfig? ActiveConfig { get; private set; }
+
+        public bool Open(ACCcom.Core.Models.SerialConfig config)
+        {
+            IsOpen = true;
+            CurrentPort = config.PortName;
+            BaudRate = config.BaudRate;
+            ActiveConfig = config;
+            return true;
+        }
+
+        public bool Send(string data, bool isHex = false) => IsOpen;
+        public bool SendHex(string hex) => Send(hex, isHex: true);
+
+        public bool Close()
+        {
+            IsOpen = false;
+            CurrentPort = null;
+            ActiveConfig = null;
+            return true;
+        }
+
+        public void Dispose() { }
+    }
+
+    [Fact]
     public void ReadParserCode_without_parser_manager_returns_null()
     {
         // The default test service has no ParserManager injected; the read
