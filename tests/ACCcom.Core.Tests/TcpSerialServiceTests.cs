@@ -39,6 +39,28 @@ public class TcpSerialServiceTests : IDisposable
         Assert.Equal("9600", _server.PacketText(0, 0));
     }
 
+    [Theory]
+    [InlineData(0, "9600")]    // None: plain digits = 8N1
+    [InlineData(1, "9600O")]   // Odd suffix
+    [InlineData(2, "9600E")]   // Even suffix — the JJ400 19200 8E1 case
+    public async Task Open_ParitySuffix_IsExactHandshakeBytes_NoNewline(int parity, string expected)
+    {
+        using var service = new TcpSerialService();
+        Assert.True(await service.OpenAsync(new SerialConfig
+        {
+            PortName = $"tcp://127.0.0.1:{_server.Port}",
+            BaudRate = 9600,
+            Parity = parity,
+            Reconnect = new ReconnectSettings { ReconnectIntervalMs = 50 }
+        }));
+
+        Assert.True(await _server.WaitPacketAsync(0, 0), "handshake not received");
+        var packet = _server.Packet(0, 0)!;
+        // Exact bytes: the bridge parses the WHOLE first packet; an inline
+        // terminator would fail its digit/length check and leak to the target.
+        Assert.Equal(expected, Encoding.UTF8.GetString(packet));
+    }
+
     [Fact]
     public async Task Open_HandshakeIsAuditedAsTxEntry()
     {

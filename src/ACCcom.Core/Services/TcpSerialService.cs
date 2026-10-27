@@ -12,15 +12,18 @@ namespace ACCcom.Core.Services;
 /// the bridge runs at a baud rate the bridge itself controls.
 ///
 /// Connect handshake: the bridge treats the FIRST packet after connect as a
-/// baud command when it is 2-7 plain ASCII digits (1..1999999), consumes it,
-/// and switches its UART to that rate — and the window closes on the first
-/// packet no matter what it contains. So Open always sends the configured
-/// baudRate as that first packet (digits only, no terminator, before Open
-/// returns, so no caller send can precede it): it sets the bridge-side rate
-/// AND deterministically consumes the window, after which every payload —
-/// short digit strings included — is forwarded verbatim. The handshake goes
-/// through the normal TX path, so it shows up in buffers/traffic_log as an
-/// audited TX row.
+/// line-config command when it parses as <c>&lt;baud&gt;[E|O|N]</c> (2-7 bytes
+/// total, 1..1999999, suffix case-insensitive) — it consumes the packet and
+/// switches its UART to that baud/parity; and the window closes on the first
+/// packet no matter what it contains. So Open always sends
+/// baudRate + parity-suffix as that first packet (exact bytes, NO trailing
+/// newline — an inline terminator fails the bridge's length/digit check and
+/// would be forwarded to the target as garbage, single write, before Open
+/// returns so no caller send can precede it): it applies the bridge-side
+/// line config AND deterministically consumes the window, after which every
+/// payload — short digit strings included — is forwarded verbatim. The
+/// handshake goes through the normal TX path, so it shows up in
+/// buffers/traffic_log as an audited TX row (e.g. "19200E").
 ///
 /// SetBaudRate re-establishes the connection and re-runs the handshake with
 /// the new rate (the command window only exists right after connect), rather
@@ -64,6 +67,17 @@ public class TcpSerialService : ISerialService, IDisposable
     private const int ReadChunkBytes = 4096;
     private const int MaxOpenRetries = 2;
     private const int OpenRetryDelayMs = 500;
+
+    /// <summary>The bridge's line-config command for a config: baud digits
+    /// plus a parity suffix letter (None → no suffix, matching "plain digits
+    /// = 8N1"). Internal for tests — the exact wire bytes are the contract
+    /// with the firmware, so the mapping is asserted, not implied.</summary>
+    internal static string BuildHandshake(SerialConfig config) => config.Parity switch
+    {
+        1 => $"{config.BaudRate}O",
+        2 => $"{config.BaudRate}E",
+        _ => config.BaudRate.ToString()
+    };
 
     /// <summary>Serializes stream writes. Same rationale as SerialService's
     /// gate: two real senders can race on one service and interleaved
@@ -167,14 +181,15 @@ public class TcpSerialService : ISerialService, IDisposable
             _metrics.RecordPortOpened();
 
             // Handshake under the send gate so an early concurrent Send can
-            // never slip ahead of it (TCP preserves write order).
-            var handshake = Encoding.ASCII.GetBytes(config.BaudRate.ToString());
+            // never slip ahead of it (TCP preserves write order). Exact
+            // "<baud>[E|O|N]" bytes — see the class doc for why no newline.
+            var handshake = Encoding.ASCII.GetBytes(BuildHandshake(config));
             lock (_sendGate)
             {
                 stream.Write(handshake, 0, handshake.Length);
                 stream.Flush();
             }
-            RecordTx(handshake, config.BaudRate.ToString());
+            RecordTx(handshake, Encoding.ASCII.GetString(handshake));
             return true;
         }
         catch (Exception)

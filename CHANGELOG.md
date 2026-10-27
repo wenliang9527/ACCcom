@@ -2,7 +2,7 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1555 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1558 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
 
 ### Added
 
@@ -10,8 +10,9 @@
   - **TcpSerialService**（新 `ISerialService` 实现，仿 VirtualSerialService 先例）：开连接后**把 baudRate 作为首包握手发出**（纯 ASCII 数字、无结尾、Open 返回前、单次写）——对 windowsair 桥同时完成「切桥侧 UART 波特率」与「占死首包换速指令窗口」两件事（固件只认连接后第一包 2-7 位纯数字，且无论是否解析成功窗口即关闭；不占死则 agent 首条裸数字载荷会被吞且波特率被改坏），握手经正常 TX 路径记录进缓冲/traffic_log；断线自动重连**必重握手**（幂等治愈固件中途重启回默认波特率）；`set_baud` 走**透明重连+重握手**（换速窗口只在连接后首包存在，中途发数字只会变垃圾直达目标板），tag/缓冲保持不丢——对比 close+reopen 会删 tag 缓冲，波特率探测不丢已收证据；波特率 >1999999 提前 `INVALID_CONFIG`（固件上限）
   - **EndpointSerialService 分发器**：Open 时按 `PortName` 懒建 Tcp/Serial 内层实现——分发必须做在 service 内部而非工厂，因为默认会话是 DI 注入的裸 `ISerialService`、MultiPortService 工厂不收 config；Program.cs 两处注册换分发器后 read_data/wait_*/clear_buffer/traffic_log 全部零改动受益
   - **已知语义**（integration.md 新增「TCP 端点」节）：单客户端（新连接被拒是固件固有行为）；set_baud 重连间隙丢在途字节；非 windowsair 裸 TCP 端点（USR 类网串服务器）会收到 6 字节握手——排障清单项；dtr/rts/校验位对 TCP 无意义被忽略
-  - **测试 1507 → 1555（+48）**（徽章原记 1496 在 81c0fa6 后已过期）：Core +42（传输契约/端点解析 24 用例/分发与 MultiPort 集成/socket 释放）/ McpServer +6（open_port 双形式回显/超上限/OPEN_FAILED/echo 端到端/带 tag 会话）；TCP 测试类入 `DisableParallelization` 独占集合——48 个测试的活 socket + 握手时机进并行池会让套件里贴边的时敏测试轮换挂（干净基线 ×2 全绿对照定性），独占后 Core 1419 稳定全绿
-  - **socket 生命周期加固（异常退出不占死单客户端桥）**：全路径审计后补两缺口——① MCP 宿主 stdio EOF 时 `RunAsync` 返回即进程退出、容器从未 Dispose，现 `finally { app.DisposeAsync() }` 让串口单例走排空+FIN 而非裸靠内核；② 新增 `~TcpSerialService` 终结器兜底被泄漏的实例（`_disposed` 先置防自动重连复活；与 SerialPort 的 Component 终结器对齐），并用实证测试**钉死运行时事实：已连接实例被挂起的读操作 GC 根化、永不终结**——终结器只覆盖未连接/读已完成的泄漏，残余场景（泄漏且已连接，当前组合无生产者）留给规划的固件侧空闲超时兜底；进程崩溃由 OS 关闭句柄发 FIN/RST，桥的 lwip 即释放客户端槽
+  - **测试 1507 → 1558（+51）**（徽章原记 1496 在 81c0fa6 后已过期）：Core +42（传输契约/端点解析 24 用例/分发与 MultiPort 集成/socket 释放）/ McpServer +6（open_port 双形式回显/超上限/OPEN_FAILED/echo 端到端/带 tag 会话）；TCP 测试类入 `DisableParallelization` 独占集合——48 个测试的活 socket + 握手时机进并行池会让套件里贴边的时敏测试轮换挂（干净基线 ×2 全绿对照定性），独占后 Core 1419 稳定全绿
+  - **socket 生命周期加固（异常退出不占死单客户端桥）**：全路径审计后补两缺口——① MCP 宿主 stdio EOF 时 `RunAsync` 返回即进程退出、容器从未 Dispose，现 `finally { app.Dispose() }`（此 host 的 IHost 无 DisposeAsync，同步等价）让串口单例走排空+FIN 而非裸靠内核；② 新增 `~TcpSerialService` 终结器兜底被泄漏的实例（`_disposed` 先置防自动重连复活；与 SerialPort 的 Component 终结器对齐），并用实证测试**钉死运行时事实：已连接实例被挂起的读操作 GC 根化、永不终结**——终结器只覆盖未连接/读已完成的泄漏，残余场景（泄漏且已连接，当前组合无生产者）留给规划的固件侧空闲超时兜底；进程崩溃由 OS 关闭句柄发 FIN/RST，桥的 lwip 即释放客户端槽
+  - **桥固件 v2 协议适配 + 真机验证（2026-10-27）**：握手升级为 `<baud>[E|O|N]`（open_port 的 parity 参数现驱动后缀，如 19200 8E1 = "19200E"）；**精确字节、无结尾换行**——v2 解析器对整个首包校验（`num_digits==len`），内联换行必失败且整包泄漏给目标板（修正固件侧文档"首包发 19200E\n"的表述）。真机实测：acccom 服务路径连接真桥发 `19200E`，**桥自身控制台（COM18）输出 `UART: change line:19200 8E1` 实锤协商成功**，收到 522B JJ400 数据流，干净关闭。**真机暴露固件 v2 两大缺陷（待固件 v3）**：① 对端断开（含干净 FIN）不释放单客户端槽位（`netconn_recv` 失败走 `ERR_CLSD → continue` 跳过 `uart_bridge_reset`），一次启动只服务一次连接、恢复需重启 DAP——v2 桥上 TCP 的 set_baud 透明重连必失败；② 槽位被占时新连接的 accept-即踢路径疑似可致固件 panic 重启（实测 13:31:30 rst:0xc 与碰撞窗口重合，未定论）
   - 顺手修 **ParserEngine 非正超时测试的时机假设**（既有缺陷，干净 HEAD 隔离也挂）：熔断改造后脚本经 Task.Run 上线程池，1ms 钳制窗口内完成不再有保证——超时返回 null 是设计内行为；契约改回「不抛」（null-或-结果皆可），解析正确性用默认超时硬断言
 
 ### Fixed
