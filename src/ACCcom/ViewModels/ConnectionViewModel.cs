@@ -27,9 +27,19 @@ public class ConnectionViewModel : ObservableObject, IDisposable
         public string Display => string.IsNullOrEmpty(Description)
             ? Name
             : $"{Name} — {Description}";
+
+        // UI Automation / screen readers read a ComboBoxItem's name from
+        // ToString(); the record default would expose the raw property dump.
+        public override string ToString() => Display;
     }
 
     public ObservableCollection<PortOption> PortOptions { get; } = new();
+
+    /// <summary>TCP endpoints (tcp://host:port) remembered across sessions —
+    /// the wireless DAP bridge is the motivating case. They never appear in
+    /// the OS COM list, so without this the picker could only reach them by
+    /// typing; kept in settings and merged into <see cref="PortOptions"/>.</summary>
+    public ObservableCollection<string> KnownTcpEndpoints { get; } = new();
     public ObservableCollection<int> BaudRates { get; } = new() { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 };
     public ObservableCollection<int> DataBitsList { get; } = new() { 5, 6, 7, 8 };
     public ObservableCollection<string> StopBitsList { get; } = new() { "None", "One", "Two" };
@@ -164,8 +174,6 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 foreach (var p in arrived)
                 {
                     if (!AvailablePorts.Contains(p)) AvailablePorts.Add(p);
-                    if (!PortOptions.Any(o => string.Equals(o.Name, p, StringComparison.OrdinalIgnoreCase)))
-                        PortOptions.Add(MakePortOption(p));
                     _setStatus(string.Format(LanguageManager.Instance["Status.PortArrived"], p));
                 }
 
@@ -176,11 +184,13 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 foreach (var p in removed)
                 {
                     AvailablePorts.Remove(p);
-                    var option = PortOptions.FirstOrDefault(o => string.Equals(o.Name, p, StringComparison.OrdinalIgnoreCase));
-                    if (option != null) PortOptions.Remove(option);
                     if (string.Equals(SelectedPort, p, StringComparison.OrdinalIgnoreCase))
                         _setStatus(string.Format(LanguageManager.Instance["Status.PortRemoved"], p));
                 }
+
+                // Rebuild wholesale: a plug/unplug must never drop the
+                // remembered TCP endpoints from the picker.
+                RebuildPortOptions();
             }
             catch (Exception ex)
             {
@@ -192,25 +202,82 @@ public class ConnectionViewModel : ObservableObject, IDisposable
     private static PortOption MakePortOption(string portName)
         => new(portName, Helpers.PortDescriptionResolver.Describe(portName));
 
+    /// <summary>Endpoints are shown above the COM ports so the wireless bridge
+    /// is visible without scrolling; the description marks their transport.</summary>
+    private static PortOption MakeEndpointOption(string endpoint)
+        => new(endpoint, LanguageManager.Instance["Port.TcpEndpoint"]);
+
+    /// <summary>Rebuilds <see cref="PortOptions"/> as remembered TCP endpoints
+    /// followed by the live COM list. Called by both the explicit refresh and
+    /// the plug/unplug monitor so neither path can drop the endpoints.</summary>
+    private void RebuildPortOptions()
+    {
+        var selected = SelectedPort;
+        var keep = PortOptions.FirstOrDefault(o => string.Equals(o.Name, selected, StringComparison.OrdinalIgnoreCase));
+
+        PortOptions.Clear();
+        foreach (var ep in KnownTcpEndpoints) PortOptions.Add(MakeEndpointOption(ep));
+        foreach (var p in AvailablePorts) PortOptions.Add(MakePortOption(p));
+
+        // Keep the previous selection when it still exists so a manual
+        // refresh does not drop the user's choice.
+        if (keep != null && PortOptions.Any(o => string.Equals(o.Name, keep.Name, StringComparison.OrdinalIgnoreCase)))
+            SelectedPort = keep.Name;
+    }
+
+    /// <summary>Remembers a TCP endpoint so it appears in the picker from now
+    /// on (most-recent first, bounded). No-op for COM names.</summary>
+    public void RememberEndpoint(string? portName)
+    {
+        if (string.IsNullOrWhiteSpace(portName)) return;
+        if (!TcpEndpoint.TryParse(portName, out var parsed)) return;
+
+        var normalized = parsed.ToString();
+        var existing = KnownTcpEndpoints.FirstOrDefault(
+            e => string.Equals(e, normalized, StringComparison.OrdinalIgnoreCase));
+        if (existing != null) KnownTcpEndpoints.Remove(existing);
+
+        KnownTcpEndpoints.Insert(0, normalized);
+        while (KnownTcpEndpoints.Count > MaxKnownEndpoints)
+            KnownTcpEndpoints.RemoveAt(KnownTcpEndpoints.Count - 1);
+
+        RebuildPortOptions();
+    }
+
+    /// <summary>Seeds the remembered endpoints from settings (call before the
+    /// first <see cref="RefreshPorts"/>, or refresh afterwards).</summary>
+    public void LoadKnownEndpoints(IEnumerable<string>? endpoints)
+    {
+        KnownTcpEndpoints.Clear();
+        if (endpoints != null)
+        {
+            foreach (var ep in endpoints)
+            {
+                if (TcpEndpoint.TryParse(ep, out var parsed) && KnownTcpEndpoints.Count < MaxKnownEndpoints)
+                    KnownTcpEndpoints.Add(parsed.ToString());
+            }
+        }
+        RebuildPortOptions();
+    }
+
+    private const int MaxKnownEndpoints = 8;
+
     public void RefreshPorts()
     {
         var ports = SerialService.GetAvailablePorts();
         var selected = SelectedPort;
 
         AvailablePorts.Clear();
-        PortOptions.Clear();
-        foreach (var p in ports)
-        {
-            AvailablePorts.Add(p);
-            PortOptions.Add(MakePortOption(p));
-        }
+        foreach (var p in ports) AvailablePorts.Add(p);
+
+        RebuildPortOptions();
 
         // Keep the previous selection when it still exists so a manual
         // refresh does not drop the user's choice.
         if (!string.IsNullOrEmpty(selected) &&
-            ports.Any(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase)))
+            AvailablePorts.Any(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase)))
         {
-            SelectedPort = ports.First(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase));
+            SelectedPort = AvailablePorts.First(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -247,6 +314,7 @@ public class ConnectionViewModel : ObservableObject, IDisposable
                 }
             };
             IsOpen = await _connectionManager.ToggleConnection(_serial, config, false);
+            if (IsOpen) RememberEndpoint(SelectedPort);
             _setStatus(IsOpen ? string.Format(LanguageManager.Instance["Status.ConnectedSerial"], SelectedPort, SelectedBaudRate) : LanguageManager.Instance["Status.OpenFailed"]);
         }
     }
@@ -282,6 +350,9 @@ public class ConnectionViewModel : ObservableObject, IDisposable
             SelectedDataBits = config.DataBits;
             SelectedStopBits = config.StopBits;
             SelectedParity = config.Parity;
+            // Agent/API-opened endpoints must also land in the picker for the
+            // next session (the motivating case: the wireless bridge).
+            RememberEndpoint(config.PortName);
             if (!IsOpen)
             {
                 IsOpen = true;

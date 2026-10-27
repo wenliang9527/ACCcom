@@ -472,6 +472,9 @@ public class MainViewModel : ObservableObject, IDisposable
         _connection.SelectedLanguage = _settings.Language;
         LanguageManager.Instance.LoadLanguage(_settings.Language);
         Stage("language");
+        // Seed remembered TCP endpoints before the first port refresh so the
+        // picker offers the wireless bridge on a cold start.
+        _connection.LoadKnownEndpoints(_settings.KnownTcpEndpoints);
         // A TCP endpoint (tcp://host:port) is a valid remembered port even
         // though it never appears in the OS COM list; only COM names must
         // still be present to be restored.
@@ -1012,6 +1015,11 @@ public class MainViewModel : ObservableObject, IDisposable
         // COM name from before an HTTP-API open adopted a tcp:// endpoint.
         var livePort = _serial.CurrentPort ?? _connection.SelectedPort;
         _settings.LastPort = livePort;
+        // Keep a live endpoint at the head of the remembered list, so the next
+        // session shows it (a stale COM selection must not shadow it).
+        if (TcpEndpoint.TryParse(livePort, out _))
+            _connection.RememberEndpoint(livePort);
+        _settings.KnownTcpEndpoints = _connection.KnownTcpEndpoints.ToList();
         _settings.LastBaudRate = _connection.SelectedBaudRate;
         _settings.LastDataBits = _connection.SelectedDataBits;
         _settings.LastStopBits = _connection.SelectedStopBits;

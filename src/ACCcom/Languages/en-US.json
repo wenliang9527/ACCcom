@@ -443,6 +443,7 @@
   "Status.NetworkDisconnected": "Network disconnected",
   "Conn.BadgeDisconnected": "Disconnected",
   "Conn.BadgeConnected": "Connected",
+  "Port.TcpEndpoint": "TCP endpoint (wireless bridge)",
   "Conn.BadgeDisconnectedTip": "Not connected — pick a port in the toolbar and click \"Open\"",
   "Status.PlotWindowOpened": "Plot window opened - receiving numeric values from RX data",
   "Status.FrameAssemblyEnabled": "Frame assembly enabled: header={0}",

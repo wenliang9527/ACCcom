@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace ACCcom.Core.Models;
 
 public class AppSettings
@@ -27,6 +29,11 @@ public class AppSettings
     // ConnectionViewModel.SelectedStopBits / SelectedParity.
     public int LastStopBits { get; set; } = 1;
     public int LastParity { get; set; }
+
+    // TCP serial endpoints (tcp://host:port) used before, most recent first.
+    // They never appear in the OS COM list, so the picker needs this memory to
+    // offer the wireless DAP bridge without retyping.
+    public List<string> KnownTcpEndpoints { get; set; } = new();
 
     // Connection panel: last connection type ("Serial"/"TCP"/"UDP"), network
     // endpoint, control lines and auto-reconnect toggle — restored on launch so
