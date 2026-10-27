@@ -52,7 +52,21 @@ builder.Services.AddMcpServer()
     .WithTools<TrafficTools>();
 
 var app = builder.Build();
-await app.RunAsync().ConfigureAwait(false);
+try
+{
+    await app.RunAsync().ConfigureAwait(false);
+}
+finally
+{
+    // Stdio EOF ends RunAsync; disposing the host tears down the disposable
+    // singletons (serial services) so open TCP sessions close with a drain +
+    // FIN instead of waiting for the process-exit socket cleanup. The
+    // single-client UART bridge treats a lingering connection as occupied —
+    // an explicit close here frees the slot for the next client promptly.
+    // (Sync Dispose: this host's IHost interface version predates
+    // IAsyncDisposable; the exit path has nothing left to await anyway.)
+    app.Dispose();
+}
 
 /// <summary>
 /// Lazily launches the desktop GUI (with the MCP traffic window) on the first

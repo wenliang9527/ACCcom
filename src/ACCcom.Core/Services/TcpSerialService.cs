@@ -28,6 +28,16 @@ namespace ACCcom.Core.Services;
 /// garbage. The reconnect is transparent to the session: buffer, tag and
 /// config survive; the gap costs in-flight bytes (the bridge drops UART RX
 /// while no client is attached).
+///
+/// Socket-lifetime guarantee (the bridge is single-client — a zombie
+/// connection deadlocks the whole UART path): every in-process abandon path
+/// (close, dispose, reconnect swap, error teardown) funnels through
+/// TeardownCurrent; a host shutdown funnels through Dispose (the MCP host
+/// disposes its singletons); a hard process crash is covered by the OS,
+/// which closes all handles at termination (FIN, or RST when receive data
+/// is pending) — the bridge sees the connection die and frees its client
+/// slot. The finalizer below is the last net for an instance that is simply
+/// leaked without Dispose, mirroring SerialPort's Component finalizer.
 /// </summary>
 public class TcpSerialService : ISerialService, IDisposable
 {
@@ -566,5 +576,27 @@ public class TcpSerialService : ISerialService, IDisposable
         // right now may still take its WaitAsync(0) probe, and disposing a
         // semaphore under that race throws into an unobserved task.
         _disposed = true;
+    }
+
+    /// <summary>Finalizer safety net for a leaked instance (no Dispose).
+    /// Finalizer-safe work only: no events, no channel or semaphore traffic.
+    /// _disposed goes first: the read-loop death this close triggers must see
+    /// it and skip auto-reconnect, or a finalized instance would be
+    /// resurrected by its own reconnect loop and re-dial the bridge.
+    /// Honest limitation: an instance with a pending read is rooted by the
+    /// in-flight socket operation and will not be finalized — this net only
+    /// fires for instances that are unconnected or whose read has already
+    /// completed. The residual (leaked CONNECTED instance) has no producer
+    /// in the current composition and is backstopped by the planned
+    /// firmware-side idle timeout.</summary>
+    ~TcpSerialService()
+    {
+        try
+        {
+            _disposed = true;
+            _readCts?.Cancel();
+            _client?.Close();
+        }
+        catch { /* a finalizer must never throw */ }
     }
 }

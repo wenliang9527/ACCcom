@@ -15,6 +15,10 @@ internal sealed class LoopbackServer : IDisposable
     {
         public required TcpClient Client;
         public List<byte[]> Packets { get; } = new();
+        /// <summary>False once the peer side of this connection has gone away
+        /// (read returned 0 or the socket threw) — the assertion surface for
+        /// "the service actually released the socket".</summary>
+        public volatile bool Alive = true;
     }
 
     private readonly TcpListener _listener;
@@ -72,6 +76,30 @@ internal sealed class LoopbackServer : IDisposable
         {
             // client gone — the connection's packets stay recorded
         }
+        finally
+        {
+            conn.Alive = false;
+        }
+    }
+
+    /// <summary>False once the service side of connection N has been closed.</summary>
+    public bool IsAlive(int connectionIndex)
+    {
+        lock (_gate) return connectionIndex < _connections.Count && _connections[connectionIndex].Alive;
+    }
+
+    /// <summary>Polls until the service side of connection N is gone — used
+    /// by the socket-release tests (Dispose/finalizer must actually free the
+    /// socket, not just flip IsOpen).</summary>
+    public async Task<bool> WaitDisconnectAsync(int connectionIndex, int timeoutMs = 3000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < deadline)
+        {
+            if (!IsAlive(connectionIndex)) return true;
+            await Task.Delay(15).ConfigureAwait(false);
+        }
+        return !IsAlive(connectionIndex);
     }
 
     public int ConnectionCount

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -218,6 +219,50 @@ public class TcpSerialServiceTests : IDisposable
         // call with one must refuse instead of dialing garbage.
         Assert.False(service.Open(new SerialConfig { PortName = "COM3", BaudRate = 115200 }));
         Assert.False(service.IsOpen);
+    }
+
+    [Fact]
+    public async Task Dispose_WithoutPriorClose_ReleasesSocket()
+    {
+        var service = new TcpSerialService();
+        Assert.True(await service.OpenAsync(Config()));
+
+        service.Dispose(); // the skip-Close abandon path must still free the socket
+
+        Assert.False(service.IsOpen);
+        Assert.True(await _server.WaitDisconnectAsync(0), "Dispose left the socket open");
+    }
+
+    /// <summary>Empirical pin of the runtime's rooting behavior: an instance
+    /// with a pending read is kept alive by the in-flight socket operation
+    /// (documented on the finalizer), so dropping the last reference does
+    /// NOT collect it and the finalizer does NOT run. If this ever flips
+    /// (runtime change / read-loop restructure), the finalizer must be
+    /// re-audited — until then the socket-release guarantee for connected
+    /// instances rests on explicit Close/Dispose paths alone.</summary>
+    [Fact]
+    public async Task LeakedConnectedInstance_IsRootedByPendingRead_NotFinalized()
+    {
+        var weak = CreateLeakedConnectedService(Config());
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        Assert.True(weak.IsAlive, "instance was collected despite a pending read — finalizer contract changed, re-audit ~TcpSerialService");
+
+        // However it was created, the leaked instance must not linger as a
+        // SECOND connection: it never re-dialed, and it dies with the test's
+        // server disposal.
+        await Task.Delay(150);
+        Assert.Equal(1, _server.ConnectionCount);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateLeakedConnectedService(SerialConfig config)
+    {
+        var service = new TcpSerialService();
+        service.OpenAsync(config).GetAwaiter().GetResult();
+        return new WeakReference(service);
     }
 
     private static async Task<bool> PollAsync(Func<bool> condition, int timeoutMs = 3000, int intervalMs = 15)
