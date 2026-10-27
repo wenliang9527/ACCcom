@@ -63,9 +63,14 @@
 
             <StackPanel Style="{StaticResource FieldGroup}">
                 <TextBlock Text="{Binding [Label.Port], Source={x:Static local:LanguageManager.Instance}}" Style="{StaticResource FieldLabel}" />
+                <!-- Editable so a TCP endpoint (tcp://host:port) can be typed
+                     directly; picked COM entries still fill the edit box with
+                     the plain port name via TextSearch.TextPath. -->
                 <ComboBox ItemsSource="{Binding PortOptions}"
-                          SelectedValuePath="Name" SelectedValue="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
-                          Width="150" IsEditable="False" Style="{StaticResource FieldCombo}">
+                          TextSearch.TextPath="Name"
+                          IsEditable="True"
+                          Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}"
+                          Width="150" Style="{StaticResource FieldCombo}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis"

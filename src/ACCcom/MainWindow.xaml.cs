@@ -19,7 +19,14 @@ public partial class MainWindow : Window
         // stage timings go to trace output (see MainViewModel ctor) and the
         // total is reported here.
         var vmSw = System.Diagnostics.Stopwatch.StartNew();
-        _vm = new MainViewModel(new SerialService());
+        // EndpointSerialService dispatches by port name: COM names run the
+        // real SerialService, "tcp://host:port" (or bare host:port) runs
+        // TcpSerialService — the wireless DAP UART bridge. Every GUI path
+        // (connect bar, sends, HTTP API) goes through ISerialService, so the
+        // swap is transparent; the baud/parity selectors flow into the TCP
+        // handshake automatically, and closing/reopening at a new baud
+        // re-handshakes the bridge.
+        _vm = new MainViewModel(new EndpointSerialService());
         vmSw.Stop();
         System.Diagnostics.Trace.WriteLine($"[startup] MainViewModel ctor total = {vmSw.ElapsedMilliseconds}ms");
         DataContext = _vm;
