@@ -155,6 +155,7 @@ agent 侧的接口与工作流说明见 [tools/dsh-serial-panel/AGENTS.md](tools
 | `Ctrl+F` | 聚焦 RX 搜索框 |
 | `Ctrl+D` | 切换主题（在 7 款主题间循环） |
 | `Ctrl+H` | 切换 HEX 显示 |
+| `Ctrl+End` | 跳到最新一条数据（同时恢复自动跟随） |
 | `Ctrl+P` | 切换合并 / 拆分数据视图 |
 | `Ctrl+B` | 添加书签 |
 | `Ctrl+Left/Right` | 书签前后导航 |

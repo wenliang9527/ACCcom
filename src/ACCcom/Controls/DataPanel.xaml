@@ -91,6 +91,35 @@
                                         <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollAll}"
                                                       ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}"
                                                       Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" />
+                                        <!-- Explicit jump-to-tail. Auto-follow stops once the
+                                             user scrolls up to read history, and the only way
+                                             back was dragging the bar through a live stream;
+                                             this is also the visible affordance for Ctrl+End. -->
+                                        <Button Click="JumpToLatestAll_Click" Style="{StaticResource HeaderButton}"
+                                                Margin="2,0,0,0" Padding="6,0"
+                                                ToolTip="{Binding [Tip.JumpToLatest], Source={x:Static local:LanguageManager.Instance}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE74B;" FontFamily="{StaticResource FontFamilyIcons}"
+                                                           FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding [DataPanel.Latest], Source={x:Static local:LanguageManager.Instance}}"
+                                                           FontSize="{StaticResource FontSizeBody}" Margin="3,0,0,0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <Rectangle Style="{StaticResource ToolSeparator}" Margin="6,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <!-- The combined view had no clear buttons at all: RX/TX
+                                             could only be emptied from the split layout, the
+                                             context menu, or Ctrl+L / Ctrl+Shift+L. Clearing is a
+                                             first-class action here too, and it names the
+                                             direction so it cannot be mistaken for "clear all". -->
+                                        <Button Content="{Binding [Button.ClearRx], Source={x:Static local:LanguageManager.Instance}}"
+                                                Command="{Binding ClearRxCommand}" Style="{StaticResource HeaderButton}"
+                                                ToolTip="{Binding [Tip.ClearRx], Source={x:Static local:LanguageManager.Instance}}" />
+                                        <Button Content="{Binding [Button.ClearTx], Source={x:Static local:LanguageManager.Instance}}"
+                                                Command="{Binding ClearTxCommand}" Style="{StaticResource HeaderButton}"
+                                                Margin="2,0,0,0"
+                                                ToolTip="{Binding [Tip.ClearTx], Source={x:Static local:LanguageManager.Instance}}" />
                                     </StackPanel>
                                     <Rectangle Style="{StaticResource ToolSeparator}" Margin="6,0" />
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -317,6 +346,11 @@
                                             <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableRxTimestamp}" />
                                             <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayRx}" Margin="8,0,0,0" />
                                             <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollRx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" />
+                                            <Button Click="JumpToLatestRx_Click" Style="{StaticResource HeaderButton}" Margin="2,0,0,0" Padding="5,0"
+                                                    ToolTip="{Binding [Tip.JumpToLatest], Source={x:Static local:LanguageManager.Instance}}">
+                                                <TextBlock Text="&#xE74B;" FontFamily="{StaticResource FontFamilyIcons}"
+                                                           FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center" />
+                                            </Button>
                                         </StackPanel>
                                         <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -484,6 +518,11 @@
                                             <CheckBox Content="{Binding [Check.Timestamp], Source={x:Static local:LanguageManager.Instance}}" IsChecked="{Binding EnableTxTimestamp}" />
                                             <CheckBox Content="HEX" IsChecked="{Binding IsHexDisplayTx}" Margin="8,0,0,0" />
                                             <ToggleButton Content="&#x2195;" IsChecked="{Binding AutoScrollTx}" ToolTip="{Binding [DataPanel.AutoScroll], Source={x:Static local:LanguageManager.Instance}}" Margin="6,0,0,0" Style="{StaticResource MiniToggle}" FontSize="{StaticResource FontSizeBodyLarge}" Padding="4,0" />
+                                            <Button Click="JumpToLatestTx_Click" Style="{StaticResource HeaderButton}" Margin="2,0,0,0" Padding="5,0"
+                                                    ToolTip="{Binding [Tip.JumpToLatest], Source={x:Static local:LanguageManager.Instance}}">
+                                                <TextBlock Text="&#xE74B;" FontFamily="{StaticResource FontFamilyIcons}"
+                                                           FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center" />
+                                            </Button>
                                         </StackPanel>
                                         <Rectangle Style="{StaticResource ToolSeparator}" Margin="4,0" />
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

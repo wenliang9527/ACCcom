@@ -36,6 +36,7 @@ public static class ShortcutCatalog
             new("Ctrl+S", "Shortcuts.SaveRx"),
             new("Ctrl+Shift+S", "Shortcuts.SaveTx"),
             new("Ctrl+H", "Shortcuts.ToggleHex"),
+            new("Ctrl+End", "Shortcuts.JumpToLatest"),
             new("Ctrl+P", "Shortcuts.ToggleSplit"),
         ]),
         new("Shortcuts.GroupNav",

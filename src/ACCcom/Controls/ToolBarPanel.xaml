@@ -136,10 +136,10 @@
                 <TextBlock Text="&#xE713;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeHeading}" />
             </ToggleButton>
 
-            <ToggleButton Style="{StaticResource ToolToggle}" Margin="4,0,0,0"
+            <ToggleButton Style="{StaticResource ToolToggleLabeled}" Margin="4,0,0,0"
                           IsChecked="{Binding ShowQuickSendSidebar}"
                           ToolTip="{Binding [QuickSend.ToggleHint], Source={x:Static local:LanguageManager.Instance}}">
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="&#xE700;" FontFamily="{StaticResource FontFamilyIcons}" FontSize="{StaticResource FontSizeHeading}" />
                     <TextBlock Text="{Binding [QuickSend.ToggleLabel], Source={x:Static local:LanguageManager.Instance}}"
                                FontSize="{StaticResource FontSizeBody}" Margin="4,0,0,0" VerticalAlignment="Center" />

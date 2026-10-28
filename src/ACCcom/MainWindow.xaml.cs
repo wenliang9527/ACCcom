@@ -224,6 +224,18 @@ public partial class MainWindow : Window
             }
         }
 
+        // Ctrl+End: jump to the newest entry. Auto-follow deliberately stops
+        // once the user scrolls up to read history, and dragging the bar through
+        // a live stream was the only way back; the panel headers carry the
+        // matching button. TextBoxes keep Ctrl+End (caret to end of text) —
+        // claiming it there would break typing in the send/search boxes.
+        if (e.Key == Key.End && mods == ModifierKeys.Control && Keyboard.FocusedElement is not TextBox)
+        {
+            DataPanelControl.ScrollActiveToLatest();
+            e.Handled = true;
+            return;
+        }
+
         // Ctrl+C: Copy selected entries (active list: combined, RX, or TX)
         if (e.Key == Key.C && mods == ModifierKeys.Control)
         {

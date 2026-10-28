@@ -106,6 +106,14 @@
                 </Setter>
             </Style>
 
+            <!-- Labelled variant of ToolToggle. That square is sized for a single
+                 glyph (26x26); a toggle carrying icon + caption gets its text
+                 clipped outside the button frame unless it is allowed to grow. -->
+            <Style x:Key="ToolToggleLabeled" TargetType="ToggleButton" BasedOn="{StaticResource ToolToggle}">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="Padding" Value="8,0" />
+            </Style>
+
             <!-- RX/TX left accent bars -->
             <Style x:Key="RxAccent" TargetType="Rectangle">
                 <Setter Property="Width" Value="3" />

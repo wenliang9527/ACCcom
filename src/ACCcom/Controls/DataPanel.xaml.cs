@@ -245,6 +245,40 @@ public partial class DataPanel : UserControl
         sv.ScrollToBottom();
     }
 
+    // ---- Explicit "jump to latest" -------------------------------------
+    // The auto-follow above deliberately stops following once the user
+    // scrolls up, which left no way back to the tail except dragging the
+    // scrollbar through a stream that keeps growing. These bypass the
+    // pendulum unconditionally: the user is asking for the bottom. They do
+    // NOT touch the AutoScroll preference — re-arming the pendulum happens
+    // on its own once the viewport is back at the bottom, so a user who
+    // deliberately turned following off keeps it off.
+
+    public void ScrollRxToLatest()
+        => (_rxScrollViewer ??= FindVisualChild<ScrollViewer>(RxListBox))?.ScrollToBottom();
+
+    public void ScrollTxToLatest()
+        => (_txScrollViewer ??= FindVisualChild<ScrollViewer>(TxListBox))?.ScrollToBottom();
+
+    public void ScrollAllToLatest()
+        => (_allScrollViewer ??= FindVisualChild<ScrollViewer>(AllListBox))?.ScrollToBottom();
+
+    /// <summary>Jump to the tail of whichever list the current layout shows.
+    /// Ctrl+End routes here so the shortcut means the same thing in both views.</summary>
+    public void ScrollActiveToLatest()
+    {
+        if (IsCombinedActive) ScrollAllToLatest();
+        else
+        {
+            ScrollRxToLatest();
+            ScrollTxToLatest();
+        }
+    }
+
+    private void JumpToLatestAll_Click(object sender, RoutedEventArgs e) => ScrollAllToLatest();
+    private void JumpToLatestRx_Click(object sender, RoutedEventArgs e) => ScrollRxToLatest();
+    private void JumpToLatestTx_Click(object sender, RoutedEventArgs e) => ScrollTxToLatest();
+
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
     {
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
