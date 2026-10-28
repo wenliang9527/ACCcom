@@ -375,7 +375,15 @@
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     CornerRadius="{StaticResource RadiusChip}" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <!-- A bare ContentPresenter renders string content as a
+                                     TextBlock that does NOT inherit Button.FontFamily, so
+                                     a Segoe MDL2 glyph in Content fell back to the default
+                                     UI font and drew as a thin line (the quick-send
+                                     sidebar's + / … / arrows). Explicit TextElement
+                                     bindings make icon glyphs render as icons. -->
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                                  TextElement.FontSize="{TemplateBinding FontSize}" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">

@@ -6,13 +6,15 @@
 
     <UserControl.Resources>
         <!-- Icon button for page navigation -->
-        <!-- Page nav: 24x22 at 12px. It was 26x24 at 14px, which made four bare
-             glyphs the largest marks in a 260px column and read as floating
-             characters rather than controls. -->
+        <!-- 24x22 with a 14px glyph. The previous 12px made the MDL2 arrows,
+             plus and ellipsis (E72B/E72A/E710/E712) draw as hairlines that read
+             as text punctuation instead of icons; the toolbar's arrow buttons
+             use FontSizeTitle for the same reason. Sizing down to 24x22 keeps
+             them from dominating the column while the glyph stays legible. -->
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource HeaderButton}">
             <Setter Property="Width" Value="24" />
             <Setter Property="Height" Value="22" />
-            <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
             <Setter Property="Padding" Value="0" />
         </Style>
         <!-- Command row: flat full-width button -->
@@ -132,7 +134,7 @@
                         <Style TargetType="Button" BasedOn="{StaticResource HeaderButton}">
                             <Setter Property="Width" Value="20" />
                             <Setter Property="Height" Value="20" />
-                            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+                            <Setter Property="FontSize" Value="{StaticResource FontSizeBodyLarge}" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
