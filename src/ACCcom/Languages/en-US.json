@@ -48,6 +48,8 @@
   "McpTraffic.Title": "MCP Traffic — shared serial log",
   "McpTraffic.Hint": "Live view of serial traffic sent/received by the MCP (AI) tools. The MCP process appends each RX/TX exchange to mcp-traffic.jsonl and this window tails it.",
   "McpTraffic.Clear": "Clear log",
+  "McpTraffic.ClearTip": "Clear the list and truncate mcp-traffic.jsonl (erases the recorded history)",
+  "McpTraffic.ClearConfirm": "Clearing the log also truncates mcp-traffic.jsonl, so every recorded exchange is lost. Continue?",
   "McpTraffic.Time": "Time",
   "McpTraffic.Id": "ID",
   "McpTraffic.Length": "Len",

@@ -109,12 +109,13 @@
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
+        <!-- The clear action used to be a bare glyph in ExtraButtons here. Next
+             to the window controls it read as chrome, not as a data action, and
+             it silently truncated mcp-traffic.jsonl. It now lives in the toolbar
+             with a label, beside pause/copy/export where the other log actions
+             are. -->
         <controls:ChromeTitleBar Grid.Row="0" x:Name="TitleBar"
-                                 Title="{Binding [McpTraffic.Title], Source={x:Static local:LanguageManager.Instance}}">
-            <controls:ChromeTitleBar.ExtraButtons>
-                <Button Content="&#xE74C;" Style="{StaticResource TitleBarButton}" FontSize="{StaticResource FontSizeBody}" Width="46" Height="32" Click="Clear_Click" ToolTip="{Binding [McpTraffic.Clear], Source={x:Static local:LanguageManager.Instance}}" />
-            </controls:ChromeTitleBar.ExtraButtons>
-        </controls:ChromeTitleBar>
+                                 Title="{Binding [McpTraffic.Title], Source={x:Static local:LanguageManager.Instance}}" />
 
         <!-- Main content -->
         <Grid Grid.Row="1" Margin="8">
@@ -171,6 +172,10 @@
                                 Content="{Binding [McpTraffic.Export], Source={x:Static local:LanguageManager.Instance}}"
                                 Style="{StaticResource ToolbarButton}" Margin="0,0,4,0"
                                 ToolTip="{Binding [McpTraffic.ExportTip], Source={x:Static local:LanguageManager.Instance}}" />
+                        <Button x:Name="ClearButton" Click="Clear_Click"
+                                Content="{Binding [McpTraffic.Clear], Source={x:Static local:LanguageManager.Instance}}"
+                                Style="{StaticResource ToolbarButton}" Margin="0,0,4,0"
+                                ToolTip="{Binding [McpTraffic.ClearTip], Source={x:Static local:LanguageManager.Instance}}" />
                         <Rectangle Style="{StaticResource ToolSeparator}" />
                         <CheckBox x:Name="FollowTail" IsChecked="True" Checked="FollowTail_Changed" Unchecked="FollowTail_Changed"
                                   Content="{Binding [McpTraffic.FollowTail], Source={x:Static local:LanguageManager.Instance}}"

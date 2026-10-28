@@ -911,6 +911,16 @@ public partial class McpTrafficWindow : Window
 
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
+        // This is not just a view reset: it truncates the shared JSONL file the
+        // MCP process appends to, so the AI's own history is gone too. It used
+        // to run straight off a title-bar glyph with no prompt.
+        var answer = MessageBox.Show(
+            LanguageManager.Instance["McpTraffic.ClearConfirm"],
+            LanguageManager.Instance["Confirm.Title"],
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.Yes) return;
+
         _allRows.Clear();
         _rxCount = 0;
         _txCount = 0;

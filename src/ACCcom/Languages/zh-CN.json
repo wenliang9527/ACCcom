@@ -48,6 +48,8 @@
   "McpTraffic.Title": "MCP 流量 — 共享串口日志",
   "McpTraffic.Hint": "实时查看 MCP（AI）工具收发的串口数据。MCP 进程把每条收发追加到 mcp-traffic.jsonl，本窗口实时尾随显示。",
   "McpTraffic.Clear": "清空日志",
+  "McpTraffic.ClearTip": "清空列表并截断 mcp-traffic.jsonl（会一并清掉已记录的收发历史）",
+  "McpTraffic.ClearConfirm": "清空日志会同时截断 mcp-traffic.jsonl 文件，之前记录的所有收发都会丢失。确定继续？",
   "McpTraffic.Time": "时间",
   "McpTraffic.Id": "ID",
   "McpTraffic.Length": "长度",
