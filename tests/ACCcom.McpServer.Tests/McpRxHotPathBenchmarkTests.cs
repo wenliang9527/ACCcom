@@ -6,7 +6,7 @@ using ACCcom.McpServer.Tests.TestHelpers;
 namespace ACCcom.McpServer.Tests;
 
 /// <summary>
-/// Hot-path throughput for the MCP receive chain: serial entry �?/// ToolContext handler �?DataBufferService.AddEntry + McpTrafficLog.Record.
+/// Hot-path throughput for the MCP receive chain: serial entry → ToolContext handler → DataBufferService.AddEntry + McpTrafficLog.Record.
 /// Class name deliberately contains "RxHotPathBenchmarkTests" so the CI
 /// coverage filter (FullyQualifiedName!~RxHotPathBenchmarkTests) excludes it
 /// from coverlet instrumentation, matching the Core benchmark class.
