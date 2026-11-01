@@ -66,7 +66,7 @@ ACCCOM 采用**模块化 MVVM 架构**，核心库与 WPF 桌面端严格分离�
 | 脚本引擎 | Roslyn C# Script + LRU 编译缓存 |
 | 缓冲区 | 预分配 RingBuffer 环形缓冲 |
 | 架构 | MVVM (ObservableObject 基类) |
-| 测试 | xUnit 2.5.3（当前 1385 个用例，见 README 徽章） |
+| 测试 | xUnit 2.5.3（当前 1554 个用例，CI 口径另基准 11 单列，见 README 徽章） |
 
 ## 项目结构
 
@@ -215,7 +215,7 @@ ACCcom/
 │   └── dsh-serial-panel/    # DSH 插件 v1.8.2:右侧停靠串口面板(DeepSeek Harness,deploy.cmd 部署)
 │       ├── index.js               # Host 半区:尾随 mcp-traffic.jsonl(分块读)+ 同源路由(增量/compact/stats=1/export/clear/mcp)
 │       ├── client.js              # Client 半区:rightbar 停靠 tab(兜底整屏 main)+ 流量徽章 + 正则/快捷键
-│       ├── test.js                # 行为测试(node test.js core|window|api|client|mcp|chunk|http,109 项断言)
+│       ├── test.js                # 行为测试(node test.js core|window|api|client|mcp|chunk|http,133 项断言)
 │       ├── AGENTS.md              # agent 接入说明(路由/seq 语义/干净复现工作流)
 │       └── deploy.cmd             # 部署到 %USERPROFILE%\.dsh\profiles
 ├── tests/

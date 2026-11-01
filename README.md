@@ -8,7 +8,7 @@
 [![WPF](https://img.shields.io/badge/WPF-.NET_8-512BD4?logo=windows)](https://github.com/dotnet/wpf)
 [![MCP](https://img.shields.io/badge/MCP-Server-4A5568?logo=serverfault)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-1561_passing-22C55E)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-1554_passing-22C55E)](https://github.com/)
 
 Windows 桌面串口调试工具，支持自定义 C# Script 协议解析、HTTP API、AI MCP Server，对标 SSCOM 5.13.1。
 
@@ -65,10 +65,9 @@ DSH 插件的开发/部署（真源在仓库，部署到 Harness profile）：
 ```cmd
 cd tools\dsh-serial-panel
 deploy.cmd          :: 部署到 desktop profile，重启 DeepSeek Harness 生效
-node test.js core   :: 行为测试四个模式(core/window/api/client),共 67 项断言
-node test.js window
-node test.js api
-node test.js client
+node test.js core   :: 行为测试七个模式(core/window/api/client/mcp/chunk/http)
+                    :: 共 133 项断言;各模式独立 env + 独立日志文件,
+                    :: 详见 test.js 头注释与 AGENTS.md
 ```
 
 agent 侧的接口与工作流说明见 [tools/dsh-serial-panel/AGENTS.md](tools/dsh-serial-panel/AGENTS.md);

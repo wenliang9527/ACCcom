@@ -2,7 +2,18 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：构建 0 警告 0 错误，CI 口径主套件 1561 全过 + 基准 11 单列全过；全面审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1554 全过 + 基准 11 单列全过（全量 1565），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
+
+### Fixed
+
+- **TCP 端点栈四处修复（`fix(core)`，2026-11-01 体检轮，docs/audit-2026-11-01.md P2#1+P3×3）**
+  - **握手可被并发 Send 抢先（P2）**：`_connValid = true` 原先在握手写之前——循环发送/触发器运行中重开 TCP 口时，并发 Send 可先抢到发送锁，线上首包变成业务载荷：桥把载荷当行配置命令消费（或吞掉）、握手字节「19200E」当垃圾直达目标板，桥不换速。类注释声称的「首包必为握手」不变量在该交错下不成立。修法：握手写挪到连接宣告**之前**——握手在飞时 `_connValid` 仍为 false，并发 Send 被 not-open 检查拒绝，不变量从「注释声称」变成「结构保证」
+  - **已开早退路径覆写 `_endpoint`（P3，新增回归测试抓到）**：并发 Open 不同端点时，败者的解析结果覆盖共享字段，`CurrentPort` 报成未连接的端点。修法：仅在生命周期锁内、即将拨号前发布 `_endpoint`，已开早退与败者都不再触碰
+  - **断线期间 set_baud 被静默丢弃（P3，新增回归测试抓到）**：`SetBaudRate` 对非连接直接 false 且不同步 `_lastConfig`——挂起的自动重连会以**旧波特率**复活，用户指令无声丢失。修法：离线时仍把请求波特率同步进 `_lastConfig` 再返 false，重连按新速率再握手
+  - 握手失败路径 metrics 不平衡（`RecordPortOpened` 后无对称 close）随握手先行自然消除；补读循环意外死亡的 OnError 排障线索与 DispatchRx 近似计数注释。**测试 +4**（并发锤击下首包必为握手 / 并发不同端点收敛于可达端点 / 断线 set_baud 重连按新波特率复活 / 开关 metrics 平衡），主套件 1561 → 1565
+- **GUI 多端口会话不支持 TCP 端点（`fix(gui,core)`，2026-11-01 体检轮 P2#2）**：`MultiPortService` 默认工厂仍建裸 `SerialService`，MCP 侧已换 `EndpointSerialService` 分发器——GUI 多端口面板输 `tcp://host:port` 落到 `SerialPort.Open` 直接失败且报错语义是「串口不存在」，与单会话/MCP 能力不一致。修法：默认工厂换分发器（COM 名仍建 SerialService，既有 MultiPort 测试行为零变化）
+- **DSH 面板 v1.8.3：写路由回环 Host 校验（`fix(dsh)`，2026-11-01 体检轮 P2#3）**：v1.8.2 的同源判据拿 Origin/Referer 与请求 Host 头**互比**——DNS rebinding（攻击域名 TTL0 解析到 127.0.0.1，浏览器视角页面与目标 same-origin）下 `Sec-Fetch-Site: same-origin` + Origin/Host 一致，三项判据全过、放行，任意网页可跨站截断共享日志/关 MCP。现写请求的 Host 头本身必须是 `127.0.0.1`/`localhost`/`[::1]`（与 Core LocalAccessGuardModule 同一严格集合，127.0.0.2 亦拒），攻击域名一票拒绝；Host 缺失（HTTP/1.0、被桌面壳剥头的请求、无 host 测试桩）不拒，AGENTS.md 的 curl 干净复现工作流不受影响。测试 125 → **133 断言**（+4 rebinding 拒绝形态 +4 回环拼写放行）
+- **第 6 个时敏测试门加宽 + 编码损坏漏网 1 处（`fix(test)`，2026-11-01 体检轮 P2#5/P2#6）**：`ParserStallBreakerTests` 在全量并行下轮换挂（本日全量跑实录）——根因是逐次 `Assert.Null` 原理上不健全：测试线程被并行负载抢占超过 5s 时，睡眠脚本在 100ms 期限被观察前完成，该次调用**合法**返回空列表并重置熔断计数。按 b191a61「证明已发生」教义改为驱动喂帧直到熔断器自证（30s 窗口内事件必达），重置型完成被容忍、非空解析仍硬断言。顺带修 `McpRxHotPathBenchmarkTests.cs:9` 注释内 em-dash 编码损坏字节（R169 清零结论修订：扫描圈了文件名清单而漏掉 McpServer 测试侧——字节扫描按 `git ls-files` 全清单跑脚本，已固化 [tools/scan-badbytes.js](tools/scan-badbytes.js)，当前全库 438 文件 0 坏字节）
 
 ### Added
 
