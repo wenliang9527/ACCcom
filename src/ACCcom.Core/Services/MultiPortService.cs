@@ -34,7 +34,12 @@ public class MultiPortService : IDisposable
         }
     }
 
-    public MultiPortService() : this(() => new SerialService())
+    /// <summary>Dispatching default factory: COM names run the real
+    /// SerialService, tcp:// endpoints run TcpSerialService — multi-port
+    /// sessions get the same transport reach as the single-port session
+    /// (audit 2026-11-01: the MCP side had switched, the default had not,
+    /// leaving GUI multi-port unable to open the wireless bridge).</summary>
+    public MultiPortService() : this(() => new EndpointSerialService())
     {
     }
 
