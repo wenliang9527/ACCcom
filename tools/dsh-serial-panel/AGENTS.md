@@ -24,15 +24,18 @@
 badLines/logSize/logMtimeMs/rotated/diag/mcp`,可用于链路自检(文件不存在 → MCP 未跑过;
 mtime 很旧 → 写入端疑似挂了;size 在涨但 entries 不涨 → 格式漂移,看 badLines)。
 
-## 写路由的同源约束(v1.8.2)
+## 写路由的同源约束(v1.8.3)
 
-`POST /clear` 与 `POST /mcp` 会做同源判定:带 `Sec-Fetch-Site: cross-site`、或
-`Origin`/`Referer` 的 authority 与 `Host` 不一致的请求一律 **403**
-(“cross-origin write refused”)。目的是挡住任意网页跨站截断日志/关掉 MCP。
+`POST /clear` 与 `POST /mcp` 会做写防护判定,判据顺序:**Host 回环 → Sec-Fetch-Site →
+Origin → Referer**。带非回环 `Host` 头(127.0.0.1/localhost/[::1] 之外的域名,
+含 DNS rebinding 形态)、`Sec-Fetch-Site: cross-site`、或 `Origin`/`Referer` 的
+authority 与 `Host` 不一致的请求一律 **403**(“cross-origin write refused”)。
+目的是挡住任意网页跨站/重绑域名截断日志、关掉 MCP。
 
-- **curl / agent 脚本不受影响**:不带这些浏览器标记的请求照常放行,
+- **curl / agent 脚本不受影响**:不带浏览器标记且 Host 是回环的请求照常放行,
   上面「推荐工作流」的 `curl -X POST .../clear` 仍然可用。
-- 若从自建页面/另一端口调用,请让 `Origin` 与请求 `Host` 一致(同源),否则会 403。
+- 若从自建页面/另一端口调用,请让 `Origin` 与请求 `Host` 一致(同源)且 Host 是
+  回环地址,否则会 403。
 - `POST /mcp` 的 body 必须是**显式布尔** `{"enabled":true|false}`:缺字段/非布尔/
   坏 JSON 都是 **400**(不会像旧版那样静默当成 `false`),body 上限 64KiB(超出 **413**)。
 

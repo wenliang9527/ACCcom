@@ -396,6 +396,31 @@ const ok = (cond, label, extra) => {
       h.dispose()
     }
 
+    // --- DNS rebinding(v1.8.3,2026-11-01 审计 P2):攻击域名解析到 127.0.0.1
+    //     后,浏览器视角页面与目标 same-origin——Origin 与 Host 一致、
+    //     sec-fetch-site: same-origin,旧判据三项全过、放行。现在 Host 头
+    //     本身必须是回环,攻击域名一票拒绝。
+    const REBIND = [
+      ['纯 rebinding(Origin/Host 同为攻击域名)', { origin: 'http://evil.example:61808', host: 'evil.example:61808' }],
+      ['same-origin 标记 + 攻击域名 Host', { 'sec-fetch-site': 'same-origin', origin: 'http://evil.example:61808', host: 'evil.example:61808' }],
+      ['非回环 Host 但无浏览器标记(rebinding 工具形态)', { host: 'evil.example:61808' }],
+      ['127.0.0.2 不在严格回环集合(对齐 Core 侧口径)', { origin: 'http://127.0.0.2:61808', host: '127.0.0.2:61808' }],
+    ]
+    for (const [label, headers] of REBIND) {
+      h = mkRoutes({ disabled: false })
+      res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST', { headers })
+      ok(res.status === 403 && /cross-origin/.test(res.body.error),
+        'T15 rebinding 写被拒(403):' + label, res.body)
+      h.dispose()
+    }
+    // 回环 Host 的各拼写放行(POST /clear,无浏览器标记的 curl 形态)
+    h = mkRoutes({ disabled: false })
+    for (const host of ['127.0.0.1:61808', 'localhost:61808', '[::1]:61808', '127.0.0.1']) {
+      res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST', { headers: { host } })
+      ok(res.status === 200 && res.body.ok === true, 'T15 回环 Host 拼写放行:' + host, res.body)
+    }
+    h.dispose()
+
     // --- AGENTS.md 的干净复现工作流:curl 不带浏览器标记 → 必须仍然放行 ---
     h = mkRoutes({ disabled: false })
     res = await callFull(h.routes, '/api/acccom-serial/clear', 'POST', {})

@@ -1,6 +1,14 @@
 'use strict'
 // ============================================================
-//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.8.2
+//  dsh-serial-panel — Host 半区(永久 cordis 插件)  v1.8.3
+//
+//  v1.8.3(安全加固,数据契约零变化):
+//   * 写路由增加回环 Host 校验(先于 Sec-Fetch-Site/Origin/Referer):原判据拿
+//     Origin/Referer 与请求 Host 互比,DNS rebinding(攻击域名解析到 127.0.0.1,
+//     浏览器视角 same-origin)下三项全过、放行。现 Host 头本身必须是
+//     127.0.0.1/localhost/[::1](与 Core LocalAccessGuardModule 同一严格集合),
+//     攻击域名一票拒绝;Host 缺失(HTTP/1.0、被桌面壳剥头的请求、无 host 桩)不拒。
+//     2026-11-01 全面体检 docs/audit-2026-11-01.md P2#3。
 //
 //  v1.8.2(安全 + 健壮性,数据契约零变化):
 //   * 写路由同源判定:POST 校验 Sec-Fetch-Site / Origin / Referer,跨站页面伪造的
@@ -117,15 +125,25 @@ function authorityOf(url) {
  * 判定一次写请求是否来自同源页面。
  * @returns null = 放行;否则返回拒绝原因(供 403 响应体)
  *
- * 判据顺序:Sec-Fetch-Site → Origin → Referer。三者皆无视为非浏览器客户端
- * (curl / agent 脚本),放行——那是 AGENTS.md 记录的干净复现工作流。浏览器发出的
- * 跨站写请求一定带 `Sec-Fetch-Site: cross-site`(或异源 Origin),被挡住。
+ * 判据顺序:Host 回环 → Sec-Fetch-Site → Origin → Referer。三者皆无视为非浏览器
+ * 客户端(curl / agent 脚本),放行——那是 AGENTS.md 记录的干净复现工作流。浏览器
+ * 发出的跨站写请求一定带 `Sec-Fetch-Site: cross-site`(或异源 Origin),被挡住。
+ *
+ * ── 回环 Host 校验(v1.8.3,2026-11-01 审计 P2)──
+ * 下面的 Origin/Referer 判据拿它们与请求 Host 头**互比**:DNS rebinding 场景
+ * (攻击域名 TTL0 解析到 127.0.0.1,浏览器视角页面与目标 same-origin)下
+ * `Sec-Fetch-Site: same-origin`、Origin 与 Host 一致,三项判据全部通过、放行。
+ * 所以 Host 头本身必须是回环——rebinding 请求的 Host 是攻击域名,一票拒绝。
+ * 宿主只绑回环,合法客户端到达本服务的 Host 只能是 127.0.0.1 / localhost /
+ * [::1](与 Core LocalAccessGuardModule 同一严格集合)。Host 头缺失(HTTP/1.0、
+ * 被桌面壳剥头的请求、无 host 的测试桩)不拒:没有 Host 的请求不参与 rebinding。
  *
  * ── 关于桌面端(Electron)──
  * 桌面壳用自定义协议 `dsh-app://app/` 载入界面(见宿主 registerSchemesAsPrivileged),
  * 所以页面内 fetch 的 Origin 是 `dsh-app://app`。但桌面壳的 forwardWebRequest 会把
  * `host/origin/cookie/sec-fetch-site` 四个头**全部剥掉**再转发给后端,因此插件实际
- * 收到的是「无 Origin、无 Sec-Fetch-Site」→ 走下面的放行分支,桌面端开关正常。
+ * 收到的是「无 Origin、无 Sec-Fetch-Site」→ 走下面的放行分支,桌面端开关正常
+ * (Host 头同样被剥,回环校验对剥头请求天然不生效)。
  *
  * 即便如此这里仍显式接纳 `dsh-app://app`:它不可能被外部网站伪造(Scheme 注册在
  * 桌面进程内,普通网页拿不到),而一旦将来宿主不再剥头,这条兼容分支能避免把桌面端
@@ -133,11 +151,38 @@ function authorityOf(url) {
  */
 const DESKTOP_ORIGIN = 'dsh-app://app'
 
+/** Host 头/authority 里的主机名(小写、剥端口)。括号形 IPv6 取括号内;
+ *  其余按「最后一段是纯数字端口」剥,无端口按原样返回;解析不出返回 null。 */
+function hostnameOfAuthority(value) {
+  var h = String(value).trim().toLowerCase()
+  if (h === '') return null
+  if (h.startsWith('[')) {
+    var end = h.indexOf(']')
+    return end > 0 ? h.slice(1, end) : null
+  }
+  var colon = h.lastIndexOf(':')
+  if (colon > 0 && /^\d+$/.test(h.slice(colon + 1))) h = h.slice(0, colon)
+  return h
+}
+
+/** 与 Core LocalAccessGuardModule 相同的严格回环集合(127.0.0.1 精确匹配,
+ *  不放行整段 127/8——语义与 GUI/HTTP API 侧保持一致,免得两侧口径漂移)。 */
+function isLoopbackHostname(hostname) {
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1'
+}
+
 function crossOriginWrite(req) {
   const method = String((req && req.method) || 'GET').toUpperCase()
   if (method !== 'POST') return null
   const headers = req && req.headers
   if (!headers) return null // 无头部信息:无法判定,不阻断(仅测试桩会走到)
+
+  // 回环 Host 校验必须先于一切互比判据(见函数头注释)。
+  const rawHost = headerOf(headers, 'host')
+  if (rawHost !== undefined && rawHost !== null && String(rawHost).trim() !== '') {
+    const hostname = hostnameOfAuthority(rawHost)
+    if (hostname !== null && !isLoopbackHostname(hostname)) return 'Host: ' + String(rawHost)
+  }
 
   const origin = headerOf(headers, 'origin')
   // 桌面壳必须先判:它从 `dsh-app://app` 访问 `http://127.0.0.1:port` 属于跨 scheme,
