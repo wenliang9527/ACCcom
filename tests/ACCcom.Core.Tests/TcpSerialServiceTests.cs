@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using ACCcom.Core.Models;
@@ -238,6 +240,117 @@ public class TcpSerialServiceTests : IDisposable
         Assert.False(await service.OpenAsync(config)); // port 1: nothing listens on loopback
         Assert.False(service.IsOpen);
         Assert.Contains(errors, m => m.Contains("Open failed"));
+    }
+
+    [Fact]
+    public async Task Open_HandshakePrecedesConcurrentSends()
+    {
+        using var service = new TcpSerialService();
+        // Send-hammer racing the open: the handshake is written BEFORE the
+        // connection is announced, so every hammer Send during the flight is
+        // rejected by the not-open check and the bridge's first-packet config
+        // window can never be eaten by a payload (audit 2026-11-01 P2).
+        var hammer = Task.Run(() =>
+        {
+            var n = 0;
+            while (!service.IsOpen && n < 100_000)
+            {
+                service.Send("X"); // rejected while closed; lands after the handshake once open
+                n++;
+                Thread.Sleep(0);
+            }
+            return n;
+        });
+        Assert.True(await service.OpenAsync(Config()));
+        await hammer; // spun until IsOpen — which now happens only after the handshake is on the wire
+
+        Assert.True(await _server.WaitPacketAsync(0, 0));
+        Assert.Equal("115200", _server.PacketText(0, 0)); // first packet is the handshake, not a payload
+
+        // The post-open path still works: a payload lands after the handshake.
+        Assert.True(service.Send("after"));
+        Assert.True(await PollAsync(() => Enumerable.Range(1, 8).Any(i => _server.PacketText(0, i) == "after")),
+            "post-open send never arrived");
+    }
+
+    [Fact]
+    public async Task Open_ConcurrentDifferentEndpoints_ConvergeOnReachableOne()
+    {
+        using var service = new TcpSerialService();
+        // Two Opens with different endpoints race the shared _endpoint field:
+        // the loser's parse must not redirect the winner's dial. One endpoint
+        // listens, the other is a dead port — the session must converge on
+        // the reachable one regardless of gate-acquisition order
+        // (audit 2026-11-01 P3).
+        var reachable = Config();
+        var unreachable = new SerialConfig { PortName = "tcp://127.0.0.1:1", BaudRate = 115200 };
+        var results = await Task.WhenAll(
+            service.OpenAsync(reachable),
+            service.OpenAsync(unreachable));
+
+        Assert.True(results.Any(r => r), "neither open succeeded");
+        Assert.True(service.IsOpen);
+        Assert.Equal($"tcp://127.0.0.1:{_server.Port}", service.CurrentPort);
+        Assert.True(await _server.WaitPacketAsync(0, 0), "handshake missing on the reachable server");
+        Assert.Equal("115200", _server.PacketText(0, 0));
+    }
+
+    [Fact]
+    public async Task SetBaudRate_WhileDisconnected_SyncsConfigForReconnect()
+    {
+        using var service = new TcpSerialService();
+        // Drop the session, flip the baud while DISCONNECTED, and let the
+        // auto-reconnect dial: SetBaudRate cannot switch a dead line live and
+        // reports false — but the pending reconnect dials _lastConfig, so the
+        // requested rate must be synced into it (interval 1.5s: the sync at
+        // ~disconnect+ε lands well before the dial). Dropping the request
+        // would resurrect the OLD baud on reconnect (audit 2026-11-01 fix).
+        Assert.True(await service.OpenAsync(Config(baud: 115200, reconnectIntervalMs: 1_500)));
+        _server.CloseCurrentClient();
+        Assert.True(await PollAsync(() => !service.IsOpen), "disconnect not processed");
+
+        Assert.False(service.SetBaudRate(9600));
+
+        Assert.True(await _server.WaitConnectionsAsync(2), "pending reconnect did not dial");
+        Assert.True(await _server.WaitPacketAsync(1, 0), "re-handshake missing");
+        Assert.Equal("9600", _server.PacketText(1, 0)); // the reconnect re-asserts the SYNCED rate
+        Assert.True(service.IsOpen);
+        Assert.Equal(9600, service.ActiveConfig!.BaudRate);
+    }
+
+    [Fact]
+    public async Task PortOpenCloseMetrics_StayBalanced_AcrossHandshakeFailure()
+    {
+        // A peer that accepts and immediately resets: the handshake write may
+        // fail pre-adoption (nothing recorded) or the session dies right
+        // after (teardown records the close) — either way the open/close
+        // counters must end up level, never opened-without-closed
+        // (audit 2026-11-01 P3).
+        var rst = new TcpListener(IPAddress.Loopback, 0);
+        rst.Start();
+        var acceptTask = rst.AcceptTcpClientAsync();
+        var openedBefore = MetricsCollector.Instance.GetCounter("acccom_serial_port_opened_total");
+        var closedBefore = MetricsCollector.Instance.GetCounter("acccom_serial_port_closed_total");
+
+        using var service = new TcpSerialService();
+        var openTask = service.OpenAsync(new SerialConfig
+        {
+            PortName = $"tcp://127.0.0.1:{((IPEndPoint)rst.LocalEndpoint).Port}",
+            BaudRate = 115200,
+            Reconnect = new ReconnectSettings { AutoReconnect = false }
+        });
+
+        using var accepted = await acceptTask;
+        rst.Stop(); // no retry can sneak a clean connection past this
+        accepted.Client.LingerState = new LingerOption(true, 0); // close = RST
+        accepted.Client.Close();
+
+        await openTask;
+        Assert.True(await PollAsync(() => !service.IsOpen, timeoutMs: 8000), "service never settled to closed");
+
+        var openedDelta = MetricsCollector.Instance.GetCounter("acccom_serial_port_opened_total") - openedBefore;
+        var closedDelta = MetricsCollector.Instance.GetCounter("acccom_serial_port_closed_total") - closedBefore;
+        Assert.Equal(openedDelta, closedDelta);
     }
 
     [Fact]

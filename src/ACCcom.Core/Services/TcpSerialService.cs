@@ -18,8 +18,10 @@ namespace ACCcom.Core.Services;
 /// packet no matter what it contains. So Open always sends
 /// baudRate + parity-suffix as that first packet (exact bytes, NO trailing
 /// newline — an inline terminator fails the bridge's length/digit check and
-/// would be forwarded to the target as garbage, single write, before Open
-/// returns so no caller send can precede it): it applies the bridge-side
+/// would be forwarded to the target as garbage, single write, BEFORE the
+/// connection is announced: a concurrent Send fails the not-open check while
+/// the handshake is in flight, so no caller send can precede it on the
+/// wire — audit 2026-11-01): it applies the bridge-side
 /// line config AND deterministically consumes the window, after which every
 /// payload — short digit strings included — is forwarded verbatim. The
 /// handshake goes through the normal TX path, so it shows up in
@@ -139,7 +141,11 @@ public class TcpSerialService : ISerialService, IDisposable
     {
         if (_connValid) return true;
         if (config == null) return false;
-        if (!TcpEndpoint.TryParse(config.PortName, out _endpoint))
+        // Parse into a LOCAL first: two concurrent Opens with different
+        // endpoints must not cross-wire through the shared field (the loser's
+        // parse could otherwise win and send the winner dialing the wrong
+        // host). The field is published under the lifecycle gate below.
+        if (!TcpEndpoint.TryParse(config.PortName, out var endpoint))
         {
             OnError?.Invoke("[TcpSerialService] Open failed: port name is not a TCP endpoint (use tcp://host:port)");
             return false;
@@ -153,6 +159,11 @@ public class TcpSerialService : ISerialService, IDisposable
                 if (attempt > 0)
                     await Task.Delay(OpenRetryDelayMs).ConfigureAwait(false);
                 if (_connValid) return true; // a reconnect loop won while we waited on the gate
+                // Publish the parsed endpoint only when actually about to
+                // dial, under the gate: an already-open early-return (or a
+                // losing concurrent Open) must not repoint _endpoint away
+                // from the live connection — CurrentPort reports this field.
+                _endpoint = endpoint;
 
                 if (await TryConnectOnceAsync(config).ConfigureAwait(false))
                     return true;
@@ -179,6 +190,24 @@ public class TcpSerialService : ISerialService, IDisposable
                 await client.ConnectAsync(_endpoint.Host, _endpoint.Port, timeoutCts.Token).ConfigureAwait(false);
 
             var stream = client.GetStream();
+
+            // Handshake FIRST, before the connection is announced: _connValid
+            // is still false here, so a concurrent Send is rejected by
+            // TryPrepareSend's not-open check and nothing can precede these
+            // bytes on the wire. The bridge consumes the FIRST packet as its
+            // line-config command — a payload that slips ahead would eat the
+            // window and leak the handshake to the target as garbage
+            // (audit 2026-11-01 P2). Writing first also keeps the port-open
+            // metric honest: a failed handshake below never records an open
+            // without a matching close. Exact "<baud>[E|O|N]" bytes — see the
+            // class doc for why no newline.
+            var handshake = Encoding.ASCII.GetBytes(BuildHandshake(config));
+            lock (_sendGate)
+            {
+                stream.Write(handshake, 0, handshake.Length);
+                stream.Flush();
+            }
+
             _client = client;
             _stream = stream;
             _connValid = true;
@@ -190,15 +219,6 @@ public class TcpSerialService : ISerialService, IDisposable
             _ = Task.Run(() => ReadLoopAsync(stream, _readCts.Token));
             _metrics.RecordPortOpened();
 
-            // Handshake under the send gate so an early concurrent Send can
-            // never slip ahead of it (TCP preserves write order). Exact
-            // "<baud>[E|O|N]" bytes — see the class doc for why no newline.
-            var handshake = Encoding.ASCII.GetBytes(BuildHandshake(config));
-            lock (_sendGate)
-            {
-                stream.Write(handshake, 0, handshake.Length);
-                stream.Flush();
-            }
             RecordTx(handshake, Encoding.ASCII.GetString(handshake));
             return true;
         }
@@ -241,7 +261,16 @@ public class TcpSerialService : ISerialService, IDisposable
             }
         }
         catch (OperationCanceledException) { /* local teardown */ }
-        catch (Exception) { /* socket death — handled below */ }
+        catch (Exception ex)
+        {
+            // Socket death detail as an OnError clue — a silent OnDisconnected
+            // alone makes wireless drops (WiFi blips, bridge reboots)
+            // undiagnosable. Expected teardowns stay quiet: the cancel path is
+            // the catch above, and Close/Dispose flip the flags before the
+            // in-flight read unwinds with an artifact exception.
+            if (!_tearingDown && !_disposed)
+                OnError?.Invoke($"[TcpSerialService] Read loop failed: {ex.Message}");
+        }
 
         if (_tearingDown || _disposed) return;       // expected teardown: owner reports state
         await HandleUnexpectedDisconnectAsync().ConfigureAwait(false);
@@ -455,11 +484,29 @@ public class TcpSerialService : ISerialService, IDisposable
     /// in-flight bytes (the bridge discards UART RX with no client). On an
     /// immediate reconnect failure the service stays down and the normal
     /// auto-reconnect loop keeps trying — at the NEW rate, via the synced
-    /// last config.</summary>
+    /// last config. Called while the connection is already down, it only
+    /// syncs the rate into the last config and returns false: the pending
+    /// reconnect re-asserts the new baud (dropping the request here would
+    /// resurrect the old rate silently).</summary>
     public bool SetBaudRate(int baudRate)
     {
         if (baudRate <= 0) return false;
-        if (!_connValid || _lastConfig == null) return false;
+        if (_lastConfig == null) return false; // never opened
+        if (!_connValid)
+        {
+            // Down (peer drop, mid-reconnect): nothing live to switch, but
+            // the auto-reconnect dials _lastConfig — sync the requested rate
+            // so the re-assert comes up at the NEW baud instead of silently
+            // resurrecting the old one. Still reports false: nothing was
+            // switched on a live connection (audit 2026-11-01 fix batch).
+            _lifecycle.Wait();
+            try
+            {
+                if (!_connValid && !_disposed) _lastConfig.BaudRate = baudRate;
+            }
+            finally { _lifecycle.Release(); }
+            return false;
+        }
 
         _lifecycle.Wait();
         try
@@ -578,6 +625,10 @@ public class TcpSerialService : ISerialService, IDisposable
         }
     }
 
+    /// <summary>Queues an entry for the drain thread. Drop accounting is
+    /// APPROXIMATE: the wasFull probe and TryWrite are not atomic, and
+    /// non-read-loop writers (auto-reconnect / set-baud notes) share the
+    /// channel — same caveat as SerialService's dispatch (audit 2026-11-01).</summary>
     private void DispatchRx(LogEntry entry)
     {
         var wasFull = _rxDispatch.Reader.Count >= RxQueueCapacity;
