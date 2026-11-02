@@ -10,7 +10,8 @@ namespace ACCcom.McpServer.Tests.TestHelpers;
 /// </summary>
 internal static class ToolContextFactory
 {
-    public static (ToolContext ctx, ServiceProvider sp) Create()
+    public static (ToolContext ctx, ServiceProvider sp) Create(
+        ISerialService? defaultSerial = null, MultiPortService? multiPort = null)
     {
         // Swap the shared traffic log for a temp-file instance: traffic
         // recorded by tests must not touch the real mcp-traffic.jsonl, and
@@ -20,10 +21,16 @@ internal static class ToolContextFactory
             $"acccom-test-traffic-{Guid.NewGuid():N}.jsonl");
 
         var services = new ServiceCollection();
-        services.AddSingleton<ISerialService, VirtualSerialService>();
+        // Optional seams: a scripted default session (send-behavior fakes) and
+        // a custom multi-port factory (open-failure fakes). Both default to
+        // the virtual services the original factory always used.
+        if (defaultSerial != null)
+            services.AddSingleton(defaultSerial);
+        else
+            services.AddSingleton<ISerialService, VirtualSerialService>();
         // Multi-port service with the same virtual factory; the default
         // single-port session is the ToolContext's Serial.
-        services.AddSingleton(new MultiPortService(() => new VirtualSerialService()));
+        services.AddSingleton(multiPort ?? new MultiPortService(() => new VirtualSerialService()));
         services.AddSingleton(_ => new McpTrafficLog(tempPath));
         services.AddSingleton<ToolContext>();
 

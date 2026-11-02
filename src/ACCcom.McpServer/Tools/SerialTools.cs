@@ -166,7 +166,7 @@ public class SerialTools
                 // tcp://host:port for bare host:port input).
                 return _ctx.RawJson(new { success = true, data = new { port = _serial.CurrentPort ?? port, baudRate, dataBits, tag = (string?)null } });
             }
-            return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port}");
+            return _ctx.ToolError(ErrorCodes.OpenFailed, OpenFailureMessage(port, _serial.LastOpenError));
         }
 
         // Tagged multi-port open.
@@ -191,7 +191,27 @@ public class SerialTools
             var opened = _ctx.MultiPort.GetPort(tag);
             return _ctx.RawJson(new { success = true, data = new { port = opened?.Service.CurrentPort ?? port, baudRate, dataBits, tag } });
         }
-        return _ctx.ToolError(ErrorCodes.OpenFailed, $"Failed to open port {port} with tag {tag}");
+        return _ctx.ToolError(ErrorCodes.OpenFailed, OpenFailureMessage(port, _ctx.MultiPort.LastOpenError, tag));
+    }
+
+    /// <summary>Failure text for open_port: the underlying error detail plus an
+    /// actionable hint classified from it. A bare "Failed to open port COMx"
+    /// cannot distinguish the two everyday cases — the port is held by another
+    /// process (GUI session, another agent) vs the device is gone (unplugged,
+    /// rebooted out of USB enumeration) — and the agent would burn a round-trip
+    /// guessing. LastOpenError null (fakes, null config) still gets the generic
+    /// hint, never an empty message.</summary>
+    private static string OpenFailureMessage(string port, string? lastError, string? tag = null)
+    {
+        var subject = string.IsNullOrEmpty(tag) ? $"port {port}" : $"port {port} with tag {tag}";
+        if (string.IsNullOrEmpty(lastError))
+            return $"Failed to open {subject}. Check the name with list_ports and that the device is connected.";
+        if (lastError.Contains("UnauthorizedAccess", StringComparison.Ordinal))
+            return $"Failed to open {subject} — access denied ({lastError}). The port is likely held by another process (the ACCcom GUI, a previous session, or a vendor tool); close it there or pick another port.";
+        if (lastError.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+            lastError.Contains("FileNotFound", StringComparison.Ordinal))
+            return $"Failed to open {subject} — not present ({lastError}). The device may be unplugged, renamed, or a stale USB enumeration after a reboot; re-check with list_ports.";
+        return $"Failed to open {subject} ({lastError}). Check the name with list_ports, the driver state, and that the device is connected.";
     }
 
     [McpServerTool, Description("Close a serial port: the default session, or a tagged multi-port session via tag.")]
@@ -255,7 +275,7 @@ public class SerialTools
         return Task.FromResult(_ctx.RawJson(new { success = true, data = new { message = "Port closed", tag } }));
     }
 
-    [McpServerTool, Description("Send text or hex data to a port. Returns byteLength and isHex of what was sent.")]
+    [McpServerTool, Description("Send text or hex data to a port. Returns byteLength, isHex and latestId (read_data sinceId anchor).")]
     public Task<string> Send(
         [Description("Data to send (ASCII text or hex string)")] string data,
         [Description("Send as hex bytes (default false)")] bool isHex = false,
@@ -289,13 +309,19 @@ public class SerialTools
             byteLength = HexHelper.CountSendBytes(data, false);
         }
 
+        // Capture the cursor BEFORE the send: a fast device (loopback, bridge)
+        // can echo before SendTo returns, and a post-send LastSeq would put
+        // that reply BELOW the anchor — the read_data(sinceId) attribution flow
+        // would skip it and read "no response". The pre-send cursor makes the
+        // anchor race-free: the TX echo row and every arrival after it sit at
+        // or above it. No echo of `data` itself: the caller already knows what
+        // it sent — echoing a 1KB firmware block back doubled the response.
+        var beforeSeq = _ctx.BufferFor(tag).LastSeq;
         if (SendTo(tag, data, isHex))
         {
             NotifyGuiRequested();
             _ctx.TrafficLog.Record(0, "send", "TX", HexForTrafficLog(data, parsedHex), data, tag ?? "");
-            // No echo of `data`: the caller already knows what it sent — echoing
-            // a 1KB firmware block back doubled the response for nothing.
-            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { isHex, byteLength, tag = string.IsNullOrEmpty(tag) ? null : tag } }));
+            return Task.FromResult(_ctx.RawJson(new { success = true, data = new { isHex, byteLength, latestId = beforeSeq, tag = string.IsNullOrEmpty(tag) ? null : tag } }));
         }
         return Task.FromResult(_ctx.ToolError(ErrorCodes.SendFailed, "Send failed, port may not be open"));
     }
@@ -310,20 +336,42 @@ public class SerialTools
             ? HexHelper.BytesToHexSpaced(parsedHex, 0, parsedHex.Length)
             : HexHelper.BytesToHexSpaced(System.Text.Encoding.UTF8.GetBytes(data), 0, data.Length);
 
-    [McpServerTool, Description("Read buffered serial data. tail=N returns the newest N entries; cursor mode returns entries after sinceId (echo the previous latestId; add waitMs to long-poll). Typical flow: send → wait_for_quiet → read_data tail. fields trims columns, maxLength caps entry size.")]
+    /// <summary>ANSI CSI escape sequences: ESC [ parameter bytes (0-9 : ; &lt; = &gt; ?)
+    /// then a final byte — the color set/reset pairs ESP-class boot logs emit
+    /// around every line. Compiled once; matched only when stripAnsi is set.</summary>
+    private static readonly System.Text.RegularExpressions.Regex AnsiEscape =
+        new("\x1b\\[[0-9;:<=>?]*[\x40-\x7e]", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Read-only copy of a ring entry with a replaced text column —
+    /// the shared buffer entry itself must stay untouched (the GUI reads it).</summary>
+    private static LogEntry CopyWithText(LogEntry e, string text) => new()
+    {
+        Id = e.Id,
+        Timestamp = e.Timestamp,
+        Direction = e.Direction,
+        PortTag = e.PortTag,
+        RawHex = e.RawHex,
+        Text = text,
+        ByteCount = e.ByteCount,
+        Fields = e.Fields,
+        HighlightColor = e.HighlightColor
+    };
+
+    [McpServerTool, Description("Read buffered serial data. tail=N returns newest N; cursor mode returns entries after sinceId. Typical flow: send → read_data(sinceId=latestId, waitMs). fields trims columns; maxLength caps size; stripAnsi cleans boot-log colors.")]
     public Task<string> ReadData(
         [Description("Cursor from a previous latestId; returns entries newer than it (default 0)")] int sinceId = 0,
         [Description("Max entries to return (default 100)")] int limit = 100,
         [Description("RX or TX (null for all; other values fail INVALID_DIRECTION)")] string? direction = null,
         [Description("Multi-port session tag (omit for the default session)")] string? tag = null,
-        [Description("Newest N entries in arrival order; overrides sinceId/limit (default 0 = cursor mode)")] int tail = 0,
+        [Description("Newest N entries; overrides sinceId/limit (0 = cursor mode)")] int tail = 0,
         [Description("Truncate each entry's text/hex to N chars, truncated=true when cut (0 = default 2000, max 65536)")] int maxLength = 0,
-        [Description("Cursor mode long-poll: block up to N ms for data newer than sinceId (default 0, max 60000)")] int waitMs = 0,
-        [Description("Comma-separated columns: id,timestamp,direction,portTag,text,hex,truncated (default all; 'text' omits hex — the largest column on binary streams)")] string? fields = null)
-        => _ctx.Guard(() => ReadDataCore(sinceId, limit, direction, tag, tail, maxLength, waitMs, fields));
+        [Description("Cursor long-poll: block up to N ms for newer data (default 0, max 60000)")] int waitMs = 0,
+        [Description("Comma-separated columns: id,timestamp,direction,portTag,text,hex,truncated (default all; 'text' omits hex)")] string? fields = null,
+        [Description("Strip ANSI escape sequences from the text column; hex stays raw (default false)")] bool stripAnsi = false)
+        => _ctx.Guard(() => ReadDataCore(sinceId, limit, direction, tag, tail, maxLength, waitMs, fields, stripAnsi));
 
     private async Task<string> ReadDataCore(
-        int sinceId, int limit, string? direction, string? tag, int tail, int maxLength, int waitMs, string? fields)
+        int sinceId, int limit, string? direction, string? tag, int tail, int maxLength, int waitMs, string? fields, bool stripAnsi)
     {
         var unknownTag = UnknownTagError(tag);
         if (unknownTag != null) return unknownTag;
@@ -354,6 +402,22 @@ public class SerialTools
         {
             // Filtering and limit are folded into the buffer's single tail copy.
             raw = buffer.GetEntriesSince(sinceId, dir, limit, out scannedMaxId);
+        }
+
+        // stripAnsi=true targets ESP-class boot logs whose CSI color codes wrap
+        // every line — the text column then fights regex anchors and wastes
+        // context. Entries are copied: they are the same objects the GUI reads
+        // from the ring, so mutating Text in place would rewrite the shared
+        // buffer. rawHex always keeps the true bytes — this is a render option,
+        // never a data change.
+        if (stripAnsi)
+        {
+            for (var i = 0; i < raw.Count; i++)
+            {
+                var text = raw[i].Text;
+                if (text.Length == 0 || !text.Contains('\x1b')) continue;
+                raw[i] = CopyWithText(raw[i], AnsiEscape.Replace(text, ""));
+            }
         }
 
         // Lean projection (McpJson.Lean): drops UI-only state, omits empty
@@ -449,20 +513,23 @@ public class SerialTools
         return _ctx.RawJson(new { success = true, data = new { quiet = false, quietMs = quiet, message = $"Not quiet: {timeout}ms elapsed without {quietMs}ms of silence", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
     }
 
-    [McpServerTool, Description("Send data and block until the response matches a pattern (send + wait_for_response in one). Returns match plus latestId for cursor polling.")]
+    [McpServerTool, Description("Send data and block until the response matches a pattern. retries=N re-sends after intervalMs. Returns match, attempts and latestId.")]
     public Task<string> SendAndWait(
         [Description("Data to send (ASCII text or hex string)")] string data,
         [Description("Pattern to match in response")] string pattern,
         [Description("Send as hex bytes (default false)")] bool isHex = false,
-        [Description("Timeout in ms (default 5000, clamped to 100-60000)")] int timeoutMs = 5000,
+        [Description("Timeout in ms per attempt (default 5000, clamped to 100-60000)")] int timeoutMs = 5000,
         [Description("Match mode: contains, regex, or exact (default contains)")] string matchMode = "contains",
         [Description("Match hex data instead of text (default false)")] bool matchHex = false,
         [Description("RX or TX (default RX; other values fail INVALID_DIRECTION)")] string? direction = "RX",
+        [Description("Max send attempts (default 1 = send once; 1-10)")] int retries = 1,
+        [Description("Delay between attempts (default 0; 0-60000)")] int intervalMs = 0,
         [Description("Multi-port session tag (omit for the default session)")] string? tag = null)
-        => _ctx.Guard(() => SendAndWaitCore(data, pattern, isHex, timeoutMs, matchMode, matchHex, direction, tag));
+        => _ctx.Guard(() => SendAndWaitCore(data, pattern, isHex, timeoutMs, matchMode, matchHex, direction, retries, intervalMs, tag));
 
     private async Task<string> SendAndWaitCore(
-        string data, string pattern, bool isHex, int timeoutMs, string matchMode, bool matchHex, string? direction, string? tag)
+        string data, string pattern, bool isHex, int timeoutMs, string matchMode, bool matchHex,
+        string? direction, int retries, int intervalMs, string? tag)
     {
         if (string.IsNullOrEmpty(data))
             return _ctx.ToolError(ErrorCodes.EmptyData, "Data cannot be empty");
@@ -478,6 +545,13 @@ public class SerialTools
         // then satisfy the wait) — the opposite of read_data's "" semantics.
         var dir = ToolArgs.NormalizeDirection(direction, allowSys: false, out var dirError) ?? "RX";
         if (dirError != null) return _ctx.ToolError(ErrorCodes.InvalidDirection, dirError);
+        // Reject the retry knobs up front instead of clamping: a retries=100
+        // loop would hold one tool call for minutes and a negative interval
+        // would read as "retry silently fast" — both better as precise errors.
+        if (retries is < 1 or > 10)
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid retries {retries} (expected 1-10)");
+        if (intervalMs is < 0 or > 60_000)
+            return _ctx.ToolError(ErrorCodes.InvalidConfig, $"Invalid intervalMs {intervalMs} (expected 0-60000)");
 
         // byteLength mirrors send's contract (strict decoded count for hex,
         // UTF-8 count for text) so send_and_wait responses parse with the
@@ -496,21 +570,31 @@ public class SerialTools
             byteLength = HexHelper.CountSendBytes(data, false);
         }
 
-        // Register waiter BEFORE sending to avoid race condition
         var timeout = Math.Clamp(timeoutMs, 100, 60000);
-        var waiterTask = WaitForDataInternalAsync(pattern, matchMode, matchHex, dir, timeout, tag);
+        LogEntry? entry = null;
+        var attempts = 0;
+        for (var attempt = 1; attempt <= retries; attempt++)
+        {
+            attempts = attempt;
+            // Register waiter BEFORE sending to avoid race condition
+            var waiterTask = WaitForDataInternalAsync(pattern, matchMode, matchHex, dir, timeout, tag);
 
-        if (!SendTo(tag, data, isHex))
-            return _ctx.ToolError(ErrorCodes.SendFailed, "Send failed, port may not be open");
+            if (!SendTo(tag, data, isHex))
+                return _ctx.ToolError(ErrorCodes.SendFailed, "Send failed, port may not be open");
 
-        NotifyGuiRequested();
-        _ctx.TrafficLog.Record(0, "send_and_wait", "TX", HexForTrafficLog(data, parsedHex), data, tag ?? "");
+            NotifyGuiRequested();
+            _ctx.TrafficLog.Record(0, "send_and_wait", "TX", HexForTrafficLog(data, parsedHex), data, tag ?? "");
 
-        var entry = await waiterTask.ConfigureAwait(false);
+            entry = await waiterTask.ConfigureAwait(false);
+            if (entry != null) break;
+            if (intervalMs > 0 && attempt < retries)
+                await Task.Delay(intervalMs).ConfigureAwait(false);
+        }
+
         var latestId = _ctx.BufferFor(tag).LastSeq;
         if (entry != null)
-            return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = true, response = McpJson.Lean(entry), latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
-        return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = false, message = $"Timeout ({timeout}ms), no matching response", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
+            return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = true, attempts, response = McpJson.Lean(entry), latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
+        return _ctx.RawJson(new { success = true, data = new { isHex, byteLength, matched = false, attempts, message = $"No matching response after {attempts} attempt(s) ({timeout}ms each)", latestId, tag = string.IsNullOrEmpty(tag) ? null : tag } });
     }
 
     [McpServerTool, Description("Clear the data buffer: rx, tx, or all (default all). Other targets fail INVALID_CONFIG instead of silently keeping the buffer.")]

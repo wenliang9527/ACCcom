@@ -1317,6 +1317,179 @@ public class SerialToolsTests
         }
         finally { sp.Dispose(); }
     }
+
+    [Fact]
+    public async Task Send_returns_latestId_anchor_for_response_attribution()
+    {
+        // The real-world probe loop (unknown binary protocol): send a frame,
+        // then read only what arrives AFTER it. send must hand back the
+        // buffer cursor so read_data(sinceId) skips pre-send noise — the
+        // workaround used to be clear_buffer, which destroys session history.
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+            ctx.Buffer.AddEntry(new LogEntry { Id = 1, Direction = "RX", Text = "stale noise" });
+
+            var sent = await tools.Send("AA 55 02 7D 00 7F", isHex: true);
+            Assert.True(ToolContextFactory.ExtractSuccess(sent));
+            var anchor = LatestIdOf(sent);
+
+            ctx.Buffer.AddEntry(new LogEntry { Id = 2, Direction = "RX", Text = "ACK" });
+            var read = await tools.ReadData(anchor, 10, null);
+            Assert.True(ToolContextFactory.ExtractSuccess(read));
+            Assert.Contains("\"ACK\"", read);
+            Assert.DoesNotContain("stale noise", read);
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_Retries_SecondAttemptMatches_ReportsAttempts()
+    {
+        // Device drops the first frame (unknown-protocol bring-up), answers
+        // from the second on. retries=2 must turn the agent's manual
+        // send→read→resend treadmill into one call that reports attempts=2.
+        var (ctx, sp) = ToolContextFactory.Create(new AckOnSecondSendService());
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.SendAndWait("PING", "ACK", timeoutMs: 300, retries: 2, intervalMs: 50);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.True(data.GetProperty("matched").GetBoolean());
+            Assert.Equal(2, data.GetProperty("attempts").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_Retries_Exhausted_ReportsAttemptsAndUnmatched()
+    {
+        // No device at all (virtual port never answers): every attempt times
+        // out, the call must still report how many attempts it made (and stay
+        // success=true with matched=false — a timeout is a finding, not a
+        // tool failure).
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            var result = await tools.SendAndWait("NOPE", "ACK", timeoutMs: 100, retries: 3, intervalMs: 0);
+
+            Assert.True(ToolContextFactory.ExtractSuccess(result));
+            using var doc = JsonDocument.Parse(result);
+            var data = doc.RootElement.GetProperty("data");
+            Assert.False(data.GetProperty("matched").GetBoolean());
+            Assert.Equal(3, data.GetProperty("attempts").GetInt32());
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SendAndWait_Retries_OutOfRange_FailsInvalidConfig()
+    {
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            await tools.OpenPort("COM10");
+
+            Assert.Equal("INVALID_CONFIG",
+                ToolContextFactory.ExtractErrorCode(await tools.SendAndWait("A", "B", retries: 0)));
+            Assert.Equal("INVALID_CONFIG",
+                ToolContextFactory.ExtractErrorCode(await tools.SendAndWait("A", "B", retries: 11)));
+            Assert.Equal("INVALID_CONFIG",
+                ToolContextFactory.ExtractErrorCode(await tools.SendAndWait("A", "B", intervalMs: -1)));
+            Assert.Equal("INVALID_CONFIG",
+                ToolContextFactory.ExtractErrorCode(await tools.SendAndWait("A", "B", intervalMs: 60_001)));
+        }
+        finally { sp.Dispose(); }
+    }
+
+    [Fact]
+    public async Task ReadData_StripAnsi_RemovesCsiColors_TextOnly()
+    {
+        // ESP-class boot logs wrap every line in CSI color codes; stripped
+        // text must read clean while hex keeps the true bytes, and the
+        // buffer's own entry must stay untouched (the same object is read
+        // twice below — first pass must not strip in place).
+        var (ctx, sp) = ToolContextFactory.Create();
+        try
+        {
+            var tools = new SerialTools(ctx);
+            var colored = "\x1b[0;32mI (108) wifi: connected\x1b[0m";
+            ctx.Buffer.AddEntry(new LogEntry { Id = 7, Direction = "RX", RawHex = "49 20 28 31 30 38 29", Text = colored });
+
+            var raw = await tools.ReadData(0, 10, null);
+            // The JSON wire escapes ESC as the literal text \u001B — match that
+            // form, not a raw control character.
+            Assert.True(raw.Contains("\\u001B[0;32m"), $"raw response lost the CSI sequence: {raw}");
+
+            var clean = await tools.ReadData(0, 10, null, null, 0, 0, 0, null, stripAnsi: true);
+            Assert.True(!clean.Contains("\\u001B"), $"clean response still carries CSI: {clean}");
+            Assert.Contains("I (108) wifi: connected", clean);
+            // hex column untouched by the text render option
+            Assert.Contains("49 20 28 31 30 38 29", clean);
+        }
+        finally { sp.Dispose(); }
+    }
+}
+
+/// <summary>Device that answers only from its second reception — models the
+/// bridge that silently drops the first frame of an unknown-protocol probe,
+/// the exact case the send_and_wait retries knob exists for. Deterministic:
+/// no wall-clock choreography between the test and the retry loop.</summary>
+internal sealed class AckOnSecondSendService : ISerialService
+{
+    private int _sends;
+    public bool IsOpen { get; private set; }
+    public string? CurrentPort { get; private set; }
+    public int BaudRate { get; private set; }
+    public SerialConfig? ActiveConfig { get; private set; }
+    public string? LastOpenError => null;
+#pragma warning disable CS0067 // scripted fake: no RX flood/disconnect lifecycle
+    public event Action<LogEntry>? OnDataReceived;
+    public event Action<string>? OnError;
+    public event Action? OnDisconnected;
+    public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+    public bool Open(SerialConfig config)
+    {
+        if (config == null) return false;
+        CurrentPort = config.PortName;
+        BaudRate = config.BaudRate;
+        ActiveConfig = config;
+        IsOpen = true;
+        return true;
+    }
+
+    public bool Send(string data, bool isHex = false)
+    {
+        if (!IsOpen || string.IsNullOrEmpty(data)) return false;
+        if (Interlocked.Increment(ref _sends) == 2)
+            OnDataReceived?.Invoke(new LogEntry
+            {
+                Id = 99,
+                Timestamp = DateTime.Now,
+                Direction = "RX",
+                RawHex = "41 43 4B",
+                Text = "ACK",
+                ByteCount = 3
+            });
+        return true;
+    }
+
+    public bool SendHex(string hex) => Send(hex, true);
+    public bool Close() { IsOpen = false; return true; }
+    public void Dispose() { }
 }
 
 public class SerialToolsTrafficLogFormatTests

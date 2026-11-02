@@ -125,6 +125,21 @@ public class TcpOpenPortTests : IDisposable
         Assert.Equal("OPEN_FAILED", ToolContextFactory.ExtractErrorCode(result));
     }
 
+    [Fact]
+    public async Task OpenPort_UnreachableTcp_FailureCarriesDiagnosis()
+    {
+        // A refused dial must say why it failed (underlying socket error +
+        // actionable hint) — a bare "Failed to open port" costs the agent a
+        // guessing round-trip between "rescan ports" and "port is held".
+        var tools = new SerialTools(_ctx);
+        var result = await tools.OpenPort("tcp://127.0.0.1:1");
+
+        var message = ToolContextFactory.ExtractError(result) ?? "";
+        Assert.Contains("Failed to open port", message);
+        Assert.Contains("SocketException", message);
+        Assert.Contains("list_ports", message);
+    }
+
     public void Dispose()
     {
         _multiPort.Dispose();
