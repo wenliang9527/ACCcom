@@ -8,15 +8,18 @@ public enum RegisterType { Coil, DiscreteInput, HoldingRegister, InputRegister }
 
 public class ModbusSlaveService : IDisposable
 {
-    private readonly Dictionary<string, (ModbusSlaveDevice Device, IDisposable Transport)> _slaves = new();
+    private readonly Dictionary<string, SlaveEntry> _slaves = new();
     private readonly object _lock = new();
     private bool _disposed;
     private int _nextId;
 
+    private sealed record SlaveEntry(ModbusSlaveDevice Device, IDisposable Transport, string ConnectionParam);
+
     public event Action<ModbusTransaction>? OnTransaction;
 
     public string CreateSlave(byte slaveId, string transportType, string connectionParam,
-        int coils = 1024, int discreteInputs = 1024, int holdingRegisters = 256, int inputRegisters = 256)
+        int coils = 1024, int discreteInputs = 1024, int holdingRegisters = 256, int inputRegisters = 256,
+        int baudRate = 115200)
     {
         // A null transportType used to NRE at ToLowerInvariant before reaching
         // the switch's unsupported-transport arm; the HTTP caller pre-guards,
@@ -28,23 +31,25 @@ public class ModbusSlaveService : IDisposable
         device.OnTransaction += tx => OnTransaction?.Invoke(tx);
         IDisposable transport = transportType.ToLowerInvariant() switch
         {
-            "rtu" => CreateRtuTransport(connectionParam, device),
+            "rtu" => CreateRtuTransport(connectionParam, device, baudRate),
             "tcp" => CreateTcpTransport(connectionParam, device),
             _ => throw new ArgumentException($"Unsupported transport: {transportType}")
         };
         var id = $"slave_{++_nextId}";
-        lock (_lock) _slaves[id] = (device, transport);
+        lock (_lock) _slaves[id] = new SlaveEntry(device, transport, connectionParam);
         return id;
     }
 
-    private IDisposable CreateRtuTransport(string port, ModbusSlaveDevice device)
+    private IDisposable CreateRtuTransport(string port, ModbusSlaveDevice device, int baudRate)
     {
         var serial = new SerialService();
         // The Open result used to be discarded: a busy or missing port made
         // CreateSlave succeed while the slave could never answer, surfacing
         // only as unexplained timeouts on the master's side. Fail here instead,
-        // naming the port like the TCP path names an invalid one.
-        if (!serial.Open(new SerialConfig { PortName = port, BaudRate = 115200 }))
+        // naming the port like the TCP path names an invalid one. The baud
+        // rate is caller-selectable now — it used to be pinned to 115200,
+        // silently mismatching masters on slower buses.
+        if (!serial.Open(new SerialConfig { PortName = port, BaudRate = baudRate }))
         {
             serial.Dispose();
             throw new ArgumentException($"Cannot open port: {port}");
@@ -77,7 +82,16 @@ public class ModbusSlaveService : IDisposable
 
     public IEnumerable<SlaveInfo> GetActiveSlaves()
     {
-        lock (_lock) { return _slaves.Select(kv => new SlaveInfo(kv.Key, kv.Value.Device.SlaveId, kv.Value.Transport is TransportGroup ? "rtu" : "tcp", "active", true)).ToList(); }
+        // ConnectionParam carries the REAL create-time parameter (port name or
+        // TCP port) — it used to be hardcoded to "active", so API consumers
+        // could not tell which port a slave was attached to.
+        lock (_lock)
+        {
+            return _slaves.Select(kv => new SlaveInfo(
+                kv.Key, kv.Value.Device.SlaveId,
+                kv.Value.Transport is TransportGroup ? "rtu" : "tcp",
+                kv.Value.ConnectionParam, true)).ToList();
+        }
     }
 
     public ModbusSlaveDevice? GetDevice(string slaveId)

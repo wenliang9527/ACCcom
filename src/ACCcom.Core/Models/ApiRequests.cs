@@ -116,6 +116,11 @@ public class SlaveCreateRequest
     public int DiscreteInputs { get; set; } = 1024;
     public int HoldingRegisters { get; set; } = 256;
     public int InputRegisters { get; set; } = 256;
+
+    /// <summary>RTU-mode baud rate for the slave's own serial port. Optional
+    /// (defaults to 115200, the previous hardcoded value) so existing callers
+    /// are unaffected; a master on a slower bus can now match it.</summary>
+    public int BaudRate { get; set; } = 115200;
 }
 
 public class SlaveWriteRequest

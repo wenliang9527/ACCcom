@@ -45,6 +45,20 @@ public class ModbusSlaveServiceTests
     }
 
     [Fact]
+    public void GetActiveSlaves_ReportsRealConnectionParam_NotPlaceholder()
+    {
+        // The listing used to hardcode ConnectionParam="active" — API
+        // consumers could not tell which port a slave was attached to (the
+        // docs example shows the actual port number).
+        using var service = new ModbusSlaveService();
+        var port = TestPortHelper.GetFreePort().ToString();
+        service.CreateSlave(0x01, "tcp", port);
+
+        var info = Assert.Single(service.GetActiveSlaves());
+        Assert.Equal(port, info.ConnectionParam);
+    }
+
+    [Fact]
     public void CreateSlave_Rtu_UnopenablePort_ThrowsAndRegistersNothing()
     {
         // The Open result used to be discarded, so this registered a zombie

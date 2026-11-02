@@ -353,7 +353,7 @@ public class HttpService : IDisposable
     {
         if (_slaveService == null) return null;
         if (req == null || string.IsNullOrEmpty(req.Transport)) return null;
-        return _slaveService.CreateSlave(req.SlaveId, req.Transport, req.ConnectionParam, req.Coils, req.DiscreteInputs, req.HoldingRegisters, req.InputRegisters);
+        return _slaveService.CreateSlave(req.SlaveId, req.Transport, req.ConnectionParam, req.Coils, req.DiscreteInputs, req.HoldingRegisters, req.InputRegisters, req.BaudRate);
     }
 
     public bool SlaveRemove(string? slaveId)

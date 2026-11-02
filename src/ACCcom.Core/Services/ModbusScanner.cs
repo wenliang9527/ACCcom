@@ -66,8 +66,13 @@ public class ModbusScanner : IDisposable
     {
         try
         {
+            // Real round-trip time, not the configured timeout — the result's
+            // RTT used to echo timeoutMs, making every device look equally
+            // slow and the value useless for ranking responsive slaves.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = await _modbus.ReadHoldingRegistersAsync(
                 slaveId, 0, 1, timeoutMs, ct).ConfigureAwait(false);
+            sw.Stop();
 
             if (!result.IsError)
             {
@@ -75,7 +80,7 @@ public class ModbusScanner : IDisposable
                 {
                     SlaveId = slaveId,
                     IsOnline = true,
-                    ResponseTimeMs = timeoutMs,
+                    ResponseTimeMs = (int)sw.ElapsedMilliseconds,
                     // ModbusService.Data is [byteCount, data...] — skip the
                     // byteCount prefix to read the actual first register value.
                     FirstRegisterValue = result.Data.Length >= 3

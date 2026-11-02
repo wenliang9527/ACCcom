@@ -47,6 +47,36 @@ public class ModbusScannerTests
         Assert.Throws<ArgumentNullException>(() => new ModbusScanner(null!));
     }
 
+    /// <summary>Fake transport that delays each answer, so the scanner's
+    /// reported RTT can be told apart from the configured timeout (it used to
+    /// echo timeoutMs verbatim). Standalone rather than derived: a `new`
+    /// method hide would never run through IModbusTransport dispatch.</summary>
+    private sealed class SlowFakeTransport : IModbusTransport
+    {
+        public async Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)
+        {
+            await Task.Delay(40, ct);
+            var resp = new byte[] { slaveId, functionCode, 2, 0x12, 0x34 };
+            return resp;
+        }
+
+        public void Dispose() { }
+    }
+
+    [Fact]
+    public async Task ScanAsync_ReportsMeasuredRtt_NotConfiguredTimeout()
+    {
+        using var modbus = MakeService(new SlowFakeTransport());
+        using var scanner = new ModbusScanner(modbus);
+
+        var results = await scanner.ScanAsync(0x03, 0x03, timeoutMs: 2000);
+
+        var result = Assert.Single(results);
+        // 40ms delay answered: measured RTT sits well below the 2000ms
+        // timeout (the old code reported exactly 2000) and at least tens of ms.
+        Assert.InRange(result.ResponseTimeMs, 15, 1500);
+    }
+
     [Fact]
     public async Task ScanAsync_FindsOnlyOnlineSlaves()
     {
