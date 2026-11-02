@@ -178,7 +178,11 @@ public class ModbusSlaveDevice
         var andMask = (ushort)((pdu[2] << 8) | pdu[3]);
         var orMask = (ushort)((pdu[4] << 8) | pdu[5]);
         if (addr >= _holdingRegisters.Length) return ErrorResponse(0x16, 0x02);
-        _holdingRegisters[addr] = (ushort)((_holdingRegisters[addr] & andMask) | orMask);
+        // Spec FC22: result = (current AND and_mask) OR (or_mask AND NOT
+        // and_mask) — or_mask only applies where and_mask is 0. The old
+        // `(reg & and) | or` also forced or_mask bits INSIDE the and_mask
+        // range, so the simulated device disagreed with spec-compliant peers.
+        _holdingRegisters[addr] = (ushort)((_holdingRegisters[addr] & andMask) | (orMask & ~andMask));
         NotifyTransaction(0x16, pdu, pdu);
         return pdu;
     }

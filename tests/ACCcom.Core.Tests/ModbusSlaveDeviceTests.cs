@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Sockets;
 using ACCcom.Core.Models;
 using ACCcom.Core.Services;
@@ -139,6 +140,29 @@ public class ModbusSlaveDeviceTests
         var resp = device.HandleRequest(0x16, [0x00, 0x00, 0x00, 0xFF, 0x01, 0x00]);
         Assert.Equal([0x00, 0x00, 0x00, 0xFF, 0x01, 0x00], resp);
         Assert.Equal(0x0134, device.GetHoldingRegister(0));
+    }
+
+    [Fact]
+    public void FC16_MaskWriteRegister_OrMaskConfinedToInvertedAndMask()
+    {
+        // Spec FC22: or_mask applies ONLY where and_mask is 0. With and=0x00FF
+        // and or=0x0105 the 0x01 bit sits inside the and range and must not be
+        // forced — the old `(reg & and) | or` formula produced 0x0135 here.
+        var device = CreateDevice(); device.SetHoldingRegister(0, 0x1234);
+        var resp = device.HandleRequest(0x16, [0x00, 0x00, 0x00, 0xFF, 0x01, 0x05]);
+        Assert.Equal([0x00, 0x00, 0x00, 0xFF, 0x01, 0x05], resp);
+        Assert.Equal(0x0134, device.GetHoldingRegister(0));
+    }
+
+    [Fact]
+    public void FC16_MaskWriteRegister_AndZero_OrMaskBecomesValue()
+    {
+        // and=0 reduces the spec formula to the or_mask alone — the GUI's
+        // single-value Mask Write mapping (and=0x0000, or=WriteValue) relies
+        // on this to force the register to the requested value.
+        var device = CreateDevice(); device.SetHoldingRegister(0, 0xFFFF);
+        device.HandleRequest(0x16, [0x00, 0x00, 0x00, 0x00, 0xAB, 0xCD]);
+        Assert.Equal(0xABCD, device.GetHoldingRegister(0));
     }
 
     [Fact]
@@ -459,6 +483,39 @@ public class ModbusTcpSlaveTransportTests
         }
         catch (OperationCanceledException) { }
         Assert.Equal(0, offset);
+    }
+
+    [Fact]
+    public void TcpTransport_Start_PortInUse_ThrowsAndLeavesStateClean()
+    {
+        // Start on an occupied port must fail WITHOUT corrupting the state
+        // machine. The old path set _isRunning=true before listener.Start(),
+        // so a failed Start left IsRunning=true with no listener — the next
+        // Start() was a silent no-op until someone called Stop() by hand, and
+        // the CTS leaked. After the fix: throw, IsRunning stays false,
+        // LastError names the failure, and a retry once the port frees works.
+        // The blocker binds the same wildcard (IPAddress.Any) as the
+        // transport: on Windows a specific-IP bind and a wildcard bind of one
+        // port can coexist, which would keep the conflict from firing.
+        var blocker = new TcpListener(IPAddress.Any, 0);
+        blocker.Start();
+        var port = ((IPEndPoint)blocker.LocalEndpoint).Port;
+
+        var transport = new ModbusTcpSlaveTransport(port);
+        try
+        {
+            Assert.Throws<SocketException>(() => transport.Start());
+            Assert.False(transport.IsRunning);
+            Assert.False(string.IsNullOrEmpty(transport.LastError));
+
+            blocker.Stop();
+            transport.Start(); // retry must attempt the bind again — and succeed
+            Assert.True(transport.IsRunning);
+        }
+        finally
+        {
+            transport.Dispose();
+        }
     }
 
     // ── Exception-code semantics: quantity violations are 0x03 (illegal data
