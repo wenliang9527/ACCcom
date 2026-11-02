@@ -2,7 +2,16 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1554 全过 + 基准 11 单列全过（全量 1565），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1566 全过 + 基准 11 单列全过（全量 1577），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
+
+### Added
+
+- **acccom 串口工具链四处工作流优化（`feat(mcp,core)`，2026-11-02，取证自灌装工装联调会话的真实 acccom 流量——4 天 27 TX / 514 RX / 6 open：未知二进制协议同一帧手动重发 9 次、无线 DAP 的 ESP-IDF 彩色噪声占 RX 大头、主控口常年被 GUI 占用）**
+  - **send 返回 `latestId` 发送锚点**：send 原是唯一不回游标的发送工具，「只读本帧之后的到达」没有锚点——agent 只能 clear_buffer 毁现场或人眼挑尾。现响应带 latestId，且游标取自发送**前**（端到端实测抓出：回环极速应答会在「写完→取 LastSeq」窗口内落到发送后游标之下，归因流会漏掉应答）——TX 回显行与本帧后全部到达必在锚点之上，`send → read_data(sinceId=latestId, waitMs)` 成为无竞态的一等归因流
+  - **send_and_wait 支持 `retries`(1-10,默认 1)/`intervalMs`(0-60000,默认 0)**：单次尝试=发→等 timeoutMs，未命中且有余量则隔 intervalMs 重发，响应带 `attempts`（第几次命中）。设备丢首发/无应答场景原先 9 次手动重发=9 个 MCP 往返，现一个调用收口；默认值零破坏，越界 INVALID_CONFIG
+  - **read_data 支持 `stripAnsi`（默认 false）**：true 时剥 text 列 ANSI CSI 转义（ESP 级启动日志每行彩码），hex 列恒为原始字节；条目以**副本**替换——环缓冲里的共享对象（GUI 同读）绝无原地改写
+  - **open_port 失败消息带分类提示**：`ISerialService` 新增 `LastOpenError`（Serial/Tcp/Endpoint/MultiPort 全链记录，成功即清），OPEN_FAILED 消息携带底层异常+可执行提示——access denied=口被其他进程（GUI 会话/vendor 工具）占用→去那边关；FileNotFound/does not exist=设备不在或 USB 枚举失效（设备重启后常见）→list_ports 重扫，判定不再靠猜
+  - schema 12 工具 **8738B**（tools/list 实测，含 key 口径），压回 8757 基线内（新增参数一度把描述顶到 9002，按「参数细节留在参数、工具摘要保持短」纪律回砍，工具级预算测试 1600/3200 字符保持生效）。**测试 +12**（Core +6：LastOpenError 记录与成功清除 ×4 实现、MultiPortService 失败捕获/成功清除；McpServer +6：latestId 锚点排除前噪、retries 第二发命中 attempts=2、3 发耗尽、越界 INVALID_CONFIG ×4 值、stripAnsi 开/关与 hex 保真、TCP 拨号失败诊断消息），主套件 1554 → **1566**（全量 1577，基准 11 单列）
 
 ### Fixed
 

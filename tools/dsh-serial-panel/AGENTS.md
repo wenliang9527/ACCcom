@@ -24,6 +24,23 @@
 badLines/logSize/logMtimeMs/rotated/diag/mcp`,可用于链路自检(文件不存在 → MCP 未跑过;
 mtime 很旧 → 写入端疑似挂了;size 在涨但 entries 不涨 → 格式漂移,看 badLines)。
 
+## MCP 串口工具参数备忘
+
+工具 schema 是参数的一手来源;这里只记工作流级的用法与易踩点。
+
+- **send 返回 `latestId`(发送锚点)**:游标取自发送**前**——`read_data(sinceId=<latestId>,
+  waitMs=N)` 收获 TX 回显行与本帧之后的全部到达,极速回环应答也不会落在锚点之下。
+  未知协议探测循环的标准姿势,别用 `clear_buffer` 毁现场。
+- **send_and_wait 支持 `retries`(1-10,默认 1)/`intervalMs`(0-60000,默认 0)**:
+  单次尝试 = 发→等 timeoutMs;未命中且有余量→隔 intervalMs 重发;响应带
+  `attempts`(第几次命中)。设备丢首发、无应答重发,一个调用搞定,不必逐发往返。
+- **read_data 支持 `stripAnsi`(默认 false)**:true 时剥 text 列的 ANSI CSI
+  转义(ESP 级设备启动日志的彩色码);hex 列恒为原始字节,不受影响。
+- **open_port 失败消息带分类提示**:`access denied` = 口被其他进程占用(GUI
+  会话/上一会话/vendor 工具)→去那边关或换口;`FileNotFoundException` /
+  `does not exist` = 设备不在或 USB 枚举失效(设备重启后常见)→`list_ports`
+  重扫。消息原文携带底层异常,判定不再靠猜。
+
 ## 写路由的同源约束(v1.8.3)
 
 `POST /clear` 与 `POST /mcp` 会做写防护判定,判据顺序:**Host 回环 → Sec-Fetch-Site →
