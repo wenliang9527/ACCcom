@@ -141,13 +141,22 @@ public class NetworkBridgeService : IDisposable
 
             lock (_lock)
             {
+                // Re-check under the lock: a concurrent Close/HandleDisconnect
+                // nulls the transport between the outer IsConnected check and
+                // here — the old `_tcpStream?.Write` silently "succeeded" on a
+                // closed link (TX entry logged, nothing sent).
+                if (!IsConnected)
+                    return false;
+
                 if (Protocol == NetworkProtocol.TCP)
                 {
-                    _tcpStream?.Write(bytes, 0, bytes.Length);
+                    if (_tcpStream == null) return false;
+                    _tcpStream.Write(bytes, 0, bytes.Length);
                 }
                 else
                 {
-                    _udpClient?.Send(bytes, bytes.Length);
+                    if (_udpClient == null) return false;
+                    _udpClient.Send(bytes, bytes.Length);
                 }
             }
 
@@ -229,9 +238,16 @@ public class NetworkBridgeService : IDisposable
         var buffer = ArrayPool<byte>.Shared.Rent(4096);
         try
         {
-            while (!token.IsCancellationRequested && IsConnected && _tcpStream != null)
+            while (!token.IsCancellationRequested && IsConnected)
             {
-                int bytesRead = await _tcpStream.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false);
+                // Field snapshot per iteration: Cleanup nulls _tcpStream under
+                // its own lock between the check and the read — dereferencing
+                // the field directly was a TOCTOU NRE. A stale local that gets
+                // disposed mid-read surfaces as a caught exception instead.
+                var stream = _tcpStream;
+                if (stream == null) return;
+
+                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false);
                 if (bytesRead == 0)
                 {
                     HandleDisconnect();
@@ -249,9 +265,12 @@ public class NetworkBridgeService : IDisposable
 
     private async Task ReceiveUdpLoop(CancellationToken token)
     {
-        while (!token.IsCancellationRequested && IsConnected && _udpClient != null)
+        while (!token.IsCancellationRequested && IsConnected)
         {
-            var result = await _udpClient.ReceiveAsync(token).ConfigureAwait(false);
+            var client = _udpClient; // same TOCTOU snapshot as the TCP loop
+            if (client == null) return;
+
+            var result = await client.ReceiveAsync(token).ConfigureAwait(false);
             RaiseDataReceived(result.Buffer, 0, result.Buffer.Length);
         }
     }
@@ -287,8 +306,12 @@ public class NetworkBridgeService : IDisposable
     private void Cleanup()
     {
         var cts = Interlocked.Exchange(ref _receiveCts, null);
+        // Cancel WITHOUT Dispose: the receive loop may be inside ReadAsync
+        // registering on this token at this very instant — disposing a CTS
+        // mid-registration throws ObjectDisposedException inside the loop,
+        // surfaced as a bogus "Receive error" on a normal close. A CTS created
+        // without CancelAfter holds no timer, so skipping Dispose leaks nothing.
         cts?.Cancel();
-        cts?.Dispose();
 
         var tcpStream = Interlocked.Exchange(ref _tcpStream, null);
         tcpStream?.Dispose();
