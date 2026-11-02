@@ -2,7 +2,7 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1573 全过 + 基准 11 单列全过（全量 1584），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1586 全过 + 基准 11 单列全过（全量 1597），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
 
 ### Added
 
@@ -14,6 +14,13 @@
   - schema 12 工具 **8738B**（tools/list 实测，含 key 口径），压回 8757 基线内（新增参数一度把描述顶到 9002，按「参数细节留在参数、工具摘要保持短」纪律回砍，工具级预算测试 1600/3200 字符保持生效）。**测试 +12**（Core +6：LastOpenError 记录与成功清除 ×4 实现、MultiPortService 失败捕获/成功清除；McpServer +6：latestId 锚点排除前噪、retries 第二发命中 attempts=2、3 发耗尽、越界 INVALID_CONFIG ×4 值、stripAnsi 开/关与 hex 保真、TCP 拨号失败诊断消息），主套件 1554 → **1566**（全量 1577，基准 11 单列）
 
 ### Fixed
+
+- **审查轮第二批:P2 收尾 + P3 全清（`fix(core,ui)`，2026-11-02，同轮续作）**
+  - **Modbus RTU 主站重组与总线闸门（P2）**：接收路径从「每块独立 CRC」改为**逐会话 CRC 对齐重组**——跨串口分块的响应曾必然假报 CRC mismatch（RTU 无长度域，按最长优先扫描 CRC 有效帧，部分帧等待后续块）；异常响应（func|0x80）纳入 CRC 校验（旧路径对异常帧从不校验，且现有测试用错 CRC 也能过——正是该缺陷的活证据）；新增**半双工总线闸门**（SemaphoreSlim），并发轮询（扫描+手动读）曾在总线上交错、各自等死，现串行化且超时从获得总线起算；缓冲超 256 字节（RTU ADU 上限）立即以 CRC 搜索失败快速断掉，不再耗尽超时。测试语义更新：坏 CRC 帧现等待超时（与截断帧不可区分，标准主站行为），新增分块重组/异常帧坏 CRC 拒收/超容快断/并发串行 ×4
+  - **ASCII 传输层同挂总线闸门**：串行化顺带消除同 key 覆盖竞态的现实触发面；并发测试改 TX 钩子注入（响应在自家请求上线瞬间落地，确定性无竞态）
+  - **VirtualSerial InjectRxData 脏 hex 不再抛 FormatException（P2）**：改 HexHelper 宽容契约（非法半字节按 0、奇尾丢弃），与 Send 的不抛纪律对齐；`_sentData` 加 1000 条上限（GetSentData 全量拷贝，长会话无界增长）
+  - **P3 收口 ×9**：ModbusService 通用异常路径补事务日志（旧路径静默消失于 GUI 日志）；扫描器 RTT 改实测 Stopwatch（旧值恒等于 timeoutMs，无法排名响应快慢）；GetActiveSlaves 返回真实 ConnectionParam（旧硬编码 "active"，API 消费者无法得知从站挂在哪个口）；CreateSlave/HTTP 透传 RTU 波特率参数（旧死 115200）；FileExport CSV 加 UTF-8 BOM（Excel 中文乱码，DSH 面板已踩过同坑，TXT/JSON 保持无 BOM）；HighlightService.Save 快照持锁（旧无锁枚举 ObservableCollection 可撞 UI 增删）；PacketFilter 畸形表达式改匹配零行+ParseError 暴露（旧静默匹配全部=过滤器看似在工作）、`=` 操作符全字段生效（旧仅 time 分支认）；AutoBaud 端口不可开时立即停止扫描并写 LastDiagnostic（旧对占用口空转 11 个速率且与无应答不可区分）
+  - **Modbus TCP 主站移除 FC07 心跳 + 连接重试受请求预算约束**：旧 30s 定时器向 slave 1 发**真实 FC07 读事件请求**（被测设备上的意外线流量）；EnsureConnected 重试阶梯（最坏 ~31s）现受调用方 timeoutMs 预算约束且单次拨号带截止，预算耗尽抛 OperationCanceledException（与每请求超时同族）。**测试 +13**（主套件 1573 → **1586**，全量 1597，基准 11 单列）
 
 - **功能域深审修复六连（`fix(core,ui)`，2026-11-02 审查轮，截图六篇文档对应域全查——串口通信/协议解析/Modbus；发现清单见记忆 audit-2026-11-02-feature-review）**
   - **PCAP 导出时间戳差一个时区（P1）**：所有接收路径都盖 `DateTime.Now`（Kind=Local），而 `(timestamp - epoch)` 的 DateTime 减法不看 Kind——本地墙钟被当 UTC 写进 pcap，Wireshark 里每个包偏移整机 UTC 偏移。修：`ToUniversalTime()`（Kind=Utc 恒等、Local/Unspecified 正确换算）。回归：写入的 epoch 秒 == 本地时间的真实 Unix 秒（TZ 无关断言）
