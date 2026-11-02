@@ -6,7 +6,7 @@
 - **写操作**：WriteSingleCoil (0x05)、WriteSingleRegister (0x06)、WriteMultipleCoils (0x0F)、WriteMultipleRegisters (0x10)
 - **高级操作**：MaskWriteRegister (0x16)、ReadWriteMultipleRegisters (0x17)
 - **传输层**：支持 RTU（串口）、TCP（网络）和 ASCII（串口）三种传输方式
-- **自动分片**：大范围读取自动拆分为多个请求（每请求最多 125 个寄存器/线圈）
+- **自动分片**（Master 图形界面）：大范围读取自动拆分为多个请求（每请求最多 125 个寄存器/线圈）；HTTP API 为单请求直传，超限时由设备返回异常码
 - **事务日志**：记录每次请求/响应的 HEX 数据、时间戳、状态
 - **轮询模式**：可设置间隔自动轮询读取
 - **设备扫描**：自动扫描网络上的 Modbus 从站设备

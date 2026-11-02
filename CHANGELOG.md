@@ -2,7 +2,7 @@
 
 格式约定：`Added / Changed / Fixed` 分组，按提交时间倒序。完整历史见 `git log`（Conventional Commits）。
 
-## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1566 全过 + 基准 11 单列全过（全量 1577），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
+## Unreleased（实测：Debug 构建 0 警告 0 错误，CI 口径主套件 1573 全过 + 基准 11 单列全过（全量 1584），DSH 面板 133 断言 7 模式全绿；全面体检见 docs/audit-2026-11-01.md，上轮审计见 docs/audit-2026-10-24.md）
 
 ### Added
 
@@ -14,6 +14,14 @@
   - schema 12 工具 **8738B**（tools/list 实测，含 key 口径），压回 8757 基线内（新增参数一度把描述顶到 9002，按「参数细节留在参数、工具摘要保持短」纪律回砍，工具级预算测试 1600/3200 字符保持生效）。**测试 +12**（Core +6：LastOpenError 记录与成功清除 ×4 实现、MultiPortService 失败捕获/成功清除；McpServer +6：latestId 锚点排除前噪、retries 第二发命中 attempts=2、3 发耗尽、越界 INVALID_CONFIG ×4 值、stripAnsi 开/关与 hex 保真、TCP 拨号失败诊断消息），主套件 1554 → **1566**（全量 1577，基准 11 单列）
 
 ### Fixed
+
+- **功能域深审修复六连（`fix(core,ui)`，2026-11-02 审查轮，截图六篇文档对应域全查——串口通信/协议解析/Modbus；发现清单见记忆 audit-2026-11-02-feature-review）**
+  - **PCAP 导出时间戳差一个时区（P1）**：所有接收路径都盖 `DateTime.Now`（Kind=Local），而 `(timestamp - epoch)` 的 DateTime 减法不看 Kind——本地墙钟被当 UTC 写进 pcap，Wireshark 里每个包偏移整机 UTC 偏移。修：`ToUniversalTime()`（Kind=Utc 恒等、Local/Unspecified 正确换算）。回归：写入的 epoch 秒 == 本地时间的真实 Unix 秒（TZ 无关断言）
+  - **Modbus FC22 Mask Write 双端语义（P1×2）**：从站公式 `(reg & and) | or` 缺 spec 的 `& ~and_mask` 项——or_mask 在 and_mask 范围内的位被错误强置，与规范设备联调必暴露（回归：or 位落在 and 范围内不被强置 + and=0 退化为直写）；GUI Master 单值输入的映射 `and=V, or=~V` 产出「~V 位强置 1、V 位看旧寄存器脸色」的不可预测结果，改 `and=0x0000, or=V`（spec 公式下恰为强制写 V）
+  - **NetworkBridgeService 竞态三连（P2）**：Cleanup 对 CTS 先 Cancel 后立即 Dispose，接收循环可能正在 ReadAsync 里注册 token → ODE 假「Receive error」（修：不 Dispose——无 CancelAfter 的 CTS 不持定时器，无泄漏）；并发 Close 后 Send 的 `_tcpStream?.Write` 静默假成功（TX 日志有、线上无字节）（修：锁内复查连接与传输体，race 即返 false）；RX 循环 `_tcpStream != null` 与解引用之间 TOCTOU NRE（修：字段快照到局部变量）
+  - **MultiPortService 断开标签永久不可重开（P2）**：设备拔出后实例残留注册表，open fast-path 恒回 false，必须先 ClosePort 才能恢复——MCP `open_port` 陷阱且 LastOpenError 不更新。修：fast-path 分类三态（已开短路成功/断开即摘除旧实例并继续重开/未注册直走），幂等 open 仍零工厂调用（回归 ×3：断开后重开换新实例、同步/异步双路径、已开不建新服务）
+  - **ModbusTcpSlaveTransport.Start 失败即状态损坏（P2）**：`_isRunning=true` 先于 `listener.Start()`——端口被占时抛异常后 IsRunning 恒 true、无监听器、CTS 泄漏，下次 Start 成静默 no-op。修：bind 成功后才置位，失败路径回收 CTS/listener 并写 LastError，重试真正重试（回归：占用端口 Start 抛+状态干净，释放后重试成功）
+  - **文档三处宣称超出实现**：advanced-comms.md 桥接「自动重连」（实现在 TcpSerialService 层，桥接层只有断线检测）、「零拷贝接收」（仅接收缓冲 pooled，数据仍转 HEX/文本）；serial.md 串口配置补 `tcp://host:port` 端点分派；modbus.md「自动分片」限定 Master 图形界面（HTTP API 单请求直传，超限设备回 03）。**测试 +7**（Core +7：pcap 时区、FC16 spec ×2、MultiPort 重开 ×3、TcpSlave Start 状态机），主套件 1566 → **1573**（全量 1584，基准 11 单列）
 
 - **TCP 端点栈四处修复（`fix(core)`，2026-11-01 体检轮，docs/audit-2026-11-01.md P2#1+P3×3）**
   - **握手可被并发 Send 抢先（P2）**：`_connValid = true` 原先在握手写之前——循环发送/触发器运行中重开 TCP 口时，并发 Send 可先抢到发送锁，线上首包变成业务载荷：桥把载荷当行配置命令消费（或吞掉）、握手字节「19200E」当垃圾直达目标板，桥不换速。类注释声称的「首包必为握手」不变量在该交错下不成立。修法：握手写挪到连接宣告**之前**——握手在飞时 `_connValid` 仍为 false，并发 Send 被 not-open 检查拒绝，不变量从「注释声称」变成「结构保证」

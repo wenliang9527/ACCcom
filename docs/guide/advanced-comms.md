@@ -18,9 +18,9 @@ ACCCOM 在基础串口通信之上提供了多端口并发、网络桥接、自�
 
 - TCP 客户端：`ConnectTcp(host, port)` — 建立 TCP 连接，自动接收循环
 - UDP 客户端：`ConnectUdp(host, port)` — 建立 UDP 连接，支持异步接收
-- 零拷贝接收：使用 `ArrayPool<byte>` + buffer+offset+count 直接传递，消除每包 byte[] 分配
+- 接收缓冲复用：`ArrayPool<byte>` 租借接收缓冲，消除每包接收侧 `byte[]` 分配（数据仍统一转为 `LogEntry` 的 HEX/文本形式供展示与过滤）
 - 网络数据统一转为 `LogEntry` 事件，与串口数据共用同一缓冲区和解析管道
-- 自动重连和断线检测
+- 断线检测：对端断开或收发错误时清理资源并触发 `OnDisconnected` 事件（自动重连在 `TcpSerialService` 层，桥接层不重连）
 - 支持 Modbus TCP 传输层
 
 ## 自动波特率检测
