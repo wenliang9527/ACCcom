@@ -120,6 +120,20 @@ public class AutoBaudDetectorTests
     }
 
     [Fact]
+    public async Task DetectAsync_UnavailablePort_SetsDiagnostic_AndStopsEarly()
+    {
+        // A port that cannot be OPENED is baud-independent: the old detector
+        // hammered all 11 rates against it anyway and reported a bare 0 with
+        // no diagnosis — a port held by another process looked identical to
+        // "no device answered".
+        var detector = new AutoBaudDetector();
+        var rate = await detector.DetectAsync("COM_DOES_NOT_EXIST_XYZ");
+        Assert.Equal(0, rate);
+        Assert.NotNull(detector.LastDiagnostic);
+        Assert.Contains("unavailable", detector.LastDiagnostic);
+    }
+
+    [Fact]
     public async Task TryBaudRateAsync_null_or_empty_port_returns_false_without_throwing()
     {
         using var detector = new AutoBaudDetector();
