@@ -8,6 +8,17 @@ public class PacketFilterEngine
 {
     private readonly FilterNode? _root;
 
+    /// <summary>Null when the expression parsed (or was empty); otherwise why
+    /// it did not. An unparseable filter matches NOTHING — the old fallback
+    /// quietly matched EVERYTHING, so a dangling operator like `direction ==`
+    /// looked like a working filter with the stream simply unfiltered.</summary>
+    public string? ParseError { get; }
+
+    /// <summary>True when the expression is empty or parsed cleanly. Invalid
+    /// engines are safe to evaluate — Matches just returns false for every
+    /// row — so callers can decide whether to surface the error.</summary>
+    public bool IsValid => ParseError == null;
+
     public PacketFilterEngine(string filterExpression)
     {
         if (string.IsNullOrWhiteSpace(filterExpression))
@@ -17,11 +28,16 @@ public class PacketFilterEngine
         }
 
         var tokens = Tokenizer.Tokenize(filterExpression);
-        _root = Parser.Parse(tokens);
+        _root = Parser.Parse(tokens, out var error);
+        ParseError = error;
     }
 
     public bool Matches(LogEntry entry)
     {
+        // Empty filter: everything passes. Malformed filter: nothing does —
+        // showing an unfiltered stream for a typo hides that filtering broke.
+        if (ParseError != null)
+            return false;
         if (_root == null)
             return true;
 
@@ -91,7 +107,11 @@ public static class DataPanelFilter
         if (expressionEngine != null)
         {
             // Expression filter mode: PacketFilter syntax handles everything,
-            // so the plain-text/regex path below is bypassed.
+            // so the plain-text/regex path below is bypassed. A malformed
+            // expression reports through the same sink as a bad regex (once
+            // per row is fine — the sink is a property set, not a list).
+            if (expressionEngine.ParseError != null)
+                errorSink?.Invoke(expressionEngine.ParseError);
             var exprMatch = expressionEngine.Matches(entry);
             if (setSearchMatch) entry.IsSearchMatch = exprMatch;
             return exprMatch;
@@ -170,7 +190,9 @@ internal class ComparisonNode : FilterNode
 
         return Op switch
         {
-            "==" => string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase),
+            // "=" is accepted everywhere as an alias of "==": the time path
+            // always supported it, the other fields silently ignored it.
+            "==" or "=" => string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase),
             "!=" => !string.Equals(actual, Value, StringComparison.OrdinalIgnoreCase),
             ">=" => CompareTimeOrString(actual) >= 0,
             "<=" => CompareTimeOrString(actual) <= 0,
@@ -402,11 +424,21 @@ internal static class Tokenizer
 
 internal static class Parser
 {
-    public static FilterNode Parse(List<string> tokens)
+    /// <summary>Parses the token stream. Returns null (with <paramref name="error"/>
+    /// set) for a structurally incomplete expression — a dangling field,
+    /// operator, or value — which the old code silently promoted to
+    /// AlwaysTrueNode (filter off).</summary>
+    public static FilterNode? Parse(List<string> tokens, out string? error)
     {
+        error = null;
         int pos = 0;
         var result = ParseOr(tokens, ref pos);
-        return result ?? new AlwaysTrueNode();
+        if (result == null)
+        {
+            error = "Incomplete filter expression (dangling field, operator, or value)";
+            return null;
+        }
+        return result;
     }
 
     private static FilterNode? ParseOr(List<string> tokens, ref int pos)

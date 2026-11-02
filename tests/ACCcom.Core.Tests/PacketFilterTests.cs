@@ -27,6 +27,29 @@ public class PacketFilterTests
     }
 
     [Fact]
+    public void MalformedExpression_MatchesNothing_AndReportsError()
+    {
+        // A dangling operator used to degenerate to AlwaysTrue — a typo like
+        // `direction ==` silently DISABLED the filter while looking active.
+        // An unparseable filter now matches nothing and names the problem.
+        var engine = new PacketFilterEngine("direction ==");
+        Assert.False(engine.IsValid);
+        Assert.NotNull(engine.ParseError);
+        Assert.False(engine.Matches(MakeEntry()));
+    }
+
+    [Fact]
+    public void SingleEquals_Alias_WorksOnEveryField()
+    {
+        // `=` was only honoured in the time path; other fields silently
+        // matched nothing. It is an alias of == everywhere now.
+        var engine = new PacketFilterEngine("direction = RX");
+        Assert.True(engine.IsValid);
+        Assert.True(engine.Matches(MakeEntry(direction: "RX")));
+        Assert.False(engine.Matches(MakeEntry(direction: "TX")));
+    }
+
+    [Fact]
     public void EmptyFilter_MatchesEverything()
     {
         var engine = new PacketFilterEngine("");
