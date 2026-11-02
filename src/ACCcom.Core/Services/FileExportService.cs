@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Text.Json;
 using ACCcom.Core.Models;
 
@@ -74,7 +75,11 @@ public class FileExportService
                 : "";
             lines.Add($"\"{ts}\",\"{e.Direction}\",\"{Escape(e.RawHex)}\",\"{Escape(e.Text)}\",\"{Escape(fields)}\"");
         }
-        WriteWithRetry(filePath, string.Join(Environment.NewLine, lines));
+        // UTF-8 WITH BOM, CSV only: Excel sniffs codepage from the BOM — the
+        // BOM-less file made every non-ASCII Text column mojibake there (the
+        // DSH panel's CSV export already learned this lesson). TXT/JSON stay
+        // BOM-less: those are machine-read formats.
+        WriteWithRetry(filePath, string.Join(Environment.NewLine, lines), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
     }
 
     private static string Escape(string? value)
@@ -83,7 +88,7 @@ public class FileExportService
         return value.Replace("\"", "\"\"");
     }
 
-    private static void WriteWithRetry(string filePath, string content)
+    private static void WriteWithRetry(string filePath, string content, Encoding? encoding = null)
     {
         Exception? lastException = null;
 
@@ -94,7 +99,9 @@ public class FileExportService
 
             try
             {
-                using var sw = new StreamWriter(filePath);
+                using var sw = encoding == null
+                    ? new StreamWriter(filePath) // default: UTF-8 without BOM
+                    : new StreamWriter(filePath, append: false, encoding);
                 sw.Write(content);
                 return;
             }

@@ -125,6 +125,24 @@ public class FileExportServiceTests : IDisposable
     }
 
     [Fact]
+    public void ExportToCsv_StartsWithUtf8Bom()
+    {
+        // Excel sniffs the codepage from the BOM — the BOM-less file made
+        // every non-ASCII Text column mojibake there (same lesson the DSH
+        // panel's CSV export already learned). TXT/JSON stay BOM-less.
+        var entries = new List<LogEntry> { MakeEntry(1) };
+        var path = NewTempPath(".csv");
+
+        FileExportService.ExportToCsv(entries, path);
+
+        var bytes = File.ReadAllBytes(path);
+        Assert.True(bytes.Length >= 3);
+        Assert.Equal(0xEF, bytes[0]);
+        Assert.Equal(0xBB, bytes[1]);
+        Assert.Equal(0xBF, bytes[2]);
+    }
+
+    [Fact]
     public void ExportToCsv_escapes_quotes_in_text()
     {
         // Arrange

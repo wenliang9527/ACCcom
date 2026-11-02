@@ -203,7 +203,16 @@ public class HighlightService
 
     public void Save()
     {
-        var json = JsonSerializer.Serialize(Rules.ToArray(), IndentedOptions);
+        // Snapshot under the same lock that guards Rules: the old lock-free
+        // Save could enumerate the ObservableCollection while a UI Add/Remove
+        // was mid-flight (InvalidOperationException). File I/O itself stays
+        // outside the lock — it needs no mutual exclusion and can be slow.
+        HighlightRule[] snapshot;
+        lock (_lock)
+        {
+            snapshot = Rules.ToArray();
+        }
+        var json = JsonSerializer.Serialize(snapshot, IndentedOptions);
         File.WriteAllText(_filePath, json);
     }
 
