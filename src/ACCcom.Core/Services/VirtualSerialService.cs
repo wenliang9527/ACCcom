@@ -12,6 +12,11 @@ public class VirtualSerialService : ISerialService, IDisposable
     private int _nextRxId;
     private int _nextTxId;
 
+    /// <summary>Cap on retained TX entries — GetSentData copies the whole
+    /// list, so an unbounded long-session grower would balloon both memory
+    /// and that copy. Oldest entries drop first.</summary>
+    private const int MaxSentDataEntries = 1000;
+
     private readonly List<LogEntry> _sentData = new();
     private readonly object _lock = new();
 
@@ -99,7 +104,12 @@ public class VirtualSerialService : ISerialService, IDisposable
             ByteCount = byteCount
         };
 
-        lock (_lock) _sentData.Add(entry);
+        lock (_lock)
+        {
+            _sentData.Add(entry);
+            if (_sentData.Count > MaxSentDataEntries)
+                _sentData.RemoveRange(0, _sentData.Count - MaxSentDataEntries);
+        }
         OnDataReceived?.Invoke(entry);
         return true;
     }
@@ -115,13 +125,20 @@ public class VirtualSerialService : ISerialService, IDisposable
         return true;
     }
 
+    /// <summary>Injects an RX frame as if a device had sent it. Lenient hex
+    /// contract (dirty nibbles read as 0, odd tail dropped) — never throws on
+    /// bad input, matching Send's no-throw discipline.</summary>
     public void InjectRxData(string? hex)
     {
         // A null/empty payload injects nothing — NRE on Replace otherwise.
+        // Lenient parse (illegal nibbles read as 0, odd trailing nibble
+        // dropped), same family contract as every other transport: the old
+        // Convert.FromHexString threw FormatException on dirty hex — the one
+        // throw path in a service whose Send carefully never throws.
         if (string.IsNullOrEmpty(hex)) return;
 
-        var hexNoSpace = hex.Replace(" ", "");
-        var bytes = Convert.FromHexString(hexNoSpace);
+        var bytes = HexHelper.HexStringToBytes(hex);
+        if (bytes.Length == 0) return;
 
         var entry = new LogEntry
         {

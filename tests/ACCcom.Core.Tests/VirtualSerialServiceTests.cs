@@ -167,4 +167,33 @@ public class VirtualSerialServiceTests
         Assert.False(svc.Open(null!));
         Assert.False(svc.IsOpen);
     }
+
+    [Fact]
+    public void InjectRxData_DirtyHex_DoesNotThrow()
+    {
+        // Lenient family contract: the old Convert.FromHexString threw
+        // FormatException on dirty hex — the one throw path in a service
+        // whose Send carefully never throws.
+        var svc = new VirtualSerialService();
+        svc.Open(new SerialConfig { PortName = "COMV", BaudRate = 9600 });
+
+        var ex = Record.Exception(() => svc.InjectRxData("ZZ ODD 0x1"));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void GetSentData_IsCapped_OldestDropped()
+    {
+        var svc = new VirtualSerialService();
+        svc.Open(new SerialConfig { PortName = "COMV", BaudRate = 9600 });
+        for (var i = 0; i < 1100; i++)
+            svc.Send($"m{i}");
+
+        var sent = svc.GetSentData();
+        Assert.True(sent.Count <= 1000);
+        // The oldest entries are the ones dropped: the first surviving frame
+        // is not the very first one that was sent.
+        Assert.DoesNotContain(sent, e => e.Text == "m0");
+        Assert.Contains(sent, e => e.Text == "m1099");
+    }
 }
