@@ -29,10 +29,25 @@ public class ModbusTcpSlaveTransport : IDisposable
     public void Start()
     {
         if (_isRunning) return;
-        _isRunning = true;
         _cts = new CancellationTokenSource();
         _listener = new TcpListener(IPAddress.Any, _port);
-        _listener.Start();
+        try
+        {
+            _listener.Start();
+        }
+        catch (Exception ex)
+        {
+            // Port in use etc. The old path set _isRunning=true first, so a
+            // failed Start left IsRunning=true with no listener — the next
+            // Start() was a silent no-op until Stop() was called by hand, and
+            // the CTS leaked. Fail with the state machine untouched instead.
+            _lastError = ex.Message;
+            _cts.Dispose();
+            _cts = null;
+            _listener = null;
+            throw;
+        }
+        _isRunning = true;
         _ = AcceptLoopAsync(_cts.Token);
     }
 
