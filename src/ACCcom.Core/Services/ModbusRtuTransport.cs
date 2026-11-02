@@ -6,7 +6,8 @@ public class ModbusRtuTransport : IModbusTransport
 {
     private readonly ISerialService _serial;
     private readonly object _lock = new();
-    private readonly Dictionary<ModbusKey, Queue<TaskCompletionSource<byte[]>>> _pending = new();
+    private readonly SemaphoreSlim _busGate = new(1, 1);
+    private readonly Dictionary<ModbusKey, Queue<Conversation>> _pending = new();
     // Number of keys with a live queue in _pending. Read on the RX hot path
     // WITHOUT the lock: when it is 0 no conversation is waiting, so the packet
     // is dropped before the hex decode and key work (no allocation, no lock).
@@ -17,12 +18,31 @@ public class ModbusRtuTransport : IModbusTransport
     private readonly Action<LogEntry> _dataHandler;
     private bool _disposed;
 
+    /// <summary>RTU ADUs are at most 256 bytes. A per-conversation RX buffer
+    /// that grows past this holds noise, not a split response — fail the
+    /// pending request immediately instead of waiting for its full timeout.</summary>
+    private const int MaxResponseBytes = 256;
+
     public ModbusRtuTransport(ISerialService serial)
     {
         ArgumentNullException.ThrowIfNull(serial);
         _serial = serial;
         _dataHandler = OnSerialData;
         _serial.OnDataReceived += _dataHandler;
+    }
+
+    /// <summary>One in-flight request-response conversation. The buffer
+    /// accumulates RX chunks until a CRC-aligned frame can be extracted — a
+    /// response split across serial deliveries (or preceded by the tail of a
+    /// previous timed-out response) used to be CRC-checked per chunk and
+    /// failed with a spurious mismatch.</summary>
+    private sealed class Conversation
+    {
+        public Conversation(ModbusKey key) { Key = key; }
+
+        public ModbusKey Key { get; }
+        public TaskCompletionSource<byte[]> Tcs { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public List<byte> Buffer { get; } = new();
     }
 
     public async Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)
@@ -32,62 +52,75 @@ public class ModbusRtuTransport : IModbusTransport
         var adu = BuildAdu(slaveId, functionCode, pdu);
         var hex = BytesToHex(adu);
         var key = new ModbusKey(slaveId, functionCode);
-        var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        lock (_lock)
-        {
-            if (!_pending.TryGetValue(key, out var queue))
-            {
-                queue = new Queue<TaskCompletionSource<byte[]>>();
-                _pending[key] = queue;
-                Interlocked.Increment(ref _keyCount);
-            }
-            queue.Enqueue(tcs);
-        }
-
+        // Half-duplex bus gate: RTU carries one transaction at a time.
+        // Concurrent polls (e.g. scanner + manual read) used to interleave two
+        // requests on the wire and let each wait out the other's response.
+        // The per-request timeout starts after acquisition — a queued request
+        // still gets its full response budget; ct cancels the queue wait.
+        await _busGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            // CancellationTokenSource throws for non-positive due-times; clamp so
-            // a non-positive timeout behaves as "immediate timeout" instead of
-            // surfacing an ArgumentOutOfRangeException to the caller.
-            var effectiveTimeout = Math.Max(1, timeoutMs);
-            using var cts = new CancellationTokenSource(effectiveTimeout);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
-            using var registration = linkedCts.Token.Register(() =>
-            {
-                lock (_lock) RemoveHeadLocked(key, tcs);
-                tcs.TrySetException(new OperationCanceledException(ct.IsCancellationRequested ? "Operation cancelled" : $"Timeout after {timeoutMs}ms"));
-            }, useSynchronizationContext: false);
+            var conversation = new Conversation(key);
 
-            if (!_serial.Send(hex, isHex: true))
+            lock (_lock)
             {
-                lock (_lock) RemoveHeadLocked(key, tcs);
-                throw new InvalidOperationException("Send failed");
+                if (!_pending.TryGetValue(key, out var queue))
+                {
+                    queue = new Queue<Conversation>();
+                    _pending[key] = queue;
+                    Interlocked.Increment(ref _keyCount);
+                }
+                queue.Enqueue(conversation);
             }
 
-            return await tcs.Task.ConfigureAwait(false);
+            try
+            {
+                // CancellationTokenSource throws for non-positive due-times; clamp so
+                // a non-positive timeout behaves as "immediate timeout" instead of
+                // surfacing an ArgumentOutOfRangeException to the caller.
+                var effectiveTimeout = Math.Max(1, timeoutMs);
+                using var cts = new CancellationTokenSource(effectiveTimeout);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
+                using var registration = linkedCts.Token.Register(() =>
+                {
+                    lock (_lock) RemoveConversationLocked(key, conversation);
+                    conversation.Tcs.TrySetException(new OperationCanceledException(ct.IsCancellationRequested ? "Operation cancelled" : $"Timeout after {timeoutMs}ms"));
+                }, useSynchronizationContext: false);
+
+                if (!_serial.Send(hex, isHex: true))
+                {
+                    lock (_lock) RemoveConversationLocked(key, conversation);
+                    throw new InvalidOperationException("Send failed");
+                }
+
+                return await conversation.Tcs.Task.ConfigureAwait(false);
+            }
+            catch
+            {
+                lock (_lock) RemoveConversationLocked(key, conversation);
+                throw;
+            }
         }
-        catch (Exception)
+        finally
         {
-            lock (_lock) RemoveHeadLocked(key, tcs);
-            throw;
+            _busGate.Release();
         }
     }
 
-    /// <summary>Caller holds <see cref="_lock"/>. Removes <paramref name="tcs"/>
+    /// <summary>Caller holds <see cref="_lock"/>. Removes <paramref name="conversation"/>
     /// when it is the head of its queue, and drops the key when the queue
     /// empties — keeping the RX fast path (<c>_keyCount == 0</c>) accurate
     /// after timeouts and send failures.</summary>
-    private void RemoveHeadLocked(ModbusKey key, TaskCompletionSource<byte[]> tcs)
+    private void RemoveConversationLocked(ModbusKey key, Conversation conversation)
     {
-        if (_pending.TryGetValue(key, out var q) && q.Count > 0 && q.Peek() == tcs)
+        if (!_pending.TryGetValue(key, out var q)) return;
+        if (q.Count == 0 || !ReferenceEquals(q.Peek(), conversation)) return;
+        q.Dequeue();
+        if (q.Count == 0)
         {
-            q.Dequeue();
-            if (q.Count == 0)
-            {
-                _pending.Remove(key);
-                Interlocked.Decrement(ref _keyCount);
-            }
+            _pending.Remove(key);
+            Interlocked.Decrement(ref _keyCount);
         }
     }
 
@@ -102,40 +135,119 @@ public class ModbusRtuTransport : IModbusTransport
         // then discovered nothing was waiting.
         if (_keyCount == 0) return;
         var bytes = HexStringToBytes(entry.RawHex);
-        if (bytes.Length < 4) return;
+        if (bytes.Length == 0) return;
 
-        var slaveId = bytes[0];
-        var funcByte = bytes[1];
-        var function = funcByte & 0x7F;
-        var key = new ModbusKey(slaveId, (byte)function);
-
-        TaskCompletionSource<byte[]>? tcs;
         lock (_lock)
         {
-            if (!_pending.TryGetValue(key, out var queue) || queue.Count == 0) return;
-            tcs = queue.Dequeue();
-            if (queue.Count == 0)
+            Conversation? conversation;
+            ModbusKey key;
+            if (bytes.Length >= 2)
             {
-                _pending.Remove(key);
-                Interlocked.Decrement(ref _keyCount);
+                // Chunk starts with a (slave, function) pair: a frame boundary.
+                key = new ModbusKey(bytes[0], (byte)(bytes[1] & 0x7F));
+                if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
+                {
+                    conversation = queue.Peek();
+                }
+                else if (_pending.Count == 0)
+                {
+                    return;
+                }
+                else if (HasCrcValidFrame(bytes))
+                {
+                    // A complete, CRC-valid frame for some OTHER key: a late
+                    // reply to an already-timed-out request — drop it (the old
+                    // per-chunk key routing did too).
+                    return;
+                }
+                else
+                {
+                    // Mid-frame continuation of the live transaction (the bus
+                    // gate keeps at most one): its leading bytes are frame
+                    // payload, not a header — append to the pending
+                    // conversation instead of misrouting on a fake key.
+                    conversation = _pending.Values.SelectMany(q => q).FirstOrDefault();
+                    if (conversation == null) return;
+                    key = conversation.Key;
+                }
+            }
+            else
+            {
+                // A 1-byte chunk cannot name a (slave, function) key — same
+                // live-transaction fallback.
+                conversation = _pending.Values.SelectMany(q => q).FirstOrDefault();
+                if (conversation == null) return;
+                key = conversation.Key;
+            }
+
+            // Accumulate: the buffer holds chunks until a CRC-aligned frame
+            // can be extracted (split responses, or leading noise bytes).
+            conversation.Buffer.AddRange(bytes);
+
+            if (conversation.Buffer.Count > MaxResponseBytes)
+            {
+                RemoveConversationLocked(key, conversation);
+                conversation.Tcs.TrySetException(new InvalidOperationException(
+                    $"No valid RTU frame in {conversation.Buffer.Count} bytes (CRC-aligned search failed)"));
+                return;
+            }
+
+            // RTU has no length field: scan longest-first for a suffix whose
+            // last two bytes are a valid CRC over the prefix. A complete frame
+            // completes the request; a partial one keeps waiting — each serial
+            // chunk re-runs the scan, so a split response assembles as it
+            // arrives. Exception responses (func | 0x80) are CRC-checked like
+            // any other frame here; the old path validated them never.
+            if (!TryExtractCrcAlignedFrame(conversation.Buffer, out var frame)) return;
+
+            RemoveConversationLocked(key, conversation);
+            // The caller sees the ADU without the CRC trailer.
+            conversation.Tcs.TrySetResult(frame[..^2]);
+        }
+    }
+
+    /// <summary>True when the span contains at least one CRC-valid frame.
+    /// Used to tell a complete foreign reply (drop) from a mid-frame chunk
+    /// (append to the live conversation).</summary>
+    private static bool HasCrcValidFrame(ReadOnlySpan<byte> span)
+    {
+        for (var start = 0; start + 4 <= span.Length; start++)
+        {
+            for (var len = span.Length - start; len >= 4; len--)
+            {
+                var bodyEnd = start + len - 2;
+                var received = (ushort)(span[bodyEnd] | (span[bodyEnd + 1] << 8));
+                if (received == CrcHelper.Crc16(span.Slice(start, len - 2))) return true;
             }
         }
+        return false;
+    }
 
-        if ((funcByte & 0x80) != 0)
+    /// <summary>Searches the buffer for the first CRC-valid frame (earliest
+    /// start, then longest — a complete request wins over a coincidental
+    /// 4-byte CRC match inside it). Returns false, leaving the buffer
+    /// untouched, while no complete frame is present yet; on success the
+    /// consumed bytes (including any leading noise) are removed.</summary>
+    private static bool TryExtractCrcAlignedFrame(List<byte> buffer, out byte[] frame)
+    {
+        frame = Array.Empty<byte>();
+        var count = buffer.Count;
+        var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(buffer);
+        for (var start = 0; start + 4 <= count; start++)
         {
-            tcs.TrySetResult(bytes.AsSpan(0, bytes.Length - 2).ToArray());
-            return;
+            for (var len = count - start; len >= 4; len--)
+            {
+                var bodyEnd = start + len - 2;
+                var received = (ushort)(span[bodyEnd] | (span[bodyEnd + 1] << 8));
+                if (received != CrcHelper.Crc16(span.Slice(start, len - 2))) continue;
+                frame = span.Slice(start, len).ToArray();
+                if (start > 0)
+                    buffer.RemoveRange(0, start);
+                buffer.RemoveRange(0, len);
+                return true;
+            }
         }
-
-        var receivedCrc = (ushort)(bytes[^2] | (bytes[^1] << 8));
-        var computedCrc = CrcHelper.Crc16(bytes.AsSpan(0, bytes.Length - 2));
-        if (receivedCrc != computedCrc)
-        {
-            tcs.TrySetException(new InvalidOperationException($"CRC mismatch: received 0x{receivedCrc:X4}, computed 0x{computedCrc:X4}"));
-            return;
-        }
-
-        tcs.TrySetResult(bytes.AsSpan(0, bytes.Length - 2).ToArray());
+        return false;
     }
 
     internal static byte[] BuildAdu(byte slaveId, byte functionCode, byte[] pdu)
@@ -240,10 +352,14 @@ public class ModbusRtuTransport : IModbusTransport
         lock (_lock)
         {
             foreach (var kv in _pending)
-                foreach (var tcs in kv.Value)
-                    tcs.TrySetException(new ObjectDisposedException(nameof(ModbusRtuTransport)));
+                foreach (var conversation in kv.Value)
+                    conversation.Tcs.TrySetException(new ObjectDisposedException(nameof(ModbusRtuTransport)));
             _pending.Clear();
             Interlocked.Exchange(ref _keyCount, 0);
         }
+        // _busGate is deliberately NOT disposed: a caller parked in
+        // WaitAsync while Dispose runs would get an ObjectDisposedException
+        // from the gate itself. A gate with no waiters holds no resources,
+        // and host lifecycle keeps Dispose exclusive of new requests.
     }
 }

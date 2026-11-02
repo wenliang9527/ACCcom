@@ -69,6 +69,33 @@ public class ModbusServiceTests
         Assert.Equal(0x01, result.SlaveId);
     }
 
+    private sealed class ThrowingTransport : IModbusTransport
+    {
+        public Exception ToThrow { get; set; } = new("boom");
+        public Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)
+            => Task.FromException<byte[]>(ToThrow);
+        public void Dispose() { }
+    }
+
+    [Fact]
+    public async Task GenericException_StillLogsTransaction()
+    {
+        // Timeout/cancel/IO-invalid failures always landed in the
+        // transaction log; the generic catch skipped it, so a crashed
+        // request silently vanished from the GUI log. Every failure path
+        // must notify.
+        using var modbus = new ModbusService(new ThrowingTransport { ToThrow = new InvalidOperationException("Test failure") });
+        ModbusTransaction? logged = null;
+        modbus.OnTransaction += tx => logged = tx;
+
+        var result = await modbus.ReadHoldingRegistersAsync(0x01, 0x00, 0x01, timeoutMs: 500);
+
+        Assert.True(result.IsError);
+        Assert.NotNull(logged);
+        Assert.False(logged!.IsSuccess);
+        Assert.Contains("Test failure", logged.ErrorMessage);
+    }
+
     [Fact]
     public async Task ExceptionResponse_ParsesCorrectly()
     {
@@ -85,18 +112,22 @@ public class ModbusServiceTests
     }
 
     [Fact]
-    public async Task CrcMismatch_ReturnsError()
+    public async Task CrcMismatch_WaitsThenTimesOut()
     {
+        // With CRC-aligned reassembly a corrupt frame is indistinguishable
+        // from a truncated one still arriving — the request waits out its
+        // timeout (previously it failed fast with a per-chunk CRC error that
+        // misfired on split responses). The error surfaces as a timeout.
         using var virtualSerial = new VirtualSerialService();
         using var modbus = new ModbusService(virtualSerial);
         virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
 
-        var request = modbus.ReadHoldingRegistersAsync(0x01, 0x00, 0x01, timeoutMs: 2000);
+        var request = modbus.ReadHoldingRegistersAsync(0x01, 0x00, 0x01, timeoutMs: 300);
         virtualSerial.InjectRxData("01 03 02 00 0A 00 00");
         var result = await request;
 
         Assert.True(result.IsError);
-        Assert.Contains("CRC", result.ErrorMessage);
+        Assert.Contains("Timeout", result.ErrorMessage);
     }
 
     [Fact]
@@ -106,17 +137,36 @@ public class ModbusServiceTests
         using var modbus = new ModbusService(virtualSerial);
         virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
 
-        // Both requests are issued before either response, so each response
-        // lands after its request's frame is on the wire. The responses are
-        // injected back-to-back; ModbusService routes by slave id + function.
-        var t1 = modbus.ReadHoldingRegistersAsync(0x01, 0x00, 0x01);
-        var t2 = modbus.ReadHoldingRegistersAsync(0x02, 0x00, 0x01);
-        virtualSerial.InjectRxData("01 03 02 00 0A 38 43");
-        virtualSerial.InjectRxData("02 03 02 00 14 FC 4B");
+        // The bus gate serializes the two requests — one transaction on the
+        // wire at a time — so each response is injected at the moment its OWN
+        // request frame goes out (TX hook matched by slave id). Routing by
+        // slave id + function is what pairs each response with its caller.
+        var t1 = SendAndRespond(modbus, virtualSerial, 0x01, "01 03 02 00 0A 38 43");
+        var t2 = SendAndRespond(modbus, virtualSerial, 0x02, "02 03 02 00 14 FC 4B");
 
         var results = await Task.WhenAll(t1, t2);
         Assert.False(results[0].IsError);
         Assert.False(results[1].IsError);
+    }
+
+    /// <summary>Starts a read and injects the hex response at the moment its
+    /// own TX frame hits the wire (matched by leading slave id) — deterministic
+    /// under the bus gate, which serializes concurrent requests.</summary>
+    private static Task<ModbusResponse> SendAndRespond(ModbusService modbus, VirtualSerialService serial, byte slaveId, string responseHex)
+    {
+        void OnTx(LogEntry e)
+        {
+            if (e.Direction != "TX") return;
+            var compact = (e.RawHex ?? "").Replace(" ", "");
+            if (compact.Length < 2) return;
+            if (Convert.ToByte(compact.Substring(0, 2), 16) != slaveId) return;
+
+            serial.OnDataReceived -= OnTx;
+            serial.InjectRxData(responseHex);
+        }
+
+        serial.OnDataReceived += OnTx;
+        return modbus.ReadHoldingRegistersAsync(slaveId, 0x00, 0x01);
     }
 
     [Fact]
@@ -182,7 +232,12 @@ public class ModbusServiceTests
         virtualSerial.Open(new SerialConfig { PortName = "COM1", BaudRate = 115200, DataBits = 8, StopBits = 1, Parity = 0 });
 
         var request = modbus.WriteMultipleCoilsAsync(0x01, 0x0000, [true], timeoutMs: 2000);
-        virtualSerial.InjectRxData("01 8F 03 71 C9");
+        // Correct CRC over "01 8F 03" = 0x3104 → wire low-first "04 31". The
+        // frame used to be injected with a BOGUS CRC ("71 C9") and still
+        // completed — exception responses (func | 0x80) skipped CRC
+        // validation entirely. They are validated like any other frame now,
+        // so only a correct CRC parses.
+        virtualSerial.InjectRxData("01 8F 03 04 31");
         var result = await request;
 
         Assert.True(result.IsError);

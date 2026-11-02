@@ -105,7 +105,12 @@ public class ModbusService : IDisposable
         }
         catch (Exception ex)
         {
-            return new ModbusResponse { IsError = true, SlaveId = slaveId, FunctionCode = function, ErrorMessage = ex.Message };
+            // The old generic path skipped the transaction log — a crashed
+            // request silently vanished from the GUI log while timeouts
+            // showed. Every failure now lands in the log.
+            var result = new ModbusResponse { IsError = true, SlaveId = slaveId, FunctionCode = function, ErrorMessage = ex.Message };
+            NotifyTransaction(slaveId, function, reqHex, result);
+            return result;
         }
     }
 

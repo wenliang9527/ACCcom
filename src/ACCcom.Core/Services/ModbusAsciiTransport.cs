@@ -6,6 +6,7 @@ public class ModbusAsciiTransport : IModbusTransport
 {
     private readonly ISerialService _serial;
     private readonly object _lock = new();
+    private readonly SemaphoreSlim _busGate = new(1, 1);
     private readonly Dictionary<ModbusKey, TaskCompletionSource<byte[]>> _pending = new();
     // Entries in _pending, readable on the RX hot path without the lock. When
     // it is 0 no conversation is waiting, so the packet is dropped before the
@@ -30,6 +31,24 @@ public class ModbusAsciiTransport : IModbusTransport
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(pdu);
+
+        // Same half-duplex bus gate as the RTU transport: serialized requests
+        // never overlap on the wire, which also means the same-key overwrite
+        // below can no longer evict a live transaction in practice (overlaps
+        // were the only way two same-key conversations coexisted).
+        await _busGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            return await SendReceiveLockedAsync(slaveId, functionCode, pdu, timeoutMs, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _busGate.Release();
+        }
+    }
+
+    private async Task<byte[]> SendReceiveLockedAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct)
+    {
         var adu = BuildAdu(slaveId, functionCode, pdu);
         var asciiFrame = FormatAsciiFrame(adu);
         var key = new ModbusKey(slaveId, functionCode);

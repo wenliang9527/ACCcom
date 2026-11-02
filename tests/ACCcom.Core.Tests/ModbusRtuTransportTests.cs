@@ -63,17 +63,100 @@ public class ModbusRtuTransportTests
     }
 
     [Fact]
-    public async Task SendReceiveAsync_BadCrc_Throws()
+    public async Task SendReceiveAsync_BadCrc_WaitsThenTimesOut()
     {
+        // With CRC-aligned reassembly a corrupt frame is indistinguishable
+        // from a truncated one still arriving in later chunks — the request
+        // waits out its timeout instead of failing fast (the OLD behavior,
+        // which CRC-checked each chunk immediately, produced spurious CRC
+        // mismatches whenever a response split across serial deliveries).
+        // Fast failure still happens once the buffer exceeds MaxResponseBytes
+        // (see BufferOverCap test).
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 300);
+        // Wrong CRC on purpose.
+        serial.InjectRxData("01 03 02 12 34 00 00");
+
+        var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await request);
+        Assert.Contains("Timeout", ex.Message);
+    }
+
+    [Fact]
+    public async Task SendReceiveAsync_SplitResponseAcrossChunks_Reassembles()
+    {
+        // A response split across two serial deliveries used to CRC-fail on
+        // the first chunk. The buffer must accumulate until a CRC-aligned
+        // frame exists, then complete normally.
         using var serial = OpenVirtual();
         using var transport = new ModbusRtuTransport(serial);
 
         var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 2000);
-        // Wrong CRC on purpose.
-        serial.InjectRxData("01 03 02 12 34 00 00");
+        var adu = new byte[] { 0x01, 0x03, 0x02, 0x12, 0x34 };
+        var crc = CrcHelper.Crc16(adu);
+        var frame = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 0, 3)); // first half
+        serial.InjectRxData(HexHelper.BytesToHexSpaced(frame, 3, frame.Length - 3)); // second half
+
+        var response = await request;
+        Assert.Equal([0x01, 0x03, 0x02, 0x12, 0x34], response);
+    }
+
+    [Fact]
+    public async Task SendReceiveAsync_ExceptionFrame_WithBadCrc_DoesNotComplete()
+    {
+        // Exception responses (func | 0x80) are frames like any other — the
+        // old path skipped their CRC check entirely, accepting a corrupted
+        // exception as valid. A bad-CRC exception frame must be ignored.
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 300);
+        serial.InjectRxData("01 83 02 00 00"); // deliberately wrong CRC
+
+        var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await request);
+        Assert.Contains("Timeout", ex.Message);
+    }
+
+    [Fact]
+    public async Task SendReceiveAsync_BufferOverCap_FailsFast()
+    {
+        // Noise that fills the buffer past MaxResponseBytes (256 = max RTU
+        // ADU) fails the request immediately with a CRC-search error instead
+        // of holding it until the timeout.
+        using var serial = OpenVirtual();
+        using var transport = new ModbusRtuTransport(serial);
+
+        var request = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 10_000);
+        // Prefix with the request's own (slave, func) pair: chunks with a
+        // foreign key are dropped at routing, they can never fill the buffer.
+        var noise = "01 03 " + string.Join(" ", Enumerable.Repeat("AA", 260));
+        serial.InjectRxData(noise);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await request);
-        Assert.Contains("CRC", ex.Message);
+        Assert.Contains("No valid RTU frame", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConcurrentRequests_AreSerialized_OnBusGate()
+    {
+        // Two concurrent requests with DIFFERENT keys used to interleave on
+        // the half-duplex wire: both sends overlapped and each waited out the
+        // other's response. The bus gate serializes them — the responder must
+        // never see two sends in flight.
+        using var serial = new ResponderSerial();
+        using var transport = new ModbusRtuTransport(serial);
+
+        var r1 = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 5000);
+        var r2 = transport.SendReceiveAsync(0x01, 0x04, [0x00, 0x00, 0x00, 0x01], 5000);
+        await Task.WhenAll(r1, r2);
+
+        Assert.Equal(1, serial.MaxConcurrentSends);
+        // Both completed via the exception-frame path (body [01 83 01] / [01 84 01]).
+        Assert.Equal(0x83, (await r1)[1]);
+        Assert.Equal(0x84, (await r2)[1]);
     }
 
     [Fact]
@@ -250,5 +333,53 @@ public class ModbusRtuTransportTests
     {
         Assert.Equal(new byte[] { 0x01, 0x02, 0xAA },
             ModbusRtuTransport.HexStringToBytes("01 02 AA"));
+    }
+
+    /// <summary>Serial stub that ANSWERS each send with a valid exception
+    /// frame while holding the "bus" for a moment — lets the bus-gate test
+    /// observe whether two concurrent requests ever overlapped on the wire.</summary>
+    private sealed class ResponderSerial : ISerialService
+    {
+        private int _inFlight;
+
+        public int MaxConcurrentSends { get; private set; }
+
+        public bool IsOpen => true;
+        public string? CurrentPort => "COMV";
+        public int BaudRate => 115200;
+        public SerialConfig? ActiveConfig { get; } = new() { PortName = "COMV", BaudRate = 115200 };
+
+        public event Action<LogEntry>? OnDataReceived;
+#pragma warning disable CS0067 // the responder only speaks RX
+        public event Action<string>? OnError;
+        public event Action? OnDisconnected;
+        public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+        public bool Open(SerialConfig config) => true;
+
+        public bool Send(string data, bool isHex = true)
+        {
+            var now = Interlocked.Increment(ref _inFlight);
+            MaxConcurrentSends = Math.Max(MaxConcurrentSends, now);
+            Thread.Sleep(100); // hold the bus: a gate-less transport overlaps here
+
+            var frame = HexHelper.HexStringToBytes(data);
+            var adu = new byte[] { frame[0], (byte)(frame[1] | 0x80), 0x01 };
+            var crc = CrcHelper.Crc16(adu);
+            var full = adu.Concat(new byte[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
+            OnDataReceived?.Invoke(new LogEntry
+            {
+                Direction = "RX",
+                RawHex = HexHelper.BytesToHexSpaced(full, 0, full.Length)
+            });
+
+            Interlocked.Decrement(ref _inFlight);
+            return true;
+        }
+
+        public bool SendHex(string hex) => Send(hex, true);
+        public bool Close() => true;
+        public void Dispose() { }
     }
 }

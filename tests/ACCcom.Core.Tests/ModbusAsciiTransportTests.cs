@@ -246,26 +246,16 @@ public class ModbusAsciiTransportTests
         using var transport = new ModbusAsciiTransport(serial);
         serial.Open(new SerialConfig { PortName = "COM1", BaudRate = 9600, DataBits = 7, StopBits = 1, Parity = 0 });
 
-        // Both requests are issued before either response, so each response
-        // lands after its request's frame is on the wire and is routed by
-        // slave id + function — deterministic, no Task.Delay race.
-        var t1 = transport.SendReceiveAsync(0x01, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
-        var t2 = transport.SendReceiveAsync(0x02, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
-
+        // The bus gate serializes requests — one transaction on the wire at
+        // a time — so each response is injected after ITS request went out.
+        // Routing by slave id + function is still what matches each response
+        // to its conversation; deterministic, no Task.Delay race.
         var resp1Adu = new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A };
-        var resp1Full = new byte[resp1Adu.Length + 1];
-        Array.Copy(resp1Adu, resp1Full, resp1Adu.Length);
-        resp1Full[^1] = Lrc(resp1Adu);
-        serial.InjectRxData(AsciiFrameHex(resp1Full));
-
         var resp2Adu = new byte[] { 0x02, 0x03, 0x02, 0x00, 0x14 };
-        var resp2Full = new byte[resp2Adu.Length + 1];
-        Array.Copy(resp2Adu, resp2Full, resp2Adu.Length);
-        resp2Full[^1] = Lrc(resp2Adu);
-        serial.InjectRxData(AsciiFrameHex(resp2Full));
-
-        var results = await Task.WhenAll(t1, t2);
-        Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, results[0]);
+        var r1 = SendAndRespond(transport, serial, 0x01, resp1Adu);
+        var r2 = SendAndRespond(transport, serial, 0x02, resp2Adu);
+        var results = await Task.WhenAll(r1, r2);
+        Assert.Equal(resp1Adu, results[0]);
         Assert.Equal(new byte[] { 0x02, 0x03, 0x02, 0x00, 0x14 }, results[1]);
     }
 
@@ -331,5 +321,33 @@ public class ModbusAsciiTransportTests
 
         var result = await request;
         Assert.Equal(new byte[] { 0x01, 0x03, 0x02, 0x00, 0x0A }, result);
+    }
+
+    /// <summary>Starts an FC03 request and injects the LRC-framed response at
+    /// the moment its own TX frame hits the wire (matched by slave id in the
+    /// ASCII frame text) — deterministic under the bus gate, which serializes
+    /// concurrent requests so a pre-injected response would be dropped.</summary>
+    private static Task<byte[]> SendAndRespond(ModbusAsciiTransport transport, VirtualSerialService serial, byte slaveId, byte[] responseAdu)
+    {
+        void OnTx(LogEntry e)
+        {
+            if (e.Direction != "TX") return;
+            var text = e.Text ?? "";
+            var colon = text.IndexOf(':');
+            var cr = text.IndexOf('\r');
+            if (colon < 0 || cr < 0 || cr <= colon + 1) return;
+            var content = text.Substring(colon + 1, cr - colon - 1);
+            if (content.Length < 2) return;
+            if (Convert.ToByte(content.Substring(0, 2), 16) != slaveId) return;
+
+            serial.OnDataReceived -= OnTx;
+            var full = new byte[responseAdu.Length + 1];
+            Array.Copy(responseAdu, full, responseAdu.Length);
+            full[^1] = Lrc(responseAdu);
+            serial.InjectRxData(AsciiFrameHex(full));
+        }
+
+        serial.OnDataReceived += OnTx;
+        return transport.SendReceiveAsync(slaveId, 0x03, [0x00, 0x00, 0x00, 0x01], 1000);
     }
 }
