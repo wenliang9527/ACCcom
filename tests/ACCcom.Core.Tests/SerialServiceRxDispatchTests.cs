@@ -50,6 +50,15 @@ public class SerialServiceRxDispatchTests
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var observed = 0;
+        Task? closeTask = null;
+        // Sampled inside the subscriber callback: while the drain loop is
+        // synchronously parked in that callback, a Close that honours the
+        // drain contract cannot have returned yet. No wall-clock window is
+        // involved — the old "not completed after a 200ms delay" assert
+        // false-fired on coverage-instrumented CI, where the Delay
+        // continuation itself only ran after Close's legitimate 2s drain
+        // deadline had already expired.
+        var closeReturnedDuringDispatch = false;
 
         svc.OnDataReceived += _ =>
         {
@@ -64,20 +73,25 @@ public class SerialServiceRxDispatchTests
                 // so any finite window still catches them.
                 release.Task.Wait(TimeSpan.FromSeconds(15));
             }
+            else
+            {
+                closeReturnedDuringDispatch = closeTask?.IsCompleted ?? false;
+            }
         };
 
         svc.DispatchForTest(NewEntry(1));
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
         svc.DispatchForTest(NewEntry(2));
 
-        var closeTask = Task.Run(() => svc.Close());
-        // The queue still holds entry 2, so Close cannot have returned yet.
-        await Task.Delay(200);
-        Assert.False(closeTask.IsCompleted);
-        Assert.Equal(1, observed);
-
+        closeTask = Task.Run(() => svc.Close());
+        // Release immediately: what this test locks is "Close returns only
+        // after the queued entry was delivered", not how long Close must
+        // stay blocked — betting on that with a timer is what broke above.
         release.TrySetResult();
+
         await closeTask.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.False(closeReturnedDuringDispatch,
+            "Close returned while the queued entry was still being dispatched");
         Assert.Equal(2, observed);
     }
 
