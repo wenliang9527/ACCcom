@@ -79,6 +79,30 @@ public class PcapExportServiceTests : IDisposable
         Assert.Equal(24 + 16 + 4, bytes.Length); // header + packet header + 4 bytes data (3 hex + 1 direction)
     }
 
+    /// <summary>LogEntry timestamps are DateTime.Now (Kind=Local) on every
+    /// receive path, but PCAP epoch seconds are UTC — the raw subtraction used
+    /// to write local wall time, shifting every packet in Wireshark by the
+    /// machine's UTC offset. The written seconds field must equal the true
+    /// Unix time of the local stamp (TZ-independent expectation).</summary>
+    [Fact]
+    public void ExportToPcap_LocalTimestamp_WritesUtcEpochSeconds()
+    {
+        var service = new PcapExportService();
+        var path = Path.Combine(_tempDir, "tz.pcap");
+        var local = new DateTime(2025, 6, 15, 12, 0, 0, DateTimeKind.Local);
+        var entries = new List<LogEntry>
+        {
+            new() { Id = 1, Timestamp = local, Direction = "TX", RawHex = "AA" }
+        };
+
+        service.ExportToPcap(entries, path);
+
+        var bytes = File.ReadAllBytes(path);
+        var seconds = BitConverter.ToUInt32(bytes, 24);
+        var expected = new DateTimeOffset(local).ToUnixTimeSeconds();
+        Assert.Equal((uint)expected, seconds);
+    }
+
     [Fact]
     public void ExportToPcap_TXEntry_Prepends0x01()
     {

@@ -59,7 +59,14 @@ public class PcapExportService
 
     private static void WritePacketRecord(BinaryWriter writer, LogEntry entry)
     {
-        var timestamp = entry.Timestamp;
+        // PCAP timestamps are seconds since the Unix epoch in UTC. Every
+        // receive path stamps LogEntry with DateTime.Now (Kind=Local), and
+        // DateTime subtraction ignores Kind — the old raw subtraction wrote
+        // local wall time as if it were UTC, so Wireshark displayed every
+        // packet shifted by the machine's UTC offset. ToUniversalTime is a
+        // no-op for Kind=Utc and the correct conversion for Kind=Local /
+        // Unspecified (replay files carry local-formatted stamps too).
+        var timestamp = entry.Timestamp.ToUniversalTime();
         var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var seconds = (uint)(timestamp - epoch).TotalSeconds;
         var microseconds = (uint)(timestamp.Millisecond * 1000);
