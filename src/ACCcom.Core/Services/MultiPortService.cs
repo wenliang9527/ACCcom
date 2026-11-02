@@ -66,11 +66,17 @@ public class MultiPortService : IDisposable
         // config fails cleanly through the service's own Open guard.
         if (string.IsNullOrEmpty(tag) || config == null) return false;
 
-        // Fast path: already open. Kept in its own short lock so a slow
-        // service.Open below cannot serialize unrelated lookups/opens.
-        lock (_lock)
+        // Fast path: already open short-circuits to success; a registered-but-
+        // disconnected instance (device unplugged) is detached so the fresh
+        // open below can re-register the tag (the old fast path answered false
+        // forever until an explicit ClosePort). The short lock keeps a slow
+        // service.Open below from serializing unrelated lookups/opens, and
+        // concurrent openers are still resolved by RegisterOpenPort's
+        // double-check.
+        switch (ClassifyTag(tag, out var stale))
         {
-            if (_ports.TryGetValue(tag, out var existing)) return existing.Service.IsOpen;
+            case FastPathResult.AlreadyOpen: return true;
+            case FastPathResult.DetachedStale: DisposeQuietly(stale!); break;
         }
 
         // The expensive part (real port open can take seconds) runs OUTSIDE
@@ -112,9 +118,11 @@ public class MultiPortService : IDisposable
     {
         if (string.IsNullOrEmpty(tag) || config == null) return false;
 
-        lock (_lock)
+        // Same fast-path classification as OpenPort (see there).
+        switch (ClassifyTag(tag, out var stale))
         {
-            if (_ports.TryGetValue(tag, out var existing)) return existing.Service.IsOpen;
+            case FastPathResult.AlreadyOpen: return true;
+            case FastPathResult.DetachedStale: DisposeQuietly(stale!); break;
         }
 
         var service = CreateWiredService(tag);
@@ -140,6 +148,37 @@ public class MultiPortService : IDisposable
 
         LastOpenError = null;
         return RegisterOpenPort(tag, config, service);
+    }
+
+    private enum FastPathResult { AlreadyOpen, DetachedStale, NotRegistered }
+
+    /// <summary>Fast-path classifier shared by OpenPort/OpenPortAsync:
+    /// AlreadyOpen — caller short-circuits to success; DetachedStale — the tag
+    /// was registered but its service is no longer open (device unplugged,
+    /// peer drop), the stale instance has been removed and must be disposed by
+    /// the caller, which then proceeds to a fresh open; NotRegistered — plain
+    /// proceed. The stale case is the fix: the old fast path answered false
+    /// FOREVER for a disconnected tag until an explicit ClosePort freed it.</summary>
+    private FastPathResult ClassifyTag(string tag, out ISerialService? stale)
+    {
+        stale = null;
+        lock (_lock)
+        {
+            if (!_ports.TryGetValue(tag, out var existing)) return FastPathResult.NotRegistered;
+            if (existing.Service.IsOpen) return FastPathResult.AlreadyOpen;
+            _ports.Remove(tag);
+            stale = existing.Service;
+            return FastPathResult.DetachedStale;
+        }
+    }
+
+    /// <summary>Tears down a detached stale instance. Best-effort by design:
+    /// the port is already dead (that is why it is being replaced), and an
+    /// exception here would mask the fresh open the caller is about to make.</summary>
+    private static void DisposeQuietly(ISerialService service)
+    {
+        try { service.Close(); } catch { }
+        try { service.Dispose(); } catch { }
     }
 
     /// <summary>Creates the per-tag service and wires its events into the

@@ -5,6 +5,98 @@ namespace ACCcom.Core.Tests;
 
 public class MultiPortServiceTests
 {
+    /// <summary>Virtual port whose link can drop WITHOUT Close being called —
+    /// models a USB unplug / peer drop while the tag stays registered.</summary>
+    private sealed class DyingPortService : ISerialService
+    {
+        private readonly VirtualSerialService _inner = new();
+        private volatile bool _dead;
+
+        public void KillLink() => _dead = true;
+        public bool IsOpen => !_dead && _inner.IsOpen;
+        public string? CurrentPort => _inner.CurrentPort;
+        public int BaudRate => _inner.BaudRate;
+        public SerialConfig? ActiveConfig => _inner.ActiveConfig;
+
+        // Raised never by this stub — it exists only to model a dropped link,
+        // not to replay the inner service's events.
+#pragma warning disable CS0067
+        public event Action<LogEntry>? OnDataReceived;
+        public event Action<string>? OnError;
+        public event Action? OnDisconnected;
+        public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+        public bool Open(SerialConfig config) => !_dead && _inner.Open(config);
+        public bool Send(string data, bool isHex = false) => IsOpen && _inner.Send(data, isHex);
+        public bool SendHex(string hex) => Send(hex, true);
+        public bool Close() { _dead = false; return _inner.Close(); }
+        public void Dispose() => _inner.Dispose();
+    }
+
+    [Fact]
+    public void OpenPort_AfterLinkDrop_ReopensWithFreshService()
+    {
+        // A registered-but-disconnected tag used to answer false on every
+        // re-open (the fast path only reported the stale instance's IsOpen) —
+        // recovery required an explicit ClosePort first. The open must now
+        // detach the stale instance and succeed with a fresh service.
+        DyingPortService? first = null;
+        using var mps = new MultiPortService(() =>
+        {
+            var s = new DyingPortService();
+            first ??= s;
+            return s;
+        });
+        var config = new SerialConfig { PortName = "COM11", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.True(mps.OpenPort("a", config));
+        first!.KillLink(); // device unplugged: IsOpen false, tag still registered
+
+        Assert.True(mps.OpenPort("a", config));
+        var reopened = mps.GetPort("a");
+        Assert.NotNull(reopened);
+        Assert.True(reopened!.Service.IsOpen);
+        Assert.NotSame(first, reopened.Service);
+    }
+
+    [Fact]
+    public void OpenPort_AlreadyOpenTag_ShortCircuitsWithoutFreshService()
+    {
+        // The stale-reopen fix must not break the idempotent fast path: an
+        // open tag answers true WITHOUT constructing another service (a fresh
+        // SerialService would attempt a real multi-second port open).
+        int factoryCalls = 0;
+        using var mps = new MultiPortService(() => { factoryCalls++; return new VirtualSerialService(); });
+        var config = new SerialConfig { PortName = "COM12", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.True(mps.OpenPort("a", config));
+        var svc = mps.GetPort("a")!.Service;
+
+        Assert.True(mps.OpenPort("a", config));
+        Assert.Equal(1, factoryCalls);
+        Assert.Same(svc, mps.GetPort("a")!.Service);
+    }
+
+    [Fact]
+    public async Task OpenPortAsync_AfterLinkDrop_ReopensWithFreshService()
+    {
+        DyingPortService? first = null;
+        using var mps = new MultiPortService(() =>
+        {
+            var s = new DyingPortService();
+            first ??= s;
+            return s;
+        });
+        var config = new SerialConfig { PortName = "COM13", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.True(await mps.OpenPortAsync("a", config));
+        first!.KillLink();
+
+        Assert.True(await mps.OpenPortAsync("a", config));
+        Assert.True(mps.GetPort("a")!.Service.IsOpen);
+    }
+
     [Fact]
     public async Task OpenPortAsync_Opens_Registers_AndIsIdempotent()
     {
