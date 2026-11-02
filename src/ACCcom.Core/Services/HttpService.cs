@@ -56,7 +56,11 @@ public class HttpService : IDisposable
             .WithModule(new LocalAccessGuardModule(options.Url, options.ApiToken))
             .WithWebApi("/api", m => m.WithController(() => new SerialController(this)))
             .WithModule(new SerialWebSocketHandler("/ws", this));
-        var asmDir = Path.GetDirectoryName(typeof(HttpService).Assembly.Location)!;
+        // AppContext.BaseDirectory 而非 Assembly.Location：单文件发布下后者
+        // 恒为空串（IL3000，TreatWarningsAsErrors 下直接红构建），前者两种
+        // 模式都指向应用目录；wwwroot 作为内容文件落在 exe 旁，目录不存在
+        // 时下面的 Exists 检查自然跳过挂载。
+        var asmDir = AppContext.BaseDirectory;
         var wwwroot = Path.Combine(asmDir, "wwwroot");
         if (Directory.Exists(wwwroot))
             _server = _server.WithStaticFolder("/dashboard", wwwroot, true);
