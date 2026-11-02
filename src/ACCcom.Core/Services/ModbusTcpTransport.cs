@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net.Sockets;
-using Timer = System.Timers.Timer;
 
 namespace ACCcom.Core.Services;
 
@@ -18,8 +17,6 @@ public class ModbusTcpTransport : IModbusTransport
     // a reconnect stops the old loop instead of leaving it reading whatever
     // _stream happens to point at.
     private CancellationTokenSource? _connectionCts;
-    private readonly Timer _heartbeatTimer;
-    private const ushort HeartbeatTid = ushort.MaxValue;
 
     /// <summary>Largest legal MBAP length field: unit id (1) + PDU (≤253).
     /// The wire field is 16-bit (up to 65535), so a malformed or hostile peer
@@ -38,22 +35,18 @@ public class ModbusTcpTransport : IModbusTransport
         _host = host;
         _port = port;
         _client = new TcpClient();
-        _heartbeatTimer = new Timer(30_000);
-        _heartbeatTimer.Elapsed += async (_, _) =>
-        {
-            try { await HeartbeatAsync(); }
-            catch (Exception ex) { Debug.WriteLine($"Heartbeat failed: {ex.Message}"); }
-        };
-        _heartbeatTimer.AutoReset = true;
-        _heartbeatTimer.Start();
+        // No idle heartbeat: the old 30s timer sent a REAL FC07 (Read Events)
+        // request to slave 1 — surprising wire traffic to a device under
+        // test. An idle-dropped connection self-heals: the next request's
+        // EnsureConnectedAsync re-dials.
     }
 
     public async Task<byte[]> SendReceiveAsync(byte slaveId, byte functionCode, byte[] pdu, int timeoutMs, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        await EnsureConnectedAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync(timeoutMs).ConfigureAwait(false);
         var tid = (ushort)Interlocked.Increment(ref _transactionId);
-        if (tid == 0 || tid == HeartbeatTid) tid = (ushort)Interlocked.Increment(ref _transactionId);
+        if (tid == 0) tid = (ushort)Interlocked.Increment(ref _transactionId);
         var adu = BuildMbap(tid, slaveId, functionCode, pdu);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -124,17 +117,56 @@ public class ModbusTcpTransport : IModbusTransport
         }
     }
 
-    private async Task HeartbeatAsync()
+    /// <summary>Dials the endpoint with a retry ladder bounded by the
+    /// CALLER'S request budget: a 1000ms-timeout request used to be able to
+    /// block ~31s in connect retries before its own response timeout could
+    /// even start. Each attempt also carries a per-attempt deadline so one
+    /// hung ConnectAsync cannot eat the whole budget silently.</summary>
+    private async Task EnsureConnectedAsync(int timeoutMs)
     {
-        if (!_client.Connected) return;
+        if (_client.Connected) return;
+        await _connectLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var adu = BuildMbap(HeartbeatTid, 0x01, 0x07, []);
-            await _stream!.WriteAsync(adu).ConfigureAwait(false);
+            if (_client.Connected) return;
+            var delay = 1_000;
+            const int maxDelay = 30_000;
+            const int maxRetries = 5;
+            var deadlineTicks = Environment.TickCount64 + Math.Max(1, timeoutMs);
+            for (var attempt = 0; attempt < maxRetries; attempt++)
+            {
+                var remainingMs = deadlineTicks - Environment.TickCount64;
+                if (remainingMs <= 0)
+                    throw new OperationCanceledException($"Connecting to {_host}:{_port} exceeded the {timeoutMs}ms request budget");
+                try
+                {
+                    _client.Dispose();
+                    _client = new TcpClient();
+                    using var attemptCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(remainingMs));
+                    await _client.ConnectAsync(_host, _port, attemptCts.Token).ConfigureAwait(false);
+                    var stream = _client.GetStream();
+                    _stream = stream;
+                    var connectionCts = new CancellationTokenSource();
+                    var previous = Interlocked.Exchange(ref _connectionCts, connectionCts);
+                    previous?.Cancel();
+                    previous?.Dispose();
+                    _ = ReceiveLoopAsync(stream, connectionCts.Token);
+                    return;
+                }
+                catch
+                {
+                    if (attempt == maxRetries - 1) throw;
+                    var waitMs = (int)Math.Min(delay, Math.Max(0, deadlineTicks - Environment.TickCount64));
+                    if (waitMs == 0)
+                        throw new OperationCanceledException($"Connecting to {_host}:{_port} exceeded the {timeoutMs}ms request budget");
+                    await Task.Delay(waitMs).ConfigureAwait(false);
+                    delay = Math.Min(delay * 2, maxDelay);
+                }
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Debug.WriteLine($"Heartbeat error: {ex.Message}");
+            _connectLock.Release();
         }
     }
 
@@ -171,8 +203,6 @@ public class ModbusTcpTransport : IModbusTransport
                     if (read == 0) return;
                     offset += read;
                 }
-
-                if (tid == HeartbeatTid) continue;
 
                 TaskCompletionSource<byte[]>? tcs;
                 lock (_lock)
@@ -231,8 +261,6 @@ public class ModbusTcpTransport : IModbusTransport
     {
         if (_disposed) return;
         _disposed = true;
-        _heartbeatTimer.Stop();
-        _heartbeatTimer.Dispose();
         var connectionCts = Interlocked.Exchange(ref _connectionCts, null);
         connectionCts?.Cancel();
         connectionCts?.Dispose();
