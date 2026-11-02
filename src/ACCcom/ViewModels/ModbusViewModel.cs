@@ -225,7 +225,13 @@ public class ModbusViewModel : ObservableObject, IDisposable
                 ModbusFunctionCode.WriteSingleRegister => await _modbus.WriteSingleRegisterAsync(SlaveId, StartAddress, WriteValue),
                 ModbusFunctionCode.WriteMultipleCoils => await _modbus.WriteMultipleCoilsAsync(SlaveId, StartAddress, ModbusValueParser.ParseCoilValues(BatchValues)),
                 ModbusFunctionCode.WriteMultipleRegisters => await _modbus.WriteMultipleRegistersAsync(SlaveId, StartAddress, ModbusValueParser.ParseRegisterValues(BatchValues)),
-                ModbusFunctionCode.MaskWriteRegister => await _modbus.MaskWriteRegisterAsync(SlaveId, StartAddress, WriteValue, (ushort)(WriteValue ^ 0xFFFF)),
+                // Single WriteValue field → force-write semantics via FC22:
+                // and_mask=0 makes the spec formula (reg AND and) OR (or AND
+                // NOT and) reduce to or_mask, i.e. the register becomes
+                // WriteValue. The old and=V / or=~V mapping produced
+                // "~V bits forced high, V bits gated by the old register" —
+                // nothing a user could have predicted from the UI.
+                ModbusFunctionCode.MaskWriteRegister => await _modbus.MaskWriteRegisterAsync(SlaveId, StartAddress, 0x0000, WriteValue),
                 ModbusFunctionCode.ReadWriteMultipleRegisters => await _modbus.ReadWriteMultipleRegistersAsync(SlaveId, StartAddress, Quantity, StartAddress, ModbusValueParser.ParseRegisterValues(BatchValues)),
                 _ => await _modbus.WriteSingleRegisterAsync(SlaveId, StartAddress, WriteValue)
             };
