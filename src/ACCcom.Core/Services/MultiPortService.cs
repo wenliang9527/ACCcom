@@ -34,6 +34,12 @@ public class MultiPortService : IDisposable
         }
     }
 
+    /// <summary>Why the most recent failed OpenPort/OpenPortAsync failed —
+    /// captured from the created service before it is disposed (the port
+    /// instance itself never registers, so its error would otherwise die with
+    /// it and callers could only report a bare "open failed").</summary>
+    public string? LastOpenError { get; private set; }
+
     /// <summary>Dispatching default factory: COM names run the real
     /// SerialService, tcp:// endpoints run TcpSerialService — multi-port
     /// sessions get the same transport reach as the single-port session
@@ -82,16 +88,19 @@ public class MultiPortService : IDisposable
         {
             // Old code leaked the service when Open threw (it propagated while
             // holding _lock). Preserve the exception but release resources.
+            LastOpenError = service.LastOpenError;
             service.Dispose();
             throw;
         }
 
         if (!opened)
         {
+            LastOpenError = service.LastOpenError;
             service.Dispose();
             return false;
         }
 
+        LastOpenError = null; // a successful open must not leave the previous failure on record
         return RegisterOpenPort(tag, config, service);
     }
 
@@ -117,16 +126,19 @@ public class MultiPortService : IDisposable
         }
         catch
         {
+            LastOpenError = service.LastOpenError;
             service.Dispose();
             throw;
         }
 
         if (!opened)
         {
+            LastOpenError = service.LastOpenError;
             service.Dispose();
             return false;
         }
 
+        LastOpenError = null;
         return RegisterOpenPort(tag, config, service);
     }
 

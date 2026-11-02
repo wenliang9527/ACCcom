@@ -418,6 +418,37 @@ public class TcpSerialServiceTests : IDisposable
         return condition();
     }
 
+    [Fact]
+    public async Task LastOpenError_RecordsConnectFailure_AndClearsOnSuccess()
+    {
+        using var service = new TcpSerialService();
+
+        // Refused dial: the stored detail (SocketException + message) is what
+        // open_port composes its diagnosis from.
+        var bad = new SerialConfig { PortName = "tcp://127.0.0.1:1", BaudRate = 115200 };
+        Assert.False(await service.OpenAsync(bad));
+        Assert.NotNull(service.LastOpenError);
+        Assert.Contains("SocketException", service.LastOpenError);
+
+        // A later successful open must clear the stale failure — a caller
+        // reading LastOpenError after a SUCCESSFUL open should see null, not
+        // the previous attempt's error.
+        var good = Config();
+        Assert.True(await service.OpenAsync(good));
+        Assert.Null(service.LastOpenError);
+    }
+
+    [Fact]
+    public async Task LastOpenError_RecordsEndpointParseFailure()
+    {
+        using var service = new TcpSerialService();
+
+        var ok = await service.OpenAsync(new SerialConfig { PortName = "not-a-tcp-endpoint", BaudRate = 115200 });
+
+        Assert.False(ok);
+        Assert.Contains("not a TCP endpoint", service.LastOpenError);
+    }
+
     public void Dispose() => _server.Dispose();
 }
 

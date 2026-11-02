@@ -58,6 +58,14 @@ public class SerialService : ISerialService, IDisposable
     public string? CurrentPort => _port?.PortName;
     public int BaudRate => _port?.BaudRate ?? 0;
     public SerialConfig? ActiveConfig => _port?.IsOpen == true ? _lastConfig : null;
+    private string? _lastOpenError;
+
+    /// <summary>Why the most recent open attempt failed — exception type +
+    /// message from the last <see cref="TryOpenOnce"/> catch, cleared on
+    /// success. The retry loop intentionally keeps the LAST attempt's error:
+    /// a transient first failure followed by a different final failure must
+    /// report the one that actually decided the outcome.</summary>
+    public string? LastOpenError => _lastOpenError;
 
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
@@ -161,12 +169,14 @@ public class SerialService : ISerialService, IDisposable
             _lastConfig = config;
             _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
             _reconnectAttempt = 0;
+            _lastOpenError = null;
             _metrics.RecordPortOpened();
             return true;
         }
         catch (Exception ex)
         {
             error = ex.Message;
+            _lastOpenError = $"{ex.GetType().Name}: {ex.Message}";
             if (_port != null)
             {
                 _port.DataReceived -= OnSerialDataReceived;

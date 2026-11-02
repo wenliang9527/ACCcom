@@ -27,6 +27,10 @@ public class EndpointSerialService : ISerialService, IDisposable
     public int BaudRate => _inner?.BaudRate ?? 0;
     public SerialConfig? ActiveConfig => _inner?.ActiveConfig;
 
+    /// <summary>Forwards to the inner service; null before the first Open
+    /// created one (a null-config Open fails without an error to report).</summary>
+    public string? LastOpenError => _inner?.LastOpenError;
+
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
     public event Action? OnDisconnected;

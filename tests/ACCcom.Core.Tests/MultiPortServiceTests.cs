@@ -424,4 +424,75 @@ public class MultiPortServiceTests
             ReleaseClose();
         }
     }
+
+    // ── Open-failure diagnosis capture ──
+
+    [Fact]
+    public void OpenPort_Failure_CapturesServiceLastOpenError()
+    {
+        // The failed service never registers as a port instance, so its error
+        // would die with the Dispose — MultiPortService must surface it, or
+        // callers can only report a bare "open failed".
+        using var mps = new MultiPortService(() => new RefusingSerialService());
+        var config = new SerialConfig { PortName = "COM10", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.False(mps.OpenPort("x", config));
+        Assert.Null(mps.GetPort("x"));
+        Assert.Contains("UnauthorizedAccessException", mps.LastOpenError);
+    }
+
+    [Fact]
+    public async Task OpenPortAsync_Failure_CapturesServiceLastOpenError()
+    {
+        using var mps = new MultiPortService(() => new RefusingSerialService());
+        var config = new SerialConfig { PortName = "COM10", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.False(await mps.OpenPortAsync("x", config));
+        Assert.Contains("UnauthorizedAccessException", mps.LastOpenError);
+    }
+
+    [Fact]
+    public void OpenPort_Success_ClearsStaleFailure()
+    {
+        // A previous failed open must not leave its diagnosis behind for a
+        // later successful open of the same MultiPortService.
+        var refusing = true;
+        using var mps = new MultiPortService(() => refusing ? new RefusingSerialService() : new VirtualSerialService());
+        var config = new SerialConfig { PortName = "COM10", BaudRate = 9600, DataBits = 8, StopBits = 1, Parity = 0 };
+
+        Assert.False(mps.OpenPort("x", config));
+        Assert.NotNull(mps.LastOpenError);
+
+        refusing = false;
+        Assert.True(mps.OpenPort("x", config));
+        Assert.Null(mps.LastOpenError);
+    }
+}
+
+/// <summary>Open always fails with a recorded diagnosis — the port-held-by-
+/// another-process case the open_port failure message must carry verbatim.</summary>
+internal sealed class RefusingSerialService : ISerialService
+{
+    public bool IsOpen => false;
+    public string? CurrentPort => null;
+    public int BaudRate => 0;
+    public SerialConfig? ActiveConfig => null;
+    public string? LastOpenError { get; private set; }
+#pragma warning disable CS0067 // scripted fake: no data/disconnect lifecycle
+    public event Action<LogEntry>? OnDataReceived;
+    public event Action<string>? OnError;
+    public event Action? OnDisconnected;
+    public event Action<string>? OnDeviceWait;
+#pragma warning restore CS0067
+
+    public bool Open(SerialConfig config)
+    {
+        LastOpenError = "UnauthorizedAccessException: Access to the port 'COM10' is denied.";
+        return false;
+    }
+
+    public bool Send(string data, bool isHex = false) => false;
+    public bool SendHex(string hex) => false;
+    public bool Close() => true;
+    public void Dispose() { }
 }

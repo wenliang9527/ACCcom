@@ -11,6 +11,14 @@ public interface ISerialService : IDisposable
     /// null while no port is open — lets callers report the real port state
     /// instead of echoing the arguments of the current call.</summary>
     SerialConfig? ActiveConfig { get; }
+    /// <summary>Why the most recent open attempt failed (exception type +
+    /// message), or null after a successful open / before any attempt. Lets
+    /// callers turn a bare "open failed" into a diagnosis: access denied =
+    /// port held by another process, "does not exist" = unplugged or stale
+    /// USB enumeration. Default null so lightweight test fakes need no extra
+    /// member; implementations that try more than once should keep the last
+    /// attempt's error.</summary>
+    string? LastOpenError => null;
     event Action<LogEntry>? OnDataReceived;
     event Action<string>? OnError;
     event Action? OnDisconnected;

@@ -95,6 +95,29 @@ public class SerialServiceBasicsTests
     }
 
     [Fact]
+    public void Open_NonExistentPort_RecordsLastOpenErrorDiagnosis()
+    {
+        using var serial = new SerialService();
+        Assert.Null(serial.LastOpenError);
+
+        // Well-formed COM name that is absent from the system: .NET throws
+        // IOException "The port 'COM99' does not exist." (a non-COM name
+        // would take the ArgumentException formatting path instead.)
+        var ok = serial.Open(new SerialConfig { PortName = "COM99" });
+
+        Assert.False(ok);
+        // The stored detail is what turns OPEN_FAILED into a diagnosis. The
+        // exact exception for an absent port varies by Windows release
+        // (FileNotFoundException "Could not find file" vs IOException "does
+        // not exist") — assert the family, not the wording.
+        Assert.NotNull(serial.LastOpenError);
+        Assert.True(
+            serial.LastOpenError.Contains("FileNotFound", StringComparison.Ordinal) ||
+            serial.LastOpenError.Contains("does not exist", StringComparison.OrdinalIgnoreCase),
+            serial.LastOpenError);
+    }
+
+    [Fact]
     public void GetAvailablePorts_ReturnsNonNull()
     {
         var ports = SerialService.GetAvailablePorts();

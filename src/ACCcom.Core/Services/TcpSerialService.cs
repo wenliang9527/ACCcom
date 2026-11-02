@@ -121,6 +121,13 @@ public class TcpSerialService : ISerialService, IDisposable
     public string? CurrentPort => _connValid ? _endpoint.ToString() : null;
     public int BaudRate => _connValid ? _lastConfig?.BaudRate ?? 0 : 0;
     public SerialConfig? ActiveConfig => _connValid ? _lastConfig : null;
+    private string? _lastOpenError;
+
+    /// <summary>Why the most recent open attempt failed — endpoint parse error
+    /// or the last dial's exception type + message, cleared on success.
+    /// Written under the lifecycle gate (parse path is single-flight per
+    /// caller anyway), read after Open returns false.</summary>
+    public string? LastOpenError => _lastOpenError;
 
     public event Action<LogEntry>? OnDataReceived;
     public event Action<string>? OnError;
@@ -147,6 +154,7 @@ public class TcpSerialService : ISerialService, IDisposable
         // host). The field is published under the lifecycle gate below.
         if (!TcpEndpoint.TryParse(config.PortName, out var endpoint))
         {
+            _lastOpenError = "port name is not a TCP endpoint (use tcp://host:port)";
             OnError?.Invoke("[TcpSerialService] Open failed: port name is not a TCP endpoint (use tcp://host:port)");
             return false;
         }
@@ -213,6 +221,7 @@ public class TcpSerialService : ISerialService, IDisposable
             _connValid = true;
             _tearingDown = false;
             _lastConfig = config;
+            _lastOpenError = null;
             _reconnectSettings = config.Reconnect ?? new ReconnectSettings();
             _reconnectAttempt = 0;
             _readCts = new CancellationTokenSource();
@@ -222,8 +231,9 @@ public class TcpSerialService : ISerialService, IDisposable
             RecordTx(handshake, Encoding.ASCII.GetString(handshake));
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _lastOpenError = $"{ex.GetType().Name}: {ex.Message}";
             if (client != null)
             {
                 try { client.Close(); } catch { /* already dead */ }
